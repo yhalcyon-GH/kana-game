@@ -1,46 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useProgressStore } from '../store/progressStore'
 
-const VOICEVOX_BASE_URL = 'http://localhost:50021'
-const VOICEVOX_SPEAKER_ID = 3 // ずんだもん・ノーマル
-
-async function synthesizeWithVoicevox(text: string, signal: AbortSignal): Promise<Blob> {
-  const queryRes = await fetch(
-    `${VOICEVOX_BASE_URL}/audio_query?text=${encodeURIComponent(text)}&speaker=${VOICEVOX_SPEAKER_ID}`,
-    { method: 'POST', signal },
-  )
-  if (!queryRes.ok) throw new Error(`audio_query failed: ${queryRes.status}`)
-  const query = await queryRes.json()
-
-  const synthesisRes = await fetch(`${VOICEVOX_BASE_URL}/synthesis?speaker=${VOICEVOX_SPEAKER_ID}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(query),
-    signal,
-  })
-  if (!synthesisRes.ok) throw new Error(`synthesis failed: ${synthesisRes.status}`)
-  return synthesisRes.blob()
-}
-
-// Prefers a local VOICEVOX engine (ずんだもん) for playback when it's
-// reachable, since it sounds far more natural/characterful than any OS TTS
-// voice. Falls back to the Web Speech API — either because VOICEVOX isn't
-// running, or a synthesis call fails — so the app still works with just a
-// browser and no extra software installed.
+// Plays pre-generated ずんだもん (VOICEVOX) audio shipped as static files
+// under public/audio/ (see scripts/generateAudio.ts) — every character and
+// word clip is baked in ahead of time, so playback works for any visitor
+// with just a browser, no local VOICEVOX install required. Falls back to
+// the Web Speech API only if a clip is missing or fails to play.
 export function useTTS() {
   const audioEnabled = useProgressStore((s) => s.audioEnabled)
   const [webSpeechSupported, setWebSpeechSupported] = useState(false)
-  const [voicevoxAvailable, setVoicevoxAvailable] = useState(false)
   const voiceRef = useRef<SpeechSynthesisVoice | null>(null)
   const audioElRef = useRef<HTMLAudioElement | null>(null)
-
-  useEffect(() => {
-    const controller = new AbortController()
-    fetch(`${VOICEVOX_BASE_URL}/version`, { signal: controller.signal })
-      .then((res) => setVoicevoxAvailable(res.ok))
-      .catch(() => setVoicevoxAvailable(false))
-    return () => controller.abort()
-  }, [])
 
   useEffect(() => {
     if (!('speechSynthesis' in window)) {
@@ -76,29 +46,21 @@ export function useTTS() {
     [webSpeechSupported],
   )
 
+  // audioKey identifies a pre-generated clip, e.g. "characters/a" or
+  // "words/a-ai" (matching the folders scripts/generateAudio.ts writes to).
+  // fallbackText is only used if that clip can't be played.
   const speak = useCallback(
-    (text: string) => {
+    (audioKey: string, fallbackText: string) => {
       if (!audioEnabled) return
 
-      if (voicevoxAvailable) {
-        const controller = new AbortController()
-        synthesizeWithVoicevox(text, controller.signal)
-          .then((blob) => {
-            const url = URL.createObjectURL(blob)
-            if (!audioElRef.current) audioElRef.current = new Audio()
-            const audioEl = audioElRef.current
-            audioEl.onended = () => URL.revokeObjectURL(url)
-            audioEl.src = url
-            void audioEl.play()
-          })
-          .catch(() => speakWithWebSpeech(text))
-        return
-      }
-
-      speakWithWebSpeech(text)
+      if (!audioElRef.current) audioElRef.current = new Audio()
+      const audioEl = audioElRef.current
+      audioEl.onerror = () => speakWithWebSpeech(fallbackText)
+      audioEl.src = `${import.meta.env.BASE_URL}audio/${audioKey}.wav`
+      audioEl.play().catch(() => speakWithWebSpeech(fallbackText))
     },
-    [audioEnabled, voicevoxAvailable, speakWithWebSpeech],
+    [audioEnabled, speakWithWebSpeech],
   )
 
-  return { speak, supported: webSpeechSupported || voicevoxAvailable }
+  return { speak, supported: true }
 }

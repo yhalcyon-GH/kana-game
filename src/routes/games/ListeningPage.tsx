@@ -67,7 +67,7 @@ export function ListeningPage() {
     setChoices(shuffle([currentWord, ...distractors]))
     setSelectedId(null)
     setAnswered(false)
-    speak(currentWord.audioText ?? currentWord.kana)
+    speak(`words/${currentWord.id}`, currentWord.audioText ?? currentWord.kana)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentWord?.id])
 
@@ -121,7 +121,7 @@ export function ListeningPage() {
         {supported && (
           <button
             type="button"
-            onClick={() => speak(currentWord.audioText ?? currentWord.kana)}
+            onClick={() => speak(`words/${currentWord.id}`, currentWord.audioText ?? currentWord.kana)}
             className="rounded-full bg-neutral-100 px-4 py-2 text-lg hover:bg-neutral-200 dark:bg-neutral-700 dark:hover:bg-neutral-600"
             aria-label="Replay audio"
           >

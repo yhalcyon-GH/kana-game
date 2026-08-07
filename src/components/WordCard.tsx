@@ -12,7 +12,11 @@ export function WordCard({ word }: Props) {
       <span className="text-2xl font-bold">{word.kana}</span>
       <span className="text-sm text-neutral-500 dark:text-neutral-400">{word.romaji}</span>
       <span className="text-center text-sm text-neutral-600 dark:text-neutral-300">{word.meaning}</span>
-      <SpeakButton text={word.audioText ?? word.kana} label={`Play pronunciation of ${word.kana}`} />
+      <SpeakButton
+        audioKey={`words/${word.id}`}
+        text={word.audioText ?? word.kana}
+        label={`Play pronunciation of ${word.kana}`}
+      />
     </div>
   )
 }
