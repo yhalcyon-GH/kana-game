@@ -15,29 +15,39 @@ export function RowMap({ rows, isUnlocked, isTaught, isMastered }: Props) {
         const unlocked = isUnlocked(row.id)
         const taught = isTaught(row.id)
         const mastered = isMastered(row.id)
-        const href = !unlocked ? null : taught ? `/practice/${row.id}` : `/learn/${row.id}`
 
-        const card = (
+        return (
           <div
-            className={`flex flex-col items-center gap-1 rounded-xl border p-4 text-center transition ${
+            key={row.id}
+            className={`flex flex-col items-center gap-2 rounded-xl border p-4 text-center ${
               unlocked
-                ? 'border-neutral-300 bg-white hover:border-blue-400 dark:border-neutral-600 dark:bg-neutral-800'
+                ? 'border-neutral-300 bg-white dark:border-neutral-600 dark:bg-neutral-800'
                 : 'border-neutral-200 bg-neutral-50 opacity-50 dark:border-neutral-800 dark:bg-neutral-900'
             }`}
           >
             <span className="text-lg font-semibold">{row.label}</span>
             <span className="text-xs text-neutral-500 dark:text-neutral-400">
-              {!unlocked ? '🔒 locked' : mastered ? '🌟 mastered' : taught ? '📗 practice' : '📘 learn'}
+              {!unlocked ? '🔒 locked' : mastered ? '🌟 mastered' : taught ? '📗 taught' : '📘 new'}
             </span>
+            {/* Learn and Practice are both always available, in either order —
+                taught status is informational only, not a gate. */}
+            {unlocked && (
+              <div className="flex gap-2">
+                <Link
+                  to={`/learn/${row.id}`}
+                  className="rounded-full bg-blue-600 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-700"
+                >
+                  Learn
+                </Link>
+                <Link
+                  to={`/practice/${row.id}`}
+                  className="rounded-full border border-neutral-300 px-3 py-1 text-xs font-semibold hover:border-blue-400 dark:border-neutral-600"
+                >
+                  Practice
+                </Link>
+              </div>
+            )}
           </div>
-        )
-
-        return href ? (
-          <Link key={row.id} to={href}>
-            {card}
-          </Link>
-        ) : (
-          <div key={row.id}>{card}</div>
         )
       })}
     </div>

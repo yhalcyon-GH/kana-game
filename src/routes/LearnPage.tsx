@@ -5,6 +5,7 @@ import { WordCard } from '../components/WordCard'
 import { CHARACTERS_BY_ID } from '../data/characters'
 import { ROWS_BY_ID } from '../data/curriculum'
 import { WORDS_BY_ROW } from '../data/words'
+import { useTTS } from '../hooks/useTTS'
 import { useProgressStore } from '../store/progressStore'
 
 // Step A: flash through the row's new characters one at a time (no word
@@ -19,6 +20,7 @@ export function LearnPage() {
   const row = rowId ? ROWS_BY_ID[rowId] : undefined
   const [step, setStep] = useState<'A' | 'B'>('A')
   const [charIndex, setCharIndex] = useState(0)
+  const { speak } = useTTS()
 
   useEffect(() => {
     if (!rowId || !ROWS_BY_ID[rowId]) {
@@ -26,9 +28,17 @@ export function LearnPage() {
     }
   }, [rowId, navigate])
 
+  const characters = row ? row.characterIds.map((id) => CHARACTERS_BY_ID[id]) : []
+
+  useEffect(() => {
+    if (step !== 'A' || characters.length === 0) return
+    const char = characters[charIndex]
+    speak(`characters/${char.id}`, char.kana)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, charIndex, characters.length])
+
   if (!row || !rowId) return null
 
-  const characters = row.characterIds.map((id) => CHARACTERS_BY_ID[id])
   const words = WORDS_BY_ROW[rowId] ?? []
 
   const handleNextChar = () => {

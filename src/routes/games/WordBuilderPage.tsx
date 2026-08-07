@@ -6,6 +6,7 @@ import { CHARACTERS_BY_ID } from '../../data/characters'
 import { ROWS_BY_ID } from '../../data/curriculum'
 import type { AnchorWord } from '../../data/types'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
+import { useTTS } from '../../hooks/useTTS'
 import { pickDistractorCharIds } from '../../lib/distractorPicker'
 import { buildWeightedQueue } from '../../lib/practiceSelection'
 import { shuffle } from '../../lib/shuffle'
@@ -19,11 +20,13 @@ type TrayTile = { key: string; charId: string; placed: boolean }
 export function WordBuilderPage() {
   const { rowId } = useParams<{ rowId: string }>()
   const navigate = useNavigate()
-  const { isScopeReady, unlockedCharacterIds, getScopeWords } = useCurriculum()
+  const { isScopeReady, getScopeCharacterIds, getScopeWords } = useCurriculum()
   const recordResult = useProgressStore((s) => s.recordResult)
   const characters = useProgressStore((s) => s.characters)
+  const { speak } = useTTS()
   const isReview = rowId === REVIEW_SCOPE_ID
   const row = rowId && !isReview ? ROWS_BY_ID[rowId] : undefined
+  const scopeCharacterIds = useMemo(() => getScopeCharacterIds(rowId), [rowId, getScopeCharacterIds])
 
   useEffect(() => {
     if (!rowId || !isScopeReady(rowId)) navigate('/', { replace: true })
@@ -69,13 +72,13 @@ export function WordBuilderPage() {
   // treated as a fresh "first attempt" and double up on penalties.
   const resetTray = useCallback(
     (word: AnchorWord) => {
-      const distractors = pickDistractorCharIds(word.characterIds, unlockedCharacterIds, DISTRACTOR_COUNT)
+      const distractors = pickDistractorCharIds(word.characterIds, scopeCharacterIds, DISTRACTOR_COUNT)
       const tileIds = shuffle([...word.characterIds, ...distractors])
       setTray(tileIds.map((charId, i) => ({ key: `${charId}-${i}`, charId, placed: false })))
       setSlots(new Array(word.characterIds.length).fill(null))
       setStatus('playing')
     },
-    [unlockedCharacterIds],
+    [scopeCharacterIds],
   )
 
   // Starts a brand-new word: same as resetTray, plus clears roundAttempts.
@@ -95,6 +98,12 @@ export function WordBuilderPage() {
   }, [roundIndex, queue])
 
   const currentWord = queue.length > 0 ? wordsById[queue[roundIndex]] : undefined
+
+  useEffect(() => {
+    if (!currentWord) return
+    speak(`words/${currentWord.id}`, currentWord.audioText ?? currentWord.kana)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentWord?.id])
 
   const advance = useCallback(() => {
     if (roundIndex + 1 >= queue.length) {

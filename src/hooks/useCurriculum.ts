@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { ROWS } from '../data/curriculum'
+import { getCumulativeCharacterIds, ROWS, ROWS_BY_ID } from '../data/curriculum'
 import type { AnchorWord } from '../data/types'
 import { WORDS_BY_ROW } from '../data/words'
 import { useProgressStore } from '../store/progressStore'
@@ -38,10 +38,24 @@ export function useCurriculum() {
     return WORDS_BY_ROW[rowId] ?? []
   }
 
+  // Character pool for a given practice scope's distractor tiles: for a
+  // real row this is every character introduced at or before it (so
+  // Practice works even if the learner jumps in before doing Learn), or
+  // every taught character for the review scope.
+  const getScopeCharacterIds = (rowId: string | undefined): string[] => {
+    if (!rowId) return []
+    if (rowId === REVIEW_SCOPE_ID) return unlockedCharacterIds
+    return getCumulativeCharacterIds(rowId)
+  }
+
+  // Learn and Practice are both always available for any real row — taught
+  // status only drives the "learn"/"practice" badge on the home screen, not
+  // access. The review scope is the one exception: it needs at least one
+  // taught row to have anything to mix together.
   const isScopeReady = (rowId: string | undefined): boolean => {
     if (!rowId) return false
     if (rowId === REVIEW_SCOPE_ID) return taughtRowIds.length > 0
-    return isRowTaught(rowId)
+    return !!ROWS_BY_ID[rowId]
   }
 
   return {
@@ -56,6 +70,7 @@ export function useCurriculum() {
     isRowUnlocked: () => true,
     isRowTaught,
     getScopeWords,
+    getScopeCharacterIds,
     isScopeReady,
   }
 }
