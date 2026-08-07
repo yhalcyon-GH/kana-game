@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useProgressStore } from '../store/progressStore'
 
-// Plays pre-generated ずんだもん (VOICEVOX) audio shipped as static files
+// Plays pre-generated つくよみちゃん (COEIROINK) audio shipped as static files
 // under public/audio/ (see scripts/generateAudio.ts) — every character and
 // word clip is baked in ahead of time, so playback works for any visitor
-// with just a browser, no local VOICEVOX install required. Falls back to
+// with just a browser, no local COEIROINK install required. Falls back to
 // the Web Speech API only if a clip is missing or fails to play.
 export function useTTS() {
   const audioEnabled = useProgressStore((s) => s.audioEnabled)

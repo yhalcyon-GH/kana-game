@@ -30,3 +30,9 @@ If you are developing a production application, we recommend enabling type-aware
 ```
 
 See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+
+## Voice credit
+
+Pronunciation audio (`public/audio/`) is generated with [COEIROINK](https://coeiroink.com/):つくよみちゃん.
+音声ライブラリは、フリー素材キャラクター「[つくよみちゃん](https://tyc.rei-yumesaki.net)」が無料公開している
+[つくよみちゃんコーパス](https://tyc.rei-yumesaki.net/material/corpus/)（CV.夢前黎）を利用しています。© Rei Yumesaki

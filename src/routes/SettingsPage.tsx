@@ -21,6 +21,36 @@ export function SettingsPage() {
         />
       </label>
 
+      <div className="w-full rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300">
+        Note: romaji spelling follows the hiragana letter-by-letter (e.g. せんせい → "sensei", おはよう → "ohayou"). In actual
+        pronunciation these are long vowels — spoken more like "sensee" and "ohayoo" — so the audio may sound slightly
+        different from how the romaji looks.
+      </div>
+
+      <div className="w-full rounded-xl border border-neutral-300 bg-white p-3 text-sm text-neutral-600 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
+        <span className="font-semibold text-neutral-700 dark:text-neutral-300">Voice credit</span>
+        <p className="mt-1">
+          Pronunciation audio uses{' '}
+          <a
+            href="https://coeiroink.com/character/audio-character/tsukuyomi-chan"
+            target="_blank"
+            rel="noreferrer"
+            className="underline"
+          >
+            COEIROINK:つくよみちゃん
+          </a>
+          . 音声ライブラリは、フリー素材キャラクター「
+          <a href="https://tyc.rei-yumesaki.net" target="_blank" rel="noreferrer" className="underline">
+            つくよみちゃん
+          </a>
+          」が無料公開している
+          <a href="https://tyc.rei-yumesaki.net/material/corpus/" target="_blank" rel="noreferrer" className="underline">
+            つくよみちゃんコーパス
+          </a>
+          （CV.夢前黎）を利用しています。© Rei Yumesaki
+        </p>
+      </div>
+
       <div className="flex w-full flex-col gap-2 rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950">
         <span className="font-semibold text-red-700 dark:text-red-300">Reset progress</span>
         <p className="text-sm text-red-600 dark:text-red-400">
