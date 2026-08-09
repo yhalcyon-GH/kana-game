@@ -2,12 +2,11 @@ import type { PointerEvent } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { PracticeSummary } from '../../components/PracticeSummary'
+import { StrokeOrderAnimation } from '../../components/StrokeOrderAnimation'
 import { CHARACTERS_BY_ID } from '../../data/characters'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
 import { useTTS } from '../../hooks/useTTS'
-import { shuffle } from '../../lib/shuffle'
 
-const ROUNDS = 8
 const CANVAS_SIZE = 280 // CSS pixels
 
 // Free-form tracing practice: draw over a faint guide of the kana with a
@@ -33,9 +32,13 @@ export function TracingPage() {
   const [queue, setQueue] = useState<string[]>([])
   const [roundIndex, setRoundIndex] = useState(0)
   const [finished, setFinished] = useState(false)
+  const [animationToken, setAnimationToken] = useState(0)
 
+  // Tracing goes through every character in order (like Learn), not a
+  // shuffled/capped subset — it's stroke-order practice, not a quiz, so
+  // there's no benefit to randomizing or limiting round count.
   const startSession = useCallback(() => {
-    setQueue(shuffle(pool).slice(0, Math.min(ROUNDS, pool.length)))
+    setQueue(pool)
     setRoundIndex(0)
     setFinished(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -59,7 +62,7 @@ export function TracingPage() {
     canvas.width = CANVAS_SIZE * dpr
     canvas.height = CANVAS_SIZE * dpr
     ctx.scale(dpr, dpr)
-    ctx.font = `${CANVAS_SIZE * 0.75}px sans-serif`
+    ctx.font = `${CANVAS_SIZE * 0.75}px "Klee One", sans-serif`
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillStyle = 'rgba(120, 120, 120, 0.3)'
@@ -135,18 +138,29 @@ export function TracingPage() {
       <p className="text-sm text-neutral-500 dark:text-neutral-400">
         Round {roundIndex + 1} / {queue.length}
       </p>
-      <div className="flex flex-col items-center gap-2">
-        <span className="text-lg text-neutral-500 dark:text-neutral-400">{currentChar.romaji}</span>
+      <span className="text-lg text-neutral-500 dark:text-neutral-400">{currentChar.romaji}</span>
+
+      <StrokeOrderAnimation characterId={currentCharId} playToken={animationToken} />
+
+      <div className="flex gap-3">
         {supported && (
           <button
             type="button"
             onClick={() => speak(`characters/${currentCharId}`, currentChar.kana)}
             className="rounded-full bg-neutral-100 px-4 py-2 text-lg hover:bg-neutral-200 dark:bg-neutral-700 dark:hover:bg-neutral-600"
-            aria-label="Replay audio"
+            aria-label="Hear the pronunciation again"
           >
-            🔊 Replay
+            🔊 Again
           </button>
         )}
+        <button
+          type="button"
+          onClick={() => setAnimationToken((t) => t + 1)}
+          className="rounded-full bg-neutral-100 px-4 py-2 text-lg hover:bg-neutral-200 dark:bg-neutral-700 dark:hover:bg-neutral-600"
+          aria-label="Watch the stroke order again"
+        >
+          ✍️ Again
+        </button>
       </div>
 
       <canvas

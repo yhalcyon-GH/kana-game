@@ -106,3 +106,18 @@ export const CHARACTERS: KanaChar[] = [
 export const CHARACTERS_BY_ID: Record<string, KanaChar> = Object.fromEntries(
   CHARACTERS.map((c) => [c.id, c]),
 )
+
+// Kunrei-shiki (and other common) romanizations accepted alongside each
+// character's Hepburn-based canonical romaji in CHARACTERS above — e.g. つ
+// is typed as either "tsu" (Hepburn) or "tu" (Kunrei-shiki). Only characters
+// where the two systems actually diverge need an entry here.
+export const ROMAJI_ALTERNATES: Record<string, string[]> = {
+  shi: ['si'],
+  chi: ['ti'],
+  tsu: ['tu'],
+  ji: ['zi'],
+  dji: ['di'],
+  dzu: ['du'],
+  fu: ['hu'],
+  wo: ['o'],
+}

@@ -70,7 +70,7 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'ha-kutsushita', kana: 'くつした', romaji: 'kutsushita', meaning: 'socks', emoji: '🧦', characterIds: ['ku', 'tsu', 'shi', 'ta'] },
     { id: 'ha-fune', kana: 'ふね', romaji: 'fune', meaning: 'boat', emoji: '🚢', characterIds: ['fu', 'ne'] },
     { id: 'ha-buta', kana: 'ぶた', romaji: 'buta', meaning: 'pig', emoji: '🐷', characterIds: ['bu', 'ta'] },
-    { id: 'ha-haha', kana: 'はは', romaji: 'haha', meaning: 'mother', emoji: '👩', characterIds: ['ha', 'ha'] },
+    { id: 'ha-haha', kana: 'はは', romaji: 'haha', meaning: 'mother', emoji: '👩', characterIds: ['ha', 'ha'], audioText: '母' },
     { id: 'ha-hebi', kana: 'へび', romaji: 'hebi', meaning: 'snake', emoji: '🐍', characterIds: ['he', 'bi'] },
     { id: 'ha-soba', kana: 'そば', romaji: 'soba', meaning: 'soba noodles', emoji: '🍜', characterIds: ['so', 'ba'] },
   ],

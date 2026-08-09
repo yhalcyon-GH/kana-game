@@ -9,16 +9,18 @@ import { useTTS } from '../hooks/useTTS'
 import { useProgressStore } from '../store/progressStore'
 
 // Step A: flash through the row's new characters one at a time (no word
-// pairing yet). Step B: show every word buildable from this row's
-// characters + everything already known, all at once — this is where
-// character and vocabulary actually connect. See curriculum.ts/words.ts.
+// pairing yet). Step recap: all of this row's characters together on one
+// grid, tappable, so the learner can freely re-listen before moving on.
+// Step B: show every word buildable from this row's characters +
+// everything already known, all at once — this is where character and
+// vocabulary actually connect. See curriculum.ts/words.ts.
 export function LearnPage() {
   const { rowId } = useParams<{ rowId: string }>()
   const navigate = useNavigate()
   const markRowTaught = useProgressStore((s) => s.markRowTaught)
 
   const row = rowId ? ROWS_BY_ID[rowId] : undefined
-  const [step, setStep] = useState<'A' | 'B'>('A')
+  const [step, setStep] = useState<'A' | 'recap' | 'B'>('A')
   const [charIndex, setCharIndex] = useState(0)
   const { speak } = useTTS()
 
@@ -41,11 +43,19 @@ export function LearnPage() {
 
   const words = WORDS_BY_ROW[rowId] ?? []
 
+  const handlePrevChar = () => {
+    if (charIndex > 0) {
+      setCharIndex((i) => i - 1)
+    } else {
+      navigate(`/practice/${rowId}`)
+    }
+  }
+
   const handleNextChar = () => {
     if (charIndex < characters.length - 1) {
       setCharIndex((i) => i + 1)
     } else {
-      setStep('B')
+      setStep('recap')
     }
   }
 
@@ -63,13 +73,52 @@ export function LearnPage() {
           {charIndex + 1} / {characters.length}
         </p>
         <CharacterCard char={char} />
-        <button
-          type="button"
-          onClick={handleNextChar}
-          className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
-        >
-          {charIndex < characters.length - 1 ? 'Next' : 'See the words'}
-        </button>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={handlePrevChar}
+            className="rounded-full border border-neutral-300 px-6 py-2 font-semibold hover:border-blue-400 dark:border-neutral-600"
+          >
+            Back
+          </button>
+          <button
+            type="button"
+            onClick={handleNextChar}
+            className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
+          >
+            {charIndex < characters.length - 1 ? 'Next' : 'See them all'}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (step === 'recap') {
+    return (
+      <div className="flex flex-col items-center gap-6">
+        <h1 className="text-2xl font-bold">{row.label} — all together</h1>
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">Tap any character to hear it again</p>
+        <div className="grid grid-cols-3 gap-4 sm:grid-cols-5">
+          {characters.map((char) => (
+            <CharacterCard key={char.id} char={char} />
+          ))}
+        </div>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => setStep('A')}
+            className="rounded-full border border-neutral-300 px-6 py-2 font-semibold hover:border-blue-400 dark:border-neutral-600"
+          >
+            Back
+          </button>
+          <button
+            type="button"
+            onClick={() => setStep('B')}
+            className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
+          >
+            See the words
+          </button>
+        </div>
       </div>
     )
   }
@@ -82,13 +131,22 @@ export function LearnPage() {
           <WordCard key={word.id} word={word} />
         ))}
       </div>
-      <button
-        type="button"
-        onClick={handleFinish}
-        className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
-      >
-        Start practicing
-      </button>
+      <div className="flex gap-3">
+        <button
+          type="button"
+          onClick={() => setStep('recap')}
+          className="rounded-full border border-neutral-300 px-6 py-2 font-semibold hover:border-blue-400 dark:border-neutral-600"
+        >
+          Back
+        </button>
+        <button
+          type="button"
+          onClick={handleFinish}
+          className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
+        >
+          Start practicing
+        </button>
+      </div>
     </div>
   )
 }

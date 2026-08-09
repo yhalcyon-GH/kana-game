@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { PracticeSummary } from '../../components/PracticeSummary'
+import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
+import { useEnterAdvance } from '../../hooks/useEnterAdvance'
 import { useTTS } from '../../hooks/useTTS'
-import { isAnswerCorrect } from '../../lib/answerChecking'
+import { isAnswerCorrect, normalizeKana, normalizeRomaji } from '../../lib/answerChecking'
+import { isNearMissText } from '../../lib/answerCloseness'
 import { buildWeightedQueue } from '../../lib/practiceSelection'
 import { useProgressStore } from '../../store/progressStore'
 
@@ -22,6 +25,7 @@ export function KanaTypingPage() {
   const characters = useProgressStore((s) => s.characters)
   const { speak, supported } = useTTS()
   const isReview = rowId === REVIEW_SCOPE_ID
+  const { feedback, mistakes, mistakeIds, onCorrect, onWrong, onPerfect, clear, resetSession } = useAnswerFeedback()
   const inputRef = useRef<HTMLInputElement>(null)
   const isComposingRef = useRef(false)
 
@@ -54,6 +58,7 @@ export function KanaTypingPage() {
     setRoundIndex(0)
     setCorrectCount(0)
     setFinished(false)
+    resetSession()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scopeWords])
 
@@ -62,6 +67,16 @@ export function KanaTypingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scopeWords.length])
 
+  // Replays just this session's mistakes, in place, from the finish screen.
+  const startMistakeReview = useCallback((ids: string[]) => {
+    setQueue(ids)
+    setRoundIndex(0)
+    setCorrectCount(0)
+    setFinished(false)
+    resetSession()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const currentWord = queue.length > 0 ? wordsById[queue[roundIndex]] : undefined
 
   useEffect(() => {
@@ -69,6 +84,7 @@ export function KanaTypingPage() {
     setInput('')
     setAnswered(false)
     setWasCorrect(false)
+    clear()
     speak(`words/${currentWord.id}`, currentWord.audioText ?? currentWord.kana)
     inputRef.current?.focus()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -82,6 +98,13 @@ export function KanaTypingPage() {
     }
   }, [roundIndex, queue.length])
 
+  useEffect(() => {
+    if (finished && queue.length > 0 && correctCount === queue.length) onPerfect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finished])
+
+  useEnterAdvance(answered && !wasCorrect, advance)
+
   const submit = () => {
     if (answered || !currentWord || input.trim() === '' || isComposingRef.current) return
     const isCorrect = isAnswerCorrect(input, currentWord)
@@ -90,7 +113,13 @@ export function KanaTypingPage() {
     for (const charId of currentWord.characterIds) recordResult(charId, isCorrect)
     if (isCorrect) {
       setCorrectCount((c) => c + 1)
+      onCorrect()
       setTimeout(advance, 900)
+    } else {
+      const isNearMiss =
+        isNearMissText(normalizeKana(input), normalizeKana(currentWord.kana)) ||
+        isNearMissText(normalizeRomaji(input), normalizeRomaji(currentWord.romaji))
+      onWrong({ id: currentWord.id, kana: currentWord.kana, romaji: currentWord.romaji }, isNearMiss)
     }
   }
 
@@ -104,6 +133,8 @@ export function KanaTypingPage() {
         stats={[{ label: 'Accuracy', value: `${Math.round((correctCount / queue.length) * 100)}%` }]}
         backHref={isReview ? '/review' : `/practice/${rowId}`}
         onRetry={startSession}
+        mistakes={mistakes}
+        onReviewMistakes={() => startMistakeReview(mistakeIds)}
       />
     )
   }
@@ -174,10 +205,16 @@ export function KanaTypingPage() {
         )}
       </form>
 
+      {feedback && (
+        <p className={`font-semibold ${feedback.ok ? 'text-red-500' : 'text-blue-500'}`}>
+          {feedback.ok ? '○' : '✕'} {feedback.text}
+        </p>
+      )}
+
       {answered && !wasCorrect && (
         <>
-          <p className="font-semibold text-red-500">
-            Answer: {currentWord.kana} ({currentWord.romaji})
+          <p className="font-semibold text-neutral-500 dark:text-neutral-400">
+            Answer: <span className="font-kana">{currentWord.kana}</span> ({currentWord.romaji})
           </p>
           <button
             type="button"
@@ -188,7 +225,6 @@ export function KanaTypingPage() {
           </button>
         </>
       )}
-      {answered && wasCorrect && <p className="font-semibold text-green-500">Nice!</p>}
     </div>
   )
 }

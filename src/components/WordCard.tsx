@@ -18,7 +18,7 @@ export function WordCard({ word }: Props) {
       className="flex flex-col items-center gap-1 rounded-2xl border border-neutral-200 bg-white p-4 text-center shadow-sm transition hover:border-blue-400 active:scale-95 dark:border-neutral-700 dark:bg-neutral-800"
     >
       <span className="text-4xl">{word.emoji}</span>
-      <span className="text-2xl font-bold">{word.kana}</span>
+      <span className="font-kana text-2xl font-bold">{word.kana}</span>
       <span className="text-sm text-neutral-500 dark:text-neutral-400">{word.romaji}</span>
       <span className="text-center text-sm text-neutral-600 dark:text-neutral-300">{word.meaning}</span>
       <span className="mt-1 rounded-full bg-neutral-100 px-3 py-1 text-sm dark:bg-neutral-700" aria-hidden="true">

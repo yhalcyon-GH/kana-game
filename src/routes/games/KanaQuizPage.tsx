@@ -2,8 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { PracticeSummary } from '../../components/PracticeSummary'
 import { CHARACTERS_BY_ID } from '../../data/characters'
+import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
+import { useEnterAdvance } from '../../hooks/useEnterAdvance'
 import { useTTS } from '../../hooks/useTTS'
+import { isNearMissText } from '../../lib/answerCloseness'
 import { pickDistractorCharIds } from '../../lib/distractorPicker'
 import { buildWeightedQueue } from '../../lib/practiceSelection'
 import { shuffle } from '../../lib/shuffle'
@@ -24,6 +27,7 @@ export function KanaQuizPage() {
   const characters = useProgressStore((s) => s.characters)
   const { speak, supported } = useTTS()
   const isReview = rowId === REVIEW_SCOPE_ID
+  const { feedback, mistakes, mistakeIds, onCorrect, onWrong, onPerfect, clear, resetSession } = useAnswerFeedback()
 
   useEffect(() => {
     if (!rowId || !isScopeReady(rowId)) navigate('/', { replace: true })
@@ -46,6 +50,7 @@ export function KanaQuizPage() {
     setRoundIndex(0)
     setCorrectCount(0)
     setFinished(false)
+    resetSession()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quizCharacterIds])
 
@@ -53,6 +58,16 @@ export function KanaQuizPage() {
     if (quizCharacterIds.length > 0) startSession()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quizCharacterIds.length])
+
+  // Replays just this session's mistakes, in place, from the finish screen.
+  const startMistakeReview = useCallback((ids: string[]) => {
+    setQueue(ids)
+    setRoundIndex(0)
+    setCorrectCount(0)
+    setFinished(false)
+    resetSession()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const currentCharId = queue.length > 0 ? queue[roundIndex] : undefined
 
@@ -62,6 +77,7 @@ export function KanaQuizPage() {
     setChoices(shuffle([currentCharId, ...distractors]))
     setSelectedId(null)
     setAnswered(false)
+    clear()
     speak(`characters/${currentCharId}`, CHARACTERS_BY_ID[currentCharId].kana)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentCharId])
@@ -74,6 +90,13 @@ export function KanaQuizPage() {
     }
   }, [roundIndex, queue.length])
 
+  useEffect(() => {
+    if (finished && queue.length > 0 && correctCount === queue.length) onPerfect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finished])
+
+  useEnterAdvance(answered && selectedId !== currentCharId, advance)
+
   const handleChoice = (choiceId: string) => {
     if (answered || !currentCharId) return
     setSelectedId(choiceId)
@@ -82,7 +105,13 @@ export function KanaQuizPage() {
     recordResult(currentCharId, isCorrect)
     if (isCorrect) {
       setCorrectCount((c) => c + 1)
+      onCorrect()
       setTimeout(advance, 1000)
+    } else {
+      onWrong(
+        { id: currentCharId, kana: CHARACTERS_BY_ID[currentCharId].kana, romaji: CHARACTERS_BY_ID[currentCharId].romaji },
+        isNearMissText(CHARACTERS_BY_ID[choiceId].kana, CHARACTERS_BY_ID[currentCharId].kana),
+      )
     }
   }
 
@@ -96,6 +125,8 @@ export function KanaQuizPage() {
         stats={[{ label: 'Accuracy', value: `${Math.round((correctCount / queue.length) * 100)}%` }]}
         backHref={isReview ? '/review' : `/practice/${rowId}`}
         onRetry={startSession}
+        mistakes={mistakes}
+        onReviewMistakes={() => startMistakeReview(mistakeIds)}
       />
     )
   }
@@ -109,7 +140,7 @@ export function KanaQuizPage() {
         Round {roundIndex + 1} / {queue.length}
       </p>
       <div className="flex flex-col items-center gap-2">
-        <span className="text-7xl font-bold">{currentChar.kana}</span>
+        <span className="font-kana text-7xl font-bold">{currentChar.kana}</span>
         {supported && (
           <button
             type="button"
@@ -147,6 +178,12 @@ export function KanaQuizPage() {
           )
         })}
       </div>
+
+      {feedback && (
+        <p className={`font-semibold ${feedback.ok ? 'text-red-500' : 'text-blue-500'}`}>
+          {feedback.ok ? '○' : '✕'} {feedback.text}
+        </p>
+      )}
 
       {answered && selectedId !== currentCharId && (
         <button

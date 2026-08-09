@@ -5,8 +5,11 @@ import { PracticeSummary } from '../../components/PracticeSummary'
 import { CHARACTERS_BY_ID } from '../../data/characters'
 import { ROWS_BY_ID } from '../../data/curriculum'
 import type { AnchorWord } from '../../data/types'
+import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
+import { useEnterAdvance } from '../../hooks/useEnterAdvance'
 import { useTTS } from '../../hooks/useTTS'
+import { isNearMissSequence } from '../../lib/answerCloseness'
 import { pickDistractorCharIds } from '../../lib/distractorPicker'
 import { buildWeightedQueue } from '../../lib/practiceSelection'
 import { shuffle } from '../../lib/shuffle'
@@ -25,6 +28,7 @@ export function WordBuilderPage() {
   const characters = useProgressStore((s) => s.characters)
   const { speak, supported } = useTTS()
   const isReview = rowId === REVIEW_SCOPE_ID
+  const { feedback, mistakes, mistakeIds, onCorrect, onWrong, onPerfect, clear, resetSession } = useAnswerFeedback()
   const row = rowId && !isReview ? ROWS_BY_ID[rowId] : undefined
   const scopeCharacterIds = useMemo(() => getScopeCharacterIds(rowId), [rowId, getScopeCharacterIds])
 
@@ -46,7 +50,6 @@ export function WordBuilderPage() {
 
   const [queue, setQueue] = useState<string[]>([])
   const [roundIndex, setRoundIndex] = useState(0)
-  const [roundAttempts, setRoundAttempts] = useState(0)
   const [correctCount, setCorrectCount] = useState(0)
   const [finished, setFinished] = useState(false)
   const [slots, setSlots] = useState<(string | null)[]>([])
@@ -59,6 +62,7 @@ export function WordBuilderPage() {
     setRoundIndex(0)
     setCorrectCount(0)
     setFinished(false)
+    resetSession()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scopeWords])
 
@@ -67,27 +71,28 @@ export function WordBuilderPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scopeWords.length])
 
-  // Rebuilds the tray/slots for `word` without touching roundAttempts —
-  // used for a same-word retry, so a second wrong attempt doesn't get
-  // treated as a fresh "first attempt" and double up on penalties.
-  const resetTray = useCallback(
+  // Replays just this session's mistakes, in place, from the finish screen.
+  const startMistakeReview = useCallback((ids: string[]) => {
+    setQueue(ids)
+    setRoundIndex(0)
+    setCorrectCount(0)
+    setFinished(false)
+    resetSession()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Sets up a fresh tray/slots for a new word.
+  const setupRound = useCallback(
     (word: AnchorWord) => {
       const distractors = pickDistractorCharIds(word.characterIds, scopeCharacterIds, DISTRACTOR_COUNT)
       const tileIds = shuffle([...word.characterIds, ...distractors])
       setTray(tileIds.map((charId, i) => ({ key: `${charId}-${i}`, charId, placed: false })))
       setSlots(new Array(word.characterIds.length).fill(null))
       setStatus('playing')
+      clear()
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [scopeCharacterIds],
-  )
-
-  // Starts a brand-new word: same as resetTray, plus clears roundAttempts.
-  const setupRound = useCallback(
-    (word: AnchorWord) => {
-      resetTray(word)
-      setRoundAttempts(0)
-    },
-    [resetTray],
   )
 
   useEffect(() => {
@@ -114,33 +119,38 @@ export function WordBuilderPage() {
   }, [roundIndex, queue.length])
 
   useEffect(() => {
+    if (finished && queue.length > 0 && correctCount === queue.length) onPerfect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finished])
+
+  useEffect(() => {
     if (!currentWord || status !== 'playing') return
     if (slots.some((s) => s === null)) return
 
     const placedCharIds = slots.map((key) => tray.find((t) => t.key === key)?.charId)
     const isCorrect = placedCharIds.every((id, i) => id === currentWord.characterIds[i])
+    for (const charId of currentWord.characterIds) recordResult(charId, isCorrect)
 
     if (isCorrect) {
-      // Every successful completion reinforces the characters, regardless
-      // of how many attempts it took.
-      for (const charId of currentWord.characterIds) recordResult(charId, true)
       setStatus('correct')
       setCorrectCount((c) => c + 1)
+      onCorrect()
       const timer = setTimeout(advance, 900)
       return () => clearTimeout(timer)
     }
 
-    // Only the first miss on this word counts as a negative signal —
-    // retries after a hint shouldn't keep dragging the box down.
-    if (roundAttempts === 0) {
-      for (const charId of currentWord.characterIds) recordResult(charId, false)
-    }
+    // One attempt per word — a miss reveals the answer and waits for the
+    // learner to move on manually (see the "Next" button below), matching
+    // how the other three games handle a wrong answer.
     setStatus('wrong')
-    setRoundAttempts((a) => a + 1)
-    const timer = setTimeout(() => resetTray(currentWord), 900)
-    return () => clearTimeout(timer)
+    onWrong(
+      { id: currentWord.id, kana: currentWord.kana, romaji: currentWord.romaji },
+      isNearMissSequence(placedCharIds, currentWord.characterIds),
+    )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slots])
+
+  useEnterAdvance(status === 'wrong', advance)
 
   const handleTrayClick = (tile: TrayTile) => {
     if (tile.placed || status !== 'playing') return
@@ -178,15 +188,13 @@ export function WordBuilderPage() {
         ]}
         backHref={isReview ? '/review' : `/practice/${rowId}`}
         onRetry={startSession}
+        mistakes={mistakes}
+        onReviewMistakes={() => startMistakeReview(mistakeIds)}
       />
     )
   }
 
   if (!currentWord) return null
-
-  const hintActive = roundAttempts >= 2 && status === 'playing'
-  const nextSlotIndex = slots.findIndex((s) => s === null)
-  const hintCharId = hintActive && nextSlotIndex !== -1 ? currentWord.characterIds[nextSlotIndex] : null
 
   return (
     <div className="flex flex-col items-center gap-6">
@@ -217,7 +225,7 @@ export function WordBuilderPage() {
               key={i}
               type="button"
               onClick={() => handleSlotClick(i)}
-              className="flex h-14 w-14 items-center justify-center rounded-xl border-2 border-dashed border-neutral-300 text-2xl font-bold dark:border-neutral-600"
+              className="font-kana flex h-14 w-14 items-center justify-center rounded-xl border-2 border-dashed border-neutral-300 text-2xl font-bold dark:border-neutral-600"
             >
               {tile ? CHARACTERS_BY_ID[tile.charId].kana : ''}
             </button>
@@ -225,16 +233,33 @@ export function WordBuilderPage() {
         })}
       </div>
 
-      {status === 'wrong' && <p className="font-semibold text-red-500">Not quite — try again!</p>}
-      {status === 'correct' && <p className="font-semibold text-green-500">Nice!</p>}
+      {feedback && (
+        <p className={`font-semibold ${feedback.ok ? 'text-red-500' : 'text-blue-500'}`}>
+          {feedback.ok ? '○' : '✕'} {feedback.text}
+        </p>
+      )}
+
+      {status === 'wrong' && (
+        <>
+          <p className="font-semibold text-neutral-500 dark:text-neutral-400">
+            Answer: <span className="font-kana">{currentWord.kana}</span> ({currentWord.romaji})
+          </p>
+          <button
+            type="button"
+            onClick={advance}
+            className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
+          >
+            Next
+          </button>
+        </>
+      )}
 
       <div className="flex flex-wrap justify-center gap-2">
         {tray.map((tile) => (
           <KanaTile
             key={tile.key}
             kana={CHARACTERS_BY_ID[tile.charId].kana}
-            disabled={tile.placed}
-            selected={hintCharId === tile.charId && !tile.placed}
+            disabled={tile.placed || status !== 'playing'}
             onClick={() => handleTrayClick(tile)}
           />
         ))}

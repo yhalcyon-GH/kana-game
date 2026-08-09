@@ -3,8 +3,11 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { PracticeSummary } from '../../components/PracticeSummary'
 import { ROWS_BY_ID } from '../../data/curriculum'
 import type { AnchorWord } from '../../data/types'
+import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
+import { useEnterAdvance } from '../../hooks/useEnterAdvance'
 import { useTTS } from '../../hooks/useTTS'
+import { isNearMissText } from '../../lib/answerCloseness'
 import { pickDistractorWords } from '../../lib/distractorPicker'
 import { buildWeightedQueue } from '../../lib/practiceSelection'
 import { shuffle } from '../../lib/shuffle'
@@ -21,6 +24,7 @@ export function ListeningPage() {
   const isReview = rowId === REVIEW_SCOPE_ID
   const row = rowId && !isReview ? ROWS_BY_ID[rowId] : undefined
   const { speak, supported } = useTTS()
+  const { feedback, mistakes, mistakeIds, onCorrect, onWrong, onPerfect, clear, resetSession } = useAnswerFeedback()
 
   useEffect(() => {
     if (!rowId || !isScopeReady(rowId)) navigate('/', { replace: true })
@@ -51,6 +55,7 @@ export function ListeningPage() {
     setRoundIndex(0)
     setCorrectCount(0)
     setFinished(false)
+    resetSession()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scopeWords])
 
@@ -58,6 +63,16 @@ export function ListeningPage() {
     if (scopeWords.length > 0) startSession()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scopeWords.length])
+
+  // Replays just this session's mistakes, in place, from the finish screen.
+  const startMistakeReview = useCallback((ids: string[]) => {
+    setQueue(ids)
+    setRoundIndex(0)
+    setCorrectCount(0)
+    setFinished(false)
+    resetSession()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const currentWord = queue.length > 0 ? wordsById[queue[roundIndex]] : undefined
 
@@ -67,6 +82,7 @@ export function ListeningPage() {
     setChoices(shuffle([currentWord, ...distractors]))
     setSelectedId(null)
     setAnswered(false)
+    clear()
     speak(`words/${currentWord.id}`, currentWord.audioText ?? currentWord.kana)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentWord?.id])
@@ -79,6 +95,13 @@ export function ListeningPage() {
     }
   }, [roundIndex, queue.length])
 
+  useEffect(() => {
+    if (finished && queue.length > 0 && correctCount === queue.length) onPerfect()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finished])
+
+  useEnterAdvance(answered && selectedId !== currentWord?.id, advance)
+
   const handleChoice = (choice: AnchorWord) => {
     if (answered || !currentWord) return
     setSelectedId(choice.id)
@@ -90,7 +113,13 @@ export function ListeningPage() {
     for (const charId of currentWord.characterIds) recordResult(charId, isCorrect)
     if (isCorrect) {
       setCorrectCount((c) => c + 1)
+      onCorrect()
       setTimeout(advance, 1000)
+    } else {
+      onWrong(
+        { id: currentWord.id, kana: currentWord.kana, romaji: currentWord.romaji },
+        isNearMissText(choice.kana, currentWord.kana),
+      )
     }
   }
 
@@ -104,6 +133,8 @@ export function ListeningPage() {
         stats={[{ label: 'Accuracy', value: `${Math.round((correctCount / queue.length) * 100)}%` }]}
         backHref={isReview ? '/review' : `/practice/${rowId}`}
         onRetry={startSession}
+        mistakes={mistakes}
+        onReviewMistakes={() => startMistakeReview(mistakeIds)}
       />
     )
   }
@@ -141,7 +172,7 @@ export function ListeningPage() {
               type="button"
               onClick={() => handleChoice(choice)}
               disabled={answered}
-              className={`rounded-xl border-2 px-6 py-4 text-2xl font-bold transition ${
+              className={`font-kana rounded-xl border-2 px-6 py-4 text-2xl font-bold transition ${
                 showResult
                   ? isTarget
                     ? 'border-green-500 bg-green-50 dark:bg-green-950'
@@ -154,6 +185,12 @@ export function ListeningPage() {
           )
         })}
       </div>
+
+      {feedback && (
+        <p className={`font-semibold ${feedback.ok ? 'text-red-500' : 'text-blue-500'}`}>
+          {feedback.ok ? '○' : '✕'} {feedback.text}
+        </p>
+      )}
 
       {answered && selectedId !== currentWord.id && (
         <button

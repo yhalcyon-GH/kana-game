@@ -2,16 +2,22 @@ import { Link } from 'react-router-dom'
 import { ProgressBadge } from './ProgressBadge'
 
 type Stat = { label: string; value: string | number }
+type MistakeEntry = { id: string; kana: string; romaji: string }
 
 type Props = {
   title: string
   stats: Stat[]
   backHref: string
   onRetry: () => void
+  // Every distinct item missed this session, and a callback to immediately
+  // start a fresh round covering just those — omitted (or empty) when
+  // nothing was missed.
+  mistakes?: MistakeEntry[]
+  onReviewMistakes?: () => void
 }
 
 // Shared end-of-session screen for all five mini-games.
-export function PracticeSummary({ title, stats, backHref, onRetry }: Props) {
+export function PracticeSummary({ title, stats, backHref, onRetry, mistakes = [], onReviewMistakes }: Props) {
   return (
     <div className="flex flex-col items-center gap-6">
       <h2 className="text-2xl font-bold">{title}</h2>
@@ -20,7 +26,24 @@ export function PracticeSummary({ title, stats, backHref, onRetry }: Props) {
           <ProgressBadge key={s.label} label={s.label} value={s.value} />
         ))}
       </div>
-      <div className="flex gap-3">
+
+      {mistakes.length > 0 && (
+        <div className="w-full max-w-xs rounded-xl border border-neutral-300 bg-white p-3 text-sm dark:border-neutral-600 dark:bg-neutral-800">
+          <span className="font-semibold text-neutral-700 dark:text-neutral-300">
+            Missed this round ({mistakes.length})
+          </span>
+          <ul className="mt-2 flex flex-col gap-1">
+            {mistakes.map((m) => (
+              <li key={m.id} className="flex justify-between gap-3 text-neutral-600 dark:text-neutral-400">
+                <span className="font-kana font-semibold text-neutral-800 dark:text-neutral-200">{m.kana}</span>
+                <span>{m.romaji}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="flex flex-wrap justify-center gap-3">
         <button
           type="button"
           onClick={onRetry}
@@ -28,6 +51,15 @@ export function PracticeSummary({ title, stats, backHref, onRetry }: Props) {
         >
           Play again
         </button>
+        {mistakes.length > 0 && onReviewMistakes && (
+          <button
+            type="button"
+            onClick={onReviewMistakes}
+            className="rounded-full bg-amber-500 px-6 py-2 font-semibold text-white hover:bg-amber-600"
+          >
+            Review {mistakes.length} mistake{mistakes.length === 1 ? '' : 's'}
+          </button>
+        )}
         <Link
           to={backHref}
           className="rounded-full border border-neutral-300 px-6 py-2 font-semibold hover:border-blue-400 dark:border-neutral-600"

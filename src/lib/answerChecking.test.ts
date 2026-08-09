@@ -48,6 +48,44 @@ describe('isAnswerCorrect', () => {
     expect(isAnswerCorrect('mizu  wo   nomu', phrase)).toBe(true)
     expect(isAnswerCorrect('MIZU WO NOMU', phrase)).toBe(true)
   })
+
+  it('accepts Kunrei-shiki alternates alongside the canonical Hepburn romaji', () => {
+    const tsuki = { kana: 'つき', romaji: 'tsuki', characterIds: ['tsu', 'ki'] }
+    expect(isAnswerCorrect('tsuki', tsuki)).toBe(true)
+    expect(isAnswerCorrect('tuki', tsuki)).toBe(true)
+
+    const chizu = { kana: 'ちず', romaji: 'chizu', characterIds: ['chi', 'zu'] }
+    expect(isAnswerCorrect('chizu', chizu)).toBe(true)
+    expect(isAnswerCorrect('tizu', chizu)).toBe(true)
+    expect(isAnswerCorrect('chidu', chizu)).toBe(false) // ず (not づ) here — 'du' isn't valid for it
+
+    const fune = { kana: 'ふね', romaji: 'fune', characterIds: ['fu', 'ne'] }
+    expect(isAnswerCorrect('fune', fune)).toBe(true)
+    expect(isAnswerCorrect('hune', fune)).toBe(true)
+  })
+
+  it('accepts alternates for multiple characters in the same word, in any combination', () => {
+    const chikatetsu = {
+      kana: 'ちかてつ',
+      romaji: 'chikatetsu',
+      characterIds: ['chi', 'ka', 'te', 'tsu'],
+    }
+    expect(isAnswerCorrect('chikatetsu', chikatetsu)).toBe(true)
+    expect(isAnswerCorrect('tikatetu', chikatetsu)).toBe(true)
+    expect(isAnswerCorrect('chikatetu', chikatetsu)).toBe(true)
+    expect(isAnswerCorrect('tikatetsu', chikatetsu)).toBe(true)
+  })
+
+  it('accepts an alternate mid-phrase, on the correct token only', () => {
+    const phrase = { kana: 'みずをのむ', romaji: 'mizu wo nomu', characterIds: ['mi', 'zu', 'wo', 'no', 'mu'] }
+    expect(isAnswerCorrect('mizu o nomu', phrase)).toBe(true)
+  })
+
+  it('falls back to exact romaji match only when characterIds is missing', () => {
+    const tsuki = { kana: 'つき', romaji: 'tsuki' }
+    expect(isAnswerCorrect('tsuki', tsuki)).toBe(true)
+    expect(isAnswerCorrect('tuki', tsuki)).toBe(false)
+  })
 })
 
 describe('normalizeRomaji', () => {
