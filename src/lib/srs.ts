@@ -22,6 +22,25 @@ export function weightForBox(box: number): number {
   return BOX_WEIGHT[box] ?? BOX_WEIGHT[MAX_BOX]
 }
 
+// Classic Leitner review spacing: higher boxes go longer between reviews.
+// Box 0 has a 0ms interval, so a never-practiced or recently-missed
+// character is always "due" regardless of lastSeen.
+const BOX_REVIEW_INTERVAL_MS: Record<number, number> = {
+  0: 0,
+  1: 1 * 24 * 60 * 60 * 1000,
+  2: 3 * 24 * 60 * 60 * 1000,
+  3: 7 * 24 * 60 * 60 * 1000,
+  4: 14 * 24 * 60 * 60 * 1000,
+}
+
+// Whether a character is due for review right now, based on its box and how
+// long it's been since it was last seen. Drives the Review scope's word
+// selection — see useCurriculum.ts.
+export function isDue(stats: { box: number; lastSeen: number }, now: number = Date.now()): boolean {
+  const interval = BOX_REVIEW_INTERVAL_MS[stats.box] ?? BOX_REVIEW_INTERVAL_MS[MAX_BOX]
+  return now - stats.lastSeen >= interval
+}
+
 // A character is "advanced enough" to help gate the next row's unlock once
 // it's been attempted a few times, reached at least box 2, and answered
 // correctly at least 70% of the time. Not full mastery (box 4) — later

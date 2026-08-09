@@ -10,7 +10,7 @@ type Props = {
   onRetry: () => void
 }
 
-// Shared end-of-session screen for all four mini-games.
+// Shared end-of-session screen for all five mini-games.
 export function PracticeSummary({ title, stats, backHref, onRetry }: Props) {
   return (
     <div className="flex flex-col items-center gap-6">

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MAX_BOX, MIN_BOX, meetsAdvanceThreshold, nextBox, weightForBox } from './srs'
+import { MAX_BOX, MIN_BOX, isDue, meetsAdvanceThreshold, nextBox, weightForBox } from './srs'
 
 describe('nextBox', () => {
   it('increments on correct, clamped at MAX_BOX', () => {
@@ -38,5 +38,31 @@ describe('meetsAdvanceThreshold', () => {
   it('passes with box>=2, >=3 attempts, >=70% accuracy', () => {
     expect(meetsAdvanceThreshold({ box: 2, totalSeen: 10, totalCorrect: 7 })).toBe(true)
     expect(meetsAdvanceThreshold({ box: 4, totalSeen: 3, totalCorrect: 3 })).toBe(true)
+  })
+})
+
+describe('isDue', () => {
+  const DAY = 24 * 60 * 60 * 1000
+
+  it('box 0 is always due, regardless of how recently it was seen', () => {
+    const now = Date.now()
+    expect(isDue({ box: 0, lastSeen: now }, now)).toBe(true)
+  })
+
+  it('is not due before its box interval has elapsed', () => {
+    const now = Date.now()
+    expect(isDue({ box: 2, lastSeen: now - 1 * DAY }, now)).toBe(false)
+  })
+
+  it('is due once its box interval has elapsed', () => {
+    const now = Date.now()
+    expect(isDue({ box: 2, lastSeen: now - 3 * DAY }, now)).toBe(true)
+  })
+
+  it('gives higher boxes longer intervals than lower boxes', () => {
+    const now = Date.now()
+    const lastSeen = now - 5 * DAY
+    expect(isDue({ box: 1, lastSeen }, now)).toBe(true)
+    expect(isDue({ box: 4, lastSeen }, now)).toBe(false)
   })
 })

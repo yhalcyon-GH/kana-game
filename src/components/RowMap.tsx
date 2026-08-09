@@ -29,23 +29,15 @@ export function RowMap({ rows, isUnlocked, isTaught, isMastered }: Props) {
             <span className="text-xs text-neutral-500 dark:text-neutral-400">
               {!unlocked ? '🔒 locked' : mastered ? '🌟 mastered' : taught ? '📗 taught' : '📘 new'}
             </span>
-            {/* Learn and Practice are both always available, in either order —
-                taught status is informational only, not a gate. */}
+            {/* Learn and both mini-games all live together on the row's hub
+                page — taught status is informational only, not a gate. */}
             {unlocked && (
-              <div className="flex gap-2">
-                <Link
-                  to={`/learn/${row.id}`}
-                  className="rounded-full bg-blue-600 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-700"
-                >
-                  Learn
-                </Link>
-                <Link
-                  to={`/practice/${row.id}`}
-                  className="rounded-full border border-neutral-300 px-3 py-1 text-xs font-semibold hover:border-blue-400 dark:border-neutral-600"
-                >
-                  Practice
-                </Link>
-              </div>
+              <Link
+                to={`/practice/${row.id}`}
+                className="rounded-full bg-blue-600 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-700"
+              >
+                Open
+              </Link>
             )}
           </div>
         )

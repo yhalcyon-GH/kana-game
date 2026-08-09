@@ -23,7 +23,7 @@ export function WordBuilderPage() {
   const { isScopeReady, getScopeCharacterIds, getScopeWords } = useCurriculum()
   const recordResult = useProgressStore((s) => s.recordResult)
   const characters = useProgressStore((s) => s.characters)
-  const { speak } = useTTS()
+  const { speak, supported } = useTTS()
   const isReview = rowId === REVIEW_SCOPE_ID
   const row = rowId && !isReview ? ROWS_BY_ID[rowId] : undefined
   const scopeCharacterIds = useMemo(() => getScopeCharacterIds(rowId), [rowId, getScopeCharacterIds])
@@ -197,6 +197,16 @@ export function WordBuilderPage() {
         <span className="text-5xl">{currentWord.emoji}</span>
         <span className="text-lg font-semibold">{currentWord.meaning}</span>
         <span className="text-sm text-neutral-500 dark:text-neutral-400">{currentWord.romaji}</span>
+        {supported && (
+          <button
+            type="button"
+            onClick={() => speak(`words/${currentWord.id}`, currentWord.audioText ?? currentWord.kana)}
+            className="rounded-full bg-neutral-100 px-4 py-2 text-lg hover:bg-neutral-200 dark:bg-neutral-700 dark:hover:bg-neutral-600"
+            aria-label="Replay audio"
+          >
+            🔊 Replay
+          </button>
+        )}
       </div>
 
       <div className="flex gap-2">

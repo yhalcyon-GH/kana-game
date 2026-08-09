@@ -1,13 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useProgressStore } from '../store/progressStore'
 
-// Plays pre-generated つくよみちゃん (COEIROINK) audio shipped as static files
-// under public/audio/ (see scripts/generateAudio.ts) — every character and
-// word clip is baked in ahead of time, so playback works for any visitor
-// with just a browser, no local COEIROINK install required. Falls back to
-// the Web Speech API only if a clip is missing or fails to play.
+// Plays pre-generated audio shipped as static files under public/audio/ (see
+// scripts/generateAudio.ts for word clips; character clips are real human
+// recordings checked in directly) — every clip is baked in ahead of time, so
+// playback works for any visitor with just a browser, no local COEIROINK
+// install required. Falls back to the Web Speech API only if a clip is
+// missing or fails to play.
+//
+// The Settings speed slider is deliberately kept to a gentle 0.75x-1.5x
+// range (see SettingsPage.tsx) rather than stretching a single clip much
+// further: playback keeps preservesPitch on (the browser's pitch-correcting
+// phase vocoder) so speed changes don't also shift pitch, and that
+// correction only stays clean within a modest stretch — pushed further it
+// smears consonant onsets when slowed and turns shrill when sped up.
 export function useTTS() {
   const audioEnabled = useProgressStore((s) => s.audioEnabled)
+  const audioVolume = useProgressStore((s) => s.audioVolume)
+  const audioSpeed = useProgressStore((s) => s.audioSpeed)
   const [webSpeechSupported, setWebSpeechSupported] = useState(false)
   const voiceRef = useRef<SpeechSynthesisVoice | null>(null)
   const audioElRef = useRef<HTMLAudioElement | null>(null)
@@ -40,10 +50,12 @@ export function useTTS() {
       window.speechSynthesis.cancel()
       const utterance = new SpeechSynthesisUtterance(text)
       utterance.lang = 'ja-JP'
+      utterance.volume = audioVolume
+      utterance.rate = audioSpeed
       if (voiceRef.current) utterance.voice = voiceRef.current
       window.speechSynthesis.speak(utterance)
     },
-    [webSpeechSupported],
+    [webSpeechSupported, audioVolume, audioSpeed],
   )
 
   // audioKey identifies a pre-generated clip, e.g. "characters/a" or
@@ -57,9 +69,16 @@ export function useTTS() {
       const audioEl = audioElRef.current
       audioEl.onerror = () => speakWithWebSpeech(fallbackText)
       audioEl.src = `${import.meta.env.BASE_URL}audio/${audioKey}.wav`
+      // Setting these after assigning `src` (which triggers an implicit
+      // load) is the order that reliably sticks across browsers — setting
+      // them first can get silently reset by the load.
+      audioEl.volume = audioVolume
+      audioEl.defaultPlaybackRate = audioSpeed
+      audioEl.playbackRate = audioSpeed
+      audioEl.preservesPitch = true
       audioEl.play().catch(() => speakWithWebSpeech(fallbackText))
     },
-    [audioEnabled, speakWithWebSpeech],
+    [audioEnabled, audioVolume, audioSpeed, speakWithWebSpeech],
   )
 
   return { speak, supported: true }

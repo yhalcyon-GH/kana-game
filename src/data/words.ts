@@ -14,11 +14,9 @@ import type { AnchorWord } from './types'
 export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
   'a-row': [
     { id: 'a-ai', kana: 'あい', romaji: 'ai', meaning: 'love', emoji: '❤️', characterIds: ['a', 'i'] },
-    { id: 'a-iie', kana: 'いいえ', romaji: 'iie', meaning: 'no', emoji: '🙅', characterIds: ['i', 'i', 'e'] },
     { id: 'a-ie', kana: 'いえ', romaji: 'ie', meaning: 'house', emoji: '🏠', characterIds: ['i', 'e'] },
     { id: 'a-ue', kana: 'うえ', romaji: 'ue', meaning: 'up / above', emoji: '⬆️', characterIds: ['u', 'e'] },
     { id: 'a-ao', kana: 'あお', romaji: 'ao', meaning: 'blue', emoji: '🔵', characterIds: ['a', 'o'] },
-    { id: 'a-au', kana: 'あう', romaji: 'au', meaning: 'to meet', emoji: '🤝', characterIds: ['a', 'u'] },
   ],
   'ka-row': [
     { id: 'ka-aka', kana: 'あか', romaji: 'aka', meaning: 'red', emoji: '🔴', characterIds: ['a', 'ka'] },
@@ -42,11 +40,9 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'sa-okashi', kana: 'おかし', romaji: 'okashi', meaning: 'snack', emoji: '🍬', characterIds: ['o', 'ka', 'shi'] },
     { id: 'sa-sake', kana: 'さけ', romaji: 'sake', meaning: 'sake (alcohol)', emoji: '🍶', characterIds: ['sa', 'ke'] },
     { id: 'sa-sushi', kana: 'すし', romaji: 'sushi', meaning: 'sushi', emoji: '🍣', characterIds: ['su', 'shi'] },
-    { id: 'sa-souji', kana: 'そうじ', romaji: 'souji', meaning: 'cleaning', emoji: '🧹', characterIds: ['so', 'u', 'ji'] },
   ],
   'ta-row': [
     { id: 'ta-te', kana: 'て', romaji: 'te', meaning: 'hand', emoji: '✋', characterIds: ['te'] },
-    { id: 'ta-tokei', kana: 'とけい', romaji: 'tokei', meaning: 'clock', emoji: '⌚', characterIds: ['to', 'ke', 'i'] },
     { id: 'ta-kutsu', kana: 'くつ', romaji: 'kutsu', meaning: 'shoes', emoji: '👞', characterIds: ['ku', 'tsu'] },
     { id: 'ta-ito', kana: 'いと', romaji: 'ito', meaning: 'thread', emoji: '🧵', characterIds: ['i', 'to'] },
     { id: 'ta-chizu', kana: 'ちず', romaji: 'chizu', meaning: 'map', emoji: '🗺️', characterIds: ['chi', 'zu'] },
@@ -99,7 +95,6 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'ya-yume', kana: 'ゆめ', romaji: 'yume', meaning: 'dream', emoji: '💭', characterIds: ['yu', 'me'] },
     { id: 'ya-oyogu', kana: 'およぐ', romaji: 'oyogu', meaning: 'to swim', emoji: '🏊', characterIds: ['o', 'yo', 'gu'] },
     { id: 'ya-hayai', kana: 'はやい', romaji: 'hayai', meaning: 'fast', emoji: '🏃', characterIds: ['ha', 'ya', 'i'] },
-    { id: 'ya-ohayou', kana: 'おはよう', romaji: 'ohayou', meaning: 'good morning', emoji: '🌅', characterIds: ['o', 'ha', 'yo', 'u'] },
     { id: 'ya-okonomiyaki', kana: 'おこのみやき', romaji: 'okonomiyaki', meaning: 'okonomiyaki (savory pancake)', emoji: '🥘', characterIds: ['o', 'ko', 'no', 'mi', 'ya', 'ki'] },
     { id: 'ya-takoyaki', kana: 'たこやき', romaji: 'takoyaki', meaning: 'takoyaki (octopus balls)', emoji: '🍡', characterIds: ['ta', 'ko', 'ya', 'ki'] },
   ],
@@ -111,7 +106,6 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'ra-shiro', kana: 'しろ', romaji: 'shiro', meaning: 'white', emoji: '⚪', characterIds: ['shi', 'ro'] },
     { id: 'ra-sora', kana: 'そら', romaji: 'sora', meaning: 'sky', emoji: '🌤️', characterIds: ['so', 'ra'] },
     { id: 'ra-yoru', kana: 'よる', romaji: 'yoru', meaning: 'night', emoji: '🌃', characterIds: ['yo', 'ru'] },
-    { id: 'ra-reizouko', kana: 'れいぞうこ', romaji: 'reizouko', meaning: 'refrigerator', emoji: '🧊', characterIds: ['re', 'i', 'zo', 'u', 'ko'] },
     { id: 'ra-karaage', kana: 'からあげ', romaji: 'karaage', meaning: 'fried chicken', emoji: '🍗', characterIds: ['ka', 'ra', 'a', 'ge'] },
     { id: 'ra-misoshiru', kana: 'みそしる', romaji: 'misoshiru', meaning: 'miso soup', emoji: '🍲', characterIds: ['mi', 'so', 'shi', 'ru'] },
     { id: 'ra-onigiri', kana: 'おにぎり', romaji: 'onigiri', meaning: 'rice ball', emoji: '🍙', characterIds: ['o', 'ni', 'gi', 'ri'] },
@@ -120,10 +114,7 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'wa-watashi', kana: 'わたし', romaji: 'watashi', meaning: 'I / me', emoji: '🙋', characterIds: ['wa', 'ta', 'shi'] },
     { id: 'wa-hon', kana: 'ほん', romaji: 'hon', meaning: 'book', emoji: '📖', characterIds: ['ho', 'n'] },
     { id: 'wa-nihon', kana: 'にほん', romaji: 'nihon', meaning: 'Japan', emoji: '🇯🇵', characterIds: ['ni', 'ho', 'n'] },
-    { id: 'wa-konnichiwa', kana: 'こんにちは', romaji: 'konnichiwa', meaning: 'hello', emoji: '👋', characterIds: ['ko', 'n', 'ni', 'chi', 'ha'] },
-    { id: 'wa-arigatou', kana: 'ありがとう', romaji: 'arigatou', meaning: 'thank you', emoji: '🙏', characterIds: ['a', 'ri', 'ga', 'to', 'u'] },
     { id: 'wa-en', kana: 'えん', romaji: 'en', meaning: 'yen', emoji: '💴', characterIds: ['e', 'n'] },
-    { id: 'wa-sensei', kana: 'せんせい', romaji: 'sensei', meaning: 'teacher', emoji: '🧑‍🏫', characterIds: ['se', 'n', 'se', 'i'] },
     {
       id: 'wa-mizu-wo-nomu',
       kana: 'みずをのむ',

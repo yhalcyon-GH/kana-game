@@ -1,7 +1,11 @@
 import { Route, Routes } from 'react-router-dom'
 import { NavBar } from './components/NavBar'
+import { KanaQuizPage } from './routes/games/KanaQuizPage'
+import { KanaTypingPage } from './routes/games/KanaTypingPage'
 import { ListeningPage } from './routes/games/ListeningPage'
+import { TracingPage } from './routes/games/TracingPage'
 import { WordBuilderPage } from './routes/games/WordBuilderPage'
+import { AboutPage } from './routes/AboutPage'
 import { HomePage } from './routes/HomePage'
 import { LearnPage } from './routes/LearnPage'
 import { PracticeHubPage } from './routes/PracticeHubPage'
@@ -19,8 +23,12 @@ function App() {
           <Route path="/practice/:rowId" element={<PracticeHubPage />} />
           <Route path="/practice/:rowId/word-builder" element={<WordBuilderPage />} />
           <Route path="/practice/:rowId/listening" element={<ListeningPage />} />
+          <Route path="/practice/:rowId/kana-quiz" element={<KanaQuizPage />} />
+          <Route path="/practice/:rowId/kana-typing" element={<KanaTypingPage />} />
+          <Route path="/practice/:rowId/tracing" element={<TracingPage />} />
           <Route path="/review" element={<ReviewPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/about" element={<AboutPage />} />
         </Routes>
       </main>
     </div>

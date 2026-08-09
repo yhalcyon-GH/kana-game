@@ -17,6 +17,8 @@ type ProgressState = {
   unlockedRowIds: string[]
   taughtRowIds: string[]
   audioEnabled: boolean
+  audioVolume: number
+  audioSpeed: number
 
   ensureCharacterInitialized: (charId: string) => void
   recordResult: (charId: string, correct: boolean) => void
@@ -25,6 +27,8 @@ type ProgressState = {
   isRowTaught: (rowId: string) => boolean
   isRowMastered: (rowId: string) => boolean
   setAudioEnabled: (enabled: boolean) => void
+  setAudioVolume: (volume: number) => void
+  setAudioSpeed: (speed: number) => void
   resetProgress: () => void
 }
 
@@ -39,6 +43,8 @@ export const useProgressStore = create<ProgressState>()(
       unlockedRowIds: [FIRST_ROW_ID],
       taughtRowIds: [],
       audioEnabled: true,
+      audioVolume: 1,
+      audioSpeed: 0.75,
 
       ensureCharacterInitialized: (charId) => {
         if (get().characters[charId]) return
@@ -95,10 +101,39 @@ export const useProgressStore = create<ProgressState>()(
       },
 
       setAudioEnabled: (enabled) => set({ audioEnabled: enabled }),
+      setAudioVolume: (volume) => set({ audioVolume: volume }),
+      setAudioSpeed: (speed) => set({ audioSpeed: speed }),
 
       resetProgress: () =>
-        set({ characters: {}, unlockedRowIds: [FIRST_ROW_ID], taughtRowIds: [], audioEnabled: true }),
+        set({
+          characters: {},
+          unlockedRowIds: [FIRST_ROW_ID],
+          taughtRowIds: [],
+          audioEnabled: true,
+          audioVolume: 1,
+          audioSpeed: 0.75,
+        }),
     }),
-    { name: 'kana-game-progress', version: 1 },
+    {
+      name: 'kana-game-progress',
+      version: 3,
+      // v1 -> v2: the default pronunciation speed changed from 1x to 0.5x;
+      // carry that new default into browsers that already persisted a v1
+      // state (which would otherwise keep the old 1x forever).
+      // v2 -> v3: the speed slider's range tightened from 0.5x-2x to
+      // 0.75x-1.5x (the extremes made played-back audio hard to recognize —
+      // slowed clips lost consonants, sped-up clips turned shrill). Clamp
+      // any already-persisted value into the new range.
+      migrate: (persistedState, version) => {
+        const state = persistedState as ProgressState
+        if (version < 2) {
+          state.audioSpeed = 0.5
+        }
+        if (version < 3) {
+          state.audioSpeed = Math.min(1.5, Math.max(0.75, state.audioSpeed))
+        }
+        return state
+      },
+    },
   ),
 )

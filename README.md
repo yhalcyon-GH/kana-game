@@ -31,8 +31,12 @@ If you are developing a production application, we recommend enabling type-aware
 
 See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
 
-## Voice credit
+## About the Audio
 
-Pronunciation audio (`public/audio/`) is generated with [COEIROINK](https://coeiroink.com/):つくよみちゃん.
-音声ライブラリは、フリー素材キャラクター「[つくよみちゃん](https://tyc.rei-yumesaki.net)」が無料公開している
-[つくよみちゃんコーパス](https://tyc.rei-yumesaki.net/material/corpus/)（CV.夢前黎）を利用しています。© Rei Yumesaki
+Some of the audio used in this application is generated using the voice of the free character material **Tsukuyomi-chan**.
+
+* Character name: つくよみちゃん (**Tsukuyomi-chan)**
+* Official website: https://tyc.rei-yumesaki.net/
+* Terms of Use: https://tyc.rei-yumesaki.net/about/terms/
+
+Tsukuyomi-chan is a free character created by Rei Yumemi, and the audio is used in accordance with the Terms of Use.
