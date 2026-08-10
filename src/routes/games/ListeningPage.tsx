@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { BackToHubLink } from '../../components/BackToHubLink'
 import { PracticeSummary } from '../../components/PracticeSummary'
 import { ROWS_BY_ID } from '../../data/curriculum'
 import type { AnchorWord } from '../../data/types'
@@ -143,6 +144,7 @@ export function ListeningPage() {
 
   return (
     <div className="flex flex-col items-center gap-6">
+      <BackToHubLink rowId={rowId} />
       <p className="text-sm text-neutral-500 dark:text-neutral-400">
         Round {roundIndex + 1} / {queue.length}
       </p>

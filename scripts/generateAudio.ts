@@ -20,6 +20,48 @@ const COEIROINK_SPEAKER_UUID = '3c37646f-3881-5374-2a83-149267990abc' // つく�
 const COEIROINK_STYLE_ID = 0 // れいせい (calm)
 const OUT_DIR = path.resolve(import.meta.dirname, '../public/audio')
 
+// Words where COEIROINK's automatic prosody estimation gets the pitch
+// accent wrong — confirmed against accentjiten.com's aggregated accent
+// dataset (NHK/OJAD/Wiktionary/Wadoku/Kanjium), not just guessed from
+// memory (an earlier pass here that relied on memory got several of these
+// backwards — see 2026-08-10 correction). Registering these via
+// /v1/set_dictionary is IN-MEMORY ONLY on the running engine, so it has to
+// be redone on every engine restart — doing it here means every
+// regeneration run reapplies the fix automatically instead of silently
+// reverting to the broken auto-estimate.
+//
+// `accent` is the accent nucleus position (0 = heiban/no drop, N = pitch
+// drops after the Nth mora). Single-mora words (て/hand) can't be corrected
+// this way — COEIROINK always renders an isolated 1-mora word the same way
+// regardless of the registered accent, so it's left out here.
+const ACCENT_OVERRIDES = [
+  { word: 'まど', yomi: 'マド', accent: 1, numMoras: 2 }, // was two flat 1-mora phrases; 窓 is atamadaka
+  { word: 'なまえ', yomi: 'ナマエ', accent: 0, numMoras: 3 }, // was mis-split as なま(atamadaka) + え; 名前 is heiban
+  { word: 'みそしる', yomi: 'ミソシル', accent: 3, numMoras: 4 }, // was mis-split as みそ + しる (two phrases)
+  { word: 'とんかつ', yomi: 'トンカツ', accent: 0, numMoras: 4 }, // was mis-split as とん + かつ (two phrases)
+  { word: 'いえ', yomi: 'イエ', accent: 0, numMoras: 2 }, // was atamadaka; 家 is heiban
+  { word: 'あか', yomi: 'アカ', accent: 1, numMoras: 2 }, // 赤 is atamadaka (already correct by default; pinned)
+  { word: 'あさ', yomi: 'アサ', accent: 1, numMoras: 2 }, // 朝 is atamadaka (already correct by default; pinned)
+  { word: 'えき', yomi: 'エキ', accent: 1, numMoras: 2 }, // 駅 is atamadaka (already correct by default; pinned)
+  { word: 'うえ', yomi: 'ウエ', accent: 0, numMoras: 2 }, // was atamadaka; 上 is heiban
+  { word: 'かう', yomi: 'カウ', accent: 0, numMoras: 2 }, // was atamadaka; 買う is heiban
+  { word: 'さけ', yomi: 'サケ', accent: 0, numMoras: 2 }, // was atamadaka; 酒 is heiban
+  { word: 'なつ', yomi: 'ナツ', accent: 0, numMoras: 2 }, // was atamadaka; 夏 is heiban
+  { word: 'みず', yomi: 'ミズ', accent: 0, numMoras: 2 }, // was atamadaka; 水 is heiban
+  { word: 'あめ', yomi: 'アメ', accent: 1, numMoras: 2 }, // was heiban (matched 飴/candy); 雨 is atamadaka
+  { word: 'とり', yomi: 'トリ', accent: 0, numMoras: 2 }, // was atamadaka; 鳥 is heiban
+  { word: 'よる', yomi: 'ヨル', accent: 1, numMoras: 2 }, // was heiban (matched the verb 因る/寄る); 夜 is atamadaka
+]
+
+async function applyAccentOverrides(): Promise<void> {
+  const res = await fetch(`${COEIROINK_BASE_URL}/v1/set_dictionary`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dictionaryWords: ACCENT_OVERRIDES }),
+  })
+  if (!res.ok) throw new Error(`set_dictionary failed (${res.status}): ${await res.text()}`)
+}
+
 async function synthesize(text: string): Promise<Buffer> {
   const res = await fetch(`${COEIROINK_BASE_URL}/v1/synthesis`, {
     method: 'POST',
@@ -58,6 +100,8 @@ async function main() {
     console.error('Start the COEIROINK app first, then re-run this script.')
     process.exit(1)
   }
+
+  await applyAccentOverrides()
 
   console.log('Generating word audio...')
   await generateAll(

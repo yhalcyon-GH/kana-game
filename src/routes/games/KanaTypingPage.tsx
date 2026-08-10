@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { BackToHubLink } from '../../components/BackToHubLink'
 import { PracticeSummary } from '../../components/PracticeSummary'
 import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
@@ -143,6 +144,7 @@ export function KanaTypingPage() {
 
   return (
     <div className="flex flex-col items-center gap-6">
+      <BackToHubLink rowId={rowId} />
       <p className="text-sm text-neutral-500 dark:text-neutral-400">
         Round {roundIndex + 1} / {queue.length}
       </p>

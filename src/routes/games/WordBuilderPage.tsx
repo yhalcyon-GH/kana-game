@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { BackToHubLink } from '../../components/BackToHubLink'
 import { KanaTile } from '../../components/KanaTile'
 import { PracticeSummary } from '../../components/PracticeSummary'
 import { CHARACTERS_BY_ID } from '../../data/characters'
@@ -198,6 +199,7 @@ export function WordBuilderPage() {
 
   return (
     <div className="flex flex-col items-center gap-6">
+      <BackToHubLink rowId={rowId} />
       <p className="text-sm text-neutral-500 dark:text-neutral-400">
         Round {roundIndex + 1} / {queue.length}
       </p>

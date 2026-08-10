@@ -1,6 +1,7 @@
 import type { PointerEvent } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { BackToHubLink } from '../../components/BackToHubLink'
 import { PracticeSummary } from '../../components/PracticeSummary'
 import { StrokeOrderAnimation } from '../../components/StrokeOrderAnimation'
 import { CHARACTERS_BY_ID } from '../../data/characters'
@@ -135,6 +136,7 @@ export function TracingPage() {
 
   return (
     <div className="flex flex-col items-center gap-6">
+      <BackToHubLink rowId={rowId} />
       <p className="text-sm text-neutral-500 dark:text-neutral-400">
         Round {roundIndex + 1} / {queue.length}
       </p>
