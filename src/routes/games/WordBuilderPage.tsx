@@ -200,10 +200,7 @@ export function WordBuilderPage() {
 
   return (
     <div className="flex flex-col items-center gap-6">
-      <div className="flex w-full items-center justify-between">
-        <BackToHubLink rowId={rowId} />
-        <Mascot mood={mood} />
-      </div>
+      <BackToHubLink rowId={rowId} />
       <p className="text-sm text-neutral-500 dark:text-neutral-400">
         Round {roundIndex + 1} / {queue.length}
       </p>
@@ -239,11 +236,12 @@ export function WordBuilderPage() {
         })}
       </div>
 
-      {feedback && (
-        <p className={`font-semibold ${feedback.ok ? 'text-red-500' : 'text-blue-500'}`}>
-          {feedback.ok ? '○' : '✕'} {feedback.text}
+      <div className="flex w-full items-center justify-between">
+        <p className={`font-semibold ${feedback ? (feedback.ok ? 'text-red-500' : 'text-blue-500') : ''}`}>
+          {feedback && `${feedback.ok ? '○' : '✕'} ${feedback.text}`}
         </p>
-      )}
+        <Mascot mood={mood} />
+      </div>
 
       {status === 'wrong' && (
         <>
