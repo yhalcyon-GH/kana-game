@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BackToHubLink } from '../../components/BackToHubLink'
+import { Mascot } from '../../components/Mascot'
 import { PracticeSummary } from '../../components/PracticeSummary'
 import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
@@ -26,7 +27,7 @@ export function KanaTypingPage() {
   const characters = useProgressStore((s) => s.characters)
   const { speak, supported } = useTTS()
   const isReview = rowId === REVIEW_SCOPE_ID
-  const { feedback, mistakes, mistakeIds, onCorrect, onWrong, onPerfect, clear, resetSession } = useAnswerFeedback()
+  const { feedback, mood, mistakes, mistakeIds, onCorrect, onWrong, onPerfect, clear, resetSession } = useAnswerFeedback()
   const inputRef = useRef<HTMLInputElement>(null)
   const isComposingRef = useRef(false)
 
@@ -144,7 +145,10 @@ export function KanaTypingPage() {
 
   return (
     <div className="flex flex-col items-center gap-6">
-      <BackToHubLink rowId={rowId} />
+      <div className="flex w-full items-center justify-between">
+        <BackToHubLink rowId={rowId} />
+        <Mascot mood={mood} />
+      </div>
       <p className="text-sm text-neutral-500 dark:text-neutral-400">
         Round {roundIndex + 1} / {queue.length}
       </p>

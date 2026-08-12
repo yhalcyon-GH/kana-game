@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BackToHubLink } from '../../components/BackToHubLink'
+import { Mascot } from '../../components/Mascot'
 import { PracticeSummary } from '../../components/PracticeSummary'
 import { ROWS_BY_ID } from '../../data/curriculum'
 import type { AnchorWord } from '../../data/types'
@@ -25,7 +26,7 @@ export function ListeningPage() {
   const isReview = rowId === REVIEW_SCOPE_ID
   const row = rowId && !isReview ? ROWS_BY_ID[rowId] : undefined
   const { speak, supported } = useTTS()
-  const { feedback, mistakes, mistakeIds, onCorrect, onWrong, onPerfect, clear, resetSession } = useAnswerFeedback()
+  const { feedback, mood, mistakes, mistakeIds, onCorrect, onWrong, onPerfect, clear, resetSession } = useAnswerFeedback()
 
   useEffect(() => {
     if (!rowId || !isScopeReady(rowId)) navigate('/', { replace: true })
@@ -144,7 +145,10 @@ export function ListeningPage() {
 
   return (
     <div className="flex flex-col items-center gap-6">
-      <BackToHubLink rowId={rowId} />
+      <div className="flex w-full items-center justify-between">
+        <BackToHubLink rowId={rowId} />
+        <Mascot mood={mood} />
+      </div>
       <p className="text-sm text-neutral-500 dark:text-neutral-400">
         Round {roundIndex + 1} / {queue.length}
       </p>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BackToHubLink } from '../../components/BackToHubLink'
 import { KanaTile } from '../../components/KanaTile'
+import { Mascot } from '../../components/Mascot'
 import { PracticeSummary } from '../../components/PracticeSummary'
 import { CHARACTERS_BY_ID } from '../../data/characters'
 import { ROWS_BY_ID } from '../../data/curriculum'
@@ -29,7 +30,7 @@ export function WordBuilderPage() {
   const characters = useProgressStore((s) => s.characters)
   const { speak, supported } = useTTS()
   const isReview = rowId === REVIEW_SCOPE_ID
-  const { feedback, mistakes, mistakeIds, onCorrect, onWrong, onPerfect, clear, resetSession } = useAnswerFeedback()
+  const { feedback, mood, mistakes, mistakeIds, onCorrect, onWrong, onPerfect, clear, resetSession } = useAnswerFeedback()
   const row = rowId && !isReview ? ROWS_BY_ID[rowId] : undefined
   const scopeCharacterIds = useMemo(() => getScopeCharacterIds(rowId), [rowId, getScopeCharacterIds])
 
@@ -199,7 +200,10 @@ export function WordBuilderPage() {
 
   return (
     <div className="flex flex-col items-center gap-6">
-      <BackToHubLink rowId={rowId} />
+      <div className="flex w-full items-center justify-between">
+        <BackToHubLink rowId={rowId} />
+        <Mascot mood={mood} />
+      </div>
       <p className="text-sm text-neutral-500 dark:text-neutral-400">
         Round {roundIndex + 1} / {queue.length}
       </p>
