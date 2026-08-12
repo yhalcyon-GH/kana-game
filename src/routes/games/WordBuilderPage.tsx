@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { BackToHubLink } from '../../components/BackToHubLink'
+import { AnswerFeedbackRow } from '../../components/AnswerFeedbackRow'
+import { GameRoundHeader } from '../../components/GameRoundHeader'
 import { KanaTile } from '../../components/KanaTile'
-import { Mascot } from '../../components/Mascot'
 import { PracticeSummary } from '../../components/PracticeSummary'
 import { CHARACTERS_BY_ID } from '../../data/characters'
 import { ROWS_BY_ID } from '../../data/curriculum'
@@ -10,14 +10,13 @@ import type { AnchorWord } from '../../data/types'
 import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
 import { useEnterAdvance } from '../../hooks/useEnterAdvance'
+import { useGameSession } from '../../hooks/useGameSession'
 import { useTTS } from '../../hooks/useTTS'
 import { isNearMissSequence } from '../../lib/answerCloseness'
 import { pickDistractorCharIds } from '../../lib/distractorPicker'
-import { buildWeightedQueue } from '../../lib/practiceSelection'
 import { shuffle } from '../../lib/shuffle'
 import { useProgressStore } from '../../store/progressStore'
 
-const ROUNDS = 8
 const DISTRACTOR_COUNT = 3
 
 type TrayTile = { key: string; charId: string; placed: boolean }
@@ -39,6 +38,7 @@ export function WordBuilderPage() {
   }, [rowId, isScopeReady, navigate])
 
   const scopeWords = useMemo(() => getScopeWords(rowId), [rowId, getScopeWords])
+  const wordIds = useMemo(() => scopeWords.map((w) => w.id), [scopeWords])
   const wordsById = useMemo(() => Object.fromEntries(scopeWords.map((w) => [w.id, w])), [scopeWords])
 
   const wordWeight = useCallback(
@@ -50,38 +50,12 @@ export function WordBuilderPage() {
     [wordsById, characters],
   )
 
-  const [queue, setQueue] = useState<string[]>([])
-  const [roundIndex, setRoundIndex] = useState(0)
-  const [correctCount, setCorrectCount] = useState(0)
-  const [finished, setFinished] = useState(false)
+  const { queue, roundIndex, correctCount, setCorrectCount, finished, startSession, startMistakeReview, advance } =
+    useGameSession({ ids: wordIds, weight: wordWeight, onPerfect, resetSession })
+
   const [slots, setSlots] = useState<(string | null)[]>([])
   const [tray, setTray] = useState<TrayTile[]>([])
   const [status, setStatus] = useState<'playing' | 'correct' | 'wrong'>('playing')
-
-  const startSession = useCallback(() => {
-    const wordIds = scopeWords.map((w) => w.id)
-    setQueue(buildWeightedQueue(wordIds, wordWeight, Math.min(ROUNDS, wordIds.length * 3)))
-    setRoundIndex(0)
-    setCorrectCount(0)
-    setFinished(false)
-    resetSession()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scopeWords])
-
-  useEffect(() => {
-    if (scopeWords.length > 0) startSession()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scopeWords.length])
-
-  // Replays just this session's mistakes, in place, from the finish screen.
-  const startMistakeReview = useCallback((ids: string[]) => {
-    setQueue(ids)
-    setRoundIndex(0)
-    setCorrectCount(0)
-    setFinished(false)
-    resetSession()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   // Sets up a fresh tray/slots for a new word.
   const setupRound = useCallback(
@@ -111,19 +85,6 @@ export function WordBuilderPage() {
     speak(`words/${currentWord.id}`, currentWord.audioText ?? currentWord.kana)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentWord?.id])
-
-  const advance = useCallback(() => {
-    if (roundIndex + 1 >= queue.length) {
-      setFinished(true)
-    } else {
-      setRoundIndex((i) => i + 1)
-    }
-  }, [roundIndex, queue.length])
-
-  useEffect(() => {
-    if (finished && queue.length > 0 && correctCount === queue.length) onPerfect()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [finished])
 
   useEffect(() => {
     if (!currentWord || status !== 'playing') return
@@ -200,10 +161,7 @@ export function WordBuilderPage() {
 
   return (
     <div className="flex flex-col items-center gap-6">
-      <BackToHubLink rowId={rowId} />
-      <p className="text-sm text-neutral-500 dark:text-neutral-400">
-        Round {roundIndex + 1} / {queue.length}
-      </p>
+      <GameRoundHeader rowId={rowId} roundIndex={roundIndex} total={queue.length} />
       <div className="flex flex-col items-center gap-2">
         <img src={`${import.meta.env.BASE_URL}${currentWord.image}`} alt="" className="h-20 w-20" />
         <span className="text-lg font-semibold">{currentWord.meaning}</span>
@@ -236,12 +194,7 @@ export function WordBuilderPage() {
         })}
       </div>
 
-      <div className="flex w-full items-center justify-between">
-        <p className={`font-semibold ${feedback ? (feedback.ok ? 'text-red-500' : 'text-blue-500') : ''}`}>
-          {feedback && `${feedback.ok ? '○' : '✕'} ${feedback.text}`}
-        </p>
-        <Mascot mood={mood} />
-      </div>
+      <AnswerFeedbackRow feedback={feedback} mood={mood} />
 
       {status === 'wrong' && (
         <>
