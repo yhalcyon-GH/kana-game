@@ -5,10 +5,10 @@ type Props = {
 }
 
 const MOOD_IMAGE: Record<MascotMood, string> = {
-  normal: 'mascot/normal.png',
-  correct: 'mascot/correct.png',
-  incorrect: 'mascot/incorrect.png',
-  streak: 'mascot/streak.png',
+  normal: 'mascot/normal.webp',
+  correct: 'mascot/correct.webp',
+  incorrect: 'mascot/incorrect.webp',
+  streak: 'mascot/streak.webp',
 }
 
 // Tamamizu, the app's fox-spirit mascot — sits in the bottom-right of the

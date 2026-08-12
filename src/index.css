@@ -6,9 +6,31 @@
    it were set on <body> those glyphs would silently replace the system
    font for every English UI label as well. Both weights (400/600) are
    loaded so `font-bold`/`font-semibold` kana text picks a real matching
-   weight instead of the browser faking bold. */
-@import "@fontsource/klee-one/japanese-400.css";
-@import "@fontsource/klee-one/japanese-600.css";
+   weight instead of the browser faking bold.
+
+   Self-hosted as a hand-built subset (see scripts/subsetKanaFont.mjs)
+   instead of @fontsource/klee-one's japanese-*.css: the full Japanese
+   subset is ~4MB per weight (every kanji + katakana + hiragana glyph),
+   but every .font-kana use in this app is hiragana/～/・ only — the
+   curriculum never introduces kanji or katakana as visible kana text
+   (see data/words.ts's "only characters introduced at or before this
+   row" rule). Subsetting to just the ~70 glyphs actually used shrinks
+   each weight to ~14KB. Re-run the script if a new character (e.g. a
+   future katakana row) needs adding to the subset. */
+@font-face {
+  font-family: 'Klee One';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url('./assets/fonts/klee-one-hiragana-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Klee One';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url('./assets/fonts/klee-one-hiragana-600.woff2') format('woff2');
+}
 
 :root {
   color-scheme: light dark;
