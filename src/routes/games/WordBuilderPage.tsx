@@ -204,7 +204,7 @@ export function WordBuilderPage() {
         Round {roundIndex + 1} / {queue.length}
       </p>
       <div className="flex flex-col items-center gap-2">
-        <span className="text-5xl">{currentWord.emoji}</span>
+        <img src={`${import.meta.env.BASE_URL}${currentWord.image}`} alt="" className="h-20 w-20" />
         <span className="text-lg font-semibold">{currentWord.meaning}</span>
         <span className="text-sm text-neutral-500 dark:text-neutral-400">{currentWord.romaji}</span>
         {supported && (

@@ -20,7 +20,7 @@ export type AnchorWord = {
   kana: string
   romaji: string
   meaning: string
-  emoji: string
+  image: string
   characterIds: string[]
   audioText?: string
 }

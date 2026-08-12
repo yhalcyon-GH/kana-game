@@ -149,7 +149,7 @@ export function ListeningPage() {
         Round {roundIndex + 1} / {queue.length}
       </p>
       <div className="flex flex-col items-center gap-2">
-        <span className="text-5xl">{currentWord.emoji}</span>
+        <img src={`${import.meta.env.BASE_URL}${currentWord.image}`} alt="" className="h-20 w-20" />
         <span className="text-sm text-neutral-500 dark:text-neutral-400">{currentWord.meaning}</span>
         {supported && (
           <button
