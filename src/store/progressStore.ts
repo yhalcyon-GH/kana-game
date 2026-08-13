@@ -19,6 +19,7 @@ type ProgressState = {
   audioEnabled: boolean
   audioVolume: number
   audioSpeed: number
+  showRomaji: boolean
 
   ensureCharacterInitialized: (charId: string) => void
   recordResult: (charId: string, correct: boolean) => void
@@ -29,6 +30,7 @@ type ProgressState = {
   setAudioEnabled: (enabled: boolean) => void
   setAudioVolume: (volume: number) => void
   setAudioSpeed: (speed: number) => void
+  setShowRomaji: (show: boolean) => void
   resetProgress: () => void
 }
 
@@ -45,6 +47,7 @@ export const useProgressStore = create<ProgressState>()(
       audioEnabled: true,
       audioVolume: 1,
       audioSpeed: 0.75,
+      showRomaji: true,
 
       ensureCharacterInitialized: (charId) => {
         if (get().characters[charId]) return
@@ -103,6 +106,7 @@ export const useProgressStore = create<ProgressState>()(
       setAudioEnabled: (enabled) => set({ audioEnabled: enabled }),
       setAudioVolume: (volume) => set({ audioVolume: volume }),
       setAudioSpeed: (speed) => set({ audioSpeed: speed }),
+      setShowRomaji: (show) => set({ showRomaji: show }),
 
       resetProgress: () =>
         set({
@@ -112,6 +116,7 @@ export const useProgressStore = create<ProgressState>()(
           audioEnabled: true,
           audioVolume: 1,
           audioSpeed: 0.75,
+          showRomaji: true,
         }),
     }),
     {

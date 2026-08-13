@@ -4,6 +4,7 @@ import { AnswerFeedbackRow } from '../../components/AnswerFeedbackRow'
 import { GameRoundHeader } from '../../components/GameRoundHeader'
 import { KanaTile } from '../../components/KanaTile'
 import { PracticeSummary } from '../../components/PracticeSummary'
+import { RomajiToggle } from '../../components/RomajiToggle'
 import { CHARACTERS_BY_ID } from '../../data/characters'
 import { ROWS_BY_ID } from '../../data/curriculum'
 import type { AnchorWord } from '../../data/types'
@@ -27,6 +28,7 @@ export function WordBuilderPage() {
   const { isScopeReady, getScopeCharacterIds, getScopeWords } = useCurriculum()
   const recordResult = useProgressStore((s) => s.recordResult)
   const characters = useProgressStore((s) => s.characters)
+  const showRomaji = useProgressStore((s) => s.showRomaji)
   const { speak, supported } = useTTS()
   const isReview = rowId === REVIEW_SCOPE_ID
   const { feedback, mood, mistakes, mistakeIds, onCorrect, onWrong, onPerfect, clear, resetSession } = useAnswerFeedback()
@@ -165,7 +167,10 @@ export function WordBuilderPage() {
       <div className="flex flex-col items-center gap-2">
         <img src={`${import.meta.env.BASE_URL}${currentWord.image}`} alt="" className="h-20 w-20" />
         <span className="text-lg font-semibold">{currentWord.meaning}</span>
-        <span className="text-sm text-neutral-500 dark:text-neutral-400">{currentWord.romaji}</span>
+        <div className="flex items-center gap-2">
+          {showRomaji && <span className="text-sm text-neutral-500 dark:text-neutral-400">{currentWord.romaji}</span>}
+          <RomajiToggle />
+        </div>
         {supported && (
           <button
             type="button"
