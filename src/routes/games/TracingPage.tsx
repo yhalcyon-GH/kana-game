@@ -63,22 +63,26 @@ export function TracingPage() {
   const currentCharId = phase === 'chars' && queue.length > 0 ? queue[roundIndex] : undefined
   const currentWord = phase === 'words' && queue.length > 0 ? wordsById[queue[roundIndex]] : undefined
 
-  // Resizing the canvas backing store (even to the same size) clears it, so
-  // this doubles as both "draw the guide for a new round" and "Clear".
+  // Resizing the canvas backing store (even to the same size) clears it AND
+  // resets all context state (fillStyle/font/textAlign/etc. revert to their
+  // defaults) — so the resize must happen *before* any style is set, not
+  // after, or the guide silently renders in default black at the default
+  // top-left anchor instead of the intended faint centered gray. Resizing
+  // doubles as both "draw the guide for a new round" and "Clear".
   const drawGuide = useCallback(() => {
     const canvas = canvasRef.current
     const ctx = canvas?.getContext('2d')
     if (!canvas || !ctx) return
     const dpr = window.devicePixelRatio || 1
-    ctx.fillStyle = 'rgba(120, 120, 120, 0.3)'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
 
     if (phase === 'chars' && currentCharId) {
       canvas.width = CANVAS_SIZE * dpr
       canvas.height = CANVAS_SIZE * dpr
       ctx.scale(dpr, dpr)
       ctx.font = `${CANVAS_SIZE * 0.75}px "Klee One", sans-serif`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillStyle = 'rgba(120, 120, 120, 0.3)'
       ctx.fillText(CHARACTERS_BY_ID[currentCharId].kana, CANVAS_SIZE / 2, CANVAS_SIZE / 2 + CANVAS_SIZE * 0.05)
     } else if (phase === 'words' && currentWord) {
       const chars = [...currentWord.kana]
@@ -86,6 +90,9 @@ export function TracingPage() {
       canvas.height = WORD_CHAR_SIZE * dpr
       ctx.scale(dpr, dpr)
       ctx.font = `${WORD_CHAR_SIZE * 0.75}px "Klee One", sans-serif`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillStyle = 'rgba(120, 120, 120, 0.3)'
       chars.forEach((ch, i) => {
         ctx.fillText(ch, WORD_CHAR_SIZE * (i + 0.5), WORD_CHAR_SIZE / 2 + WORD_CHAR_SIZE * 0.05)
       })
@@ -212,16 +219,33 @@ export function TracingPage() {
         <>
           <span className="text-lg font-semibold">{currentWord.meaning}</span>
           <span className="-mt-4 text-sm text-neutral-500 dark:text-neutral-400">{currentWord.romaji}</span>
-          {supported && (
+          <div className="max-w-full overflow-x-auto">
+            <div className="flex w-max gap-1">
+              {[...currentWord.characterIds].map((charId, i) => (
+                <StrokeOrderAnimation key={`${charId}-${i}`} characterId={charId} playToken={animationToken} size={WORD_CHAR_SIZE} />
+              ))}
+            </div>
+          </div>
+          <div className="flex gap-3">
+            {supported && (
+              <button
+                type="button"
+                onClick={() => speak(`words/${currentWord.id}`, currentWord.audioText ?? currentWord.kana)}
+                className="rounded-full bg-neutral-100 px-4 py-2 text-lg hover:bg-neutral-200 dark:bg-neutral-700 dark:hover:bg-neutral-600"
+                aria-label="Hear the pronunciation again"
+              >
+                🔊 Again
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => speak(`words/${currentWord.id}`, currentWord.audioText ?? currentWord.kana)}
+              onClick={() => setAnimationToken((t) => t + 1)}
               className="rounded-full bg-neutral-100 px-4 py-2 text-lg hover:bg-neutral-200 dark:bg-neutral-700 dark:hover:bg-neutral-600"
-              aria-label="Hear the pronunciation again"
+              aria-label="Watch the stroke order again"
             >
-              🔊 Again
+              ✍️ Again
             </button>
-          )}
+          </div>
         </>
       ) : null}
 

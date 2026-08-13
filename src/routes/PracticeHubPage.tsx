@@ -52,9 +52,14 @@ export function PracticeHubPage() {
 
   if (!rowId || (!isReview && !row)) return null
 
+  // Tracing walks through "every word in this row" as its second phase (see
+  // TracingPage) — that only makes sense for a single row's small word
+  // list, not Review's every-taught-row mix, so it's excluded there.
   const learnActivities: Activity[] = [
     ...(isReview ? [] : [{ path: `/learn/${rowId}`, label: 'Learn', emoji: '📖', description: 'Meet the new characters' }]),
-    { path: `/practice/${rowId}/tracing`, label: 'Tracing', emoji: '✍️', description: 'Watch the stroke order, then trace' },
+    ...(isReview
+      ? []
+      : [{ path: `/practice/${rowId}/tracing`, label: 'Tracing', emoji: '✍️', description: 'Watch the stroke order, then trace' }]),
   ]
   const practiceActivities: Activity[] = PRACTICE_GAMES.map((game) => ({
     path: `/practice/${rowId}/${game.path}`,

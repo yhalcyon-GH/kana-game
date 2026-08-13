@@ -1,18 +1,21 @@
 // Pitch accent pattern per word, as a High/Low string aligned 1:1 with
 // `kana` (one letter per character — safe because this curriculum never
 // uses yōon/small-kana digraphs, where one mora spans two characters).
-// Sourced from accentjiten.com's aggregated NHK/OJAD/Wiktionary/Wadoku/
-// Kanjium dataset (see reference_accentjiten_dataset memory) — never
-// hand-guessed. Words are omitted here (rendered with no accent dots)
-// when: the word is a single mora (no accent contrast possible), or the
-// dataset itself records conflicting accents for the correct-meaning
-// kanji (e.g. 世界/せかい has both HLL and LHL on record) — shown as
-// unmarked rather than picking a source arbitrarily.
+// Rebuilt by scripts/buildAccentData.mjs from accentjiten.com's aggregated
+// NHK/OJAD/Wiktionary/Wadoku/Kanjium/Kishimoto-Tsuneyo dataset — never
+// hand-guessed (see feedback_dont_guess_pitch_accent memory). Words are
+// omitted here only when the word is a single mora (no accent contrast is
+// possible); every multi-mora word has a resolved answer, either a single
+// accent on record for the correct-meaning kanji, or — for words where
+// even that kanji has more than one accent on record — the reading backed
+// by the broader majority of independent sources (see the script's
+// RESOLVED_BY_SOURCE_CONSENSUS table and console output for the specific
+// per-source breakdown behind each of those).
 //
 // Intentionally coarse: this drives a small, deliberately de-emphasized
 // visual hint (see WordCard), not pronunciation-critical audio, so
 // dialect/source variation that would matter for TTS accuracy is fine to
-// leave unmarked here.
+// resolve by majority here.
 export const ACCENT_PATTERNS: Record<string, string> = {
   'a-ai': 'HL', // あい (ai)
   'a-ao': 'HL', // あお (ao)
@@ -25,6 +28,7 @@ export const ACCENT_PATTERNS: Record<string, string> = {
   'ha-hebi': 'HL', // へび (hebi)
   'ha-hito': 'LH', // ひと (hito)
   'ha-hoshi': 'LH', // ほし (hoshi)
+  'ha-kutsushita': 'LHLL', // くつした (kutsushita)
   'ha-soba': 'HL', // そば (soba)
   'ka-aka': 'HL', // あか (aka)
   'ka-eki': 'HL', // えき (eki)
@@ -46,9 +50,11 @@ export const ACCENT_PATTERNS: Record<string, string> = {
   'ma-namae': 'LHH', // なまえ (namae)
   'ma-nezumi': 'LHH', // ねずみ (nezumi)
   'ma-sashimi': 'LHH', // さしみ (sashimi)
+  'ma-tamago': 'LHL', // たまご (tamago)
   'ma-tomodachi': 'LHHH', // ともだち (tomodachi)
   'na-inu': 'LH', // いぬ (inu)
   'na-kuni': 'LH', // くに (kuni)
+  'na-nani': 'HL', // なに (nani)
   'na-natsu': 'LH', // なつ (natsu)
   'na-neko': 'HL', // ねこ (neko)
   'na-niku': 'LH', // にく (niku)
@@ -59,6 +65,7 @@ export const ACCENT_PATTERNS: Record<string, string> = {
   'ra-kuruma': 'LHH', // くるま (kuruma)
   'ra-misoshiru': 'LHHL', // みそしる (misoshiru)
   'ra-onigiri': 'LHLL', // おにぎり (onigiri)
+  'ra-sakura': 'LHH', // さくら (sakura)
   'ra-shiro': 'HL', // しろ (shiro)
   'ra-sora': 'HL', // そら (sora)
   'ra-tori': 'LH', // とり (tori)
@@ -67,8 +74,11 @@ export const ACCENT_PATTERNS: Record<string, string> = {
   'sa-isu': 'LH', // いす (isu)
   'sa-kasa': 'HL', // かさ (kasa)
   'sa-kazu': 'HL', // かず (kazu)
+  'sa-okashi': 'LHL', // おかし (okashi)
   'sa-sake': 'LH', // さけ (sake)
+  'sa-sekai': 'HLL', // せかい (sekai)
   'sa-suki': 'LH', // すき (suki)
+  'sa-sushi': 'LH', // すし (sushi)
   'ta-chikatetsu': 'LHHH', // ちかてつ (chikatetsu)
   'ta-chizu': 'HL', // ちず (chizu)
   'ta-ito': 'HL', // いと (ito)
@@ -92,5 +102,6 @@ export const ACCENT_PATTERNS: Record<string, string> = {
   'ya-takoyaki': 'LHHH', // たこやき (takoyaki)
   'ya-yama': 'LH', // やま (yama)
   'ya-yasai': 'LHH', // やさい (yasai)
+  'ya-yuki': 'LH', // ゆき (yuki)
   'ya-yume': 'LH', // ゆめ (yume)
 }
