@@ -1,7 +1,7 @@
 import type { AnchorWord } from './types'
 
 // Word lists, one array per row. Every word here uses ONLY characters
-// introduced at or before that row (validated by scripts/validateCurriculum.ts)
+// introduced at or before that row (validated by data/curriculum.test.ts)
 // so the vocabulary and kana knowledge grow together. Each row's full list
 // is shown together in the row's "Step B: words" screen, and doubles as the
 // word pool the practice mini-games draw from — there's no separate

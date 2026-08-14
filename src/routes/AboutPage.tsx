@@ -11,47 +11,9 @@ export function AboutPage() {
       <div className="w-full rounded-xl border border-neutral-300 bg-white p-3 text-sm text-neutral-600 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
         <span className="font-semibold text-neutral-700 dark:text-neutral-300">About the Audio</span>
         <p className="mt-1">
-          Characters, words, and reading prompts are voiced by the free character material{' '}
-          <strong>Tsukuyomi-chan</strong>. Correct/incorrect answer comments in the practice games are voiced by{' '}
-          <strong>COEIROINK:MANA</strong>.
-        </p>
-        <ul className="mt-2 list-disc pl-5">
-          <li>Character name: つくよみちゃん (<strong>Tsukuyomi-chan</strong>)</li>
-          <li>
-            Official website:{' '}
-            <a href="https://tyc.rei-yumesaki.net/" target="_blank" rel="noreferrer" className="underline">
-              https://tyc.rei-yumesaki.net/
-            </a>
-          </li>
-          <li>
-            Terms of Use:{' '}
-            <a href="https://tyc.rei-yumesaki.net/about/terms/" target="_blank" rel="noreferrer" className="underline">
-              https://tyc.rei-yumesaki.net/about/terms/
-            </a>
-          </li>
-        </ul>
-        <p className="mt-2">
-          Tsukuyomi-chan is a free character created by Rei Yumemi, and the audio is used in accordance with the Terms
-          of Use.
-        </p>
-        <ul className="mt-2 list-disc pl-5">
-          <li>Character name: MANA (COEIROINK's own default character)</li>
-          <li>
-            Official website:{' '}
-            <a href="https://coeiroink.com/" target="_blank" rel="noreferrer" className="underline">
-              https://coeiroink.com/
-            </a>
-          </li>
-          <li>
-            Terms of Use:{' '}
-            <a href="https://coeiroink.com/terms" target="_blank" rel="noreferrer" className="underline">
-              https://coeiroink.com/terms
-            </a>
-          </li>
-        </ul>
-        <p className="mt-2">
-          Generated with COEIROINK. Credit: <strong>COEIROINK:MANA</strong>. Used in accordance with the COEIROINK
-          Terms of Use.
+          Characters, words, and reading prompts are voiced by a dedicated narrator voice, and the mascot's
+          correct/incorrect answer reactions are voiced by a separate character voice — both generated with{' '}
+          <strong>ElevenLabs</strong>.
         </p>
         <p className="mt-2">Built with React, TypeScript, Vite, Tailwind CSS, React Router, and Zustand.</p>
       </div>
