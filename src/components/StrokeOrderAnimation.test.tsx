@@ -30,3 +30,22 @@ describe('StrokeOrderAnimation with a yōon character (no KanjiVG data)', () => 
     expect(container.querySelectorAll('path').length).toBeGreaterThan(0)
   })
 })
+
+// ファ (katakana-fa) — a real 特殊音 character, same "no KanjiVG data, never
+// run fetchStrokeData.ts for it" situation as yōon above, just via a
+// different 2-glyph construction (base katakana + small vowel instead of
+// base + small ゃゅょ). Re-running fetchStrokeData.ts naively would key
+// ファ's entry off kana.codePointAt(0) (フ's codepoint alone), silently
+// writing フ's real stroke data mislabeled as ファ's — see characters.ts's
+// ===== 特殊音 ===== block and docs/curriculum-extensibility.md.
+describe('StrokeOrderAnimation with a 特殊音 character (no KanjiVG data)', () => {
+  it('STROKE_PATHS genuinely has no entry for it (not just theoretically missing)', () => {
+    expect(STROKE_PATHS['katakana-fa']).toBeUndefined()
+  })
+
+  it('renders without crashing, as an empty guide (zero stroke paths)', () => {
+    const { container } = render(<StrokeOrderAnimation characterId="katakana-fa" playToken={0} />)
+    expect(container.querySelectorAll('path')).toHaveLength(0)
+    expect(container.querySelector('svg')).toBeInTheDocument()
+  })
+})

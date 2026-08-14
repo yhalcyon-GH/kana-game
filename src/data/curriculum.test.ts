@@ -249,3 +249,92 @@ describe('character-set category content (拗音/yōon)', () => {
     expect(cumulative).not.toEqual(expect.arrayContaining(['rya', 'katakana-kya']))
   })
 })
+
+// 特殊音 (tokushuon) — the sixth and final planned category, also
+// 'character-set' like 拗音/カタカナ, but genuinely katakana-only (no
+// hiragana-id counterpart at all) and depends on sokuon (not just katakana)
+// since real vocabulary needs っ/ッ — see curriculum.ts's TOKUSHUON_CATEGORY_ID
+// comment and characters.ts's ===== 特殊音 ===== block.
+describe('character-set category content (特殊音/tokushuon)', () => {
+  it('tokushuon is a character-set category', () => {
+    expect(CATEGORIES_BY_ID.tokushuon?.learnStyle).toBe('character-set')
+  })
+
+  it('tokushuon depends on katakana + sokuon, but NOT hiragana (it is genuinely katakana-only)', () => {
+    expect(CATEGORIES_BY_ID.tokushuon?.dependsOnCategoryIds).toEqual(expect.arrayContaining(['katakana', 'sokuon']))
+    expect(CATEGORIES_BY_ID.tokushuon?.dependsOnCategoryIds).not.toEqual(expect.arrayContaining(['hiragana']))
+    const cumulative = getCumulativeCharacterIds('tokushuon-fa-row')
+    expect(cumulative).toEqual(expect.arrayContaining(['katakana-a', 'katakana-ka', 'katakana-chouon'])) // katakana
+    expect(cumulative).toEqual(expect.arrayContaining(['katakana-sokuon'])) // sokuon (needed for words like ウォッチ)
+    expect(cumulative).not.toEqual(expect.arrayContaining(['a', 'ka', 'n'])) // NOT hiragana
+  })
+
+  it('introduces the documented 23-combination set, all katakana-prefixed, across 6 rows', () => {
+    const tokushuonChars = CHARACTERS.filter((c) => c.rowId.startsWith('tokushuon-'))
+    expect(tokushuonChars).toHaveLength(23)
+    expect(tokushuonChars.every((c) => c.id.startsWith('katakana-'))).toBe(true)
+    // Spot-check a few well-known combinations exist with the right glyphs.
+    expect(CHARACTERS_BY_ID['katakana-fa']?.kana).toBe('ファ')
+    expect(CHARACTERS_BY_ID['katakana-ti']?.kana).toBe('ティ')
+    expect(CHARACTERS_BY_ID['katakana-va']?.kana).toBe('ヴァ')
+    expect(CHARACTERS_BY_ID['katakana-she']?.kana).toBe('シェ')
+  })
+
+  it('ウォ deliberately does NOT collide with ヲ\'s id, despite sharing the same conventional romaji', () => {
+    // Both are real, distinct characters ('katakana-uo' = ウォ, 'katakana-wo'
+    // = ヲ) that happen to romanize the same way — see characters.ts's
+    // comment on why 'katakana-uo' was chosen instead of the more obvious
+    // (but already-taken) 'katakana-wo'.
+    expect(CHARACTERS_BY_ID['katakana-uo']?.kana).toBe('ウォ')
+    expect(CHARACTERS_BY_ID['katakana-wo']?.kana).toBe('ヲ')
+    expect(CHARACTERS_BY_ID['katakana-uo']?.romaji).toBe('wo')
+    expect(CHARACTERS_BY_ID['katakana-wo']?.romaji).toBe('wo')
+  })
+
+  it('every tokushuon character is 2 glyphs, EXCEPT ヴ (katakana-vu) which is a genuine 1-glyph character', () => {
+    const tokushuonChars = CHARACTERS.filter((c) => c.rowId.startsWith('tokushuon-'))
+    for (const c of tokushuonChars) {
+      const expectedLength = c.id === 'katakana-vu' ? 1 : 2
+      expect([...c.kana], `"${c.id}" (${c.kana}) should be exactly ${expectedLength} glyph(s)`).toHaveLength(expectedLength)
+    }
+  })
+
+  it('a real tokushuon word\'s characterIds is shorter than its glyph count — the exact mismatch AccentedKana/buildAccentData.mjs guard against', () => {
+    // ファイル (fairu): 3 characterIds (fa, i, ru) but 4 glyphs (フ/ァ/イ/ル).
+    const word = WORDS_BY_ID['tokushuon-fa-fairu']
+    expect(word).toBeDefined()
+    expect(word.characterIds).toHaveLength(3)
+    expect([...word.kana]).toHaveLength(4)
+  })
+
+  it('the 6 tokushuon rows share one monotonic order sequence within the category, grouped by base-consonant family', () => {
+    const tokushuonRows = ROWS.filter((r) => r.categoryId === 'tokushuon').sort((a, b) => a.order - b.order)
+    expect(tokushuonRows).toHaveLength(6)
+    expect(tokushuonRows.map((r) => r.order)).toEqual([0, 1, 2, 3, 4, 5])
+    expect(tokushuonRows.map((r) => r.id)).toEqual([
+      'tokushuon-fa-row',
+      'tokushuon-ti-row',
+      'tokushuon-wi-row',
+      'tokushuon-va-row',
+      'tokushuon-che-row',
+      'tokushuon-tsa-row',
+    ])
+  })
+
+  it('a later tokushuon row\'s cumulative pool includes earlier tokushuon rows\' characters too (order still matters within the category)', () => {
+    const cumulative = getCumulativeCharacterIds('tokushuon-tsa-row')
+    expect(cumulative).toEqual(expect.arrayContaining(['katakana-fa', 'katakana-va', 'katakana-che'])) // earlier rows
+    expect(cumulative).toEqual(expect.arrayContaining(['katakana-tsa'])) // own row
+  })
+
+  it('an early tokushuon row\'s cumulative pool does NOT include later tokushuon rows\' characters', () => {
+    const cumulative = getCumulativeCharacterIds('tokushuon-fa-row')
+    expect(cumulative).not.toEqual(expect.arrayContaining(['katakana-va', 'katakana-tsa']))
+  })
+
+  it('yōon behavior is unaffected by tokushuon existing (regression): yōon does not depend on sokuon or gain tokushuon characters', () => {
+    expect(CATEGORIES_BY_ID.youon?.dependsOnCategoryIds).not.toEqual(expect.arrayContaining(['sokuon']))
+    const cumulative = getCumulativeCharacterIds('youon-ka-row')
+    expect(cumulative).not.toEqual(expect.arrayContaining(['katakana-fa', 'katakana-sokuon']))
+  })
+})

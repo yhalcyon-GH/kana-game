@@ -52,3 +52,51 @@ describe('WordCard with a yōon word (2 glyphs, 1 character id, but mismatched m
     expect(container.querySelector('svg')).toBeInTheDocument()
   })
 })
+
+// ファイル (fairu, "file") — a real 特殊音 word: 4 glyphs (フ/ァ/イ/ル) but
+// only 3 character ids (fa, i, ru), same "one glyph = one mora" break as
+// yōon above, just via a different construction (base katakana + small
+// vowel instead of base + small ゃゅょ) — see characters.ts's ===== 特殊音
+// ===== block and docs/curriculum-extensibility.md.
+const TOKUSHUON_WORD = WORDS_BY_ID['tokushuon-fa-fairu']
+
+describe('WordCard with a 特殊音 word (multi-glyph, mismatched mora count)', () => {
+  it('exists in the fixture (guards against the word id being renamed out from under this test)', () => {
+    expect(TOKUSHUON_WORD).toBeDefined()
+    expect(TOKUSHUON_WORD.kana).toBe('ファイル')
+  })
+
+  it('renders without crashing and shows the full kana string', () => {
+    render(<WordCard word={TOKUSHUON_WORD} />)
+    expect(screen.getByText('ファイル')).toBeInTheDocument()
+  })
+
+  it('has no ACCENT_PATTERNS entry — buildAccentData.mjs\'s length-mismatch guard drops it', () => {
+    expect(ACCENT_PATTERNS[TOKUSHUON_WORD.id]).toBeUndefined()
+  })
+
+  it('renders no accent-line svg (the mismatch fallback plain-kana path, not the accent-line path)', () => {
+    const { container } = render(<WordCard word={TOKUSHUON_WORD} />)
+    expect(container.querySelector('svg')).not.toBeInTheDocument()
+  })
+})
+
+// ヴーン (vuun) — the ONE 特殊音 word built from a genuinely 1-glyph
+// character (ヴ, katakana-vu — see characters.ts). Its glyph count (3: ヴ/
+// ー/ン) matches its character-id count (3: vu, chouon, n) exactly, so this
+// is a real regression case proving the mismatch fallback above isn't just
+// universally suppressing every 特殊音 word's accent line.
+describe('WordCard with a 特殊音 word built from a 1-glyph character (regression: not every tokushuon word mismatches)', () => {
+  it('exists in the fixture and its characterIds length matches its glyph count', () => {
+    const word = WORDS_BY_ID['tokushuon-va-vuun']
+    expect(word).toBeDefined()
+    expect(word.kana).toBe('ヴーン')
+    expect(word.characterIds).toHaveLength(3)
+    expect([...word.kana]).toHaveLength(3)
+  })
+
+  it('renders without crashing', () => {
+    render(<WordCard word={WORDS_BY_ID['tokushuon-va-vuun']} />)
+    expect(screen.getByText('ヴーン')).toBeInTheDocument()
+  })
+})

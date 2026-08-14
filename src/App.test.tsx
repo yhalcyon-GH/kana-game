@@ -274,3 +274,63 @@ describe('character-set learnStyle with yōon (multi-glyph, one-mora characters)
     expect(screen.getByText('Kana Quiz')).toBeInTheDocument()
   })
 })
+
+// 特殊音 (tokushuon) — the sixth and final planned category (see
+// docs/curriculum-extensibility.md), also 'character-set' like 拗音/カタカナ.
+// Same generic-flow confirmation as yōon's block above, plus its own
+// multi-glyph wrinkle already proven safe in isolation by
+// WordCard.test.tsx/StrokeOrderAnimation.test.tsx — these confirm the same
+// holds mounted inside the real page flow.
+describe('character-set learnStyle with 特殊音/tokushuon (multi-glyph characters, one genuinely 1-glyph exception)', () => {
+  it('/practice/tokushuon/tokushuon-fa-row renders that row\'s Practice Hub', () => {
+    renderAt('/practice/tokushuon/tokushuon-fa-row')
+    expect(screen.getByRole('heading', { name: 'ファ・フィ・フェ・フォ' })).toBeInTheDocument()
+  })
+
+  it('the tokushuon Practice Hub offers all 4 games, including Kana Quiz (regression: character-set categories keep it, unlike contrast-pairs)', () => {
+    renderAt('/practice/tokushuon/tokushuon-fa-row')
+    expect(screen.getByText('Kana Quiz')).toBeInTheDocument()
+    expect(screen.getByText('Kana Typing')).toBeInTheDocument()
+    expect(screen.getByText('Listening')).toBeInTheDocument()
+    expect(screen.getByText('Word Builder')).toBeInTheDocument()
+  })
+
+  it('/learn/tokushuon/tokushuon-fa-row starts on the flashcard step, like hiragana/katakana/yōon (not skipped like contrast-pairs)', () => {
+    renderAt('/learn/tokushuon/tokushuon-fa-row')
+    expect(screen.getByText(/new characters/)).toBeInTheDocument()
+  })
+
+  it('/practice/tokushuon/tokushuon-fa-row/kana-quiz renders normally rather than redirecting home', () => {
+    renderAt('/practice/tokushuon/tokushuon-fa-row/kana-quiz')
+    expect(screen.getByText(/Round 1/)).toBeInTheDocument()
+  })
+
+  it('/practice/tokushuon/tokushuon-fa-row/tracing starts in the character phase and does not crash on a tokushuon character with no stroke data', () => {
+    renderAt('/practice/tokushuon/tokushuon-fa-row/tracing')
+    expect(screen.getByText('Trace each character')).toBeInTheDocument()
+  })
+
+  it('/practice/tokushuon/tokushuon-fa-row/word-builder renders real words built from multi-glyph tokushuon characters', () => {
+    renderAt('/practice/tokushuon/tokushuon-fa-row/word-builder')
+    expect(screen.getByText(/Round 1/)).toBeInTheDocument()
+  })
+
+  it('/practice/tokushuon/tokushuon-va-row renders the row containing the one 1-glyph tokushuon character (ヴ) without crashing', () => {
+    renderAt('/practice/tokushuon/tokushuon-va-row')
+    expect(screen.getByRole('heading', { name: 'ヴ・ヴァ・ヴィ・ヴェ・ヴォ' })).toBeInTheDocument()
+  })
+
+  it('sokuon/chōon/yōon/hiragana/katakana behavior is unaffected by tokushuon existing (regression)', () => {
+    const sokuonRender = renderAt('/practice/sokuon/sokuon-row')
+    expect(screen.getByRole('heading', { name: 'っ・ッ' })).toBeInTheDocument()
+    expect(screen.queryByText('Kana Quiz')).not.toBeInTheDocument()
+    sokuonRender.unmount()
+
+    const youonRender = renderAt('/practice/youon/youon-ka-row')
+    expect(screen.getByText('Kana Quiz')).toBeInTheDocument()
+    youonRender.unmount()
+
+    renderAt('/practice/hiragana/a-row')
+    expect(screen.getByText('Kana Quiz')).toBeInTheDocument()
+  })
+})
