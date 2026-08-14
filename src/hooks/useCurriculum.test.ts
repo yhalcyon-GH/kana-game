@@ -60,4 +60,23 @@ describe('useCurriculum', () => {
     expect(result.current.getScopeCharacterIds('not-a-real-row')).toEqual([])
     expect(result.current.isScopeReady(undefined)).toBe(false)
   })
+
+  // Kana Quiz doesn't fit 'contrast-pairs' categories (促音/長音 — see
+  // docs/curriculum-extensibility.md), so once a contrast-pairs row is
+  // taught, its characters shouldn't surface in Review's Kana Quiz pool
+  // even though Review otherwise mixes every taught row together.
+  it('getScopeQuizCharacterIds excludes contrast-pairs characters from the review scope, but keeps them in getScopeCharacterIds', () => {
+    useProgressStore.getState().markRowTaught('a-row')
+    useProgressStore.getState().markRowTaught('sokuon-row')
+    const { result } = renderHook(() => useCurriculum())
+
+    const quizIds = result.current.getScopeQuizCharacterIds(REVIEW_SCOPE_ID)
+    expect(quizIds).not.toEqual(expect.arrayContaining(['sokuon', 'katakana-sokuon']))
+    expect(quizIds.length).toBeGreaterThan(0) // a-row's characters are still quizzable
+
+    // Word Builder's distractor-tile pool is a different concern (whole
+    // words, not isolated readings) — っ/ッ should still be available there.
+    const charIds = result.current.getScopeCharacterIds(REVIEW_SCOPE_ID)
+    expect(charIds).toEqual(expect.arrayContaining(['sokuon', 'katakana-sokuon']))
+  })
 })

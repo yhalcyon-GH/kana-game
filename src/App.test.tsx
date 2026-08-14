@@ -98,3 +98,61 @@ describe('routing', () => {
     expect(screen.queryByRole('heading', { name: 'あ~お' })).not.toBeInTheDocument()
   })
 })
+
+// 促音 (sokuon) is the first 'contrast-pairs' category — these tests cover
+// the Learn/Practice/Tracing generalization described in
+// docs/curriculum-extensibility.md, alongside the regression checks below
+// proving hiragana/katakana ('character-set') behavior is unchanged.
+describe('contrast-pairs learnStyle (sokuon)', () => {
+  it('/practice/sokuon/sokuon-row renders that row\'s Practice Hub', () => {
+    renderAt('/practice/sokuon/sokuon-row')
+    expect(screen.getByRole('heading', { name: 'っ・ッ' })).toBeInTheDocument()
+  })
+
+  it('the sokuon Practice Hub offers Learn, Tracing, and 3 games, but NOT Kana Quiz', () => {
+    renderAt('/practice/sokuon/sokuon-row')
+    expect(screen.getByRole('link', { name: /Learn/ })).toBeInTheDocument()
+    expect(screen.getByText('Tracing')).toBeInTheDocument()
+    expect(screen.getByText('Word Builder')).toBeInTheDocument()
+    expect(screen.getByText('Listening')).toBeInTheDocument()
+    expect(screen.getByText('Kana Typing')).toBeInTheDocument()
+    expect(screen.queryByText('Kana Quiz')).not.toBeInTheDocument()
+  })
+
+  it('the hiragana Practice Hub still offers Kana Quiz (regression: character-set categories unaffected)', () => {
+    renderAt('/practice/hiragana/a-row')
+    expect(screen.getByText('Kana Quiz')).toBeInTheDocument()
+  })
+
+  it('/learn/sokuon/sokuon-row skips the flashcard step and goes straight to the word list', () => {
+    renderAt('/learn/sokuon/sokuon-row')
+    expect(screen.getByText(/listen and compare/)).toBeInTheDocument()
+    expect(screen.queryByText(/new characters/)).not.toBeInTheDocument()
+  })
+
+  it('/learn/hiragana/a-row still starts on the flashcard step (regression)', () => {
+    renderAt('/learn/hiragana/a-row')
+    expect(screen.getByText(/new characters/)).toBeInTheDocument()
+  })
+
+  it('/practice/sokuon/sokuon-row/tracing starts directly in the word phase, skipping the character phase', () => {
+    renderAt('/practice/sokuon/sokuon-row/tracing')
+    expect(screen.getByText('Trace each word')).toBeInTheDocument()
+    expect(screen.queryByText('Trace each character')).not.toBeInTheDocument()
+  })
+
+  it('/practice/hiragana/a-row/tracing still starts in the character phase (regression)', () => {
+    renderAt('/practice/hiragana/a-row/tracing')
+    expect(screen.getByText('Trace each character')).toBeInTheDocument()
+  })
+
+  it('direct navigation to the sokuon Kana Quiz route redirects home rather than rendering', () => {
+    renderAt('/practice/sokuon/sokuon-row/kana-quiz')
+    expect(screen.getByRole('heading', { name: 'Kana Game' })).toBeInTheDocument()
+  })
+
+  it('/practice/sokuon/sokuon-row/word-builder still renders normally (contrast-pairs categories keep the other 3 games)', () => {
+    renderAt('/practice/sokuon/sokuon-row/word-builder')
+    expect(screen.getByText(/Round 1/)).toBeInTheDocument()
+  })
+})

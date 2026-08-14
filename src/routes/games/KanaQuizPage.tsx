@@ -4,7 +4,7 @@ import { AnswerFeedbackRow } from '../../components/AnswerFeedbackRow'
 import { GameRoundHeader } from '../../components/GameRoundHeader'
 import { PracticeSummary } from '../../components/PracticeSummary'
 import { CHARACTERS_BY_ID } from '../../data/characters'
-import { ROWS_BY_ID } from '../../data/curriculum'
+import { CATEGORIES_BY_ID, ROWS_BY_ID } from '../../data/curriculum'
 import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
 import { useEnterAdvance } from '../../hooks/useEnterAdvance'
@@ -50,11 +50,17 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
     resetSession,
   } = useAnswerFeedback()
 
+  // Kana Quiz doesn't fit 'contrast-pairs' categories (促音/長音) — see
+  // PracticeHubPage's comment, which hides this card from the hub. This
+  // guard covers direct navigation to the route too (there's no correct
+  // isolated reading for っ/ッ to quiz on, only a per-word one).
+  const isContrastPairs = !isReview && CATEGORIES_BY_ID[categoryId ?? '']?.learnStyle === 'contrast-pairs'
+
   useEffect(() => {
-    if (!rowId || !isScopeReady(rowId) || (!isReview && ROWS_BY_ID[rowId]?.categoryId !== categoryId)) {
+    if (!rowId || !isScopeReady(rowId) || (!isReview && ROWS_BY_ID[rowId]?.categoryId !== categoryId) || isContrastPairs) {
       navigate('/', { replace: true })
     }
-  }, [rowId, isReview, categoryId, isScopeReady, navigate])
+  }, [rowId, isReview, categoryId, isContrastPairs, isScopeReady, navigate])
 
   const quizCharacterIds = useMemo(() => getScopeQuizCharacterIds(rowId), [rowId, getScopeQuizCharacterIds])
   const distractorPool = useMemo(() => getScopeCharacterIds(rowId), [rowId, getScopeCharacterIds])
