@@ -47,6 +47,26 @@ export const CONFUSABLE_PAIRS: Record<string, string[]> = {
   pe: ['be'],
   bo: ['po'],
   po: ['bo'],
+
+  // katakana — shape confusions specific to that script (different glyphs
+  // than the hiragana pairs above, so listed separately)
+  'katakana-shi': ['katakana-tsu'],
+  'katakana-tsu': ['katakana-shi'],
+  'katakana-so': ['katakana-n'],
+  'katakana-n': ['katakana-so', 'katakana-wa'],
+  'katakana-wa': ['katakana-n'],
+
+  // katakana dakuten/handakuten confusions (same shape logic as hiragana above)
+  'katakana-ba': ['katakana-pa'],
+  'katakana-pa': ['katakana-ba'],
+  'katakana-bi': ['katakana-pi'],
+  'katakana-pi': ['katakana-bi'],
+  'katakana-bu': ['katakana-pu'],
+  'katakana-pu': ['katakana-bu'],
+  'katakana-be': ['katakana-pe'],
+  'katakana-pe': ['katakana-be'],
+  'katakana-bo': ['katakana-po'],
+  'katakana-po': ['katakana-bo'],
 }
 
 export function getConfusableIds(charId: string): string[] {

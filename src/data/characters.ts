@@ -5,6 +5,7 @@ import type { KanaChar } from './types'
 // characters are grouped under the same rowId as their base row, since the
 // curriculum teaches them together (see curriculum.ts).
 export const CHARACTERS: KanaChar[] = [
+  // ===== ひらがな (hiragana) =====
   // あ行
   { id: 'a', kana: 'あ', romaji: 'a', rowId: 'a-row', type: 'base' },
   { id: 'i', kana: 'い', romaji: 'i', rowId: 'a-row', type: 'base' },
@@ -101,6 +102,117 @@ export const CHARACTERS: KanaChar[] = [
   { id: 'wa', kana: 'わ', romaji: 'wa', rowId: 'wa-row', type: 'base' },
   { id: 'wo', kana: 'を', romaji: 'wo', rowId: 'wa-row', type: 'base' },
   { id: 'n', kana: 'ん', romaji: 'n', rowId: 'wa-row', type: 'base' },
+
+  // ===== カタカナ (katakana) =====
+  // Same 71-character set as hiragana (46 base + 20 dakuten + 5 handakuten),
+  // plus ー (chōon/long-vowel mark) as one extra character — see
+  // docs/curriculum-extensibility.md. All ids are 'katakana-' prefixed
+  // since they'd otherwise collide with the hiragana ids above (both
+  // scripts share the same romaji, e.g. hiragana 'ka' vs katakana 'ka').
+  // ア行
+  { id: 'katakana-a', kana: 'ア', romaji: 'a', rowId: 'katakana-a-row', type: 'base' },
+  { id: 'katakana-i', kana: 'イ', romaji: 'i', rowId: 'katakana-a-row', type: 'base' },
+  { id: 'katakana-u', kana: 'ウ', romaji: 'u', rowId: 'katakana-a-row', type: 'base' },
+  { id: 'katakana-e', kana: 'エ', romaji: 'e', rowId: 'katakana-a-row', type: 'base' },
+  { id: 'katakana-o', kana: 'オ', romaji: 'o', rowId: 'katakana-a-row', type: 'base' },
+
+  // カ行
+  { id: 'katakana-ka', kana: 'カ', romaji: 'ka', rowId: 'katakana-ka-row', type: 'base' },
+  { id: 'katakana-ki', kana: 'キ', romaji: 'ki', rowId: 'katakana-ka-row', type: 'base' },
+  { id: 'katakana-ku', kana: 'ク', romaji: 'ku', rowId: 'katakana-ka-row', type: 'base' },
+  { id: 'katakana-ke', kana: 'ケ', romaji: 'ke', rowId: 'katakana-ka-row', type: 'base' },
+  { id: 'katakana-ko', kana: 'コ', romaji: 'ko', rowId: 'katakana-ka-row', type: 'base' },
+  // ガ行 (taught together with カ行)
+  { id: 'katakana-ga', kana: 'ガ', romaji: 'ga', rowId: 'katakana-ka-row', type: 'dakuten' },
+  { id: 'katakana-gi', kana: 'ギ', romaji: 'gi', rowId: 'katakana-ka-row', type: 'dakuten' },
+  { id: 'katakana-gu', kana: 'グ', romaji: 'gu', rowId: 'katakana-ka-row', type: 'dakuten' },
+  { id: 'katakana-ge', kana: 'ゲ', romaji: 'ge', rowId: 'katakana-ka-row', type: 'dakuten' },
+  { id: 'katakana-go', kana: 'ゴ', romaji: 'go', rowId: 'katakana-ka-row', type: 'dakuten' },
+
+  // サ行
+  { id: 'katakana-sa', kana: 'サ', romaji: 'sa', rowId: 'katakana-sa-row', type: 'base' },
+  { id: 'katakana-shi', kana: 'シ', romaji: 'shi', rowId: 'katakana-sa-row', type: 'base' },
+  { id: 'katakana-su', kana: 'ス', romaji: 'su', rowId: 'katakana-sa-row', type: 'base' },
+  { id: 'katakana-se', kana: 'セ', romaji: 'se', rowId: 'katakana-sa-row', type: 'base' },
+  { id: 'katakana-so', kana: 'ソ', romaji: 'so', rowId: 'katakana-sa-row', type: 'base' },
+  // ザ行 (taught together with サ行)
+  { id: 'katakana-za', kana: 'ザ', romaji: 'za', rowId: 'katakana-sa-row', type: 'dakuten' },
+  { id: 'katakana-ji', kana: 'ジ', romaji: 'ji', rowId: 'katakana-sa-row', type: 'dakuten' },
+  { id: 'katakana-zu', kana: 'ズ', romaji: 'zu', rowId: 'katakana-sa-row', type: 'dakuten' },
+  { id: 'katakana-ze', kana: 'ゼ', romaji: 'ze', rowId: 'katakana-sa-row', type: 'dakuten' },
+  { id: 'katakana-zo', kana: 'ゾ', romaji: 'zo', rowId: 'katakana-sa-row', type: 'dakuten' },
+
+  // タ行
+  { id: 'katakana-ta', kana: 'タ', romaji: 'ta', rowId: 'katakana-ta-row', type: 'base' },
+  { id: 'katakana-chi', kana: 'チ', romaji: 'chi', rowId: 'katakana-ta-row', type: 'base' },
+  { id: 'katakana-tsu', kana: 'ツ', romaji: 'tsu', rowId: 'katakana-ta-row', type: 'base' },
+  { id: 'katakana-te', kana: 'テ', romaji: 'te', rowId: 'katakana-ta-row', type: 'base' },
+  { id: 'katakana-to', kana: 'ト', romaji: 'to', rowId: 'katakana-ta-row', type: 'base' },
+  // ダ行 (taught together with タ行). ヂ/ヅ mirror hiragana's ぢ/づ id
+  // disambiguation ('dji'/'dzu') — see characters.ts's hiragana section.
+  { id: 'katakana-da', kana: 'ダ', romaji: 'da', rowId: 'katakana-ta-row', type: 'dakuten' },
+  { id: 'katakana-dji', kana: 'ヂ', romaji: 'ji', rowId: 'katakana-ta-row', type: 'dakuten' },
+  { id: 'katakana-dzu', kana: 'ヅ', romaji: 'zu', rowId: 'katakana-ta-row', type: 'dakuten' },
+  { id: 'katakana-de', kana: 'デ', romaji: 'de', rowId: 'katakana-ta-row', type: 'dakuten' },
+  { id: 'katakana-do', kana: 'ド', romaji: 'do', rowId: 'katakana-ta-row', type: 'dakuten' },
+
+  // ナ行 (no dakuten)
+  { id: 'katakana-na', kana: 'ナ', romaji: 'na', rowId: 'katakana-na-row', type: 'base' },
+  { id: 'katakana-ni', kana: 'ニ', romaji: 'ni', rowId: 'katakana-na-row', type: 'base' },
+  { id: 'katakana-nu', kana: 'ヌ', romaji: 'nu', rowId: 'katakana-na-row', type: 'base' },
+  { id: 'katakana-ne', kana: 'ネ', romaji: 'ne', rowId: 'katakana-na-row', type: 'base' },
+  { id: 'katakana-no', kana: 'ノ', romaji: 'no', rowId: 'katakana-na-row', type: 'base' },
+
+  // ハ行
+  { id: 'katakana-ha', kana: 'ハ', romaji: 'ha', rowId: 'katakana-ha-row', type: 'base' },
+  { id: 'katakana-hi', kana: 'ヒ', romaji: 'hi', rowId: 'katakana-ha-row', type: 'base' },
+  { id: 'katakana-fu', kana: 'フ', romaji: 'fu', rowId: 'katakana-ha-row', type: 'base' },
+  { id: 'katakana-he', kana: 'ヘ', romaji: 'he', rowId: 'katakana-ha-row', type: 'base' },
+  { id: 'katakana-ho', kana: 'ホ', romaji: 'ho', rowId: 'katakana-ha-row', type: 'base' },
+  // バ行 + パ行 (both taught together with ハ行)
+  { id: 'katakana-ba', kana: 'バ', romaji: 'ba', rowId: 'katakana-ha-row', type: 'dakuten' },
+  { id: 'katakana-bi', kana: 'ビ', romaji: 'bi', rowId: 'katakana-ha-row', type: 'dakuten' },
+  { id: 'katakana-bu', kana: 'ブ', romaji: 'bu', rowId: 'katakana-ha-row', type: 'dakuten' },
+  { id: 'katakana-be', kana: 'ベ', romaji: 'be', rowId: 'katakana-ha-row', type: 'dakuten' },
+  { id: 'katakana-bo', kana: 'ボ', romaji: 'bo', rowId: 'katakana-ha-row', type: 'dakuten' },
+  { id: 'katakana-pa', kana: 'パ', romaji: 'pa', rowId: 'katakana-ha-row', type: 'handakuten' },
+  { id: 'katakana-pi', kana: 'ピ', romaji: 'pi', rowId: 'katakana-ha-row', type: 'handakuten' },
+  { id: 'katakana-pu', kana: 'プ', romaji: 'pu', rowId: 'katakana-ha-row', type: 'handakuten' },
+  { id: 'katakana-pe', kana: 'ペ', romaji: 'pe', rowId: 'katakana-ha-row', type: 'handakuten' },
+  { id: 'katakana-po', kana: 'ポ', romaji: 'po', rowId: 'katakana-ha-row', type: 'handakuten' },
+
+  // マ行 (no dakuten)
+  { id: 'katakana-ma', kana: 'マ', romaji: 'ma', rowId: 'katakana-ma-row', type: 'base' },
+  { id: 'katakana-mi', kana: 'ミ', romaji: 'mi', rowId: 'katakana-ma-row', type: 'base' },
+  { id: 'katakana-mu', kana: 'ム', romaji: 'mu', rowId: 'katakana-ma-row', type: 'base' },
+  { id: 'katakana-me', kana: 'メ', romaji: 'me', rowId: 'katakana-ma-row', type: 'base' },
+  { id: 'katakana-mo', kana: 'モ', romaji: 'mo', rowId: 'katakana-ma-row', type: 'base' },
+
+  // ヤ行 (3 characters only, no dakuten)
+  { id: 'katakana-ya', kana: 'ヤ', romaji: 'ya', rowId: 'katakana-ya-row', type: 'base' },
+  { id: 'katakana-yu', kana: 'ユ', romaji: 'yu', rowId: 'katakana-ya-row', type: 'base' },
+  { id: 'katakana-yo', kana: 'ヨ', romaji: 'yo', rowId: 'katakana-ya-row', type: 'base' },
+
+  // ラ行 (no dakuten)
+  { id: 'katakana-ra', kana: 'ラ', romaji: 'ra', rowId: 'katakana-ra-row', type: 'base' },
+  { id: 'katakana-ri', kana: 'リ', romaji: 'ri', rowId: 'katakana-ra-row', type: 'base' },
+  { id: 'katakana-ru', kana: 'ル', romaji: 'ru', rowId: 'katakana-ra-row', type: 'base' },
+  { id: 'katakana-re', kana: 'レ', romaji: 're', rowId: 'katakana-ra-row', type: 'base' },
+  { id: 'katakana-ro', kana: 'ロ', romaji: 'ro', rowId: 'katakana-ra-row', type: 'base' },
+
+  // ワ行 + ン (no dakuten). ヲ is kept for structural completeness (see
+  // words.ts's katakana-wa-row comment for why, unlike hiragana's を, it
+  // gets no vocabulary/phrase reinforcement).
+  { id: 'katakana-wa', kana: 'ワ', romaji: 'wa', rowId: 'katakana-wa-row', type: 'base' },
+  { id: 'katakana-wo', kana: 'ヲ', romaji: 'wo', rowId: 'katakana-wa-row', type: 'base' },
+  { id: 'katakana-n', kana: 'ン', romaji: 'n', rowId: 'katakana-wa-row', type: 'base' },
+
+  // ー (chōon / long-vowel mark) — its own tiny final row. Not a mora of
+  // its own; extends the preceding vowel sound (see words.ts's
+  // katakana-chouon-row comment for how that's represented in romaji).
+  // Romaji '-' is a placeholder reading, not a real pronunciation — see
+  // final report / PR description for why this needs the user's sign-off.
+  { id: 'katakana-chouon', kana: 'ー', romaji: '-', rowId: 'katakana-chouon-row', type: 'base' },
 ]
 
 export const CHARACTERS_BY_ID: Record<string, KanaChar> = Object.fromEntries(
@@ -120,4 +232,12 @@ export const ROMAJI_ALTERNATES: Record<string, string[]> = {
   dzu: ['du'],
   fu: ['hu'],
   wo: ['o'],
+  'katakana-shi': ['si'],
+  'katakana-chi': ['ti'],
+  'katakana-tsu': ['tu'],
+  'katakana-ji': ['zi'],
+  'katakana-dji': ['di'],
+  'katakana-dzu': ['du'],
+  'katakana-fu': ['hu'],
+  'katakana-wo': ['o'],
 }
