@@ -1,13 +1,14 @@
 import type { GojuonRow, ScriptCategory } from './types'
 
-// Only one category exists so far — see docs/curriculum-extensibility.md
-// for the decided (not yet implemented beyond this scaffolding) design for
-// katakana/sokuon/chōon/yōon/特殊音. Every row below is tagged with this id;
-// nothing else in the app should hardcode the string 'hiragana'.
+// Five categories exist so far (hiragana/katakana/sokuon/chōon/yōon), with
+// 特殊音 still to come — see docs/curriculum-extensibility.md for the full
+// design. Every row below is tagged with a categoryId; nothing else in the
+// app should hardcode the string 'hiragana'.
 export const DEFAULT_CATEGORY_ID = 'hiragana'
 export const KATAKANA_CATEGORY_ID = 'katakana'
 export const SOKUON_CATEGORY_ID = 'sokuon'
 export const CHOUON_CATEGORY_ID = 'chouon'
+export const YOUON_CATEGORY_ID = 'youon'
 
 export const CATEGORIES: ScriptCategory[] = [
   { id: DEFAULT_CATEGORY_ID, label: 'ひらがな', learnStyle: 'character-set' },
@@ -45,6 +46,25 @@ export const CATEGORIES: ScriptCategory[] = [
     id: CHOUON_CATEGORY_ID,
     label: '長音',
     learnStyle: 'contrast-pairs',
+    dependsOnCategoryIds: [DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID],
+  },
+  // 拗音 (yōon, contracted sounds like きゃ/kya) — back to 'character-set'
+  // (flashcard -> recap -> words, all four mini-games), same shape as
+  // hiragana/katakana, NOT 'contrast-pairs' like sokuon/chōon — see
+  // docs/curriculum-extensibility.md. Depends on both hiragana and katakana
+  // for the same reason sokuon/chōon do: real yōon vocabulary freely mixes
+  // in already-taught plain kana (きゃく uses きゃ + く, ミャンマー uses
+  // ミャ + ン + マ + ー) alongside its own new characters — it does NOT
+  // need `dependsOnCategoryIds` to include sokuon/chōon too: content here
+  // was deliberately written to avoid っ/ッ/ー-requiring words needing the
+  // sokuon category specifically (ー itself is fine — it's a KATAKANA
+  // category character, not sokuon/chōon), keeping this category's
+  // prerequisites simple and explicit rather than accreting every prior
+  // category "just in case".
+  {
+    id: YOUON_CATEGORY_ID,
+    label: '拗音',
+    learnStyle: 'character-set',
     dependsOnCategoryIds: [DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID],
   },
 ]
@@ -230,6 +250,131 @@ export const ROWS: GojuonRow[] = [
     label: 'ー',
     order: 0,
     characterIds: [],
+  },
+
+  // ===== 拗音 (yōon) — own order sequence, starting at 0 again =====
+  // Unlike sokuon/chōon (one combined row for both scripts, since those
+  // teach a single rule), yōon has real per-consonant-group structure worth
+  // multiple rows on each script, like hiragana/katakana's own rows do — but
+  // 拗音 is still ONE category (per docs/curriculum-extensibility.md's
+  // ScriptCategory id list), and `order` is scoped per-category, not
+  // per-script-within-a-category — there's no schema support for two
+  // independent order-0 sequences inside one category (getNextRowId/
+  // getCumulativeCharacterIds only filter by categoryId+order). So this is
+  // ONE monotonic order sequence (0-13) split into two back-to-back blocks:
+  // all 7 hiragana yōon rows first (order 0-6, mirroring the same
+  // か/さ/た/な/は/ま/ら consonant order hiragana's own rows use — や/わ are
+  // skipped since neither combines with ゃゅょ), then all 7 katakana yōon
+  // rows (order 7-13). This is a judgment call, not a spec requirement —
+  // teaching hiragana's full yōon set before starting katakana's mirrors
+  // how the rest of the curriculum already treats the two scripts as
+  // separate large blocks (all of hiragana, THEN all of katakana), rather
+  // than interleaving corresponding hiragana/katakana rows lesson-by-lesson.
+  // Each row folds its dakuten/handakuten combos in together, exactly like
+  // ka-row/sa-row/ta-row/ha-row already do for the base gojūon (きゃ行 +
+  // ぎゃ行 taught together, etc.) — see characters.ts's comment for why
+  // ぢゃ行 doesn't exist as a row.
+  {
+    id: 'youon-ka-row',
+    categoryId: YOUON_CATEGORY_ID,
+    label: 'きゃ・きゅ・きょ・ぎゃ・ぎゅ・ぎょ',
+    order: 0,
+    characterIds: ['kya', 'kyu', 'kyo', 'gya', 'gyu', 'gyo'],
+  },
+  {
+    id: 'youon-sha-row',
+    categoryId: YOUON_CATEGORY_ID,
+    label: 'しゃ・しゅ・しょ・じゃ・じゅ・じょ',
+    order: 1,
+    characterIds: ['sha', 'shu', 'sho', 'ja', 'ju', 'jo'],
+  },
+  {
+    id: 'youon-cha-row',
+    categoryId: YOUON_CATEGORY_ID,
+    label: 'ちゃ・ちゅ・ちょ',
+    order: 2,
+    characterIds: ['cha', 'chu', 'cho'],
+  },
+  {
+    id: 'youon-na-row',
+    categoryId: YOUON_CATEGORY_ID,
+    label: 'にゃ・にゅ・にょ',
+    order: 3,
+    characterIds: ['nya', 'nyu', 'nyo'],
+  },
+  {
+    id: 'youon-ha-row',
+    categoryId: YOUON_CATEGORY_ID,
+    label: 'ひゃ・ひゅ・ひょ・びゃ・びゅ・びょ・ぴゃ・ぴゅ・ぴょ',
+    order: 4,
+    characterIds: ['hya', 'hyu', 'hyo', 'bya', 'byu', 'byo', 'pya', 'pyu', 'pyo'],
+  },
+  {
+    id: 'youon-ma-row',
+    categoryId: YOUON_CATEGORY_ID,
+    label: 'みゃ・みゅ・みょ',
+    order: 5,
+    characterIds: ['mya', 'myu', 'myo'],
+  },
+  {
+    id: 'youon-ra-row',
+    categoryId: YOUON_CATEGORY_ID,
+    label: 'りゃ・りゅ・りょ',
+    order: 6,
+    characterIds: ['rya', 'ryu', 'ryo'],
+  },
+  {
+    id: 'youon-katakana-ka-row',
+    categoryId: YOUON_CATEGORY_ID,
+    label: 'キャ・キュ・キョ・ギャ・ギュ・ギョ',
+    order: 7,
+    characterIds: ['katakana-kya', 'katakana-kyu', 'katakana-kyo', 'katakana-gya', 'katakana-gyu', 'katakana-gyo'],
+  },
+  {
+    id: 'youon-katakana-sha-row',
+    categoryId: YOUON_CATEGORY_ID,
+    label: 'シャ・シュ・ショ・ジャ・ジュ・ジョ',
+    order: 8,
+    characterIds: ['katakana-sha', 'katakana-shu', 'katakana-sho', 'katakana-ja', 'katakana-ju', 'katakana-jo'],
+  },
+  {
+    id: 'youon-katakana-cha-row',
+    categoryId: YOUON_CATEGORY_ID,
+    label: 'チャ・チュ・チョ',
+    order: 9,
+    characterIds: ['katakana-cha', 'katakana-chu', 'katakana-cho'],
+  },
+  {
+    id: 'youon-katakana-na-row',
+    categoryId: YOUON_CATEGORY_ID,
+    label: 'ニャ・ニュ・ニョ',
+    order: 10,
+    characterIds: ['katakana-nya', 'katakana-nyu', 'katakana-nyo'],
+  },
+  {
+    id: 'youon-katakana-ha-row',
+    categoryId: YOUON_CATEGORY_ID,
+    label: 'ヒャ・ヒュ・ヒョ・ビャ・ビュ・ビョ・ピャ・ピュ・ピョ',
+    order: 11,
+    characterIds: [
+      'katakana-hya', 'katakana-hyu', 'katakana-hyo',
+      'katakana-bya', 'katakana-byu', 'katakana-byo',
+      'katakana-pya', 'katakana-pyu', 'katakana-pyo',
+    ],
+  },
+  {
+    id: 'youon-katakana-ma-row',
+    categoryId: YOUON_CATEGORY_ID,
+    label: 'ミャ・ミュ・ミョ',
+    order: 12,
+    characterIds: ['katakana-mya', 'katakana-myu', 'katakana-myo'],
+  },
+  {
+    id: 'youon-katakana-ra-row',
+    categoryId: YOUON_CATEGORY_ID,
+    label: 'リャ・リュ・リョ',
+    order: 13,
+    characterIds: ['katakana-rya', 'katakana-ryu', 'katakana-ryo'],
   },
 ]
 
