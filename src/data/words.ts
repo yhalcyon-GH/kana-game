@@ -138,6 +138,145 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'wa-tenpura', kana: 'てんぷら', romaji: 'tenpura', meaning: 'tempura', image: 'word-icons/wa-tenpura.webp', characterIds: ['te', 'n', 'pu', 'ra'], audioText: '天ぷら' },
     { id: 'wa-tonkatsu', kana: 'とんかつ', romaji: 'tonkatsu', meaning: 'pork cutlet', image: 'word-icons/wa-tonkatsu.webp', characterIds: ['to', 'n', 'ka', 'tsu'], audioText: '豚カツ' },
   ],
+
+  // ===== カタカナ (katakana) vocabulary =====
+  // Same "only characters introduced at or before this row" rule as
+  // hiragana above, scoped within the katakana category (see
+  // getCumulativeCharacterIds in curriculum.ts). Unlike hiragana, these are
+  // real loanwords/proper nouns/foreign-origin animal names — katakana's
+  // actual real-world role — not native Japanese vocabulary respelled into
+  // katakana. `image` is deliberately omitted for every entry here: no
+  // illustration set exists yet for katakana content (see AnchorWord.image's
+  // comment in types.ts and WordImage.tsx for the placeholder shown instead)
+  // — this is a known, flagged gap, not an oversight.
+  //
+  // katakana-a-row is unusually thin (5, vs. the ~8-10 elsewhere): almost no
+  // real katakana word is spelled using only vowel morae (loanwords need
+  // consonants), unlike hiragana's あ行 which has genuine native
+  // vowel-only words (あい, うえ, ...). These 5 are all real, dictionary/
+  // encyclopedia-attested katakana spellings, just a thinner pool than later
+  // rows where consonants open up far more loanword vocabulary.
+  //
+  // katakana-wa-row's characters include ヲ (unlike hiragana's を, which
+  // gets a demonstration phrase — みずをのむ), but no word below uses it:
+  // modern Japanese never actually writes the を particle in katakana even
+  // inside all-katakana text (particles stay hiragana), so there's no
+  // authentic word or phrase to demonstrate here without reaching for
+  // obscure pre-1946 orthography. ヲ is still taught as a character (Learn
+  // flashcard, stroke order) for structural completeness with hiragana's
+  // row, it just has no vocabulary reinforcement — flagged for review.
+  'katakana-a-row': [
+    { id: 'katakana-a-ei', kana: 'エイ', romaji: 'ei', meaning: 'stingray', characterIds: ['katakana-e', 'katakana-i'] },
+    { id: 'katakana-a-aiai', kana: 'アイアイ', romaji: 'aiai', meaning: 'aye-aye (a lemur)', characterIds: ['katakana-a', 'katakana-i', 'katakana-a', 'katakana-i'] },
+    { id: 'katakana-a-aoi', kana: 'アオイ', romaji: 'aoi', meaning: 'Aoi (a name)', characterIds: ['katakana-a', 'katakana-o', 'katakana-i'] },
+    { id: 'katakana-a-io', kana: 'イオ', romaji: 'io', meaning: 'Io (a moon of Jupiter)', characterIds: ['katakana-i', 'katakana-o'] },
+    { id: 'katakana-a-ea', kana: 'エア', romaji: 'ea', meaning: 'air (as in air conditioner)', characterIds: ['katakana-e', 'katakana-a'] },
+  ],
+  'katakana-ka-row': [
+    { id: 'katakana-ka-ika', kana: 'イカ', romaji: 'ika', meaning: 'squid', characterIds: ['katakana-i', 'katakana-ka'] },
+    { id: 'katakana-ka-kaki', kana: 'カキ', romaji: 'kaki', meaning: 'oyster', characterIds: ['katakana-ka', 'katakana-ki'] },
+    { id: 'katakana-ka-kokoa', kana: 'ココア', romaji: 'kokoa', meaning: 'cocoa', characterIds: ['katakana-ko', 'katakana-ko', 'katakana-a'] },
+    { id: 'katakana-ka-kakao', kana: 'カカオ', romaji: 'kakao', meaning: 'cacao', characterIds: ['katakana-ka', 'katakana-ka', 'katakana-o'] },
+    { id: 'katakana-ka-gia', kana: 'ギア', romaji: 'gia', meaning: 'gear', characterIds: ['katakana-gi', 'katakana-a'] },
+    { id: 'katakana-ka-eko', kana: 'エコ', romaji: 'eko', meaning: 'eco / environmentally friendly', characterIds: ['katakana-e', 'katakana-ko'] },
+    { id: 'katakana-ka-goa', kana: 'ゴア', romaji: 'goa', meaning: 'Goa (a place in India)', characterIds: ['katakana-go', 'katakana-a'] },
+    { id: 'katakana-ka-kai', kana: 'カイ', romaji: 'kai', meaning: 'Kai (a name)', characterIds: ['katakana-ka', 'katakana-i'] },
+  ],
+  'katakana-sa-row': [
+    { id: 'katakana-sa-saizu', kana: 'サイズ', romaji: 'saizu', meaning: 'size', characterIds: ['katakana-sa', 'katakana-i', 'katakana-zu'] },
+    { id: 'katakana-sa-gasu', kana: 'ガス', romaji: 'gasu', meaning: 'gas', characterIds: ['katakana-ga', 'katakana-su'] },
+    { id: 'katakana-sa-zou', kana: 'ゾウ', romaji: 'zou', meaning: 'elephant', characterIds: ['katakana-zo', 'katakana-u'] },
+    { id: 'katakana-sa-sai', kana: 'サイ', romaji: 'sai', meaning: 'rhinoceros', characterIds: ['katakana-sa', 'katakana-i'] },
+    { id: 'katakana-sa-suisu', kana: 'スイス', romaji: 'suisu', meaning: 'Switzerland', characterIds: ['katakana-su', 'katakana-i', 'katakana-su'] },
+    { id: 'katakana-sa-ajia', kana: 'アジア', romaji: 'ajia', meaning: 'Asia', characterIds: ['katakana-a', 'katakana-ji', 'katakana-a'] },
+    { id: 'katakana-sa-kuizu', kana: 'クイズ', romaji: 'kuizu', meaning: 'quiz', characterIds: ['katakana-ku', 'katakana-i', 'katakana-zu'] },
+    { id: 'katakana-sa-oashisu', kana: 'オアシス', romaji: 'oashisu', meaning: 'oasis', characterIds: ['katakana-o', 'katakana-a', 'katakana-shi', 'katakana-su'] },
+  ],
+  'katakana-ta-row': [
+    { id: 'katakana-ta-tokage', kana: 'トカゲ', romaji: 'tokage', meaning: 'lizard', characterIds: ['katakana-to', 'katakana-ka', 'katakana-ge'] },
+    { id: 'katakana-ta-tako', kana: 'タコ', romaji: 'tako', meaning: 'octopus', characterIds: ['katakana-ta', 'katakana-ko'] },
+    { id: 'katakana-ta-tesuto', kana: 'テスト', romaji: 'tesuto', meaning: 'test', characterIds: ['katakana-te', 'katakana-su', 'katakana-to'] },
+    { id: 'katakana-ta-tai', kana: 'タイ', romaji: 'tai', meaning: 'Thailand', characterIds: ['katakana-ta', 'katakana-i'] },
+    { id: 'katakana-ta-daisu', kana: 'ダイス', romaji: 'daisu', meaning: 'dice', characterIds: ['katakana-da', 'katakana-i', 'katakana-su'] },
+    { id: 'katakana-ta-jiguzagu', kana: 'ジグザグ', romaji: 'jiguzagu', meaning: 'zigzag', characterIds: ['katakana-ji', 'katakana-gu', 'katakana-za', 'katakana-gu'] },
+    { id: 'katakana-ta-doitsu', kana: 'ドイツ', romaji: 'doitsu', meaning: 'Germany', characterIds: ['katakana-do', 'katakana-i', 'katakana-tsu'] },
+    { id: 'katakana-ta-aidea', kana: 'アイデア', romaji: 'aidea', meaning: 'idea', characterIds: ['katakana-a', 'katakana-i', 'katakana-de', 'katakana-a'] },
+  ],
+  'katakana-na-row': [
+    { id: 'katakana-na-kani', kana: 'カニ', romaji: 'kani', meaning: 'crab', characterIds: ['katakana-ka', 'katakana-ni'] },
+    { id: 'katakana-na-tenisu', kana: 'テニス', romaji: 'tenisu', meaning: 'tennis', characterIds: ['katakana-te', 'katakana-ni', 'katakana-su'] },
+    { id: 'katakana-na-nasu', kana: 'ナス', romaji: 'nasu', meaning: 'eggplant', characterIds: ['katakana-na', 'katakana-su'] },
+    { id: 'katakana-na-sauna', kana: 'サウナ', romaji: 'sauna', meaning: 'sauna', characterIds: ['katakana-sa', 'katakana-u', 'katakana-na'] },
+    { id: 'katakana-na-noizu', kana: 'ノイズ', romaji: 'noizu', meaning: 'noise', characterIds: ['katakana-no', 'katakana-i', 'katakana-zu'] },
+    { id: 'katakana-na-nana', kana: 'ナナ', romaji: 'nana', meaning: 'Nana (a name)', characterIds: ['katakana-na', 'katakana-na'] },
+  ],
+  'katakana-ha-row': [
+    { id: 'katakana-ha-pai', kana: 'パイ', romaji: 'pai', meaning: 'pie', characterIds: ['katakana-pa', 'katakana-i'] },
+    { id: 'katakana-ha-basu', kana: 'バス', romaji: 'basu', meaning: 'bus', characterIds: ['katakana-ba', 'katakana-su'] },
+    { id: 'katakana-ha-kaba', kana: 'カバ', romaji: 'kaba', meaning: 'hippopotamus', characterIds: ['katakana-ka', 'katakana-ba'] },
+    { id: 'katakana-ha-papa', kana: 'パパ', romaji: 'papa', meaning: 'dad', characterIds: ['katakana-pa', 'katakana-pa'] },
+    { id: 'katakana-ha-banana', kana: 'バナナ', romaji: 'banana', meaning: 'banana', characterIds: ['katakana-ba', 'katakana-na', 'katakana-na'] },
+    { id: 'katakana-ha-piza', kana: 'ピザ', romaji: 'piza', meaning: 'pizza', characterIds: ['katakana-pi', 'katakana-za'] },
+    { id: 'katakana-ha-pasuta', kana: 'パスタ', romaji: 'pasuta', meaning: 'pasta', characterIds: ['katakana-pa', 'katakana-su', 'katakana-ta'] },
+    { id: 'katakana-ha-habu', kana: 'ハブ', romaji: 'habu', meaning: 'habu (a venomous snake)', characterIds: ['katakana-ha', 'katakana-bu'] },
+  ],
+  'katakana-ma-row': [
+    { id: 'katakana-ma-mama', kana: 'ママ', romaji: 'mama', meaning: 'mom', characterIds: ['katakana-ma', 'katakana-ma'] },
+    { id: 'katakana-ma-anime', kana: 'アニメ', romaji: 'anime', meaning: 'anime', characterIds: ['katakana-a', 'katakana-ni', 'katakana-me'] },
+    { id: 'katakana-ma-tomato', kana: 'トマト', romaji: 'tomato', meaning: 'tomato', characterIds: ['katakana-to', 'katakana-ma', 'katakana-to'] },
+    { id: 'katakana-ma-same', kana: 'サメ', romaji: 'same', meaning: 'shark', characterIds: ['katakana-sa', 'katakana-me'] },
+    { id: 'katakana-ma-memo', kana: 'メモ', romaji: 'memo', meaning: 'memo / note', characterIds: ['katakana-me', 'katakana-mo'] },
+    { id: 'katakana-ma-gomu', kana: 'ゴム', romaji: 'gomu', meaning: 'rubber / eraser', characterIds: ['katakana-go', 'katakana-mu'] },
+    { id: 'katakana-ma-misu', kana: 'ミス', romaji: 'misu', meaning: 'mistake', characterIds: ['katakana-mi', 'katakana-su'] },
+    { id: 'katakana-ma-momo', kana: 'モモ', romaji: 'momo', meaning: 'Momo (a common pet name)', characterIds: ['katakana-mo', 'katakana-mo'] },
+  ],
+  'katakana-ya-row': [
+    { id: 'katakana-ya-hiyoko', kana: 'ヒヨコ', romaji: 'hiyoko', meaning: 'baby chick', characterIds: ['katakana-hi', 'katakana-yo', 'katakana-ko'] },
+    { id: 'katakana-ya-taiya', kana: 'タイヤ', romaji: 'taiya', meaning: 'tire', characterIds: ['katakana-ta', 'katakana-i', 'katakana-ya'] },
+    { id: 'katakana-ya-yoga', kana: 'ヨガ', romaji: 'yoga', meaning: 'yoga', characterIds: ['katakana-yo', 'katakana-ga'] },
+    { id: 'katakana-ya-hayabusa', kana: 'ハヤブサ', romaji: 'hayabusa', meaning: 'peregrine falcon', characterIds: ['katakana-ha', 'katakana-ya', 'katakana-bu', 'katakana-sa'] },
+    { id: 'katakana-ya-yuki', kana: 'ユキ', romaji: 'yuki', meaning: 'Yuki (a name)', characterIds: ['katakana-yu', 'katakana-ki'] },
+    { id: 'katakana-ya-moyashi', kana: 'モヤシ', romaji: 'moyashi', meaning: 'bean sprouts', characterIds: ['katakana-mo', 'katakana-ya', 'katakana-shi'] },
+    { id: 'katakana-ya-daiya', kana: 'ダイヤ', romaji: 'daiya', meaning: 'diamond', characterIds: ['katakana-da', 'katakana-i', 'katakana-ya'] },
+  ],
+  'katakana-ra-row': [
+    { id: 'katakana-ra-koara', kana: 'コアラ', romaji: 'koara', meaning: 'koala', characterIds: ['katakana-ko', 'katakana-a', 'katakana-ra'] },
+    { id: 'katakana-ra-tora', kana: 'トラ', romaji: 'tora', meaning: 'tiger', characterIds: ['katakana-to', 'katakana-ra'] },
+    { id: 'katakana-ra-kamera', kana: 'カメラ', romaji: 'kamera', meaning: 'camera', characterIds: ['katakana-ka', 'katakana-me', 'katakana-ra'] },
+    { id: 'katakana-ra-dorama', kana: 'ドラマ', romaji: 'dorama', meaning: 'drama (TV show)', characterIds: ['katakana-do', 'katakana-ra', 'katakana-ma'] },
+    { id: 'katakana-ra-sarada', kana: 'サラダ', romaji: 'sarada', meaning: 'salad', characterIds: ['katakana-sa', 'katakana-ra', 'katakana-da'] },
+    { id: 'katakana-ra-rajio', kana: 'ラジオ', romaji: 'rajio', meaning: 'radio', characterIds: ['katakana-ra', 'katakana-ji', 'katakana-o'] },
+    { id: 'katakana-ra-kurasu', kana: 'クラス', romaji: 'kurasu', meaning: 'class', characterIds: ['katakana-ku', 'katakana-ra', 'katakana-su'] },
+    { id: 'katakana-ra-roba', kana: 'ロバ', romaji: 'roba', meaning: 'donkey', characterIds: ['katakana-ro', 'katakana-ba'] },
+    { id: 'katakana-ra-doriru', kana: 'ドリル', romaji: 'doriru', meaning: 'practice drill', characterIds: ['katakana-do', 'katakana-ri', 'katakana-ru'] },
+  ],
+  'katakana-wa-row': [
+    { id: 'katakana-wa-pan', kana: 'パン', romaji: 'pan', meaning: 'bread', characterIds: ['katakana-pa', 'katakana-n'] },
+    { id: 'katakana-wa-kirin', kana: 'キリン', romaji: 'kirin', meaning: 'giraffe', characterIds: ['katakana-ki', 'katakana-ri', 'katakana-n'] },
+    { id: 'katakana-wa-remon', kana: 'レモン', romaji: 'remon', meaning: 'lemon', characterIds: ['katakana-re', 'katakana-mo', 'katakana-n'] },
+    { id: 'katakana-wa-wain', kana: 'ワイン', romaji: 'wain', meaning: 'wine', characterIds: ['katakana-wa', 'katakana-i', 'katakana-n'] },
+    { id: 'katakana-wa-pen', kana: 'ペン', romaji: 'pen', meaning: 'pen', characterIds: ['katakana-pe', 'katakana-n'] },
+    { id: 'katakana-wa-wani', kana: 'ワニ', romaji: 'wani', meaning: 'crocodile', characterIds: ['katakana-wa', 'katakana-ni'] },
+    { id: 'katakana-wa-sandaru', kana: 'サンダル', romaji: 'sandaru', meaning: 'sandal', characterIds: ['katakana-sa', 'katakana-n', 'katakana-da', 'katakana-ru'] },
+    { id: 'katakana-wa-terebi', kana: 'テレビ', romaji: 'terebi', meaning: 'TV', characterIds: ['katakana-te', 'katakana-re', 'katakana-bi'] },
+  ],
+  // Every word here uses ー at least once — see the "ー's own row" note in
+  // characters.ts/curriculum.ts. Romaji spells it with the standard
+  // doubled-vowel ASCII convention (keeki, koohii, ...) rather than a
+  // macron, matching katakana-chouon's single-character romaji ('-') so
+  // isAnswerCorrect's per-character length bookkeeping (see
+  // lib/answerChecking.ts's romajiVariants) lines up: doubling a vowel and
+  // a 1-char placeholder both add exactly one letter per ー.
+  'katakana-chouon-row': [
+    { id: 'katakana-chouon-keeki', kana: 'ケーキ', romaji: 'keeki', meaning: 'cake', characterIds: ['katakana-ke', 'katakana-chouon', 'katakana-ki'] },
+    { id: 'katakana-chouon-koohii', kana: 'コーヒー', romaji: 'koohii', meaning: 'coffee', characterIds: ['katakana-ko', 'katakana-chouon', 'katakana-hi', 'katakana-chouon'] },
+    { id: 'katakana-chouon-nooto', kana: 'ノート', romaji: 'nooto', meaning: 'notebook', characterIds: ['katakana-no', 'katakana-chouon', 'katakana-to'] },
+    { id: 'katakana-chouon-kaado', kana: 'カード', romaji: 'kaado', meaning: 'card', characterIds: ['katakana-ka', 'katakana-chouon', 'katakana-do'] },
+    { id: 'katakana-chouon-booru', kana: 'ボール', romaji: 'booru', meaning: 'ball', characterIds: ['katakana-bo', 'katakana-chouon', 'katakana-ru'] },
+    { id: 'katakana-chouon-gitaa', kana: 'ギター', romaji: 'gitaa', meaning: 'guitar', characterIds: ['katakana-gi', 'katakana-ta', 'katakana-chouon'] },
+    { id: 'katakana-chouon-chiizu', kana: 'チーズ', romaji: 'chiizu', meaning: 'cheese', characterIds: ['katakana-chi', 'katakana-chouon', 'katakana-zu'] },
+    { id: 'katakana-chouon-sukaato', kana: 'スカート', romaji: 'sukaato', meaning: 'skirt', characterIds: ['katakana-su', 'katakana-ka', 'katakana-chouon', 'katakana-to'] },
+  ],
 }
 
 export const ALL_WORDS: AnchorWord[] = Object.values(WORDS_BY_ROW).flat()

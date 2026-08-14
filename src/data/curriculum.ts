@@ -5,8 +5,17 @@ import type { GojuonRow, ScriptCategory } from './types'
 // katakana/sokuon/chōon/yōon/特殊音. Every row below is tagged with this id;
 // nothing else in the app should hardcode the string 'hiragana'.
 export const DEFAULT_CATEGORY_ID = 'hiragana'
+export const KATAKANA_CATEGORY_ID = 'katakana'
 
-export const CATEGORIES: ScriptCategory[] = [{ id: DEFAULT_CATEGORY_ID, label: 'ひらがな', learnStyle: 'character-set' }]
+export const CATEGORIES: ScriptCategory[] = [
+  { id: DEFAULT_CATEGORY_ID, label: 'ひらがな', learnStyle: 'character-set' },
+  // カタカナ単音 (single-kana katakana) — same 'character-set' Learn/Practice
+  // shape as hiragana (flashcard -> recap -> words, all four mini-games).
+  // Chosen to go first of the five planned new categories specifically
+  // because it needs none of the contrast-pairs/zero-new-character
+  // machinery that 促音/長音 will — see docs/curriculum-extensibility.md.
+  { id: KATAKANA_CATEGORY_ID, label: 'カタカナ', learnStyle: 'character-set' },
+]
 
 export const CATEGORIES_BY_ID: Record<string, ScriptCategory> = Object.fromEntries(CATEGORIES.map((c) => [c.id, c]))
 
@@ -55,6 +64,100 @@ export const ROWS: GojuonRow[] = [
   { id: 'ya-row', categoryId: DEFAULT_CATEGORY_ID, label: 'や・ゆ・よ', order: 7, characterIds: ['ya', 'yu', 'yo'] },
   { id: 'ra-row', categoryId: DEFAULT_CATEGORY_ID, label: 'ら~ろ', order: 8, characterIds: ['ra', 'ri', 'ru', 're', 'ro'] },
   { id: 'wa-row', categoryId: DEFAULT_CATEGORY_ID, label: 'わ~ん', order: 9, characterIds: ['wa', 'wo', 'n'] },
+
+  // ===== カタカナ (katakana) — own order sequence, starting at 0 again =====
+  {
+    id: 'katakana-a-row',
+    categoryId: KATAKANA_CATEGORY_ID,
+    label: 'ア~オ',
+    order: 0,
+    characterIds: ['katakana-a', 'katakana-i', 'katakana-u', 'katakana-e', 'katakana-o'],
+  },
+  {
+    id: 'katakana-ka-row',
+    categoryId: KATAKANA_CATEGORY_ID,
+    label: 'カ~コ・ガ~ゴ',
+    order: 1,
+    characterIds: [
+      'katakana-ka', 'katakana-ki', 'katakana-ku', 'katakana-ke', 'katakana-ko',
+      'katakana-ga', 'katakana-gi', 'katakana-gu', 'katakana-ge', 'katakana-go',
+    ],
+  },
+  {
+    id: 'katakana-sa-row',
+    categoryId: KATAKANA_CATEGORY_ID,
+    label: 'サ~ソ・ザ~ゾ',
+    order: 2,
+    characterIds: [
+      'katakana-sa', 'katakana-shi', 'katakana-su', 'katakana-se', 'katakana-so',
+      'katakana-za', 'katakana-ji', 'katakana-zu', 'katakana-ze', 'katakana-zo',
+    ],
+  },
+  {
+    id: 'katakana-ta-row',
+    categoryId: KATAKANA_CATEGORY_ID,
+    label: 'タ~ト・ダ~ド',
+    order: 3,
+    characterIds: [
+      'katakana-ta', 'katakana-chi', 'katakana-tsu', 'katakana-te', 'katakana-to',
+      'katakana-da', 'katakana-dji', 'katakana-dzu', 'katakana-de', 'katakana-do',
+    ],
+  },
+  {
+    id: 'katakana-na-row',
+    categoryId: KATAKANA_CATEGORY_ID,
+    label: 'ナ~ノ',
+    order: 4,
+    characterIds: ['katakana-na', 'katakana-ni', 'katakana-nu', 'katakana-ne', 'katakana-no'],
+  },
+  {
+    id: 'katakana-ha-row',
+    categoryId: KATAKANA_CATEGORY_ID,
+    label: 'ハ~ホ・バ~ボ・パ~ポ',
+    order: 5,
+    characterIds: [
+      'katakana-ha', 'katakana-hi', 'katakana-fu', 'katakana-he', 'katakana-ho',
+      'katakana-ba', 'katakana-bi', 'katakana-bu', 'katakana-be', 'katakana-bo',
+      'katakana-pa', 'katakana-pi', 'katakana-pu', 'katakana-pe', 'katakana-po',
+    ],
+  },
+  {
+    id: 'katakana-ma-row',
+    categoryId: KATAKANA_CATEGORY_ID,
+    label: 'マ~モ',
+    order: 6,
+    characterIds: ['katakana-ma', 'katakana-mi', 'katakana-mu', 'katakana-me', 'katakana-mo'],
+  },
+  {
+    id: 'katakana-ya-row',
+    categoryId: KATAKANA_CATEGORY_ID,
+    label: 'ヤ・ユ・ヨ',
+    order: 7,
+    characterIds: ['katakana-ya', 'katakana-yu', 'katakana-yo'],
+  },
+  {
+    id: 'katakana-ra-row',
+    categoryId: KATAKANA_CATEGORY_ID,
+    label: 'ラ~ロ',
+    order: 8,
+    characterIds: ['katakana-ra', 'katakana-ri', 'katakana-ru', 'katakana-re', 'katakana-ro'],
+  },
+  {
+    id: 'katakana-wa-row',
+    categoryId: KATAKANA_CATEGORY_ID,
+    label: 'ワ~ン',
+    order: 9,
+    characterIds: ['katakana-wa', 'katakana-wo', 'katakana-n'],
+  },
+  // ー (chōon/long-vowel mark) as its own small final row — see
+  // characters.ts and words.ts for why it isn't folded into wa-row.
+  {
+    id: 'katakana-chouon-row',
+    categoryId: KATAKANA_CATEGORY_ID,
+    label: 'ー',
+    order: 10,
+    characterIds: ['katakana-chouon'],
+  },
 ]
 
 export const ROWS_BY_ID: Record<string, GojuonRow> = Object.fromEntries(
