@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { AnswerFeedbackRow } from '../../components/AnswerFeedbackRow'
 import { GameRoundHeader } from '../../components/GameRoundHeader'
 import { PracticeSummary } from '../../components/PracticeSummary'
+import { WordImage } from '../../components/WordImage'
 import { ROWS_BY_ID } from '../../data/curriculum'
 import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
@@ -131,7 +132,7 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
     <div className="flex flex-col items-center gap-6">
       <GameRoundHeader rowId={rowId} categoryId={categoryId} roundIndex={roundIndex} total={queue.length} />
       <div className="flex flex-col items-center gap-2">
-        <img src={`${import.meta.env.BASE_URL}${currentWord.image}`} alt="" className="h-20 w-20" />
+        <WordImage word={currentWord} className="h-20 w-20" />
         <span className="text-lg font-semibold">{currentWord.meaning}</span>
         {supported && (
           <button

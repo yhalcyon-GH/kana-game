@@ -34,7 +34,13 @@ export type AnchorWord = {
   kana: string
   romaji: string
   meaning: string
-  image: string
+  // Optional: every hiragana word has a hand-sourced word-icons/*.webp
+  // illustration (a paid/manual effort, not regeneratable by a script —
+  // see scripts/ header comments), but new categories may ship content
+  // before art exists for it. Absent means "no art yet", not "broken
+  // path" — see WordCard.tsx and the 3 mini-games that render word.image
+  // for the placeholder they show instead.
+  image?: string
   characterIds: string[]
   audioText?: string
 }

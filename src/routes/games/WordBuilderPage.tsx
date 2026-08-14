@@ -5,6 +5,7 @@ import { GameRoundHeader } from '../../components/GameRoundHeader'
 import { KanaTile } from '../../components/KanaTile'
 import { PracticeSummary } from '../../components/PracticeSummary'
 import { RomajiToggle } from '../../components/RomajiToggle'
+import { WordImage } from '../../components/WordImage'
 import { CHARACTERS_BY_ID } from '../../data/characters'
 import { ROWS_BY_ID } from '../../data/curriculum'
 import type { AnchorWord } from '../../data/types'
@@ -188,7 +189,7 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
     <div className="flex flex-col items-center gap-6">
       <GameRoundHeader rowId={rowId} categoryId={categoryId} roundIndex={roundIndex} total={queue.length} />
       <div className="flex flex-col items-center gap-2">
-        <img src={`${import.meta.env.BASE_URL}${currentWord.image}`} alt="" className="h-20 w-20" />
+        <WordImage word={currentWord} className="h-20 w-20" />
         <span className="text-lg font-semibold">{currentWord.meaning}</span>
         <div className="flex items-center gap-2">
           {showRomaji && <span className="text-sm text-neutral-500 dark:text-neutral-400">{currentWord.romaji}</span>}
