@@ -15,14 +15,21 @@ import { pickDistractorWords } from '../../lib/distractorPicker'
 import { shuffle } from '../../lib/shuffle'
 import { useProgressStore } from '../../store/progressStore'
 
-export function ListeningPage() {
-  const { rowId } = useParams<{ rowId: string }>()
+type Props = {
+  // Set only by the /practice/review/listening route — see REVIEW_SCOPE_ID.
+  rowIdOverride?: string
+}
+
+export function ListeningPage({ rowIdOverride }: Props = {}) {
+  const params = useParams<{ categoryId?: string; rowId?: string }>()
+  const rowId = rowIdOverride ?? params.rowId
   const navigate = useNavigate()
   const { isScopeReady, getScopeWords } = useCurriculum()
   const recordResult = useProgressStore((s) => s.recordResult)
   const characters = useProgressStore((s) => s.characters)
   const isReview = rowId === REVIEW_SCOPE_ID
   const row = rowId && !isReview ? ROWS_BY_ID[rowId] : undefined
+  const categoryId = isReview ? undefined : (params.categoryId ?? row?.categoryId)
   const { speak, supported } = useTTS()
   const {
     feedback,
@@ -39,8 +46,10 @@ export function ListeningPage() {
   } = useAnswerFeedback()
 
   useEffect(() => {
-    if (!rowId || !isScopeReady(rowId)) navigate('/', { replace: true })
-  }, [rowId, isScopeReady, navigate])
+    if (!rowId || !isScopeReady(rowId) || (!isReview && row?.categoryId !== categoryId)) {
+      navigate('/', { replace: true })
+    }
+  }, [rowId, isReview, row, categoryId, isScopeReady, navigate])
 
   const scopeWords = useMemo(() => getScopeWords(rowId), [rowId, getScopeWords])
   const wordIds = useMemo(() => scopeWords.map((w) => w.id), [scopeWords])
@@ -105,7 +114,7 @@ export function ListeningPage() {
       <PracticeSummary
         title="Listening complete!"
         stats={[{ label: 'Accuracy', value: `${Math.round((correctCount / queue.length) * 100)}%` }]}
-        backHref={isReview ? '/review' : `/practice/${rowId}`}
+        backHref={isReview ? '/practice/review' : `/practice/${categoryId}/${rowId}`}
         onRetry={startSession}
         mistakes={mistakes}
         onReviewMistakes={() => startMistakeReview(mistakeIds)}
@@ -119,7 +128,7 @@ export function ListeningPage() {
 
   return (
     <div className="flex flex-col items-center gap-6">
-      <GameRoundHeader rowId={rowId} roundIndex={roundIndex} total={queue.length} />
+      <GameRoundHeader rowId={rowId} categoryId={categoryId} roundIndex={roundIndex} total={queue.length} />
       <div className="flex flex-col items-center gap-2">
         <img src={`${import.meta.env.BASE_URL}${currentWord.image}`} alt="" className="h-20 w-20" />
         <span className="text-sm text-neutral-500 dark:text-neutral-400">{currentWord.meaning}</span>

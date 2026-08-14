@@ -5,6 +5,7 @@ import { BackToHubLink } from '../../components/BackToHubLink'
 import { PracticeSummary } from '../../components/PracticeSummary'
 import { StrokeOrderAnimation } from '../../components/StrokeOrderAnimation'
 import { CHARACTERS_BY_ID } from '../../data/characters'
+import { ROWS_BY_ID } from '../../data/curriculum'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
 import { useTTS } from '../../hooks/useTTS'
 
@@ -21,7 +22,7 @@ const WORD_CHAR_SIZE = 130 // CSS pixels per character, word phase
 // this row spelled out in one continuous guide — carrying single-character
 // stroke order into the multi-character rhythm of actually writing a word.
 export function TracingPage() {
-  const { rowId } = useParams<{ rowId: string }>()
+  const { categoryId, rowId } = useParams<{ categoryId: string; rowId: string }>()
   const navigate = useNavigate()
   const { isScopeReady, getScopeQuizCharacterIds, getScopeWords } = useCurriculum()
   const { speak, supported } = useTTS()
@@ -30,8 +31,10 @@ export function TracingPage() {
   const isDrawingRef = useRef(false)
 
   useEffect(() => {
-    if (!rowId || !isScopeReady(rowId)) navigate('/', { replace: true })
-  }, [rowId, isScopeReady, navigate])
+    if (!rowId || !isScopeReady(rowId) || ROWS_BY_ID[rowId]?.categoryId !== categoryId) {
+      navigate('/', { replace: true })
+    }
+  }, [rowId, categoryId, isScopeReady, navigate])
 
   const charPool = useMemo(() => getScopeQuizCharacterIds(rowId), [rowId, getScopeQuizCharacterIds])
   const words = useMemo(() => getScopeWords(rowId), [rowId, getScopeWords])
@@ -169,7 +172,7 @@ export function TracingPage() {
           { label: 'Characters traced', value: charPool.length },
           { label: 'Words traced', value: wordIds.length },
         ]}
-        backHref={isReview ? '/review' : `/practice/${rowId}`}
+        backHref={isReview ? '/practice/review' : `/practice/${categoryId}/${rowId}`}
         onRetry={startSession}
       />
     )
@@ -182,7 +185,7 @@ export function TracingPage() {
 
   return (
     <div className="flex flex-col items-center gap-6">
-      <BackToHubLink rowId={rowId} />
+      <BackToHubLink rowId={rowId} categoryId={categoryId} />
       <h2 className="text-sm font-semibold text-neutral-600 dark:text-neutral-300">
         {phase === 'chars' ? 'Trace each character' : 'Trace each word'}
       </h2>

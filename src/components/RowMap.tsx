@@ -33,7 +33,7 @@ export function RowMap({ rows, isUnlocked, isTaught, isMastered }: Props) {
                 page — taught status is informational only, not a gate. */}
             {unlocked && (
               <Link
-                to={`/practice/${row.id}`}
+                to={`/practice/${row.categoryId}/${row.id}`}
                 className="rounded-full bg-blue-600 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-700"
               >
                 Open
