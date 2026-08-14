@@ -51,7 +51,7 @@ export const CONFUSABLE_PAIRS: Record<string, string[]> = {
   // katakana — shape confusions specific to that script (different glyphs
   // than the hiragana pairs above, so listed separately)
   'katakana-shi': ['katakana-tsu'],
-  'katakana-tsu': ['katakana-shi'],
+  'katakana-tsu': ['katakana-shi', 'katakana-sokuon'],
   'katakana-so': ['katakana-n'],
   'katakana-n': ['katakana-so', 'katakana-wa'],
   'katakana-wa': ['katakana-n'],
@@ -67,6 +67,16 @@ export const CONFUSABLE_PAIRS: Record<string, string[]> = {
   'katakana-pe': ['katakana-be'],
   'katakana-bo': ['katakana-po'],
   'katakana-po': ['katakana-bo'],
+
+  // small-vs-full-size kana confusions: っ/ッ (sokuon) are literally a
+  // smaller-printed つ/ツ, the single easiest thing to mix up once both
+  // exist in the same word pool (see curriculum-extensibility.md's sokuon
+  // section). katakana-tsu's entry above already carries the katakana half
+  // of this (merged there instead of duplicated, since that key already
+  // existed for the shi/tsu shape confusion).
+  sokuon: ['tsu'],
+  tsu: ['sokuon'],
+  'katakana-sokuon': ['katakana-tsu'],
 }
 
 export function getConfusableIds(charId: string): string[] {

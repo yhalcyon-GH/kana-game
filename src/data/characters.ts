@@ -213,6 +213,25 @@ export const CHARACTERS: KanaChar[] = [
   // Romaji '-' is a placeholder reading, not a real pronunciation — see
   // final report / PR description for why this needs the user's sign-off.
   { id: 'katakana-chouon', kana: 'ー', romaji: '-', rowId: 'katakana-chouon-row', type: 'base' },
+
+  // ===== 促音 (sokuon) =====
+  // っ/ッ mark gemination — a held/doubled consonant, e.g. おと "oto" vs.
+  // おっと "otto" — taught through contrast-pair vocabulary rather than a
+  // flashcard step (see curriculum.ts's sokuon-row and
+  // docs/curriculum-extensibility.md's 'contrast-pairs' learnStyle), but
+  // they're still real characters needing a normal CHARACTERS entry (stroke
+  // data, CONFUSABLE_PAIRS) like any other. `romaji: '-'` is a placeholder,
+  // same convention as katakana-chouon above: っ/ッ's actual spoken
+  // contribution is just doubling the FIRST LETTER of the following mora,
+  // which varies per word (otto's t, gakkou's k, kippu's p, ...) and can't
+  // be captured as one fixed string. Only this placeholder's LENGTH (1)
+  // matters — see answerChecking.ts's romajiVariants, which walks a word's
+  // characterIds in lockstep with its canonical romaji using each
+  // character's romaji LENGTH for bookkeeping; a real typed answer is
+  // checked directly against word.romaji first, so this placeholder is
+  // never itself shown as "the" correct answer.
+  { id: 'sokuon', kana: 'っ', romaji: '-', rowId: 'sokuon-row', type: 'base' },
+  { id: 'katakana-sokuon', kana: 'ッ', romaji: '-', rowId: 'sokuon-row', type: 'base' },
 ]
 
 export const CHARACTERS_BY_ID: Record<string, KanaChar> = Object.fromEntries(
