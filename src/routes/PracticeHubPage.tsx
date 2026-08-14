@@ -34,35 +34,44 @@ function ActivityGrid({ activities }: { activities: Activity[] }) {
   )
 }
 
+type Props = {
+  // Set only by the review routes (/practice/review, .../review/kana-quiz,
+  // ...), which aren't nested under :categoryId since Review spans every
+  // taught category — see REVIEW_SCOPE_ID.
+  rowIdOverride?: string
+}
+
 // Single hub page for a row: Learn plus every mini-game live here as equal
 // activity cards, rather than Learn being a separate flow the learner has
 // to navigate away from Practice to reach.
-export function PracticeHubPage() {
-  const { rowId } = useParams<{ rowId: string }>()
+export function PracticeHubPage({ rowIdOverride }: Props = {}) {
+  const params = useParams<{ categoryId?: string; rowId?: string }>()
+  const rowId = rowIdOverride ?? params.rowId
   const navigate = useNavigate()
   const { isScopeReady, dueReviewCount } = useCurriculum()
   const isReview = rowId === REVIEW_SCOPE_ID
   const row = rowId && !isReview ? ROWS_BY_ID[rowId] : undefined
+  const categoryId = isReview ? undefined : (params.categoryId ?? row?.categoryId)
 
   useEffect(() => {
-    if (!rowId || !isScopeReady(rowId)) {
+    if (!rowId || !isScopeReady(rowId) || (!isReview && row?.categoryId !== categoryId)) {
       navigate('/', { replace: true })
     }
-  }, [rowId, isScopeReady, navigate])
+  }, [rowId, isReview, row, categoryId, isScopeReady, navigate])
 
   if (!rowId || (!isReview && !row)) return null
+
+  const hubBase = isReview ? '/practice/review' : `/practice/${categoryId}/${rowId}`
 
   // Tracing walks through "every word in this row" as its second phase (see
   // TracingPage) — that only makes sense for a single row's small word
   // list, not Review's every-taught-row mix, so it's excluded there.
   const learnActivities: Activity[] = [
-    ...(isReview ? [] : [{ path: `/learn/${rowId}`, label: 'Learn', emoji: '📖', description: 'Meet the new characters' }]),
-    ...(isReview
-      ? []
-      : [{ path: `/practice/${rowId}/tracing`, label: 'Tracing', emoji: '✍️', description: 'Watch the stroke order, then trace' }]),
+    ...(isReview ? [] : [{ path: `/learn/${categoryId}/${rowId}`, label: 'Learn', emoji: '📖', description: 'Meet the new characters' }]),
+    ...(isReview ? [] : [{ path: `${hubBase}/tracing`, label: 'Tracing', emoji: '✍️', description: 'Watch the stroke order, then trace' }]),
   ]
   const practiceActivities: Activity[] = PRACTICE_GAMES.map((game) => ({
-    path: `/practice/${rowId}/${game.path}`,
+    path: `${hubBase}/${game.path}`,
     label: game.label,
     emoji: game.emoji,
     description: game.description,

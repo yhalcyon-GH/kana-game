@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { AnswerFeedbackRow } from '../../components/AnswerFeedbackRow'
 import { GameRoundHeader } from '../../components/GameRoundHeader'
 import { PracticeSummary } from '../../components/PracticeSummary'
+import { ROWS_BY_ID } from '../../data/curriculum'
 import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
 import { useEnterAdvance } from '../../hooks/useEnterAdvance'
@@ -17,14 +18,21 @@ import { useProgressStore } from '../../store/progressStore'
 // picking it out of multiple choice (see ListeningPage). Production recall
 // is a meaningfully different, harder skill than recognition, and it's the
 // single most-praised mechanic across competing kana apps.
-export function KanaTypingPage() {
-  const { rowId } = useParams<{ rowId: string }>()
+type Props = {
+  // Set only by the /practice/review/kana-typing route — see REVIEW_SCOPE_ID.
+  rowIdOverride?: string
+}
+
+export function KanaTypingPage({ rowIdOverride }: Props = {}) {
+  const params = useParams<{ categoryId?: string; rowId?: string }>()
+  const rowId = rowIdOverride ?? params.rowId
   const navigate = useNavigate()
   const { isScopeReady, getScopeWords } = useCurriculum()
   const recordResult = useProgressStore((s) => s.recordResult)
   const characters = useProgressStore((s) => s.characters)
   const { speak, supported } = useTTS()
   const isReview = rowId === REVIEW_SCOPE_ID
+  const categoryId = isReview ? undefined : (params.categoryId ?? ROWS_BY_ID[rowId ?? '']?.categoryId)
   const {
     feedback,
     mood,
@@ -42,8 +50,10 @@ export function KanaTypingPage() {
   const isComposingRef = useRef(false)
 
   useEffect(() => {
-    if (!rowId || !isScopeReady(rowId)) navigate('/', { replace: true })
-  }, [rowId, isScopeReady, navigate])
+    if (!rowId || !isScopeReady(rowId) || (!isReview && ROWS_BY_ID[rowId]?.categoryId !== categoryId)) {
+      navigate('/', { replace: true })
+    }
+  }, [rowId, isReview, categoryId, isScopeReady, navigate])
 
   const scopeWords = useMemo(() => getScopeWords(rowId), [rowId, getScopeWords])
   const wordIds = useMemo(() => scopeWords.map((w) => w.id), [scopeWords])
@@ -105,7 +115,7 @@ export function KanaTypingPage() {
       <PracticeSummary
         title="Kana Typing complete!"
         stats={[{ label: 'Accuracy', value: `${Math.round((correctCount / queue.length) * 100)}%` }]}
-        backHref={isReview ? '/review' : `/practice/${rowId}`}
+        backHref={isReview ? '/practice/review' : `/practice/${categoryId}/${rowId}`}
         onRetry={startSession}
         mistakes={mistakes}
         onReviewMistakes={() => startMistakeReview(mistakeIds)}
@@ -119,7 +129,7 @@ export function KanaTypingPage() {
 
   return (
     <div className="flex flex-col items-center gap-6">
-      <GameRoundHeader rowId={rowId} roundIndex={roundIndex} total={queue.length} />
+      <GameRoundHeader rowId={rowId} categoryId={categoryId} roundIndex={roundIndex} total={queue.length} />
       <div className="flex flex-col items-center gap-2">
         <img src={`${import.meta.env.BASE_URL}${currentWord.image}`} alt="" className="h-20 w-20" />
         <span className="text-lg font-semibold">{currentWord.meaning}</span>

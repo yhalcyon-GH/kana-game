@@ -15,7 +15,7 @@ import { useProgressStore } from '../store/progressStore'
 // everything already known, all at once — this is where character and
 // vocabulary actually connect. See curriculum.ts/words.ts.
 export function LearnPage() {
-  const { rowId } = useParams<{ rowId: string }>()
+  const { categoryId, rowId } = useParams<{ categoryId: string; rowId: string }>()
   const navigate = useNavigate()
   const markRowTaught = useProgressStore((s) => s.markRowTaught)
 
@@ -25,10 +25,10 @@ export function LearnPage() {
   const { speak } = useTTS()
 
   useEffect(() => {
-    if (!rowId || !ROWS_BY_ID[rowId]) {
+    if (!rowId || !row || row.categoryId !== categoryId) {
       navigate('/', { replace: true })
     }
-  }, [rowId, navigate])
+  }, [rowId, categoryId, row, navigate])
 
   const characters = row ? row.characterIds.map((id) => CHARACTERS_BY_ID[id]) : []
 
@@ -47,7 +47,7 @@ export function LearnPage() {
     if (charIndex > 0) {
       setCharIndex((i) => i - 1)
     } else {
-      navigate(`/practice/${rowId}`)
+      navigate(`/practice/${categoryId}/${rowId}`)
     }
   }
 
@@ -61,7 +61,7 @@ export function LearnPage() {
 
   const handleFinish = () => {
     markRowTaught(rowId)
-    navigate(`/practice/${rowId}`)
+    navigate(`/practice/${categoryId}/${rowId}`)
   }
 
   if (step === 'A') {

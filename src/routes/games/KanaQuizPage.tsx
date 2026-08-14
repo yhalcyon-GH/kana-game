@@ -4,6 +4,7 @@ import { AnswerFeedbackRow } from '../../components/AnswerFeedbackRow'
 import { GameRoundHeader } from '../../components/GameRoundHeader'
 import { PracticeSummary } from '../../components/PracticeSummary'
 import { CHARACTERS_BY_ID } from '../../data/characters'
+import { ROWS_BY_ID } from '../../data/curriculum'
 import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
 import { useEnterAdvance } from '../../hooks/useEnterAdvance'
@@ -20,14 +21,21 @@ const DISTRACTOR_COUNT = 3
 // hear) a single character, pick its reading from a few choices. Word
 // Builder and Listening only ever exercise characters bundled into words —
 // this is the one place raw character knowledge gets checked directly.
-export function KanaQuizPage() {
-  const { rowId } = useParams<{ rowId: string }>()
+type Props = {
+  // Set only by the /practice/review/kana-quiz route — see REVIEW_SCOPE_ID.
+  rowIdOverride?: string
+}
+
+export function KanaQuizPage({ rowIdOverride }: Props = {}) {
+  const params = useParams<{ categoryId?: string; rowId?: string }>()
+  const rowId = rowIdOverride ?? params.rowId
   const navigate = useNavigate()
   const { isScopeReady, getScopeCharacterIds, getScopeQuizCharacterIds } = useCurriculum()
   const recordResult = useProgressStore((s) => s.recordResult)
   const characters = useProgressStore((s) => s.characters)
   const { speak, supported } = useTTS()
   const isReview = rowId === REVIEW_SCOPE_ID
+  const categoryId = isReview ? undefined : (params.categoryId ?? ROWS_BY_ID[rowId ?? '']?.categoryId)
   const {
     feedback,
     mood,
@@ -43,8 +51,10 @@ export function KanaQuizPage() {
   } = useAnswerFeedback()
 
   useEffect(() => {
-    if (!rowId || !isScopeReady(rowId)) navigate('/', { replace: true })
-  }, [rowId, isScopeReady, navigate])
+    if (!rowId || !isScopeReady(rowId) || (!isReview && ROWS_BY_ID[rowId]?.categoryId !== categoryId)) {
+      navigate('/', { replace: true })
+    }
+  }, [rowId, isReview, categoryId, isScopeReady, navigate])
 
   const quizCharacterIds = useMemo(() => getScopeQuizCharacterIds(rowId), [rowId, getScopeQuizCharacterIds])
   const distractorPool = useMemo(() => getScopeCharacterIds(rowId), [rowId, getScopeCharacterIds])
@@ -98,7 +108,7 @@ export function KanaQuizPage() {
       <PracticeSummary
         title="Kana Quiz complete!"
         stats={[{ label: 'Accuracy', value: `${Math.round((correctCount / queue.length) * 100)}%` }]}
-        backHref={isReview ? '/review' : `/practice/${rowId}`}
+        backHref={isReview ? '/practice/review' : `/practice/${categoryId}/${rowId}`}
         onRetry={startSession}
         mistakes={mistakes}
         onReviewMistakes={() => startMistakeReview(mistakeIds)}
@@ -113,7 +123,7 @@ export function KanaQuizPage() {
 
   return (
     <div className="flex flex-col items-center gap-6">
-      <GameRoundHeader rowId={rowId} roundIndex={roundIndex} total={queue.length} />
+      <GameRoundHeader rowId={rowId} categoryId={categoryId} roundIndex={roundIndex} total={queue.length} />
       <div className="flex flex-col items-center gap-2">
         <span className="font-kana text-7xl font-bold">{currentChar.kana}</span>
         {supported && (
