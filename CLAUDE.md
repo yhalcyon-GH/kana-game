@@ -4,7 +4,9 @@ Guidance for Claude Code sessions working in this repository. Read this first �
 
 ## What this is
 
-**kana-game** is a hiragana-learning web app built for the developer's child, with an eye toward eventual commercial release (see `docs/` for design proposals; nothing here should assume commercial features exist yet). It teaches one gojūon row at a time (あ行, か行, ...), pairs each row with real everyday vocabulary, and drills both through four graded mini-games plus free-form tracing practice. Progress is tracked locally with a simplified spaced-repetition (Leitner box) system.
+**kana-game** is a kana-learning web app built for the developer's child, with an eye toward eventual commercial release (see `docs/` for design proposals; nothing here should assume commercial features exist yet). It teaches one gojūon row at a time (あ行, か行, ...), pairs each row with real everyday vocabulary, and drills both through four graded mini-games plus free-form tracing practice. Progress is tracked locally with a simplified spaced-repetition (Leitner box) system.
+
+Two script categories exist today, hiragana and katakana (see `docs/curriculum-extensibility.md` for the full `ScriptCategory` design and the three more planned: sokuon, chōon, yōon, 特殊音). Both use the same `learnStyle: 'character-set'` flow described below; a category with a different `learnStyle` will need real changes to Learn/Practice/Tracing, not just more data.
 
 Deployed to GitHub Pages via `.github/workflows/deploy.yml` on push to `main`. Base path is `/kana-game/` (see `vite.config.ts`).
 
@@ -61,11 +63,11 @@ docs/          Design proposals and review notes that are reference material, no
 
 Three static catalogs in `src/data/`, joined by string ids:
 
-- **`characters.ts`** — every kana character (`CHARACTERS`, 71 entries: 46 base gojūon + 20 dakuten + 5 handakuten). Each has `id`, `kana`, `romaji`, `rowId`, `type: 'base' | 'dakuten' | 'handakuten'`.
-- **`curriculum.ts`** — `ROWS`: the 10 gojūon rows in teaching order, each listing its `characterIds` (dakuten/handakuten rows are folded into their base row, taught together — there is no separate が行 row). Pure helper functions here (`getCumulativeCharacterIds`, `getNextRowId`, etc.) have no dependency on progress state.
-- **`words.ts`** — `WORDS_BY_ROW`: every row's vocabulary, keyed by row id. Each `AnchorWord` has `kana`, `romaji`, `meaning`, `image`, `characterIds` (which must spell out `kana` exactly — enforced by `curriculum.test.ts`), and an optional `audioText` override (see "Audio system").
+- **`characters.ts`** — every kana character (`CHARACTERS`, 143 entries: 71 hiragana + 72 katakana, each script being 46 base gojūon + 20 dakuten + 5 handakuten, plus katakana's extra ー/chōon character). Each has `id`, `kana`, `romaji`, `rowId`, `type: 'base' | 'dakuten' | 'handakuten'`. Katakana ids are `katakana-` prefixed (`katakana-ka`, not `ka`) since `CHARACTERS_BY_ID` is a flat dictionary and both scripts share the same romaji.
+- **`curriculum.ts`** — `CATEGORIES`: the script categories (hiragana, katakana, ...; see `types.ts`'s `ScriptCategory`). `ROWS`: every category's gojūon rows in teaching order, each tagged with a `categoryId` and listing its `characterIds` (dakuten/handakuten rows are folded into their base row, taught together — there is no separate が行 row). `order` is scoped **within** a category — a second category's rows number their own sequence from 0, independent of the first's. Pure helper functions here (`getCumulativeCharacterIds`, `getNextRowId`, etc.) all respect that scoping and have no dependency on progress state.
+- **`words.ts`** — `WORDS_BY_ROW`: every row's vocabulary, keyed by row id. Each `AnchorWord` has `kana`, `romaji`, `meaning`, `characterIds` (which must spell out `kana` exactly — enforced by `curriculum.test.ts`), an optional `image` (word-icons/*.webp — every hiragana word has one, but it's a real hand-sourced/paid effort, not a script; new categories may ship without it, see `WordImage.tsx`'s placeholder), and an optional `audioText` override (see "Audio system").
 
-**Invariant enforced by `data/curriculum.test.ts`** (not a script — read this file, not a stale comment, if you see one pointing elsewhere): every word uses only characters introduced at or before its row, every `characterIds` entry exists in `CHARACTERS_BY_ID`, and `characterIds` joined together spells `kana` exactly. **This last check assumes one character id = one kana glyph = one mora.** That assumption holds for the current hiragana-only, no-yōon content, but will need to change before adding 拗音 (youon, e.g. りゃ) — see `docs/curriculum-extensibility.md`.
+**Invariant enforced by `data/curriculum.test.ts`** (not a script — read this file, not a stale comment, if you see one pointing elsewhere): every word uses only characters introduced at or before its row (scoped per-category), every `characterIds` entry exists in `CHARACTERS_BY_ID`, and `characterIds` joined together spells `kana` exactly. **This last check assumes one character id = one kana glyph = one mora.** That assumption holds for hiragana and katakana's single-kana content, but will need to change before adding 拗音 (youon, e.g. りゃ) — see `docs/curriculum-extensibility.md`.
 
 `useCurriculum()` (`src/hooks/useCurriculum.ts`) is the **only** place that should combine this static data with live progress (`useProgressStore`) to answer "what's currently usable" — new screens should go through it rather than reading `data/` and the store separately, so the "practice only uses taught vocabulary" invariant stays in one place.
 
@@ -98,8 +100,9 @@ To regenerate character/word audio: `ELEVENLABS_API_KEY=sk_... npx tsx scripts/g
 ## Adding content
 
 - **New word in an existing row**: add an entry to that row's array in `words.ts` (respecting the "only already-taught characters" rule), then `npm test` to catch invariant violations, then generate its audio clip.
-- **New character/row**: this is bigger — touches `characters.ts`, `curriculum.ts`, likely `distractors.ts` (confusable pairs), and the SRS unlock chain in `progressStore.ts`. See `docs/curriculum-extensibility.md` before doing this for a genuinely new script category (katakana, sokuon, etc.) rather than more hiragana rows — there's a real design decision to make first about how non-hiragana categories fit the current row-based model.
-- **Stroke order data**: `src/data/strokes.ts` is generated by `scripts/fetchStrokeData.ts` from KanjiVG (CC BY-SA 3.0) — don't hand-edit, re-run the script.
+- **New character/row within an existing `'character-set'` category**: touches `characters.ts`, `curriculum.ts`, `words.ts`, likely `distractors.ts` (confusable pairs), then re-run `scripts/fetchStrokeData.ts` and `scripts/subsetKanaFont.mjs` (both read straight from `src/data/`, no manual glyph-list bookkeeping needed) — see the katakana category (`katakana-` prefixed ids throughout) as a worked example of this whole shape, including the id-namespacing convention for a script that reuses hiragana's romaji.
+- **New `'contrast-pairs'` category** (促音/長音) or the next `'character-set'` one (拗音/特殊音): see `docs/curriculum-extensibility.md` first — `'contrast-pairs'` needs real Learn/Practice/Tracing changes, not just data, and doesn't exist yet.
+- **Stroke order data**: `src/data/strokes.ts` is generated by `scripts/fetchStrokeData.ts` from KanjiVG (CC BY-SA 3.0) — don't hand-edit, re-run the script. Object keys are `JSON.stringify`-escaped (needed once ids stopped being bare identifiers, e.g. `katakana-a`) — don't revert that to save characters.
 - **Pitch-accent data**: `src/data/accents.ts` is generated by `scripts/buildAccentData.mjs` from accentjiten.com's dataset — never hand-guess accent patterns from memory (a past attempt at this was wrong and had to be reverted).
 
 ## Rules for this codebase
@@ -109,7 +112,7 @@ To regenerate character/word audio: `ELEVENLABS_API_KEY=sk_... npx tsx scripts/g
 - **Audio clips are checked into git** (`public/audio/`) — regenerating them is a real, git-visible change (and, for ElevenLabs, a paid one). Don't regenerate speculatively.
 - **Run `npm test` and `npm run build` before considering any data/logic change done** — `curriculum.test.ts` in particular catches a whole class of content mistakes cheaply.
 - **Prefer small, independently-testable changes over big-bang refactors**, especially anywhere touching `data/`, `store/`, or the answer-checking/SRS logic in `lib/`.
-- **The `type: 'hiragana'` scope is implicit today** — nothing in the current data model says "this is hiragana" because nothing else exists yet. Don't bolt on katakana/sokuon/etc. content ad hoc; see `docs/curriculum-extensibility.md` for the intended shape first.
+- **`ScriptCategory`/`categoryId` is the explicit scope tag now** (hiragana and katakana both exist — see "Data model" above). Don't bolt on sokuon/chōon/yōon/特殊音 content ad hoc; each of those needs `learnStyle: 'contrast-pairs'` support in Learn/Practice/Tracing first (katakana didn't, since it reused hiragana's `'character-set'` flow unchanged) — see `docs/curriculum-extensibility.md` for the intended shape.
 
 ## Known gaps / stale-content risk
 

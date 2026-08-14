@@ -4,8 +4,8 @@ export function AboutPage() {
       <h1 className="text-2xl font-bold">About</h1>
 
       <p className="text-center text-sm text-neutral-600 dark:text-neutral-300">
-        Kana Game is a hiragana learning app: it teaches one gojūon row at a time, paired with real everyday words, and
-        reviews you on both with a spaced-repetition-style practice loop.
+        Kana Game is a kana learning app (hiragana and katakana): it teaches one gojūon row at a time, paired with real
+        everyday words, and reviews you on both with a spaced-repetition-style practice loop.
       </p>
 
       <div className="w-full rounded-xl border border-neutral-300 bg-white p-3 text-sm text-neutral-600 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
