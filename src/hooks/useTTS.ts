@@ -2,10 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useProgressStore } from '../store/progressStore'
 
 // Plays pre-generated audio shipped as static files under public/audio/ (see
-// scripts/generateAudio.ts for word clips; character clips are real human
-// recordings checked in directly) — every clip is baked in ahead of time, so
-// playback works for any visitor with just a browser, no local COEIROINK
-// install required. Falls back to the Web Speech API only if a clip is
+// scripts/generateAudioElevenLabs.ts for character/word clips — voiced by a
+// dedicated ElevenLabs narrator, distinct from the ElevenLabs voice used for
+// Tamamizu's in-game reaction lines) — every clip is baked in ahead of time,
+// so playback works for any visitor with just a browser, no TTS engine
+// needed at runtime. Falls back to the Web Speech API only if a clip is
 // missing or fails to play.
 //
 // The Settings speed slider is deliberately kept to a gentle 0.75x-1.5x
