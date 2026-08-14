@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import type { MascotMood } from '../components/Mascot'
-import { pickCorrectFeedback, pickIncorrectFeedback, pickPerfectFeedback } from '../lib/feedbackVoice'
+import { pickCorrectFeedback, pickEvaluationFeedback, pickIncorrectFeedback } from '../lib/feedbackVoice'
 import { useTTS } from './useTTS'
 
 export type AnswerFeedback = { ok: boolean; text: string }
@@ -27,6 +27,8 @@ export function useAnswerFeedback() {
   const [streak, setStreak] = useState(0)
   const [feedback, setFeedback] = useState<AnswerFeedback | null>(null)
   const [mistakes, setMistakes] = useState<Mistake[]>([])
+  const [finishFeedback, setFinishFeedback] = useState<AnswerFeedback | null>(null)
+  const [finishMood, setFinishMood] = useState<MascotMood | null>(null)
 
   const onCorrect = () => {
     streakRef.current += 1
@@ -48,10 +50,14 @@ export function useAnswerFeedback() {
     setMistakes((m) => [...m, mistake])
   }
 
-  // Call once when a session finishes with a perfect score.
-  const onPerfect = () => {
-    const { id, text } = pickPerfectFeedback()
+  // Call once when a session finishes, with the number of items missed —
+  // picks and speaks the matching evaluation-screen line (かんぺき/おしい/
+  // ドンマイ) and derives a matching mascot mood for PracticeSummary.
+  const onFinish = (mistakeCount: number) => {
+    const { id, text } = pickEvaluationFeedback(mistakeCount)
     speak(`feedback/${id}`, text)
+    setFinishFeedback({ ok: mistakeCount === 0, text })
+    setFinishMood(mistakeCount === 0 ? 'streak' : mistakeCount <= 2 ? 'correct' : 'incorrect')
   }
 
   // Call when moving to a new round, so the previous round's comment
@@ -64,6 +70,8 @@ export function useAnswerFeedback() {
     setStreak(0)
     setFeedback(null)
     setMistakes([])
+    setFinishFeedback(null)
+    setFinishMood(null)
   }
 
   // De-duplicated by id, in first-missed order — a word gotten wrong twice
@@ -77,5 +85,17 @@ export function useAnswerFeedback() {
   const mood: MascotMood =
     feedback == null ? 'normal' : feedback.ok ? (streak >= STREAK_MOOD_THRESHOLD ? 'streak' : 'correct') : 'incorrect'
 
-  return { feedback, mood, mistakes: uniqueMistakes, mistakeIds, onCorrect, onWrong, onPerfect, clear, resetSession }
+  return {
+    feedback,
+    mood,
+    mistakes: uniqueMistakes,
+    mistakeIds,
+    onCorrect,
+    onWrong,
+    onFinish,
+    finishFeedback,
+    finishMood,
+    clear,
+    resetSession,
+  }
 }

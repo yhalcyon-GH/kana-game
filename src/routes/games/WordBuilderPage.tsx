@@ -31,7 +31,19 @@ export function WordBuilderPage() {
   const showRomaji = useProgressStore((s) => s.showRomaji)
   const { speak, supported } = useTTS()
   const isReview = rowId === REVIEW_SCOPE_ID
-  const { feedback, mood, mistakes, mistakeIds, onCorrect, onWrong, onPerfect, clear, resetSession } = useAnswerFeedback()
+  const {
+    feedback,
+    mood,
+    mistakes,
+    mistakeIds,
+    onCorrect,
+    onWrong,
+    onFinish,
+    finishFeedback,
+    finishMood,
+    clear,
+    resetSession,
+  } = useAnswerFeedback()
   const row = rowId && !isReview ? ROWS_BY_ID[rowId] : undefined
   const scopeCharacterIds = useMemo(() => getScopeCharacterIds(rowId), [rowId, getScopeCharacterIds])
 
@@ -53,7 +65,7 @@ export function WordBuilderPage() {
   )
 
   const { queue, roundIndex, correctCount, setCorrectCount, finished, startSession, startMistakeReview, advance } =
-    useGameSession({ ids: wordIds, weight: wordWeight, onPerfect, resetSession })
+    useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession })
 
   const [slots, setSlots] = useState<(string | null)[]>([])
   const [tray, setTray] = useState<TrayTile[]>([])
@@ -155,6 +167,8 @@ export function WordBuilderPage() {
         onRetry={startSession}
         mistakes={mistakes}
         onReviewMistakes={() => startMistakeReview(mistakeIds)}
+        mood={finishMood ?? undefined}
+        comment={finishFeedback?.text}
       />
     )
   }

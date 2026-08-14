@@ -25,7 +25,19 @@ export function KanaTypingPage() {
   const characters = useProgressStore((s) => s.characters)
   const { speak, supported } = useTTS()
   const isReview = rowId === REVIEW_SCOPE_ID
-  const { feedback, mood, mistakes, mistakeIds, onCorrect, onWrong, onPerfect, clear, resetSession } = useAnswerFeedback()
+  const {
+    feedback,
+    mood,
+    mistakes,
+    mistakeIds,
+    onCorrect,
+    onWrong,
+    onFinish,
+    finishFeedback,
+    finishMood,
+    clear,
+    resetSession,
+  } = useAnswerFeedback()
   const inputRef = useRef<HTMLInputElement>(null)
   const isComposingRef = useRef(false)
 
@@ -46,7 +58,7 @@ export function KanaTypingPage() {
   )
 
   const { queue, roundIndex, correctCount, setCorrectCount, finished, startSession, startMistakeReview, advance } =
-    useGameSession({ ids: wordIds, weight: wordWeight, onPerfect, resetSession })
+    useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession })
 
   const [input, setInput] = useState('')
   const [answered, setAnswered] = useState(false)
@@ -97,6 +109,8 @@ export function KanaTypingPage() {
         onRetry={startSession}
         mistakes={mistakes}
         onReviewMistakes={() => startMistakeReview(mistakeIds)}
+        mood={finishMood ?? undefined}
+        comment={finishFeedback?.text}
       />
     )
   }

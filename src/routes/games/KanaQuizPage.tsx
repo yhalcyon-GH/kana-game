@@ -28,7 +28,19 @@ export function KanaQuizPage() {
   const characters = useProgressStore((s) => s.characters)
   const { speak, supported } = useTTS()
   const isReview = rowId === REVIEW_SCOPE_ID
-  const { feedback, mood, mistakes, mistakeIds, onCorrect, onWrong, onPerfect, clear, resetSession } = useAnswerFeedback()
+  const {
+    feedback,
+    mood,
+    mistakes,
+    mistakeIds,
+    onCorrect,
+    onWrong,
+    onFinish,
+    finishFeedback,
+    finishMood,
+    clear,
+    resetSession,
+  } = useAnswerFeedback()
 
   useEffect(() => {
     if (!rowId || !isScopeReady(rowId)) navigate('/', { replace: true })
@@ -39,7 +51,7 @@ export function KanaQuizPage() {
   const getBox = useCallback((id: string) => characters[id]?.box ?? 0, [characters])
 
   const { queue, roundIndex, correctCount, setCorrectCount, finished, startSession, startMistakeReview, advance } =
-    useGameSession({ ids: quizCharacterIds, weight: getBox, onPerfect, resetSession })
+    useGameSession({ ids: quizCharacterIds, weight: getBox, onFinish, resetSession })
 
   const [choices, setChoices] = useState<string[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -90,6 +102,8 @@ export function KanaQuizPage() {
         onRetry={startSession}
         mistakes={mistakes}
         onReviewMistakes={() => startMistakeReview(mistakeIds)}
+        mood={finishMood ?? undefined}
+        comment={finishFeedback?.text}
       />
     )
   }

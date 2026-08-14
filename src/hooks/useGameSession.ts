@@ -9,17 +9,18 @@ type Options = {
   // startSession-on-mount call.
   ids: string[]
   weight: (id: string) => number
-  onPerfect: () => void
+  onFinish: (mistakeCount: number) => void
   resetSession: () => void
 }
 
 // Shared round/queue/score state machine for the four graded mini-games
 // (Kana Quiz, Kana Typing, Listening, Word Builder): builds a weighted
 // practice queue from `ids`, tracks progress and correct-count through it,
-// and fires onPerfect once a full session is answered correctly. Each page
-// still owns its own per-round setup (choices, tray tiles, etc.) via
-// currentId/roundIndex — this hook only owns the queue itself.
-export function useGameSession({ ids, weight, onPerfect, resetSession }: Options) {
+// and fires onFinish once every session ends, with how many of its rounds
+// were missed. Each page still owns its own per-round setup (choices, tray
+// tiles, etc.) via currentId/roundIndex — this hook only owns the queue
+// itself.
+export function useGameSession({ ids, weight, onFinish, resetSession }: Options) {
   const [queue, setQueue] = useState<string[]>([])
   const [roundIndex, setRoundIndex] = useState(0)
   const [correctCount, setCorrectCount] = useState(0)
@@ -60,7 +61,7 @@ export function useGameSession({ ids, weight, onPerfect, resetSession }: Options
   }, [queue.length])
 
   useEffect(() => {
-    if (finished && queue.length > 0 && correctCount === queue.length) onPerfect()
+    if (finished && queue.length > 0) onFinish(queue.length - correctCount)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finished])
 

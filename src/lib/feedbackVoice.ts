@@ -1,19 +1,15 @@
 import {
-  BONUS_LINES,
-  CORRECT_PHRASES,
-  CORRECT_RARE_STYLE,
-  CORRECT_RARE_STYLE_CHANCE,
-  CORRECT_STYLES,
-  INCORRECT_PHRASES,
-  INCORRECT_RARE_STYLE,
-  INCORRECT_RARE_STYLE_CHANCE,
-  INCORRECT_STYLES,
-  NEAR_MISS_ONLY_PHRASE_KEY,
-  PERFECT_PHRASE,
-  STREAK_3_PHRASE,
-  STREAK_5_PHRASE,
-  type Phrase,
-  type StyleOption,
+  DONMAI,
+  type FeedbackLine,
+  INCORRECT_LINES,
+  KAKKOII,
+  KAKKOII_CHANCE,
+  KANPEKI,
+  NEAR_MISS_ONLY_ID,
+  OSHII,
+  SAIKOU,
+  SEIKAI,
+  SUGOI,
 } from '../data/feedback'
 
 export type FeedbackClip = { id: string; text: string }
@@ -22,38 +18,31 @@ function pickOne<T>(options: T[]): T {
   return options[Math.floor(Math.random() * options.length)]
 }
 
-function pickStyle(regular: StyleOption[], rare: StyleOption, rareChance: number): StyleOption {
-  return Math.random() < rareChance ? rare : pickOne(regular)
-}
-
-function clipFor(phrase: Phrase, style: StyleOption): FeedbackClip {
-  return { id: `${phrase.key}-${style.key}`, text: phrase.text }
+function clipFor(line: FeedbackLine): FeedbackClip {
+  return { id: line.id, text: line.text }
 }
 
 // Picks the line for a correct answer at the given (1-indexed) consecutive-
-// correct streak count: a rare Easter-egg line can pre-empt everything else,
-// otherwise a streak milestone overrides the regular random pool.
+// correct streak count: 5-in-a-row says さいこう, with a rare かっこいい
+// alternate; 3-in-a-row says すごい; every other correct answer says せいかい.
 export function pickCorrectFeedback(streak: number): FeedbackClip {
-  for (const bonus of BONUS_LINES) {
-    if (Math.random() < bonus.chance) return { id: bonus.id, text: bonus.text }
-  }
-  const phrase = streak === 3 ? STREAK_3_PHRASE : streak === 5 ? STREAK_5_PHRASE : pickOne(CORRECT_PHRASES)
-  const style = pickStyle(CORRECT_STYLES, CORRECT_RARE_STYLE, CORRECT_RARE_STYLE_CHANCE)
-  return clipFor(phrase, style)
+  if (streak === 5) return clipFor(Math.random() < KAKKOII_CHANCE ? KAKKOII : SAIKOU)
+  if (streak === 3) return clipFor(SUGOI)
+  return clipFor(SEIKAI)
 }
 
 // `isNearMiss` gates おしい — it's only fair to say "so close!" when the
 // wrong answer really was one character/dakuten off (see
-// lib/answerCloseness.ts). Every other incorrect phrase is always eligible.
+// lib/answerCloseness.ts). Every other incorrect line is always eligible.
 export function pickIncorrectFeedback(isNearMiss: boolean): FeedbackClip {
-  const pool = isNearMiss ? INCORRECT_PHRASES : INCORRECT_PHRASES.filter((p) => p.key !== NEAR_MISS_ONLY_PHRASE_KEY)
-  const phrase = pickOne(pool)
-  const style = pickStyle(INCORRECT_STYLES, INCORRECT_RARE_STYLE, INCORRECT_RARE_STYLE_CHANCE)
-  return clipFor(phrase, style)
+  const pool = isNearMiss ? INCORRECT_LINES : INCORRECT_LINES.filter((l) => l.id !== NEAR_MISS_ONLY_ID)
+  return clipFor(pickOne(pool))
 }
 
-// Played once at session end when every answer in the session was correct.
-export function pickPerfectFeedback(): FeedbackClip {
-  const style = pickStyle(CORRECT_STYLES, CORRECT_RARE_STYLE, CORRECT_RARE_STYLE_CHANCE)
-  return clipFor(PERFECT_PHRASE, style)
+// Played once at session end: かんぺき for a flawless run, おしい for a
+// near-flawless one (1-2 missed), ドンマイ otherwise.
+export function pickEvaluationFeedback(mistakeCount: number): FeedbackClip {
+  if (mistakeCount === 0) return clipFor(KANPEKI)
+  if (mistakeCount <= 2) return clipFor(OSHII)
+  return clipFor(DONMAI)
 }

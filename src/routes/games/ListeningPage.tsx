@@ -24,7 +24,19 @@ export function ListeningPage() {
   const isReview = rowId === REVIEW_SCOPE_ID
   const row = rowId && !isReview ? ROWS_BY_ID[rowId] : undefined
   const { speak, supported } = useTTS()
-  const { feedback, mood, mistakes, mistakeIds, onCorrect, onWrong, onPerfect, clear, resetSession } = useAnswerFeedback()
+  const {
+    feedback,
+    mood,
+    mistakes,
+    mistakeIds,
+    onCorrect,
+    onWrong,
+    onFinish,
+    finishFeedback,
+    finishMood,
+    clear,
+    resetSession,
+  } = useAnswerFeedback()
 
   useEffect(() => {
     if (!rowId || !isScopeReady(rowId)) navigate('/', { replace: true })
@@ -43,7 +55,7 @@ export function ListeningPage() {
   )
 
   const { queue, roundIndex, correctCount, setCorrectCount, finished, startSession, startMistakeReview, advance } =
-    useGameSession({ ids: wordIds, weight: wordWeight, onPerfect, resetSession })
+    useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession })
 
   const [choices, setChoices] = useState<AnchorWord[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -97,6 +109,8 @@ export function ListeningPage() {
         onRetry={startSession}
         mistakes={mistakes}
         onReviewMistakes={() => startMistakeReview(mistakeIds)}
+        mood={finishMood ?? undefined}
+        comment={finishFeedback?.text}
       />
     )
   }

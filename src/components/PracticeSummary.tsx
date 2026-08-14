@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { Mascot, type MascotMood } from './Mascot'
 import { ProgressBadge } from './ProgressBadge'
 
 type Stat = { label: string; value: string | number }
@@ -14,12 +15,32 @@ type Props = {
   // nothing was missed.
   mistakes?: MistakeEntry[]
   onReviewMistakes?: () => void
+  // Tamamizu's reaction to the whole session (see useAnswerFeedback's
+  // onFinish/finishMood) — omitted for the ungraded games (Tracing), which
+  // have no mistake count to react to.
+  mood?: MascotMood
+  comment?: string
 }
 
 // Shared end-of-session screen for all five mini-games.
-export function PracticeSummary({ title, stats, backHref, onRetry, mistakes = [], onReviewMistakes }: Props) {
+export function PracticeSummary({
+  title,
+  stats,
+  backHref,
+  onRetry,
+  mistakes = [],
+  onReviewMistakes,
+  mood,
+  comment,
+}: Props) {
   return (
     <div className="flex flex-col items-center gap-6">
+      {mood && (
+        <div className="flex flex-col items-center gap-2">
+          <Mascot mood={mood} />
+          {comment && <p className="text-lg font-semibold">{comment}</p>}
+        </div>
+      )}
       <h2 className="text-2xl font-bold">{title}</h2>
       <div className="flex flex-wrap justify-center gap-3">
         {stats.map((s) => (
