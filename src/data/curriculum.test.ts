@@ -31,7 +31,14 @@ describe('curriculum content integrity', () => {
   it('word kana string matches the concatenation of its characterIds', () => {
     for (const words of Object.values(WORDS_BY_ROW)) {
       for (const word of words) {
-        const kanaOnly = word.kana.replace(/[^぀-ゟ]/g, '')
+        // U+3040-30FF covers hiragana (3040-309F) AND katakana (30A0-30FF)
+        // contiguously, so one range strips punctuation/kanji from a word's
+        // audioText-adjacent `kana` field regardless of which script it's
+        // in. A hiragana-only range here would silently zero out every
+        // katakana word's comparison (all its characters would be
+        // stripped, both sides would be '', and the check would pass
+        // vacuously) — this bit a first draft of katakana support.
+        const kanaOnly = word.kana.replace(/[^぀-ヿ]/g, '')
         const rebuilt = word.characterIds.map((id) => CHARACTERS_BY_ID[id].kana).join('')
         expect(rebuilt, `word "${word.id}" characterIds don't spell its kana`).toBe(kanaOnly)
       }
