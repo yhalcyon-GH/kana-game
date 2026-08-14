@@ -11,12 +11,14 @@
    Self-hosted as a hand-built subset (see scripts/subsetKanaFont.mjs)
    instead of @fontsource/klee-one's japanese-*.css: the full Japanese
    subset is ~4MB per weight (every kanji + katakana + hiragana glyph),
-   but every .font-kana use in this app is hiragana/～/・ only — the
-   curriculum never introduces kanji or katakana as visible kana text
+   but every .font-kana use in this app is hiragana + katakana + ～/・
+   only — the curriculum never introduces kanji as visible kana text
    (see data/words.ts's "only characters introduced at or before this
-   row" rule). Subsetting to just the ~70 glyphs actually used shrinks
-   each weight to ~14KB. Re-run the script if a new character (e.g. a
-   future katakana row) needs adding to the subset. */
+   row" rule). Subsetting to just the ~145 glyphs actually used (as of
+   the katakana category) shrinks each weight to ~23KB. Re-run the
+   script whenever a new character/category needs adding to the subset
+   (the filenames still say "hiragana" for historical reasons — they
+   cover both kana scripts now). */
 @font-face {
   font-family: 'Klee One';
   font-style: normal;

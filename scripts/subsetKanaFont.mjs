@@ -1,10 +1,12 @@
 // Rebuilds the self-hosted Klee One subset used by the .font-kana class
 // (see src/index.css for why: the full @fontsource/klee-one Japanese
-// subset is ~4MB per weight, but this app only ever renders hiragana/～/・
-// with it). Scans src/data for every string ever assigned to a `kana` or
-// `label` field, subsets the two weights down to just those glyphs, and
-// writes them to src/assets/fonts/. Re-run whenever a new character needs
-// adding to the curriculum (e.g. a future katakana row):
+// subset is ~4MB per weight, but this app only ever renders hiragana +
+// katakana + ～/・ with it). Scans src/data for every string ever assigned
+// to a `kana` or `label` field, subsets the two weights down to just those
+// glyphs, and writes them to src/assets/fonts/ (still named
+// klee-one-hiragana-*.woff2 for historical reasons — they cover katakana
+// too now). Re-run whenever a new character/category is added to the
+// curriculum (e.g. a future sokuon/chōon/yōon category):
 //   npx tsx scripts/subsetKanaFont.mjs
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
