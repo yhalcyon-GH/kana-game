@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { CHARACTERS_BY_ID } from './characters'
+import { CHARACTERS, CHARACTERS_BY_ID } from './characters'
 import { CATEGORIES, CATEGORIES_BY_ID, getCumulativeCharacterIds, getNextRowId, getPreviousRowId, ROWS } from './curriculum'
-import { WORDS_BY_ROW } from './words'
+import { WORDS_BY_ID, WORDS_BY_ROW } from './words'
 
 describe('curriculum content integrity', () => {
   it('every character id referenced by a word exists in characters.ts', () => {
@@ -182,5 +182,70 @@ describe('contrast-pairs category content', () => {
     expect(words.some((w) => w.kana === 'おとうさん')).toBe(true)
     // Katakana's ー is reviewed too, not just hiragana's patterns.
     expect(words.some((w) => w.characterIds.includes('katakana-chouon'))).toBe(true)
+  })
+})
+
+// 拗音 (yōon) is back to 'character-set' — same Learn/Practice/Tracing shape
+// as hiragana/katakana, unlike sokuon/chōon above — see
+// docs/curriculum-extensibility.md and CLAUDE.md's category summary.
+describe('character-set category content (拗音/yōon)', () => {
+  it('youon is a character-set category (not contrast-pairs like sokuon/chōon)', () => {
+    expect(CATEGORIES_BY_ID.youon?.learnStyle).toBe('character-set')
+  })
+
+  it('youon depends on hiragana + katakana, same as sokuon/chōon, since its words mix in already-taught plain kana', () => {
+    expect(CATEGORIES_BY_ID.youon?.dependsOnCategoryIds).toEqual(expect.arrayContaining(['hiragana', 'katakana']))
+    const cumulative = getCumulativeCharacterIds('youon-ka-row')
+    expect(cumulative).toEqual(expect.arrayContaining(['a', 'ka', 'n'])) // hiragana
+    expect(cumulative).toEqual(expect.arrayContaining(['katakana-a', 'katakana-ka', 'katakana-chouon'])) // katakana
+  })
+
+  it('introduces the standard 33-combination yōon set for each script (66 characters total)', () => {
+    const hiraganaYouon = CHARACTERS.filter((c) => c.rowId.startsWith('youon-') && !c.rowId.includes('katakana'))
+    const katakanaYouon = CHARACTERS.filter((c) => c.rowId.startsWith('youon-katakana-'))
+    expect(hiraganaYouon).toHaveLength(33)
+    expect(katakanaYouon).toHaveLength(33)
+    // Spot-check a few well-known combinations exist with the right glyphs.
+    expect(CHARACTERS_BY_ID.kya?.kana).toBe('きゃ')
+    expect(CHARACTERS_BY_ID.rya?.kana).toBe('りゃ')
+    expect(CHARACTERS_BY_ID['katakana-kya']?.kana).toBe('キャ')
+    expect(CHARACTERS_BY_ID['katakana-rya']?.kana).toBe('リャ')
+  })
+
+  it('every yōon character is a 2-glyph, 1-character-id mora (the documented "one glyph = one mora" break)', () => {
+    const youonChars = CHARACTERS.filter((c) => c.rowId.startsWith('youon-'))
+    expect(youonChars.length).toBeGreaterThan(0)
+    for (const c of youonChars) {
+      expect([...c.kana], `"${c.id}" (${c.kana}) should be exactly 2 glyphs`).toHaveLength(2)
+    }
+  })
+
+  it('a real yōon word\'s characterIds is shorter than its glyph count — the exact mismatch AccentedKana/buildAccentData.mjs guard against', () => {
+    // きゃく (kyaku): 2 characterIds (kya, ku) but 3 glyphs (き/ゃ/く) — see
+    // WordCard.test.tsx for the rendering-level proof this is handled
+    // safely, and buildAccentData.mjs's length-mismatch guard.
+    const word = WORDS_BY_ID['youon-ka-kyaku']
+    expect(word).toBeDefined()
+    expect(word.characterIds).toHaveLength(2)
+    expect([...word.kana]).toHaveLength(3)
+  })
+
+  it('the hiragana yōon rows (order 0-6) and katakana yōon rows (order 7-13) share one monotonic order sequence within the category', () => {
+    const youonRows = ROWS.filter((r) => r.categoryId === 'youon').sort((a, b) => a.order - b.order)
+    expect(youonRows).toHaveLength(14)
+    expect(youonRows.map((r) => r.order)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
+    expect(youonRows.slice(0, 7).every((r) => !r.id.includes('katakana'))).toBe(true)
+    expect(youonRows.slice(7).every((r) => r.id.includes('katakana'))).toBe(true)
+  })
+
+  it('a later katakana yōon row\'s cumulative pool includes earlier hiragana yōon rows\' characters too (same-category, order-scoped)', () => {
+    const cumulative = getCumulativeCharacterIds('youon-katakana-ra-row')
+    expect(cumulative).toEqual(expect.arrayContaining(['kya', 'rya'])) // hiragana yōon, earlier order
+    expect(cumulative).toEqual(expect.arrayContaining(['katakana-kya', 'katakana-rya'])) // katakana yōon, own row
+  })
+
+  it('an early yōon row\'s cumulative pool does NOT include later yōon rows\' characters (order still matters within the category)', () => {
+    const cumulative = getCumulativeCharacterIds('youon-ka-row')
+    expect(cumulative).not.toEqual(expect.arrayContaining(['rya', 'katakana-kya']))
   })
 })

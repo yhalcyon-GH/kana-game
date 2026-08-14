@@ -217,3 +217,60 @@ describe('contrast-pairs learnStyle with zero new characters (chōon)', () => {
     expect(screen.queryByText('Kana Quiz')).not.toBeInTheDocument()
   })
 })
+
+// 拗音 (yōon) is back to 'character-set' — the same flashcard -> recap ->
+// words shape as hiragana/katakana, NOT 'contrast-pairs' like sokuon/chōon
+// above (see docs/curriculum-extensibility.md). These tests confirm that
+// generic routing/flow, plus the one real yōon-specific wrinkle: its
+// characters are 2 glyphs/1 mora, which WordCard.test.tsx and
+// StrokeOrderAnimation.test.tsx already prove degrades safely in isolation
+// — the /learn and /tracing checks here confirm the same holds when those
+// components are actually mounted inside the real page flow, not just unit
+// tests of the component alone.
+describe('character-set learnStyle with yōon (multi-glyph, one-mora characters)', () => {
+  it('/practice/youon/youon-ka-row renders that row\'s Practice Hub', () => {
+    renderAt('/practice/youon/youon-ka-row')
+    expect(screen.getByRole('heading', { name: 'きゃ・きゅ・きょ・ぎゃ・ぎゅ・ぎょ' })).toBeInTheDocument()
+  })
+
+  it('the youon Practice Hub offers all 4 games, including Kana Quiz (regression: character-set categories keep it, unlike contrast-pairs)', () => {
+    renderAt('/practice/youon/youon-ka-row')
+    expect(screen.getByText('Kana Quiz')).toBeInTheDocument()
+    expect(screen.getByText('Kana Typing')).toBeInTheDocument()
+    expect(screen.getByText('Listening')).toBeInTheDocument()
+    expect(screen.getByText('Word Builder')).toBeInTheDocument()
+  })
+
+  it('/learn/youon/youon-ka-row starts on the flashcard step, like hiragana/katakana (not skipped like contrast-pairs)', () => {
+    renderAt('/learn/youon/youon-ka-row')
+    expect(screen.getByText(/new characters/)).toBeInTheDocument()
+  })
+
+  it('/practice/youon/youon-ka-row/kana-quiz renders normally rather than redirecting home', () => {
+    renderAt('/practice/youon/youon-ka-row/kana-quiz')
+    expect(screen.getByText(/Round 1/)).toBeInTheDocument()
+  })
+
+  it('/practice/youon/youon-ka-row/tracing starts in the character phase and does not crash on a yōon character with no stroke data', () => {
+    // きゃ (kya, this row's first character) has no KanjiVG stroke data (see
+    // StrokeOrderAnimation.test.tsx) — this just confirms the whole Tracing
+    // page still renders normally around that empty guide, not only the
+    // stroke component in isolation.
+    renderAt('/practice/youon/youon-ka-row/tracing')
+    expect(screen.getByText('Trace each character')).toBeInTheDocument()
+  })
+
+  it('/practice/youon/youon-ka-row/word-builder renders real words built from multi-glyph yōon characters', () => {
+    renderAt('/practice/youon/youon-ka-row/word-builder')
+    expect(screen.getByText(/Round 1/)).toBeInTheDocument()
+  })
+
+  it('sokuon/chōon/hiragana/katakana behavior is unaffected by youon existing (regression)', () => {
+    renderAt('/practice/sokuon/sokuon-row')
+    expect(screen.getByRole('heading', { name: 'っ・ッ' })).toBeInTheDocument()
+    expect(screen.queryByText('Kana Quiz')).not.toBeInTheDocument()
+
+    renderAt('/practice/hiragana/a-row')
+    expect(screen.getByText('Kana Quiz')).toBeInTheDocument()
+  })
+})
