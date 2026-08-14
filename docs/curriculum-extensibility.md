@@ -1,6 +1,11 @@
 # Curriculum extensibility: adding katakana, sokuon, chōon, yōon, and 特殊音
 
-**Status: design decided in conversation (2026-08-14/15), not yet implemented.** The open questions from the first draft of this doc have been resolved by the user directly; this version reflects those decisions. Implementation is still a separate, not-yet-started step — see "Next step" at the end.
+**Status: design decided in conversation (2026-08-14/15). Katakana implemented (branch `feature/katakana`) — see "Progress" below. Sokuon/chōon/yōon/特殊音 not yet started.** The open questions from the first draft of this doc have been resolved by the user directly; this version reflects those decisions.
+
+## Progress
+
+- **カタカナ単音 (katakana) — done, `feature/katakana` branch.** Full character set (71 + ー), all 11 rows, 74 vocabulary words, stroke data, font subset. Went first specifically because `learnStyle: 'character-set'` needed zero new Learn/Practice/Tracing code — pure content on top of the already-merged `ScriptCategory`/`Lesson`-adjacent structural foundation (`CATEGORIES`/`ROWS[].categoryId`/category-scoped order helpers). Flagged for the user's review: no word-icon art yet (AnchorWord.image made optional, with a placeholder — see `WordImage.tsx`), ヲ has no vocabulary reinforcement (unlike hiragana's を), and katakana-chouon's romaji (`'-'`) is a placeholder pending real 長音 support.
+- **促音/長音/拗音/特殊音 — not started.** These need the `'contrast-pairs'` Learn/Practice/Tracing changes described below, which katakana didn't touch.
 
 ## Decisions made
 
@@ -63,4 +68,4 @@ Decided: 長音-style lessons with no new characters of their own never show �
 
 ## Next step
 
-The design is now fully decided — every question from the first draft has an answer. **Implementation has not been started, on purpose.** Given its size — it touches routing for every existing hiragana URL, several core components (`LearnPage`, `PracticeHubPage`, `TracingPage`), the data model (`characters.ts`/`curriculum.ts`/`words.ts`), and the test suite — it's deliberately being left as its own focused, separately-reviewable piece of work rather than folded into this cleanup session. Start a new session/task specifically for this migration when ready; this document plus its "Proposed shape" section should be enough context to begin without re-deriving the design.
+The design is fully decided and the structural foundation plus katakana (the first `'character-set'` category) are implemented — see "Progress" above. What's left is the harder half: 促音/長音 need the actual `'contrast-pairs'` Learn/Practice/Tracing changes this doc describes (word-contrast Learn instead of per-character flashcards, words-only Tracing, Kana Quiz dropped from Practice), which no existing category has exercised yet. Start a new session/task specifically for that when ready — this document plus its "Proposed shape" section, and the katakana branch as a reference for the parts that *don't* change, should be enough context to begin without re-deriving the design.
