@@ -23,7 +23,12 @@ export const CATEGORIES: ScriptCategory[] = [
   // same way) — see docs/curriculum-extensibility.md and LearnPage.tsx/
   // PracticeHubPage.tsx/TracingPage.tsx, all of which branch on
   // `learnStyle` rather than special-casing this category id directly.
-  { id: SOKUON_CATEGORY_ID, label: '促音', learnStyle: 'contrast-pairs' },
+  {
+    id: SOKUON_CATEGORY_ID,
+    label: '促音',
+    learnStyle: 'contrast-pairs',
+    dependsOnCategoryIds: [DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID],
+  },
 ]
 
 export const CATEGORIES_BY_ID: Record<string, ScriptCategory> = Object.fromEntries(CATEGORIES.map((c) => [c.id, c]))
@@ -212,25 +217,25 @@ export function getNextRowId(rowId: string): string | null {
 }
 
 // All character ids introduced at or before the given row (inclusive) WITHIN
-// THE SAME CATEGORY, PLUS every character from any category that comes
-// entirely before this row's category in CATEGORIES' declared order — i.e.
-// the vocabulary-eligible character pool once that row is unlocked.
-// Categories are taught in a fixed sequence, never interleaved (see
-// CATEGORIES above), so once you're inside category N, every earlier
-// category (0..N-1) is assumed fully known in addition to this category's
-// own earlier rows. This matters starting with 促音 (sokuon): its words
-// deliberately mix real hiragana/katakana syllables with っ/ッ (おっと,
-// ベッド, ...), not just sokuon's own two characters — see
-// docs/curriculum-extensibility.md. For hiragana (category 0, no priors)
-// and katakana (category 1, hiragana is prior but no existing katakana word
-// actually uses a hiragana character) this is a no-op superset that changes
-// nothing observable — see curriculum.test.ts's regression coverage.
+// THE SAME CATEGORY, PLUS every character from any category explicitly
+// listed in this row's category's `dependsOnCategoryIds` — i.e. the
+// vocabulary/distractor-eligible character pool once that row is unlocked.
+//
+// This is deliberately NOT "every category declared earlier in CATEGORIES,"
+// which was tried and reverted: katakana is declared after hiragana but
+// doesn't depend on it (learning カ doesn't require か), and that version
+// leaked all 71 hiragana characters into every katakana row's distractor
+// pool — e.g. katakana-a-row's Kana Quiz could show hiragana あ as a wrong
+// answer for ア. `dependsOnCategoryIds` makes each category's real
+// prerequisites an explicit fact, not an accident of array order — see
+// ScriptCategory's comment in data/types.ts. 促音 depends on both hiragana
+// and katakana because its words genuinely mix scripts (おっと, ベッド, ...);
+// katakana depends on nothing, so its pool stays katakana-only.
 export function getCumulativeCharacterIds(rowId: string): string[] {
   const row = ROWS_BY_ID[rowId]
   if (!row) return []
-  const categoryIndex = CATEGORIES.findIndex((c) => c.id === row.categoryId)
-  const priorCategoryIds = new Set(categoryIndex > 0 ? CATEGORIES.slice(0, categoryIndex).map((c) => c.id) : [])
+  const dependsOnCategoryIds = new Set(CATEGORIES_BY_ID[row.categoryId]?.dependsOnCategoryIds ?? [])
   return ROWS.filter(
-    (r) => (r.categoryId === row.categoryId && r.order <= row.order) || priorCategoryIds.has(r.categoryId),
+    (r) => (r.categoryId === row.categoryId && r.order <= row.order) || dependsOnCategoryIds.has(r.categoryId),
   ).flatMap((r) => r.characterIds)
 }

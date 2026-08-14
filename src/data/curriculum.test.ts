@@ -86,9 +86,15 @@ describe('category-scoped row-order helpers', () => {
 
 // Regression + new coverage for getCumulativeCharacterIds' cross-category
 // behavior (see its comment in curriculum.ts): a category's cumulative pool
-// now also includes every character from any FULLY EARLIER category, which
-// 促音 (sokuon) relies on since its words mix real hiragana/katakana
-// syllables with っ/ッ, not just its own two characters.
+// also includes every character from a category explicitly listed in its
+// `dependsOnCategoryIds`, which 促音 (sokuon) relies on since its words mix
+// real hiragana/katakana syllables with っ/ッ, not just its own two
+// characters. This is deliberately an explicit per-category fact, not
+// inferred from CATEGORIES' declared order — an earlier version inferred it
+// from order and incorrectly leaked all of hiragana into katakana's
+// distractor pools (katakana depends on nothing, despite being declared
+// after hiragana) — see the "independent categories" cases below, which
+// exist specifically to catch that regression again.
 describe('cross-category cumulative characters (促音 and beyond)', () => {
   it('a sokuon row\'s cumulative pool includes its own characters plus every hiragana AND katakana character', () => {
     const cumulative = getCumulativeCharacterIds('sokuon-row')
@@ -102,8 +108,26 @@ describe('cross-category cumulative characters (促音 and beyond)', () => {
     expect(cumulative).not.toEqual(expect.arrayContaining(['katakana-a', 'sokuon', 'katakana-sokuon']))
   })
 
-  it('categories are declared in the fixed teaching order the cross-category lookup assumes', () => {
-    expect(CATEGORIES.map((c) => c.id)).toEqual(['hiragana', 'katakana', 'sokuon'])
+  it('every category with no dependsOnCategoryIds stays fully independent, even if declared later', () => {
+    for (const category of CATEGORIES) {
+      if ((category.dependsOnCategoryIds ?? []).length > 0) continue
+      for (const row of ROWS.filter((r) => r.categoryId === category.id)) {
+        const cumulative = getCumulativeCharacterIds(row.id)
+        for (const other of CATEGORIES) {
+          if (other.id === category.id) continue
+          const otherCharIds = ROWS.filter((r) => r.categoryId === other.id).flatMap((r) => r.characterIds)
+          expect(
+            cumulative.some((id) => otherCharIds.includes(id)),
+            `"${row.id}" (category "${category.id}", no declared dependency) unexpectedly includes a character from "${other.id}"`,
+          ).toBe(false)
+        }
+      }
+    }
+  })
+
+  it('katakana specifically does not depend on hiragana, despite being declared right after it', () => {
+    expect(CATEGORIES_BY_ID.katakana?.dependsOnCategoryIds ?? []).toEqual([])
+    expect(getCumulativeCharacterIds('katakana-a-row')).not.toEqual(expect.arrayContaining(['a', 'i', 'u', 'e', 'o']))
   })
 })
 
