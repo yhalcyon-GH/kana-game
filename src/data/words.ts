@@ -303,6 +303,48 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'sokuon-katakana-kappu', kana: 'カップ', romaji: 'kappu', meaning: 'cup', characterIds: ['katakana-ka', 'katakana-sokuon', 'katakana-pu'] },
     { id: 'sokuon-katakana-roketto', kana: 'ロケット', romaji: 'roketto', meaning: 'rocket', characterIds: ['katakana-ro', 'katakana-ke', 'katakana-sokuon', 'katakana-to'] },
   ],
+
+  // ===== 長音 (chōon) vocabulary =====
+  // One combined row spanning both scripts (see curriculum.ts's
+  // chouon-row), same shape as sokuon-row above. Unlike sokuon, this row's
+  // OWN characterIds is [] — every word below is spelled entirely from
+  // hiragana/katakana characters already taught, since chōon itself isn't
+  // a discrete glyph in hiragana (it's a spelling pattern: repeat/extend
+  // the preceding vowel) and katakana's ー was already introduced under
+  // カタカナ単音 (this lesson only reviews it). The pairs are grouped to
+  // read as minimal-pair families, covering hiragana's different
+  // long-vowel spelling patterns rather than just the あ-row case:
+  //   おばさん/おばあさん, おじさん/おじいさん — あ-row and い-row
+  //   すうじ — う-row; せんせい — え-row (spelled with い);
+  //   おとうさん — お-row (spelled with う)
+  // plus katakana's ー reviewed via ビル/ビール and カレー.
+  // `image` is intentionally omitted throughout, same as sokuon's/
+  // katakana's vocabulary — no illustration set exists for this content yet.
+  'chouon-row': [
+    { id: 'chouon-okaasan', kana: 'おかあさん', romaji: 'okaasan', meaning: 'mother', characterIds: ['o', 'ka', 'a', 'sa', 'n'], audioText: 'お母さん' },
+    // Minimal pair #1: あ-row lengthening distinguishes "aunt" from
+    // "grandmother" — the user's own example for this lesson.
+    { id: 'chouon-obasan', kana: 'おばさん', romaji: 'obasan', meaning: 'aunt', characterIds: ['o', 'ba', 'sa', 'n'], audioText: '叔母さん' },
+    { id: 'chouon-obaasan', kana: 'おばあさん', romaji: 'obaasan', meaning: 'grandmother', characterIds: ['o', 'ba', 'a', 'sa', 'n'], audioText: 'お祖母さん' },
+    // Minimal pair #2: same rule, い-row this time — "uncle" vs. "grandfather".
+    { id: 'chouon-ojisan', kana: 'おじさん', romaji: 'ojisan', meaning: 'uncle', characterIds: ['o', 'ji', 'sa', 'n'], audioText: '叔父さん' },
+    { id: 'chouon-ojiisan', kana: 'おじいさん', romaji: 'ojiisan', meaning: 'grandfather', characterIds: ['o', 'ji', 'i', 'sa', 'n'], audioText: 'お祖父さん' },
+    // う-row lengthening (no contrast partner needed — the pattern itself
+    // is the point: すじ isn't a competing real word here).
+    { id: 'chouon-suuji', kana: 'すうじ', romaji: 'suuji', meaning: 'number / digit', characterIds: ['su', 'u', 'ji'], audioText: '数字' },
+    // え-row lengthening, spelled with い rather than え — the trickiest
+    // hiragana pattern for a learner to predict.
+    { id: 'chouon-sensei', kana: 'せんせい', romaji: 'sensei', meaning: 'teacher', characterIds: ['se', 'n', 'se', 'i'], audioText: '先生' },
+    // お-row lengthening, spelled with う rather than お — the other
+    // commonly-missed pattern, and a natural pair with おかあさん above.
+    { id: 'chouon-otousan', kana: 'おとうさん', romaji: 'otousan', meaning: 'father', characterIds: ['o', 'to', 'u', 'sa', 'n'], audioText: 'お父さん' },
+    // Katakana review: ー lengthens the preceding vowel exactly like a
+    // held mora, spelled with a plain dash-like mark instead of a repeated
+    // kana — ビル/ビール is the user's own minimal pair for this.
+    { id: 'chouon-katakana-biru', kana: 'ビル', romaji: 'biru', meaning: 'building', characterIds: ['katakana-bi', 'katakana-ru'] },
+    { id: 'chouon-katakana-biiru', kana: 'ビール', romaji: 'biiru', meaning: 'beer', characterIds: ['katakana-bi', 'katakana-chouon', 'katakana-ru'] },
+    { id: 'chouon-katakana-karee', kana: 'カレー', romaji: 'karee', meaning: 'curry', characterIds: ['katakana-ka', 'katakana-re', 'katakana-chouon'] },
+  ],
 }
 
 export const ALL_WORDS: AnchorWord[] = Object.values(WORDS_BY_ROW).flat()

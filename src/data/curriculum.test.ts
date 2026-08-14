@@ -148,4 +148,39 @@ describe('contrast-pairs category content', () => {
     expect(CATEGORIES_BY_ID.sokuon?.learnStyle).toBe('contrast-pairs')
     expect(ROWS.find((r) => r.id === 'sokuon-row')?.characterIds).toEqual(['sokuon', 'katakana-sokuon'])
   })
+
+  // 長音 (chōon) is the first row of ANY category with characterIds: [] — it
+  // introduces no new characters at all (see curriculum.ts's chouon-row
+  // comment and docs/curriculum-extensibility.md's "Remaining structural
+  // note"). This is the one genuinely novel case in this category's content
+  // work, so it gets its own explicit coverage here on top of the generic
+  // contrast-pairs checks above (which already prove chouon-row has words
+  // and every word only uses already-taught characters).
+  it('chouon is a contrast-pairs category whose row introduces ZERO new characters', () => {
+    expect(CATEGORIES_BY_ID.chouon?.learnStyle).toBe('contrast-pairs')
+    expect(ROWS.find((r) => r.id === 'chouon-row')?.characterIds).toEqual([])
+  })
+
+  it('chouon still depends on hiragana+katakana, so its words can freely draw on both scripts despite having no characters of its own', () => {
+    expect(CATEGORIES_BY_ID.chouon?.dependsOnCategoryIds).toEqual(
+      expect.arrayContaining(['hiragana', 'katakana']),
+    )
+    const cumulative = getCumulativeCharacterIds('chouon-row')
+    // The row's own characterIds contributes nothing, but the dependency
+    // pool should still be the full hiragana + katakana character set.
+    expect(cumulative).toEqual(expect.arrayContaining(['a', 'o', 'sa', 'n'])) // hiragana
+    expect(cumulative).toEqual(expect.arrayContaining(['katakana-bi', 'katakana-ru', 'katakana-chouon'])) // katakana
+  })
+
+  it('chouon-row words cover more than one hiragana long-vowel spelling pattern (not just あ-row repetition)', () => {
+    const words = WORDS_BY_ROW['chouon-row'] ?? []
+    // う-row (すうじ: う repeats), え-row spelled with い (せんせい), and
+    // お-row spelled with う (おとうさん) should each show up at least once,
+    // alongside the あ/い-row minimal pairs.
+    expect(words.some((w) => w.kana === 'すうじ')).toBe(true)
+    expect(words.some((w) => w.kana === 'せんせい')).toBe(true)
+    expect(words.some((w) => w.kana === 'おとうさん')).toBe(true)
+    // Katakana's ー is reviewed too, not just hiragana's patterns.
+    expect(words.some((w) => w.characterIds.includes('katakana-chouon'))).toBe(true)
+  })
 })

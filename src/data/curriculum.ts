@@ -7,6 +7,7 @@ import type { GojuonRow, ScriptCategory } from './types'
 export const DEFAULT_CATEGORY_ID = 'hiragana'
 export const KATAKANA_CATEGORY_ID = 'katakana'
 export const SOKUON_CATEGORY_ID = 'sokuon'
+export const CHOUON_CATEGORY_ID = 'chouon'
 
 export const CATEGORIES: ScriptCategory[] = [
   { id: DEFAULT_CATEGORY_ID, label: 'ひらがな', learnStyle: 'character-set' },
@@ -26,6 +27,23 @@ export const CATEGORIES: ScriptCategory[] = [
   {
     id: SOKUON_CATEGORY_ID,
     label: '促音',
+    learnStyle: 'contrast-pairs',
+    dependsOnCategoryIds: [DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID],
+  },
+  // 長音 (chōon, long vowels) — the second 'contrast-pairs' category, and
+  // the first with NO new characters of its own: katakana's ー was already
+  // taught fresh under カタカナ単音 (katakana-chouon-row), and hiragana has
+  // no dedicated long-vowel glyph at all — long vowels are written by
+  // repeating/combining existing vowel characters (おかあさん, せんせい,
+  // とうきょう), which is exactly the nuance this lesson's minimal-pair
+  // words teach. Its row's `characterIds` is therefore `[]` — see
+  // docs/curriculum-extensibility.md's "Remaining structural note" and
+  // curriculum.test.ts's zero-new-character coverage. Depends on both
+  // hiragana and katakana for the same reason sokuon does: its words mix
+  // real syllables from both scripts.
+  {
+    id: CHOUON_CATEGORY_ID,
+    label: '長音',
     learnStyle: 'contrast-pairs',
     dependsOnCategoryIds: [DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID],
   },
@@ -187,6 +205,31 @@ export const ROWS: GojuonRow[] = [
     label: 'っ・ッ',
     order: 0,
     characterIds: ['sokuon', 'katakana-sokuon'],
+  },
+
+  // ===== 長音 (chōon) — own order sequence, starting at 0 again =====
+  // A single row spanning both scripts, same shape as sokuon-row above —
+  // per the design, 長音 teaches the rule once, reviewing katakana's ー
+  // (already taught under カタカナ単音) alongside hiragana's several
+  // vowel-repetition spelling patterns, rather than a per-script lesson.
+  // `characterIds: []` is deliberate, not an oversight — this row
+  // introduces NO new characters (see the CHOUON_CATEGORY_ID comment
+  // above); every place that reads a row's `characterIds` (Learn's
+  // flashcard step, Tracing's character phase, Kana Quiz's pool) already
+  // branches on `learnStyle` first and never reaches an empty-array bug
+  // for a 'contrast-pairs' row — see curriculum.test.ts and
+  // src/App.test.tsx's zero-new-character coverage, and
+  // docs/curriculum-extensibility.md. Label is 'ー' (kana-only, matching
+  // sokuon-row's convention — see its comment) even though hiragana's own
+  // words in this lesson don't use that literal glyph, since ー is the
+  // universally recognized long-vowel symbol and is already in the
+  // font-kana subset (katakana-chouon's `kana`).
+  {
+    id: 'chouon-row',
+    categoryId: CHOUON_CATEGORY_ID,
+    label: 'ー',
+    order: 0,
+    characterIds: [],
   },
 ]
 

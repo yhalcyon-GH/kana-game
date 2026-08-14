@@ -156,3 +156,64 @@ describe('contrast-pairs learnStyle (sokuon)', () => {
     expect(screen.getByText(/Round 1/)).toBeInTheDocument()
   })
 })
+
+// 長音 (chōon) is also 'contrast-pairs', but its row's characterIds is []
+// (see curriculum.ts's chouon-row comment) — the first real test of the
+// "zero new characters" path docs/curriculum-extensibility.md flagged as
+// future-proofed-but-untested when sokuon's generalization landed. These
+// tests prove Learn/Practice/Tracing all handle an empty characterIds row
+// the same way they handle sokuon's non-empty one, with no crash and no
+// broken/empty screen.
+describe('contrast-pairs learnStyle with zero new characters (chōon)', () => {
+  it('/practice/chouon/chouon-row renders that row\'s Practice Hub', () => {
+    renderAt('/practice/chouon/chouon-row')
+    expect(screen.getByRole('heading', { name: 'ー' })).toBeInTheDocument()
+  })
+
+  it('the chouon Practice Hub offers Learn, Tracing, and 3 games, but NOT Kana Quiz', () => {
+    renderAt('/practice/chouon/chouon-row')
+    expect(screen.getByRole('link', { name: /Learn/ })).toBeInTheDocument()
+    expect(screen.getByText('Tracing')).toBeInTheDocument()
+    expect(screen.getByText('Word Builder')).toBeInTheDocument()
+    expect(screen.getByText('Listening')).toBeInTheDocument()
+    expect(screen.getByText('Kana Typing')).toBeInTheDocument()
+    expect(screen.queryByText('Kana Quiz')).not.toBeInTheDocument()
+  })
+
+  it('/learn/chouon/chouon-row skips the flashcard step (no characters to flashcard) and goes straight to the word list', () => {
+    renderAt('/learn/chouon/chouon-row')
+    expect(screen.getByText(/listen and compare/)).toBeInTheDocument()
+    expect(screen.queryByText(/new characters/)).not.toBeInTheDocument()
+    // The word list itself must actually render real content, not an
+    // empty grid — confirms an empty characterIds row doesn't also end up
+    // with an empty word list.
+    expect(screen.getByText('おかあさん')).toBeInTheDocument()
+  })
+
+  it('/practice/chouon/chouon-row/tracing starts directly in the word phase, and does not crash despite an empty character pool', () => {
+    renderAt('/practice/chouon/chouon-row/tracing')
+    expect(screen.getByText('Trace each word')).toBeInTheDocument()
+    expect(screen.queryByText('Trace each character')).not.toBeInTheDocument()
+  })
+
+  it('direct navigation to the chouon Kana Quiz route redirects home rather than rendering', () => {
+    renderAt('/practice/chouon/chouon-row/kana-quiz')
+    expect(screen.getByRole('heading', { name: 'Kana Game' })).toBeInTheDocument()
+  })
+
+  it('/practice/chouon/chouon-row/word-builder still renders normally, drawing distractor tiles from the full hiragana+katakana pool', () => {
+    renderAt('/practice/chouon/chouon-row/word-builder')
+    expect(screen.getByText(/Round 1/)).toBeInTheDocument()
+  })
+
+  it('/practice/chouon/chouon-row/listening still renders normally', () => {
+    renderAt('/practice/chouon/chouon-row/listening')
+    expect(screen.getByText(/Round 1/)).toBeInTheDocument()
+  })
+
+  it('sokuon and hiragana/katakana behavior is unaffected by chouon existing (regression)', () => {
+    renderAt('/practice/sokuon/sokuon-row')
+    expect(screen.getByRole('heading', { name: 'っ・ッ' })).toBeInTheDocument()
+    expect(screen.queryByText('Kana Quiz')).not.toBeInTheDocument()
+  })
+})
