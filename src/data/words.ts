@@ -277,6 +277,32 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'katakana-chouon-chiizu', kana: 'チーズ', romaji: 'chiizu', meaning: 'cheese', characterIds: ['katakana-chi', 'katakana-chouon', 'katakana-zu'] },
     { id: 'katakana-chouon-sukaato', kana: 'スカート', romaji: 'sukaato', meaning: 'skirt', characterIds: ['katakana-su', 'katakana-ka', 'katakana-chouon', 'katakana-to'] },
   ],
+
+  // ===== 促音 (sokuon) vocabulary =====
+  // One combined row spanning both scripts (see curriculum.ts's
+  // sokuon-row) — hiragana and katakana words interleaved by contrast
+  // pair/family rather than grouped by script, since the whole point of
+  // this lesson is hearing っ/ッ do the same thing across both. Every word
+  // here draws on the full hiragana + katakana character pool (both fully
+  // taught by this point in the curriculum — see getCumulativeCharacterIds'
+  // cross-category handling in curriculum.ts), not just sokuon's own っ/ッ.
+  // `image` is intentionally omitted throughout, same as katakana's
+  // vocabulary — no illustration set exists for this content yet.
+  'sokuon-row': [
+    // The classic minimal pair: identical except for gemination.
+    { id: 'sokuon-oto', kana: 'おと', romaji: 'oto', meaning: 'sound', characterIds: ['o', 'to'], audioText: '音' },
+    { id: 'sokuon-otto', kana: 'おっと', romaji: 'otto', meaning: 'husband', characterIds: ['o', 'sokuon', 'to'], audioText: '夫' },
+    { id: 'sokuon-gakkou', kana: 'がっこう', romaji: 'gakkou', meaning: 'school', characterIds: ['ga', 'sokuon', 'ko', 'u'], audioText: '学校' },
+    { id: 'sokuon-kippu', kana: 'きっぷ', romaji: 'kippu', meaning: 'ticket', characterIds: ['ki', 'sokuon', 'pu'], audioText: '切符' },
+    // こっち has no kanji spelling in ordinary use (always written in kana,
+    // like ここ elsewhere in this file) — no audioText override.
+    { id: 'sokuon-kotchi', kana: 'こっち', romaji: 'kotchi', meaning: 'here / this way', characterIds: ['ko', 'sokuon', 'chi'] },
+    { id: 'sokuon-katakana-beddo', kana: 'ベッド', romaji: 'beddo', meaning: 'bed', characterIds: ['katakana-be', 'katakana-sokuon', 'katakana-do'] },
+    { id: 'sokuon-katakana-sakkaa', kana: 'サッカー', romaji: 'sakkaa', meaning: 'soccer', characterIds: ['katakana-sa', 'katakana-sokuon', 'katakana-ka', 'katakana-chouon'] },
+    { id: 'sokuon-katakana-kukkii', kana: 'クッキー', romaji: 'kukkii', meaning: 'cookie', characterIds: ['katakana-ku', 'katakana-sokuon', 'katakana-ki', 'katakana-chouon'] },
+    { id: 'sokuon-katakana-kappu', kana: 'カップ', romaji: 'kappu', meaning: 'cup', characterIds: ['katakana-ka', 'katakana-sokuon', 'katakana-pu'] },
+    { id: 'sokuon-katakana-roketto', kana: 'ロケット', romaji: 'roketto', meaning: 'rocket', characterIds: ['katakana-ro', 'katakana-ke', 'katakana-sokuon', 'katakana-to'] },
+  ],
 }
 
 export const ALL_WORDS: AnchorWord[] = Object.values(WORDS_BY_ROW).flat()

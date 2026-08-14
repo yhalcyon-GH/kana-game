@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { CHARACTERS_BY_ID } from './characters'
-import { CATEGORIES_BY_ID, getCumulativeCharacterIds, getNextRowId, getPreviousRowId, ROWS } from './curriculum'
+import { CATEGORIES, CATEGORIES_BY_ID, getCumulativeCharacterIds, getNextRowId, getPreviousRowId, ROWS } from './curriculum'
 import { WORDS_BY_ROW } from './words'
 
 describe('curriculum content integrity', () => {
@@ -81,5 +81,47 @@ describe('category-scoped row-order helpers', () => {
     expect(getCumulativeCharacterIds('not-a-real-row')).toEqual([])
     expect(getNextRowId('not-a-real-row')).toBeNull()
     expect(getPreviousRowId('not-a-real-row')).toBeNull()
+  })
+})
+
+// Regression + new coverage for getCumulativeCharacterIds' cross-category
+// behavior (see its comment in curriculum.ts): a category's cumulative pool
+// now also includes every character from any FULLY EARLIER category, which
+// 促音 (sokuon) relies on since its words mix real hiragana/katakana
+// syllables with っ/ッ, not just its own two characters.
+describe('cross-category cumulative characters (促音 and beyond)', () => {
+  it('a sokuon row\'s cumulative pool includes its own characters plus every hiragana AND katakana character', () => {
+    const cumulative = getCumulativeCharacterIds('sokuon-row')
+    expect(cumulative).toEqual(expect.arrayContaining(['sokuon', 'katakana-sokuon']))
+    expect(cumulative).toEqual(expect.arrayContaining(['a', 'ka', 'n'])) // hiragana
+    expect(cumulative).toEqual(expect.arrayContaining(['katakana-a', 'katakana-ka', 'katakana-chouon'])) // katakana
+  })
+
+  it('hiragana rows are unaffected by the cross-category change (no later category leaks backward)', () => {
+    const cumulative = getCumulativeCharacterIds('ka-row')
+    expect(cumulative).not.toEqual(expect.arrayContaining(['katakana-a', 'sokuon', 'katakana-sokuon']))
+  })
+
+  it('categories are declared in the fixed teaching order the cross-category lookup assumes', () => {
+    expect(CATEGORIES.map((c) => c.id)).toEqual(['hiragana', 'katakana', 'sokuon'])
+  })
+})
+
+// learnStyle-specific content invariants — see docs/curriculum-extensibility.md.
+describe('contrast-pairs category content', () => {
+  const contrastPairsCategoryIds = new Set(
+    CATEGORIES.filter((c) => c.learnStyle === 'contrast-pairs').map((c) => c.id),
+  )
+
+  it('every contrast-pairs row has at least one word (Learn/Practice both operate on words, not flashcards)', () => {
+    for (const row of ROWS) {
+      if (!contrastPairsCategoryIds.has(row.categoryId)) continue
+      expect((WORDS_BY_ROW[row.id] ?? []).length, `contrast-pairs row "${row.id}" has no words`).toBeGreaterThan(0)
+    }
+  })
+
+  it('sokuon is a contrast-pairs category, and its row introduces the sokuon characters', () => {
+    expect(CATEGORIES_BY_ID.sokuon?.learnStyle).toBe('contrast-pairs')
+    expect(ROWS.find((r) => r.id === 'sokuon-row')?.characterIds).toEqual(['sokuon', 'katakana-sokuon'])
   })
 })

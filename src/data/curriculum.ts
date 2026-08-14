@@ -6,6 +6,7 @@ import type { GojuonRow, ScriptCategory } from './types'
 // nothing else in the app should hardcode the string 'hiragana'.
 export const DEFAULT_CATEGORY_ID = 'hiragana'
 export const KATAKANA_CATEGORY_ID = 'katakana'
+export const SOKUON_CATEGORY_ID = 'sokuon'
 
 export const CATEGORIES: ScriptCategory[] = [
   { id: DEFAULT_CATEGORY_ID, label: 'ひらがな', learnStyle: 'character-set' },
@@ -15,6 +16,14 @@ export const CATEGORIES: ScriptCategory[] = [
   // because it needs none of the contrast-pairs/zero-new-character
   // machinery that 促音/長音 will — see docs/curriculum-extensibility.md.
   { id: KATAKANA_CATEGORY_ID, label: 'カタカナ', learnStyle: 'character-set' },
+  // 促音 (sokuon, the small-tsu gemination mark) — the first 'contrast-pairs'
+  // category: Learn listens through minimal-pair WORDS (おと vs おっと)
+  // instead of flashcarding っ/ッ in isolation, Tracing is word-level only,
+  // and Practice drops Kana Quiz (no isolated character to quiz on in the
+  // same way) — see docs/curriculum-extensibility.md and LearnPage.tsx/
+  // PracticeHubPage.tsx/TracingPage.tsx, all of which branch on
+  // `learnStyle` rather than special-casing this category id directly.
+  { id: SOKUON_CATEGORY_ID, label: '促音', learnStyle: 'contrast-pairs' },
 ]
 
 export const CATEGORIES_BY_ID: Record<string, ScriptCategory> = Object.fromEntries(CATEGORIES.map((c) => [c.id, c]))
@@ -158,6 +167,22 @@ export const ROWS: GojuonRow[] = [
     order: 10,
     characterIds: ['katakana-chouon'],
   },
+
+  // ===== 促音 (sokuon) — own order sequence, starting at 0 again =====
+  // A single row covering BOTH hiragana's っ and katakana's ッ together —
+  // per the design, 促音 teaches the rule once, not once per script (unlike
+  // hiragana/katakana above, which each get their own full row sequence).
+  // See docs/curriculum-extensibility.md's "促音 (sokuon) and 長音 (chōon)"
+  // section. Label is deliberately kana-only (no 促音 kanji) since RowMap
+  // renders it with the hand-subsetted .font-kana font, which only ever
+  // covers hiragana + katakana + ～/・ — see src/index.css's header comment.
+  {
+    id: 'sokuon-row',
+    categoryId: SOKUON_CATEGORY_ID,
+    label: 'っ・ッ',
+    order: 0,
+    characterIds: ['sokuon', 'katakana-sokuon'],
+  },
 ]
 
 export const ROWS_BY_ID: Record<string, GojuonRow> = Object.fromEntries(
@@ -168,11 +193,12 @@ export function getRowOrder(rowId: string): number {
   return ROWS_BY_ID[rowId]?.order ?? -1
 }
 
-// These three all scope their search to the SAME category as `rowId` — once
-// a second category exists, its rows number their own `order` starting
-// from 0 independently, so cross-category order comparisons would be
-// meaningless (and cross-category "cumulative characters" would be wrong:
-// katakana isn't a prerequisite pool for a hiragana word's distractors).
+// getPreviousRowId/getNextRowId both scope their search to the SAME category
+// as `rowId` — once a second category exists, its rows number their own
+// `order` starting from 0 independently, so cross-category order
+// comparisons would be meaningless ("next row after the last katakana row"
+// isn't a question these two answer — see getNextRowId('katakana-chouon-row')
+// returning null, not the first sokuon row).
 export function getPreviousRowId(rowId: string): string | null {
   const row = ROWS_BY_ID[rowId]
   if (!row) return null
@@ -186,10 +212,25 @@ export function getNextRowId(rowId: string): string | null {
 }
 
 // All character ids introduced at or before the given row (inclusive) WITHIN
-// THE SAME CATEGORY, i.e. the vocabulary-eligible character pool once that
-// row is unlocked.
+// THE SAME CATEGORY, PLUS every character from any category that comes
+// entirely before this row's category in CATEGORIES' declared order — i.e.
+// the vocabulary-eligible character pool once that row is unlocked.
+// Categories are taught in a fixed sequence, never interleaved (see
+// CATEGORIES above), so once you're inside category N, every earlier
+// category (0..N-1) is assumed fully known in addition to this category's
+// own earlier rows. This matters starting with 促音 (sokuon): its words
+// deliberately mix real hiragana/katakana syllables with っ/ッ (おっと,
+// ベッド, ...), not just sokuon's own two characters — see
+// docs/curriculum-extensibility.md. For hiragana (category 0, no priors)
+// and katakana (category 1, hiragana is prior but no existing katakana word
+// actually uses a hiragana character) this is a no-op superset that changes
+// nothing observable — see curriculum.test.ts's regression coverage.
 export function getCumulativeCharacterIds(rowId: string): string[] {
   const row = ROWS_BY_ID[rowId]
   if (!row) return []
-  return ROWS.filter((r) => r.categoryId === row.categoryId && r.order <= row.order).flatMap((r) => r.characterIds)
+  const categoryIndex = CATEGORIES.findIndex((c) => c.id === row.categoryId)
+  const priorCategoryIds = new Set(categoryIndex > 0 ? CATEGORIES.slice(0, categoryIndex).map((c) => c.id) : [])
+  return ROWS.filter(
+    (r) => (r.categoryId === row.categoryId && r.order <= row.order) || priorCategoryIds.has(r.categoryId),
+  ).flatMap((r) => r.characterIds)
 }
