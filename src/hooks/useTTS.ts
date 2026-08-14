@@ -1,13 +1,19 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { StaticFileProvider } from '../audio/staticFileProvider'
+import { pickJapaneseVoice, WebSpeechProvider } from '../audio/webSpeechProvider'
 import { useProgressStore } from '../store/progressStore'
 
-// Plays pre-generated audio shipped as static files under public/audio/ (see
-// scripts/generateAudioElevenLabs.ts for character/word clips — voiced by a
-// dedicated ElevenLabs narrator, distinct from the ElevenLabs voice used for
-// Tamamizu's in-game reaction lines) — every clip is baked in ahead of time,
-// so playback works for any visitor with just a browser, no TTS engine
-// needed at runtime. Falls back to the Web Speech API only if a clip is
-// missing or fails to play.
+// The one place game code touches audio. Speaks in terms of a content key +
+// fallback text (see audio/types.ts's SpeechRequest) — never a specific
+// voice, vendor, or file format. Tries the static-file provider first (see
+// scripts/generateAudioElevenLabs.ts for how those clips are produced —
+// currently two dedicated ElevenLabs voices, one for character/word
+// narration and a separate one for Tamamizu's in-game reactions) and falls
+// back to the browser's Web Speech API only if a clip is missing or fails
+// to play. Swapping the primary provider for a different TTS vendor or a
+// live-synthesis backend means adding/changing a SpeechProvider — nothing
+// in src/routes or src/components needs to change, since they only ever
+// call `speak(key, fallbackText)`.
 //
 // The Settings speed slider is deliberately kept to a gentle 0.75x-1.5x
 // range (see SettingsPage.tsx) rather than stretching a single clip much
@@ -19,67 +25,33 @@ export function useTTS() {
   const audioEnabled = useProgressStore((s) => s.audioEnabled)
   const audioVolume = useProgressStore((s) => s.audioVolume)
   const audioSpeed = useProgressStore((s) => s.audioSpeed)
-  const [webSpeechSupported, setWebSpeechSupported] = useState(false)
-  const voiceRef = useRef<SpeechSynthesisVoice | null>(null)
-  const audioElRef = useRef<HTMLAudioElement | null>(null)
+
+  const [staticProvider] = useState(() => new StaticFileProvider())
+  const [webSpeechProvider] = useState(() => new WebSpeechProvider())
 
   useEffect(() => {
-    if (!('speechSynthesis' in window)) {
-      setWebSpeechSupported(false)
-      return
+    if (!('speechSynthesis' in window)) return
+    const updateVoice = () => {
+      webSpeechProvider.voice = pickJapaneseVoice(window.speechSynthesis.getVoices())
     }
-    setWebSpeechSupported(true)
-
-    const pickVoice = () => {
-      const voices = window.speechSynthesis.getVoices()
-      const japanese = voices.filter((v) => v.lang === 'ja-JP' || v.lang.startsWith('ja'))
-      // OS-provided "Natural"/"Online" voices (e.g. Windows' neural voice
-      // pack) sound far less robotic than the legacy desktop SAPI voices —
-      // prefer one of those when installed, otherwise fall back to any
-      // Japanese voice at all.
-      voiceRef.current =
-        japanese.find((v) => /natural|online/i.test(v.name)) ?? japanese[0] ?? null
-    }
-    pickVoice()
-    window.speechSynthesis.addEventListener('voiceschanged', pickVoice)
-    return () => window.speechSynthesis.removeEventListener('voiceschanged', pickVoice)
-  }, [])
-
-  const speakWithWebSpeech = useCallback(
-    (text: string) => {
-      if (!webSpeechSupported) return
-      window.speechSynthesis.cancel()
-      const utterance = new SpeechSynthesisUtterance(text)
-      utterance.lang = 'ja-JP'
-      utterance.volume = audioVolume
-      utterance.rate = audioSpeed
-      if (voiceRef.current) utterance.voice = voiceRef.current
-      window.speechSynthesis.speak(utterance)
-    },
-    [webSpeechSupported, audioVolume, audioSpeed],
-  )
+    updateVoice()
+    window.speechSynthesis.addEventListener('voiceschanged', updateVoice)
+    return () => window.speechSynthesis.removeEventListener('voiceschanged', updateVoice)
+  }, [webSpeechProvider])
 
   // audioKey identifies a pre-generated clip, e.g. "characters/a" or
-  // "words/a-ai" (matching the folders scripts/generateAudio.ts writes to).
-  // fallbackText is only used if that clip can't be played.
+  // "words/a-ai" (matching the folders scripts/generateAudioElevenLabs.ts
+  // writes to). fallbackText is only used if that clip can't be played.
   const speak = useCallback(
     (audioKey: string, fallbackText: string) => {
       if (!audioEnabled) return
-
-      if (!audioElRef.current) audioElRef.current = new Audio()
-      const audioEl = audioElRef.current
-      audioEl.onerror = () => speakWithWebSpeech(fallbackText)
-      audioEl.src = `${import.meta.env.BASE_URL}audio/${audioKey}.wav`
-      // Setting these after assigning `src` (which triggers an implicit
-      // load) is the order that reliably sticks across browsers — setting
-      // them first can get silently reset by the load.
-      audioEl.volume = audioVolume
-      audioEl.defaultPlaybackRate = audioSpeed
-      audioEl.playbackRate = audioSpeed
-      audioEl.preservesPitch = true
-      audioEl.play().catch(() => speakWithWebSpeech(fallbackText))
+      const request = { key: audioKey, text: fallbackText }
+      const options = { volume: audioVolume, rate: audioSpeed }
+      staticProvider.speak(request, options).catch(() => {
+        webSpeechProvider.speak(request, options).catch(() => {})
+      })
     },
-    [audioEnabled, audioVolume, audioSpeed, speakWithWebSpeech],
+    [audioEnabled, audioVolume, audioSpeed, staticProvider, webSpeechProvider],
   )
 
   return { speak, supported: true }
