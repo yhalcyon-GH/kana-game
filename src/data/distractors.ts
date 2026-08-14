@@ -122,6 +122,21 @@ export const CONFUSABLE_PAIRS: Record<string, string[]> = {
   'katakana-hyo': ['katakana-byo', 'katakana-pyo'],
   'katakana-byo': ['katakana-hyo', 'katakana-pyo'],
   'katakana-pyo': ['katakana-hyo', 'katakana-byo'],
+
+  // 特殊音 (tokushuon) confusions. Voiced/voiceless pairs, same shape as the
+  // ba/pa-style entries above: ティ/ディ and トゥ/ドゥ differ only by a
+  // dakuten. va/vi/ve/vo/vu vs ba/bi/be/bo/bu is the genuinely hard one for
+  // a learner — the v/b distinction barely exists in Japanese phonology, so
+  // ヴ-row characters are easy to misread as their b-row look/sound-alikes.
+  'katakana-ti': ['katakana-di'],
+  'katakana-di': ['katakana-ti'],
+  'katakana-tu': ['katakana-du'],
+  'katakana-du': ['katakana-tu'],
+  'katakana-va': ['katakana-ba'],
+  'katakana-vi': ['katakana-bi'],
+  'katakana-ve': ['katakana-be'],
+  'katakana-vo': ['katakana-bo'],
+  'katakana-vu': ['katakana-bu'],
 }
 
 export function getConfusableIds(charId: string): string[] {

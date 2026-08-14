@@ -488,6 +488,73 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'youon-katakana-ra-boryuumu', kana: 'ボリューム', romaji: 'boryuumu', meaning: 'volume', characterIds: ['katakana-bo', 'katakana-ryu', 'katakana-chouon', 'katakana-mu'] },
     { id: 'youon-katakana-ra-ryou', kana: 'リョウ', romaji: 'ryou', meaning: 'Ryo (a name)', characterIds: ['katakana-ryo', 'katakana-u'] },
   ],
+
+  // ===== 特殊音 (tokushuon) vocabulary =====
+  // Extended katakana digraphs for loanword sounds — see characters.ts's
+  // ===== 特殊音 ===== block for the full combination list/rationale. Every
+  // word here is katakana-only, so none carry an audioText override (unlike
+  // hiragana, bare katakana isn't lexically ambiguous to TTS the same way —
+  // see the file header comment and the existing 拗音/katakana-* rows above,
+  // which follow the same no-override convention). Real vocabulary using
+  // these sounds skews toward loanwords/proper nouns more than any earlier
+  // category — same pattern already established by 拗音's ミャンマー/
+  // ニューヨーク — so a name or brand showing up here isn't an oversight.
+  'tokushuon-fa-row': [
+    { id: 'tokushuon-fa-fairu', kana: 'ファイル', romaji: 'fairu', meaning: 'file', characterIds: ['katakana-fa', 'katakana-i', 'katakana-ru'] },
+    { id: 'tokushuon-fa-firumu', kana: 'フィルム', romaji: 'firumu', meaning: 'film', characterIds: ['katakana-fi', 'katakana-ru', 'katakana-mu'] },
+    { id: 'tokushuon-fa-kafe', kana: 'カフェ', romaji: 'kafe', meaning: 'cafe', characterIds: ['katakana-ka', 'katakana-fe'] },
+    { id: 'tokushuon-fa-fooku', kana: 'フォーク', romaji: 'fooku', meaning: 'fork', characterIds: ['katakana-fo', 'katakana-chouon', 'katakana-ku'] },
+    { id: 'tokushuon-fa-sofaa', kana: 'ソファー', romaji: 'sofaa', meaning: 'sofa', characterIds: ['katakana-so', 'katakana-fa', 'katakana-chouon'] },
+  ],
+  'tokushuon-ti-row': [
+    { id: 'tokushuon-ti-paatii', kana: 'パーティー', romaji: 'paatii', meaning: 'party', characterIds: ['katakana-pa', 'katakana-chouon', 'katakana-ti', 'katakana-chouon'] },
+    { id: 'tokushuon-ti-dizunii', kana: 'ディズニー', romaji: 'dizunii', meaning: 'Disney', characterIds: ['katakana-di', 'katakana-zu', 'katakana-ni', 'katakana-chouon'] },
+    // トゥ specifically has thin real vocabulary (most words that could use
+    // it use チュ or ツ instead) — トゥクトゥク (the vehicle) is a genuine,
+    // if unusual, real loanword rather than a manufactured example.
+    { id: 'tokushuon-ti-tukutuku', kana: 'トゥクトゥク', romaji: 'tukutuku', meaning: 'tuk-tuk (auto rickshaw)', characterIds: ['katakana-tu', 'katakana-ku', 'katakana-tu', 'katakana-ku'] },
+    // ドゥ is rarer still; ドゥカティ (the motorcycle brand) doubles as a
+    // review word for ティ too.
+    { id: 'tokushuon-ti-dukati', kana: 'ドゥカティ', romaji: 'dukati', meaning: 'Ducati (motorcycle brand)', characterIds: ['katakana-du', 'katakana-ka', 'katakana-ti'] },
+  ],
+  'tokushuon-wi-row': [
+    { id: 'tokushuon-wi-windou', kana: 'ウィンドウ', romaji: 'windou', meaning: 'window', characterIds: ['katakana-wi', 'katakana-n', 'katakana-do', 'katakana-u'] },
+    { id: 'tokushuon-wi-winku', kana: 'ウィンク', romaji: 'winku', meaning: 'wink', characterIds: ['katakana-wi', 'katakana-n', 'katakana-ku'] },
+    { id: 'tokushuon-wi-weitaa', kana: 'ウェイター', romaji: 'weitaa', meaning: 'waiter', characterIds: ['katakana-we', 'katakana-i', 'katakana-ta', 'katakana-chouon'] },
+    { id: 'tokushuon-wi-wotchi', kana: 'ウォッチ', romaji: 'wotchi', meaning: 'watch (wristwatch)', characterIds: ['katakana-uo', 'katakana-sokuon', 'katakana-chi'] },
+  ],
+  'tokushuon-va-row': [
+    { id: 'tokushuon-va-vaiorin', kana: 'ヴァイオリン', romaji: 'vaiorin', meaning: 'violin', characterIds: ['katakana-va', 'katakana-i', 'katakana-o', 'katakana-ri', 'katakana-n'] },
+    { id: 'tokushuon-va-viinasu', kana: 'ヴィーナス', romaji: 'viinasu', meaning: 'Venus', characterIds: ['katakana-vi', 'katakana-chouon', 'katakana-na', 'katakana-su'] },
+    { id: 'tokushuon-va-vesuto', kana: 'ヴェスト', romaji: 'vesuto', meaning: 'vest', characterIds: ['katakana-ve', 'katakana-su', 'katakana-to'] },
+    { id: 'tokushuon-va-vookaru', kana: 'ヴォーカル', romaji: 'vookaru', meaning: 'vocal (singer/vocalist)', characterIds: ['katakana-vo', 'katakana-chouon', 'katakana-ka', 'katakana-ru'] },
+    // ヴ alone (bare "vu") is the rarest of the five — almost always seen as
+    // part of ヴァ/ヴィ/ヴェ/ヴォ rather than standing on its own. ヴーン
+    // (an engine/buzzing-sound onomatopoeia) is a real, if minor, example
+    // that isn't just ばびぶべぼ with a different mark — same category of
+    // gap as 拗音's undocumented-word rows, see characters.ts's comment.
+    { id: 'tokushuon-va-vuun', kana: 'ヴーン', romaji: 'vuun', meaning: 'vroom / buzzing sound (onomatopoeia)', characterIds: ['katakana-vu', 'katakana-chouon', 'katakana-n'] },
+  ],
+  'tokushuon-che-row': [
+    { id: 'tokushuon-che-jettokoosutaa', kana: 'ジェットコースター', romaji: 'jettokoosutaa', meaning: 'roller coaster', characterIds: ['katakana-je', 'katakana-sokuon', 'katakana-to', 'katakana-ko', 'katakana-chouon', 'katakana-su', 'katakana-ta', 'katakana-chouon'] },
+    { id: 'tokushuon-che-chekku', kana: 'チェック', romaji: 'chekku', meaning: 'check (verify) / checkered pattern', characterIds: ['katakana-che', 'katakana-sokuon', 'katakana-ku'] },
+    { id: 'tokushuon-che-chesu', kana: 'チェス', romaji: 'chesu', meaning: 'chess', characterIds: ['katakana-che', 'katakana-su'] },
+    { id: 'tokushuon-che-shefu', kana: 'シェフ', romaji: 'shefu', meaning: 'chef', characterIds: ['katakana-she', 'katakana-fu'] },
+    { id: 'tokushuon-che-shea', kana: 'シェア', romaji: 'shea', meaning: 'share', characterIds: ['katakana-she', 'katakana-a'] },
+  ],
+  // ツ行 is the rarest family in this category — real, common vocabulary
+  // using ツィ/ツェ/ツォ specifically is thin (most everyday loanwords that
+  // sound similar use チ/ス-based spellings instead). The words below are
+  // genuine dictionary-attested Japanese loanwords, not invented, but skew
+  // toward music/culture terms rather than everyday-object vocabulary —
+  // flagged for review, same spirit as 拗音's rare-combo gaps.
+  'tokushuon-tsa-row': [
+    { id: 'tokushuon-tsa-mootsaruto', kana: 'モーツァルト', romaji: 'mootsaruto', meaning: 'Mozart (composer)', characterIds: ['katakana-mo', 'katakana-chouon', 'katakana-tsa', 'katakana-ru', 'katakana-to'] },
+    { id: 'tokushuon-tsa-pittsa', kana: 'ピッツァ', romaji: 'pittsa', meaning: 'pizza', characterIds: ['katakana-pi', 'katakana-sokuon', 'katakana-tsa'] },
+    { id: 'tokushuon-tsa-tsitaa', kana: 'ツィター', romaji: 'tsitaa', meaning: 'zither (musical instrument)', characterIds: ['katakana-tsi', 'katakana-ta', 'katakana-chouon'] },
+    { id: 'tokushuon-tsa-tsepperin', kana: 'ツェッペリン', romaji: 'tsepperin', meaning: 'zeppelin (airship)', characterIds: ['katakana-tse', 'katakana-sokuon', 'katakana-pe', 'katakana-ri', 'katakana-n'] },
+    { id: 'tokushuon-tsa-kantsoone', kana: 'カンツォーネ', romaji: 'kantsoone', meaning: 'canzone (Italian song style)', characterIds: ['katakana-ka', 'katakana-n', 'katakana-tso', 'katakana-chouon', 'katakana-ne'] },
+  ],
 }
 
 export const ALL_WORDS: AnchorWord[] = Object.values(WORDS_BY_ROW).flat()

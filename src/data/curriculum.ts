@@ -1,14 +1,16 @@
 import type { GojuonRow, ScriptCategory } from './types'
 
-// Five categories exist so far (hiragana/katakana/sokuon/chōon/yōon), with
-// 特殊音 still to come — see docs/curriculum-extensibility.md for the full
-// design. Every row below is tagged with a categoryId; nothing else in the
-// app should hardcode the string 'hiragana'.
+// All six planned categories now exist (hiragana/katakana/sokuon/chōon/
+// yōon/特殊音) — see docs/curriculum-extensibility.md for the full design
+// and its "Progress" section for how each landed. Every row below is
+// tagged with a categoryId; nothing else in the app should hardcode the
+// string 'hiragana'.
 export const DEFAULT_CATEGORY_ID = 'hiragana'
 export const KATAKANA_CATEGORY_ID = 'katakana'
 export const SOKUON_CATEGORY_ID = 'sokuon'
 export const CHOUON_CATEGORY_ID = 'chouon'
 export const YOUON_CATEGORY_ID = 'youon'
+export const TOKUSHUON_CATEGORY_ID = 'tokushuon'
 
 export const CATEGORIES: ScriptCategory[] = [
   { id: DEFAULT_CATEGORY_ID, label: 'ひらがな', learnStyle: 'character-set' },
@@ -66,6 +68,25 @@ export const CATEGORIES: ScriptCategory[] = [
     label: '拗音',
     learnStyle: 'character-set',
     dependsOnCategoryIds: [DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID],
+  },
+  // 特殊音 (tokushuon, extended katakana combinations for loanword sounds) —
+  // the sixth and final planned category. 'character-set' like 拗音/カタカナ
+  // (pure content, no flow changes needed). Genuinely katakana-ONLY, unlike
+  // every other non-hiragana category above: hiragana never spells loanword
+  // sounds this way, so this deliberately does NOT list DEFAULT_CATEGORY_ID
+  // in dependsOnCategoryIds — see the CHARACTERS comment block for the full
+  // combination list and rationale. It DOES depend on sokuon (in addition
+  // to katakana) because real example vocabulary needs っ/ッ for gemination
+  // (e.g. ジェットコースター "roller coaster") — chōon's own long-vowel mark
+  // needs no separate dependency since it's already part of the katakana
+  // category (katakana-chouon, taught under カタカナ単音), not the chōon
+  // category (which contributes no characters of its own, see
+  // CHOUON_CATEGORY_ID above).
+  {
+    id: TOKUSHUON_CATEGORY_ID,
+    label: '特殊音',
+    learnStyle: 'character-set',
+    dependsOnCategoryIds: [KATAKANA_CATEGORY_ID, SOKUON_CATEGORY_ID],
   },
 ]
 
@@ -375,6 +396,57 @@ export const ROWS: GojuonRow[] = [
     label: 'リャ・リュ・リョ',
     order: 13,
     characterIds: ['katakana-rya', 'katakana-ryu', 'katakana-ryo'],
+  },
+
+  // ===== 特殊音 (tokushuon) — own order sequence, starting at 0 again =====
+  // Extended katakana digraphs for loanword sounds that don't fit standard
+  // gojūon or 拗音 — see characters.ts's ===== 特殊音 ===== comment block
+  // for the full 23-combination set and how each id was chosen. Grouped
+  // into 6 rows by base-consonant family (mirroring how ka-row/sa-row/...
+  // fold dakuten/handakuten combos together), in an order that goes
+  // "nearest to already-familiar sounds first": ファ行 (built on already-
+  // familiar フ) before ヴ行 (a wholly new base glyph).
+  {
+    id: 'tokushuon-fa-row',
+    categoryId: TOKUSHUON_CATEGORY_ID,
+    label: 'ファ・フィ・フェ・フォ',
+    order: 0,
+    characterIds: ['katakana-fa', 'katakana-fi', 'katakana-fe', 'katakana-fo'],
+  },
+  {
+    id: 'tokushuon-ti-row',
+    categoryId: TOKUSHUON_CATEGORY_ID,
+    label: 'ティ・ディ・トゥ・ドゥ',
+    order: 1,
+    characterIds: ['katakana-ti', 'katakana-di', 'katakana-tu', 'katakana-du'],
+  },
+  {
+    id: 'tokushuon-wi-row',
+    categoryId: TOKUSHUON_CATEGORY_ID,
+    label: 'ウィ・ウェ・ウォ',
+    order: 2,
+    characterIds: ['katakana-wi', 'katakana-we', 'katakana-uo'],
+  },
+  {
+    id: 'tokushuon-va-row',
+    categoryId: TOKUSHUON_CATEGORY_ID,
+    label: 'ヴ・ヴァ・ヴィ・ヴェ・ヴォ',
+    order: 3,
+    characterIds: ['katakana-vu', 'katakana-va', 'katakana-vi', 'katakana-ve', 'katakana-vo'],
+  },
+  {
+    id: 'tokushuon-che-row',
+    categoryId: TOKUSHUON_CATEGORY_ID,
+    label: 'チェ・ジェ・シェ',
+    order: 4,
+    characterIds: ['katakana-che', 'katakana-je', 'katakana-she'],
+  },
+  {
+    id: 'tokushuon-tsa-row',
+    categoryId: TOKUSHUON_CATEGORY_ID,
+    label: 'ツァ・ツィ・ツェ・ツォ',
+    order: 5,
+    characterIds: ['katakana-tsa', 'katakana-tsi', 'katakana-tse', 'katakana-tso'],
   },
 ]
 
