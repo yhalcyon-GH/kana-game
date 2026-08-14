@@ -53,6 +53,21 @@ describe('routing', () => {
     expect(screen.getByRole('heading', { name: 'Kana Game' })).toBeInTheDocument()
   })
 
+  it('/practice/katakana/katakana-a-row renders that row\'s Practice Hub', () => {
+    renderAt('/practice/katakana/katakana-a-row')
+    expect(screen.getByRole('heading', { name: 'ア~オ' })).toBeInTheDocument()
+  })
+
+  it('/learn/katakana/katakana-a-row renders the Learn flow for that row', () => {
+    renderAt('/learn/katakana/katakana-a-row')
+    expect(screen.getByText(/new characters/)).toBeInTheDocument()
+  })
+
+  it('/practice/katakana/katakana-a-row/kana-quiz renders the Kana Quiz game', () => {
+    renderAt('/practice/katakana/katakana-a-row/kana-quiz')
+    expect(screen.getByText(/Round 1/)).toBeInTheDocument()
+  })
+
   it('an unknown row id redirects home', () => {
     renderAt('/practice/hiragana/not-a-real-row')
     expect(screen.getByRole('heading', { name: 'Kana Game' })).toBeInTheDocument()
