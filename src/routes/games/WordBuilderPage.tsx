@@ -21,7 +21,12 @@ import { useProgressStore } from '../../store/progressStore'
 
 const DISTRACTOR_COUNT = 3
 
-type TrayTile = { key: string; charId: string; placed: boolean }
+// Tiles are single KANA GLYPHS, not characterIds — most characters are 1
+// glyph already (charId and glyph coincide), but a yōon character like きゃ
+// is 2 glyphs/1 character id (see characters.ts's "one glyph = one mora"
+// note), and the learner should place き and ゃ as two separate tiles here
+// rather than one pre-combined きゃ tile, per the user's explicit request.
+type TrayTile = { key: string; glyph: string; placed: boolean }
 
 type Props = {
   // Set only by the /practice/review/word-builder route — see REVIEW_SCOPE_ID.
@@ -81,13 +86,19 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
   const [tray, setTray] = useState<TrayTile[]>([])
   const [status, setStatus] = useState<'playing' | 'correct' | 'wrong'>('playing')
 
-  // Sets up a fresh tray/slots for a new word.
+  // Sets up a fresh tray/slots for a new word. Slots are sized to the word's
+  // GLYPH count (word.kana), not its characterId count — see TrayTile's
+  // comment. Distractor characters are also split into their own glyphs, so
+  // every tray tile is uniformly a single kana glyph regardless of whether
+  // it came from a 1-glyph or 2-glyph source character.
   const setupRound = useCallback(
     (word: AnchorWord) => {
-      const distractors = pickDistractorCharIds(word.characterIds, scopeCharacterIds, DISTRACTOR_COUNT)
-      const tileIds = shuffle([...word.characterIds, ...distractors])
-      setTray(tileIds.map((charId, i) => ({ key: `${charId}-${i}`, charId, placed: false })))
-      setSlots(new Array(word.characterIds.length).fill(null))
+      const distractorCharIds = pickDistractorCharIds(word.characterIds, scopeCharacterIds, DISTRACTOR_COUNT)
+      const targetGlyphs = [...word.kana]
+      const distractorGlyphs = distractorCharIds.flatMap((id) => [...(CHARACTERS_BY_ID[id]?.kana ?? '')])
+      const tileGlyphs = shuffle([...targetGlyphs, ...distractorGlyphs])
+      setTray(tileGlyphs.map((glyph, i) => ({ key: `${glyph}-${i}`, glyph, placed: false })))
+      setSlots(new Array(targetGlyphs.length).fill(null))
       setStatus('playing')
       clear()
     },
@@ -114,8 +125,9 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
     if (!currentWord || status !== 'playing') return
     if (slots.some((s) => s === null)) return
 
-    const placedCharIds = slots.map((key) => tray.find((t) => t.key === key)?.charId)
-    const isCorrect = placedCharIds.every((id, i) => id === currentWord.characterIds[i])
+    const placedGlyphs = slots.map((key) => tray.find((t) => t.key === key)?.glyph)
+    const targetGlyphs = [...currentWord.kana]
+    const isCorrect = placedGlyphs.every((glyph, i) => glyph === targetGlyphs[i])
     for (const charId of currentWord.characterIds) recordResult(charId, isCorrect)
 
     if (isCorrect) {
@@ -132,7 +144,7 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
     setStatus('wrong')
     onWrong(
       { id: currentWord.id, kana: currentWord.kana, romaji: currentWord.romaji },
-      isNearMissSequence(placedCharIds, currentWord.characterIds),
+      isNearMissSequence(placedGlyphs, targetGlyphs),
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slots])
@@ -217,7 +229,7 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
               onClick={() => handleSlotClick(i)}
               className="font-kana flex h-14 w-14 items-center justify-center rounded-xl border-2 border-dashed border-neutral-300 text-2xl font-bold dark:border-neutral-600"
             >
-              {tile ? CHARACTERS_BY_ID[tile.charId].kana : ''}
+              {tile ? tile.glyph : ''}
             </button>
           )
         })}
@@ -244,7 +256,7 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
         {tray.map((tile) => (
           <KanaTile
             key={tile.key}
-            kana={CHARACTERS_BY_ID[tile.charId].kana}
+            kana={tile.glyph}
             disabled={tile.placed || status !== 'playing'}
             onClick={() => handleTrayClick(tile)}
           />
