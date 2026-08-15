@@ -1,5 +1,6 @@
 import { Route, Routes } from 'react-router-dom'
 import { NavBar } from './components/NavBar'
+import { CATEGORIES, DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID } from './data/curriculum'
 import { REVIEW_SCOPE_ID } from './hooks/useCurriculum'
 import { KanaQuizPage } from './routes/games/KanaQuizPage'
 import { KanaTypingPage } from './routes/games/KanaTypingPage'
@@ -7,11 +8,20 @@ import { ListeningPage } from './routes/games/ListeningPage'
 import { TracingPage } from './routes/games/TracingPage'
 import { WordBuilderPage } from './routes/games/WordBuilderPage'
 import { AboutPage } from './routes/AboutPage'
+import { CategoryRowsPage } from './routes/CategoryRowsPage'
 import { HomePage } from './routes/HomePage'
 import { LearnPage } from './routes/LearnPage'
 import { PracticeHubPage } from './routes/PracticeHubPage'
 import { ReviewPage } from './routes/ReviewPage'
 import { SettingsPage } from './routes/SettingsPage'
+
+// Every category that isn't hiragana/katakana gets bundled into one
+// 'そのほか' page rather than a new top-level page per category — computed
+// from CATEGORIES so a future category (促音, ...) just appears here
+// automatically once its branch merges, no route change needed.
+const OTHER_CATEGORY_IDS = CATEGORIES.map((c) => c.id).filter(
+  (id) => id !== DEFAULT_CATEGORY_ID && id !== KATAKANA_CATEGORY_ID,
+)
 
 function App() {
   return (
@@ -20,6 +30,36 @@ function App() {
       <main className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-4 py-8">
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route
+            path="/hiragana"
+            element={
+              <CategoryRowsPage
+                title="ひらがな"
+                description="Learn hiragana one row at a time, paired with real everyday words."
+                categoryIds={[DEFAULT_CATEGORY_ID]}
+              />
+            }
+          />
+          <Route
+            path="/katakana"
+            element={
+              <CategoryRowsPage
+                title="カタカナ"
+                description="Learn katakana one row at a time, paired with real everyday words."
+                categoryIds={[KATAKANA_CATEGORY_ID]}
+              />
+            }
+          />
+          <Route
+            path="/other"
+            element={
+              <CategoryRowsPage
+                title="そのほか"
+                description="促音・長音・拗音・特殊音 — other sounds beyond the basic hiragana/katakana rows."
+                categoryIds={OTHER_CATEGORY_IDS}
+              />
+            }
+          />
           <Route path="/learn/:categoryId/:rowId" element={<LearnPage />} />
           <Route path="/practice/:categoryId/:rowId" element={<PracticeHubPage />} />
           <Route path="/practice/:categoryId/:rowId/word-builder" element={<WordBuilderPage />} />

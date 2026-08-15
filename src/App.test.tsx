@@ -98,3 +98,35 @@ describe('routing', () => {
     expect(screen.queryByRole('heading', { name: 'あ~お' })).not.toBeInTheDocument()
   })
 })
+
+// The three top-level script pages (see HomePage.tsx's chooser cards and
+// App.tsx's OTHER_CATEGORY_IDS) — replaced the single flat HomePage that
+// used to stack every category's rows on one page.
+describe('script chooser pages', () => {
+  it('/hiragana shows only hiragana rows', () => {
+    renderAt('/hiragana')
+    expect(screen.getByRole('heading', { name: 'ひらがな' })).toBeInTheDocument()
+    expect(screen.getByText('あ~お')).toBeInTheDocument()
+    expect(screen.queryByText('ア~オ・ー・ン')).not.toBeInTheDocument()
+  })
+
+  it('/katakana shows only katakana rows', () => {
+    renderAt('/katakana')
+    expect(screen.getByRole('heading', { name: 'カタカナ' })).toBeInTheDocument()
+    expect(screen.getByText('ア~オ・ー・ン')).toBeInTheDocument()
+    expect(screen.queryByText('あ~お')).not.toBeInTheDocument()
+  })
+
+  it('/other shows an empty state when no non-hiragana/katakana category exists yet', () => {
+    renderAt('/other')
+    expect(screen.getByRole('heading', { name: 'そのほか' })).toBeInTheDocument()
+    expect(screen.getByText('まだ利用できるレッスンがありません。')).toBeInTheDocument()
+  })
+
+  it('home page links to all three script pages', () => {
+    renderAt('/')
+    expect(screen.getByRole('link', { name: /ひらがな/ })).toHaveAttribute('href', '/hiragana')
+    expect(screen.getByRole('link', { name: /カタカナ/ })).toHaveAttribute('href', '/katakana')
+    expect(screen.getByRole('link', { name: /そのほか/ })).toHaveAttribute('href', '/other')
+  })
+})
