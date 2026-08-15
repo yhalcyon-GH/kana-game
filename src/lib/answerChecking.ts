@@ -22,6 +22,25 @@ export function normalizeKana(text: string): string {
   return text.trim().normalize('NFC')
 }
 
+// Hiragana (U+3041-3096) and katakana (U+30A1-30F6) are laid out in
+// Unicode with the same relative order, exactly 0x60 apart — shifting every
+// character in range by that offset converts script wholesale. Characters
+// outside either range (ー, ・, spaces, ...) pass through unchanged, so
+// applying the "wrong" direction to a word that's already in the target
+// script is a harmless no-op rather than mangling it. Added for
+// src/lib/voiceQuality.ts's reading normalization — not used by
+// isAnswerCorrect below, so this doesn't change any existing answer-checking
+// behavior.
+function shiftKanaScript(text: string, from: [number, number], offset: number): string {
+  return [...text]
+    .map((ch) => {
+      const code = ch.codePointAt(0) ?? 0
+      return code >= from[0] && code <= from[1] ? String.fromCodePoint(code + offset) : ch
+    })
+    .join('')
+}
+export const toHiragana = (text: string) => shiftKanaScript(text, [0x30a1, 0x30f6], -0x60)
+
 // Alternate acceptable spellings of word.romaji, built by walking
 // characterIds in step with word.romaji's space-separated tokens (a word can
 // romanize as multiple space-separated tokens, e.g. a particle phrase) and
