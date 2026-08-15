@@ -300,10 +300,7 @@ export const CHARACTERS: KanaChar[] = [
   // Same 33-combination set as hiragana above, 'katakana-' prefixed per the
   // established convention (see the カタカナ section's header comment).
   // Real loanwords use these constantly (キャンプ camp, ジュース juice,
-  // ミャンマー Myanmar) — this is NOT the same thing as 特殊音's extended
-  // combinations for sounds with no native mora at all (ファ/ティ/ヴ/...),
-  // which is a separate, not-yet-started category — see
-  // docs/curriculum-extensibility.md.
+  // ミャンマー Myanmar).
   // キ行/ギ行
   { id: 'katakana-kya', kana: 'キャ', romaji: 'kya', rowId: 'youon-katakana-ka-row', type: 'base' },
   { id: 'katakana-kyu', kana: 'キュ', romaji: 'kyu', rowId: 'youon-katakana-ka-row', type: 'base' },
@@ -344,81 +341,6 @@ export const CHARACTERS: KanaChar[] = [
   { id: 'katakana-rya', kana: 'リャ', romaji: 'rya', rowId: 'youon-katakana-ra-row', type: 'base' },
   { id: 'katakana-ryu', kana: 'リュ', romaji: 'ryu', rowId: 'youon-katakana-ra-row', type: 'base' },
   { id: 'katakana-ryo', kana: 'リョ', romaji: 'ryo', rowId: 'youon-katakana-ra-row', type: 'base' },
-
-  // ===== 特殊音 (tokushuon) =====
-  // Extended katakana digraphs used to spell loanword sounds that fit
-  // neither standard gojūon nor 拗音's contracted-consonant set — a base
-  // katakana glyph + a small vowel (ァィゥェォ), same "2 glyphs, 1 mora"
-  // shape as yōon's き+ゃ, and covered by the exact same fallbacks (see
-  // WordCard.test.tsx / StrokeOrderAnimation.test.tsx / docs/
-  // curriculum-extensibility.md). This is genuinely katakana-only — real
-  // Japanese never spells a loanword sound this way in hiragana — so, unlike
-  // every other CHARACTERS section, there is no hiragana-id counterpart
-  // here to worry about colliding with; every id below is still
-  // 'katakana-' prefixed anyway, both for consistency with the rest of this
-  // file and because it turns out to matter once (see the ウォ note below).
-  //
-  // Included (23 combinations, the standard/common set): フ-row (ファ/フィ/
-  // フェ/フォ), テ/デ/ト/ド-row (ティ/ディ/トゥ/ドゥ), ウ-row (ウィ/ウェ/ウォ),
-  // ヴ-row (ヴ alone plus ヴァ/ヴィ/ヴェ/ヴォ), チ/ジ/シ-row (チェ/ジェ/シェ),
-  // ツ-row (ツァ/ツィ/ツェ/ツォ).
-  //
-  // Deliberately excluded as too rare/obsolete even by this category's own
-  // "extended" standard: グァ/クァ (gwa/kwa, archaic/rare even in loanwords
-  // now mostly replaced by グア/グラ-style spellings), イェ (ye, vanishingly
-  // rare outside a handful of proper nouns), and the doubled-vowel-only
-  // theoretical combinations some fonts render but no real vocabulary uses
-  // (テュ/デュ, スィ/ズィ). ツィ/ツェ/ツォ in particular have thin real
-  // vocabulary even among the included set — see words.ts's tokushuon-tsa-
-  // row comment.
-  //
-  // `type` follows the same convention as yōon: it mirrors the base
-  // glyph's own type (フ/テ/ト/ウ/チ/シ/ツ are 'base'; デ/ド/ジ are
-  // 'dakuten' since で/ど/じ are). ヴ is treated as 'dakuten' of ウ (it's
-  // literally ウ + a dakuten mark, the same construction as か→が), and
-  // ヴァ/ヴィ/ヴェ/ヴォ inherit that.
-  //
-  // フ行 (フ + small ァィェォ)
-  { id: 'katakana-fa', kana: 'ファ', romaji: 'fa', rowId: 'tokushuon-fa-row', type: 'base' },
-  { id: 'katakana-fi', kana: 'フィ', romaji: 'fi', rowId: 'tokushuon-fa-row', type: 'base' },
-  { id: 'katakana-fe', kana: 'フェ', romaji: 'fe', rowId: 'tokushuon-fa-row', type: 'base' },
-  { id: 'katakana-fo', kana: 'フォ', romaji: 'fo', rowId: 'tokushuon-fa-row', type: 'base' },
-  // テ/デ + small ィ, ト/ド + small ゥ
-  { id: 'katakana-ti', kana: 'ティ', romaji: 'ti', rowId: 'tokushuon-ti-row', type: 'base' },
-  { id: 'katakana-di', kana: 'ディ', romaji: 'di', rowId: 'tokushuon-ti-row', type: 'dakuten' },
-  { id: 'katakana-tu', kana: 'トゥ', romaji: 'tu', rowId: 'tokushuon-ti-row', type: 'base' },
-  { id: 'katakana-du', kana: 'ドゥ', romaji: 'du', rowId: 'tokushuon-ti-row', type: 'dakuten' },
-  // ウ + small ィェォ. ウォ's id is 'katakana-uo', NOT the more obvious
-  // 'katakana-wo' — that id is already taken by ヲ (see the ワ行 section
-  // above), which happens to share the same conventional romaji ('wo').
-  // Two different characters can share a romaji string (they already do:
-  // hiragana わ and katakana-wa both are 'wa') but not an id, so this one
-  // needed a distinct id; 'uo' names it by its actual glyph construction
-  // (ウ='u' + small ォ='o') instead, similar in spirit to ぢ/づ's id vs.
-  // displayed-romaji split ('dji'/'ji', 'dzu'/'zu') earlier in this file.
-  { id: 'katakana-wi', kana: 'ウィ', romaji: 'wi', rowId: 'tokushuon-wi-row', type: 'base' },
-  { id: 'katakana-we', kana: 'ウェ', romaji: 'we', rowId: 'tokushuon-wi-row', type: 'base' },
-  { id: 'katakana-uo', kana: 'ウォ', romaji: 'wo', rowId: 'tokushuon-wi-row', type: 'base' },
-  // ヴ alone (the one 1-glyph/1-character-id entry in this whole category —
-  // ウ + a dakuten mark, not a digraph) plus ヴ + small ァィェォ. Confirmed
-  // deliberately: WordCard.test.tsx uses 'tokushuon-va-vuun' as the
-  // regression case proving the yōon-style mismatch guard does NOT
-  // universally suppress the accent line — a single-glyph tokushuon
-  // character is a normal 1-glyph/1-mora case, same as any base kana.
-  { id: 'katakana-vu', kana: 'ヴ', romaji: 'vu', rowId: 'tokushuon-va-row', type: 'dakuten' },
-  { id: 'katakana-va', kana: 'ヴァ', romaji: 'va', rowId: 'tokushuon-va-row', type: 'dakuten' },
-  { id: 'katakana-vi', kana: 'ヴィ', romaji: 'vi', rowId: 'tokushuon-va-row', type: 'dakuten' },
-  { id: 'katakana-ve', kana: 'ヴェ', romaji: 've', rowId: 'tokushuon-va-row', type: 'dakuten' },
-  { id: 'katakana-vo', kana: 'ヴォ', romaji: 'vo', rowId: 'tokushuon-va-row', type: 'dakuten' },
-  // チ/ジ/シ + small ェ
-  { id: 'katakana-che', kana: 'チェ', romaji: 'che', rowId: 'tokushuon-che-row', type: 'base' },
-  { id: 'katakana-je', kana: 'ジェ', romaji: 'je', rowId: 'tokushuon-che-row', type: 'dakuten' },
-  { id: 'katakana-she', kana: 'シェ', romaji: 'she', rowId: 'tokushuon-che-row', type: 'base' },
-  // ツ + small ァィェォ
-  { id: 'katakana-tsa', kana: 'ツァ', romaji: 'tsa', rowId: 'tokushuon-tsa-row', type: 'base' },
-  { id: 'katakana-tsi', kana: 'ツィ', romaji: 'tsi', rowId: 'tokushuon-tsa-row', type: 'base' },
-  { id: 'katakana-tse', kana: 'ツェ', romaji: 'tse', rowId: 'tokushuon-tsa-row', type: 'base' },
-  { id: 'katakana-tso', kana: 'ツォ', romaji: 'tso', rowId: 'tokushuon-tsa-row', type: 'base' },
 ]
 
 export const CHARACTERS_BY_ID: Record<string, KanaChar> = Object.fromEntries(

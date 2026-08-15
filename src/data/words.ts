@@ -284,70 +284,97 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
 
   // ===== 促音 (sokuon) vocabulary =====
   // One combined row spanning both scripts (see curriculum.ts's
-  // sokuon-row) — hiragana and katakana words interleaved by contrast
-  // pair/family rather than grouped by script, since the whole point of
-  // this lesson is hearing っ/ッ do the same thing across both. Every word
-  // here draws on the full hiragana + katakana character pool (both fully
-  // taught by this point in the curriculum — see getCumulativeCharacterIds'
-  // cross-category handling in curriculum.ts), not just sokuon's own っ/ッ.
-  // `image` is intentionally omitted throughout, same as katakana's
-  // vocabulary — no illustration set exists for this content yet.
+  // sokuon-row). Rewritten from the user's own teaching material (two PDFs
+  // used in their class) to be genuine WITH/WITHOUT minimal pairs, listed
+  // adjacently — the whole point of this lesson is hearing っ/ッ change a
+  // word's meaning, so every pair below differs ONLY by gemination (plus
+  // まち/マッチ, which crosses scripts on top of that). Every word draws on
+  // the full hiragana + katakana character pool (both fully taught by this
+  // point — see getCumulativeCharacterIds' cross-category handling in
+  // curriculum.ts), not just sokuon's own っ/ッ. `image` is intentionally
+  // omitted throughout, same as katakana's vocabulary — no illustration set
+  // exists for this content yet.
   'sokuon-row': [
-    // The classic minimal pair: identical except for gemination.
     { id: 'sokuon-oto', kana: 'おと', romaji: 'oto', meaning: 'sound', characterIds: ['o', 'to'], audioText: '音' },
     { id: 'sokuon-otto', kana: 'おっと', romaji: 'otto', meaning: 'husband', characterIds: ['o', 'sokuon', 'to'], audioText: '夫' },
-    { id: 'sokuon-gakkou', kana: 'がっこう', romaji: 'gakkou', meaning: 'school', characterIds: ['ga', 'sokuon', 'ko', 'u'], audioText: '学校' },
-    { id: 'sokuon-kippu', kana: 'きっぷ', romaji: 'kippu', meaning: 'ticket', characterIds: ['ki', 'sokuon', 'pu'], audioText: '切符' },
-    // こっち has no kanji spelling in ordinary use (always written in kana,
-    // like ここ elsewhere in this file) — no audioText override.
-    { id: 'sokuon-kotchi', kana: 'こっち', romaji: 'kotchi', meaning: 'here / this way', characterIds: ['ko', 'sokuon', 'chi'] },
-    { id: 'sokuon-katakana-beddo', kana: 'ベッド', romaji: 'beddo', meaning: 'bed', characterIds: ['katakana-be', 'katakana-sokuon', 'katakana-do'] },
-    { id: 'sokuon-katakana-sakkaa', kana: 'サッカー', romaji: 'sakkaa', meaning: 'soccer', characterIds: ['katakana-sa', 'katakana-sokuon', 'katakana-ka', 'katakana-chouon'] },
-    { id: 'sokuon-katakana-kukkii', kana: 'クッキー', romaji: 'kukkii', meaning: 'cookie', characterIds: ['katakana-ku', 'katakana-sokuon', 'katakana-ki', 'katakana-chouon'] },
-    { id: 'sokuon-katakana-kappu', kana: 'カップ', romaji: 'kappu', meaning: 'cup', characterIds: ['katakana-ka', 'katakana-sokuon', 'katakana-pu'] },
-    { id: 'sokuon-katakana-roketto', kana: 'ロケット', romaji: 'roketto', meaning: 'rocket', characterIds: ['katakana-ro', 'katakana-ke', 'katakana-sokuon', 'katakana-to'] },
+    { id: 'sokuon-kako', kana: 'かこ', romaji: 'kako', meaning: 'the past', characterIds: ['ka', 'ko'], audioText: '過去' },
+    { id: 'sokuon-kakko', kana: 'かっこ', romaji: 'kakko', meaning: 'parentheses / brackets ( )', characterIds: ['ka', 'sokuon', 'ko'], audioText: '括弧' },
+    { id: 'sokuon-katakana-bagu', kana: 'バグ', romaji: 'bagu', meaning: 'bug (software)', characterIds: ['katakana-ba', 'katakana-gu'] },
+    { id: 'sokuon-katakana-baggu', kana: 'バッグ', romaji: 'baggu', meaning: 'bag', characterIds: ['katakana-ba', 'katakana-sokuon', 'katakana-gu'] },
+    // きて/きって, まて/まって, もて/もって are all imperative ("please ~")
+    // verb forms, not nouns — straight from the user's own class material,
+    // and a useful reminder that gemination changes meaning in VERBS too,
+    // not just nouns.
+    { id: 'sokuon-kite', kana: 'きて', romaji: 'kite', meaning: 'come (please come)', characterIds: ['ki', 'te'], audioText: '来て' },
+    { id: 'sokuon-kitte', kana: 'きって', romaji: 'kitte', meaning: 'cut (please cut)', characterIds: ['ki', 'sokuon', 'te'], audioText: '切って' },
+    { id: 'sokuon-mate', kana: 'まて', romaji: 'mate', meaning: 'wait!', characterIds: ['ma', 'te'], audioText: '待て' },
+    { id: 'sokuon-matte', kana: 'まって', romaji: 'matte', meaning: 'please wait', characterIds: ['ma', 'sokuon', 'te'], audioText: '待って' },
+    { id: 'sokuon-mote', kana: 'もて', romaji: 'mote', meaning: 'hold!', characterIds: ['mo', 'te'], audioText: '持て' },
+    { id: 'sokuon-motte', kana: 'もって', romaji: 'motte', meaning: 'please hold', characterIds: ['mo', 'sokuon', 'te'], audioText: '持って' },
+    { id: 'sokuon-iki', kana: 'いき', romaji: 'iki', meaning: 'breath', characterIds: ['i', 'ki'], audioText: '息' },
+    { id: 'sokuon-ikki', kana: 'いっき', romaji: 'ikki', meaning: 'all at once', characterIds: ['i', 'sokuon', 'ki'], audioText: '一気' },
+    // まち has no kanji spelling override here — 町 works, but the pair with
+    // マッチ (a katakana loanword) is the point, so both stay plain kana in
+    // audioText to keep the contrast visually obvious.
+    { id: 'sokuon-machi', kana: 'まち', romaji: 'machi', meaning: 'town', characterIds: ['ma', 'chi'], audioText: '町' },
+    { id: 'sokuon-katakana-macchi', kana: 'マッチ', romaji: 'macchi', meaning: 'match (for lighting)', characterIds: ['katakana-ma', 'katakana-sokuon', 'katakana-chi'] },
   ],
 
   // ===== 長音 (chōon) vocabulary =====
-  // One combined row spanning both scripts (see curriculum.ts's
-  // chouon-row), same shape as sokuon-row above. Unlike sokuon, this row's
-  // OWN characterIds is [] — every word below is spelled entirely from
-  // hiragana/katakana characters already taught, since chōon itself isn't
-  // a discrete glyph in hiragana (it's a spelling pattern: repeat/extend
-  // the preceding vowel) and katakana's ー was already introduced under
-  // カタカナ単音 (this lesson only reviews it). The pairs are grouped to
-  // read as minimal-pair families, covering hiragana's different
-  // long-vowel spelling patterns rather than just the あ-row case:
-  //   おばさん/おばあさん, おじさん/おじいさん — あ-row and い-row
-  //   すうじ — う-row; せんせい — え-row (spelled with い);
-  //   おとうさん — お-row (spelled with う)
-  // plus katakana's ー reviewed via ビル/ビール and カレー.
-  // `image` is intentionally omitted throughout, same as sokuon's/
+  // Six rows (see curriculum.ts's chouon-*-row entries), rewritten from the
+  // user's own teaching material into one row per vowel-column rule rather
+  // than one flat list — each row's `explanation` states the rule, and the
+  // words here are that rule's examples specifically. `characterIds` is []
+  // on every chōon row (see curriculum.ts's comment), so every word below
+  // is spelled entirely from hiragana/katakana base characters — NEVER a
+  // yōon combination (no きょ/しゅ/ぎゅ/...), even where the source PDF's
+  // own examples used one (とうきょう, ぎゅうにゅう) — see curriculum.ts's
+  // chōon comment for why. `image` omitted throughout, same as sokuon's/
   // katakana's vocabulary — no illustration set exists for this content yet.
-  'chouon-row': [
-    { id: 'chouon-okaasan', kana: 'おかあさん', romaji: 'okaasan', meaning: 'mother', characterIds: ['o', 'ka', 'a', 'sa', 'n'], audioText: 'お母さん' },
-    // Minimal pair #1: あ-row lengthening distinguishes "aunt" from
-    // "grandmother" — the user's own example for this lesson.
-    { id: 'chouon-obasan', kana: 'おばさん', romaji: 'obasan', meaning: 'aunt', characterIds: ['o', 'ba', 'sa', 'n'], audioText: '叔母さん' },
-    { id: 'chouon-obaasan', kana: 'おばあさん', romaji: 'obaasan', meaning: 'grandmother', characterIds: ['o', 'ba', 'a', 'sa', 'n'], audioText: 'お祖母さん' },
-    // Minimal pair #2: same rule, い-row this time — "uncle" vs. "grandfather".
-    { id: 'chouon-ojisan', kana: 'おじさん', romaji: 'ojisan', meaning: 'uncle', characterIds: ['o', 'ji', 'sa', 'n'], audioText: '叔父さん' },
-    { id: 'chouon-ojiisan', kana: 'おじいさん', romaji: 'ojiisan', meaning: 'grandfather', characterIds: ['o', 'ji', 'i', 'sa', 'n'], audioText: 'お祖父さん' },
-    // う-row lengthening (no contrast partner needed — the pattern itself
-    // is the point: すじ isn't a competing real word here).
-    { id: 'chouon-suuji', kana: 'すうじ', romaji: 'suuji', meaning: 'number / digit', characterIds: ['su', 'u', 'ji'], audioText: '数字' },
-    // え-row lengthening, spelled with い rather than え — the trickiest
-    // hiragana pattern for a learner to predict.
-    { id: 'chouon-sensei', kana: 'せんせい', romaji: 'sensei', meaning: 'teacher', characterIds: ['se', 'n', 'se', 'i'], audioText: '先生' },
-    // お-row lengthening, spelled with う rather than お — the other
-    // commonly-missed pattern, and a natural pair with おかあさん above.
-    { id: 'chouon-otousan', kana: 'おとうさん', romaji: 'otousan', meaning: 'father', characterIds: ['o', 'to', 'u', 'sa', 'n'], audioText: 'お父さん' },
-    // Katakana review: ー lengthens the preceding vowel exactly like a
-    // held mora, spelled with a plain dash-like mark instead of a repeated
-    // kana — ビル/ビール is the user's own minimal pair for this.
+  'chouon-a-row': [
+    // Minimal pair: あ-row lengthening turns "aunt" into "grandmother".
+    { id: 'chouon-a-obasan', kana: 'おばさん', romaji: 'obasan', meaning: 'aunt', characterIds: ['o', 'ba', 'sa', 'n'], audioText: '叔母さん' },
+    { id: 'chouon-a-obaasan', kana: 'おばあさん', romaji: 'obaasan', meaning: 'grandmother', characterIds: ['o', 'ba', 'a', 'sa', 'n'], audioText: 'お祖母さん' },
+    { id: 'chouon-a-okaasan', kana: 'おかあさん', romaji: 'okaasan', meaning: 'mother', characterIds: ['o', 'ka', 'a', 'sa', 'n'], audioText: 'お母さん' },
+    { id: 'chouon-a-maamaa', kana: 'まあまあ', romaji: 'maamaa', meaning: 'so-so / not bad', characterIds: ['ma', 'a', 'ma', 'a'] },
+  ],
+  'chouon-i-row': [
+    // Minimal pair: い-row lengthening turns "uncle" into "grandfather".
+    { id: 'chouon-i-ojisan', kana: 'おじさん', romaji: 'ojisan', meaning: 'uncle', characterIds: ['o', 'ji', 'sa', 'n'], audioText: '叔父さん' },
+    { id: 'chouon-i-ojiisan', kana: 'おじいさん', romaji: 'ojiisan', meaning: 'grandfather', characterIds: ['o', 'ji', 'i', 'sa', 'n'], audioText: 'お祖父さん' },
+    { id: 'chouon-i-oniisan', kana: 'おにいさん', romaji: 'oniisan', meaning: 'older brother', characterIds: ['o', 'ni', 'i', 'sa', 'n'], audioText: 'お兄さん' },
+    { id: 'chouon-i-ii', kana: 'いい', romaji: 'ii', meaning: 'good', characterIds: ['i', 'i'] },
+  ],
+  'chouon-u-row': [
+    { id: 'chouon-u-yuuki', kana: 'ゆうき', romaji: 'yuuki', meaning: 'courage', characterIds: ['yu', 'u', 'ki'], audioText: '勇気' },
+    { id: 'chouon-u-suuji', kana: 'すうじ', romaji: 'suuji', meaning: 'number / digit', characterIds: ['su', 'u', 'ji'], audioText: '数字' },
+    { id: 'chouon-u-fuusen', kana: 'ふうせん', romaji: 'fuusen', meaning: 'balloon', characterIds: ['fu', 'u', 'se', 'n'], audioText: '風船' },
+    { id: 'chouon-u-kuuki', kana: 'くうき', romaji: 'kuuki', meaning: 'air', characterIds: ['ku', 'u', 'ki'], audioText: '空気' },
+  ],
+  'chouon-e-row': [
+    { id: 'chouon-e-eiga', kana: 'えいが', romaji: 'eiga', meaning: 'movie', characterIds: ['e', 'i', 'ga'], audioText: '映画' },
+    { id: 'chouon-e-yuumei', kana: 'ゆうめい', romaji: 'yuumei', meaning: 'famous', characterIds: ['yu', 'u', 'me', 'i'], audioText: '有名' },
+    { id: 'chouon-e-teinei', kana: 'ていねい', romaji: 'teinei', meaning: 'polite / careful', characterIds: ['te', 'i', 'ne', 'i'], audioText: '丁寧' },
+    // The exception: this vowel is really spelled え, not い.
+    { id: 'chouon-e-oneesan', kana: 'おねえさん', romaji: 'oneesan', meaning: 'older sister', characterIds: ['o', 'ne', 'e', 'sa', 'n'], audioText: 'お姉さん' },
+  ],
+  'chouon-o-row': [
+    { id: 'chouon-o-otouto', kana: 'おとうと', romaji: 'otouto', meaning: 'younger brother', characterIds: ['o', 'to', 'u', 'to'], audioText: '弟' },
+    { id: 'chouon-o-ohayou', kana: 'おはよう', romaji: 'ohayou', meaning: 'good morning', characterIds: ['o', 'ha', 'yo', 'u'] },
+    { id: 'chouon-o-koukou', kana: 'こうこう', romaji: 'koukou', meaning: 'high school', characterIds: ['ko', 'u', 'ko', 'u'], audioText: '高校' },
+    // The exceptions: these are really spelled お, not う — just have to be
+    // memorized, per the user's own list.
+    { id: 'chouon-o-ookii', kana: 'おおきい', romaji: 'ookii', meaning: 'big', characterIds: ['o', 'o', 'ki', 'i'], audioText: '大きい' },
+    { id: 'chouon-o-tooi', kana: 'とおい', romaji: 'tooi', meaning: 'far', characterIds: ['to', 'o', 'i'], audioText: '遠い' },
+    { id: 'chouon-o-koori', kana: 'こおり', romaji: 'koori', meaning: 'ice', characterIds: ['ko', 'o', 'ri'], audioText: '氷' },
+  ],
+  'chouon-katakana-row': [
+    // Minimal pair, the user's own example: ー is the only thing that
+    // separates "building" from "beer".
     { id: 'chouon-katakana-biru', kana: 'ビル', romaji: 'biru', meaning: 'building', characterIds: ['katakana-bi', 'katakana-ru'] },
     { id: 'chouon-katakana-biiru', kana: 'ビール', romaji: 'biiru', meaning: 'beer', characterIds: ['katakana-bi', 'katakana-chouon', 'katakana-ru'] },
-    { id: 'chouon-katakana-karee', kana: 'カレー', romaji: 'karee', meaning: 'curry', characterIds: ['katakana-ka', 'katakana-re', 'katakana-chouon'] },
+    { id: 'chouon-katakana-koohii', kana: 'コーヒー', romaji: 'koohii', meaning: 'coffee', characterIds: ['katakana-ko', 'katakana-chouon', 'katakana-hi', 'katakana-chouon'] },
+    { id: 'chouon-katakana-koora', kana: 'コーラ', romaji: 'koora', meaning: 'cola', characterIds: ['katakana-ko', 'katakana-chouon', 'katakana-ra'] },
   ],
 
   // ===== 拗音 (yōon) vocabulary =====
@@ -491,73 +518,6 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'youon-katakana-ra-ryuu', kana: 'リュウ', romaji: 'ryuu', meaning: 'Ryu (a name) / dragon', characterIds: ['katakana-ryu', 'katakana-u'] },
     { id: 'youon-katakana-ra-boryuumu', kana: 'ボリューム', romaji: 'boryuumu', meaning: 'volume', characterIds: ['katakana-bo', 'katakana-ryu', 'katakana-chouon', 'katakana-mu'] },
     { id: 'youon-katakana-ra-ryou', kana: 'リョウ', romaji: 'ryou', meaning: 'Ryo (a name)', characterIds: ['katakana-ryo', 'katakana-u'] },
-  ],
-
-  // ===== 特殊音 (tokushuon) vocabulary =====
-  // Extended katakana digraphs for loanword sounds — see characters.ts's
-  // ===== 特殊音 ===== block for the full combination list/rationale. Every
-  // word here is katakana-only, so none carry an audioText override (unlike
-  // hiragana, bare katakana isn't lexically ambiguous to TTS the same way —
-  // see the file header comment and the existing 拗音/katakana-* rows above,
-  // which follow the same no-override convention). Real vocabulary using
-  // these sounds skews toward loanwords/proper nouns more than any earlier
-  // category — same pattern already established by 拗音's ミャンマー/
-  // ニューヨーク — so a name or brand showing up here isn't an oversight.
-  'tokushuon-fa-row': [
-    { id: 'tokushuon-fa-fairu', kana: 'ファイル', romaji: 'fairu', meaning: 'file', characterIds: ['katakana-fa', 'katakana-i', 'katakana-ru'] },
-    { id: 'tokushuon-fa-firumu', kana: 'フィルム', romaji: 'firumu', meaning: 'film', characterIds: ['katakana-fi', 'katakana-ru', 'katakana-mu'] },
-    { id: 'tokushuon-fa-kafe', kana: 'カフェ', romaji: 'kafe', meaning: 'cafe', characterIds: ['katakana-ka', 'katakana-fe'] },
-    { id: 'tokushuon-fa-fooku', kana: 'フォーク', romaji: 'fooku', meaning: 'fork', characterIds: ['katakana-fo', 'katakana-chouon', 'katakana-ku'] },
-    { id: 'tokushuon-fa-sofaa', kana: 'ソファー', romaji: 'sofaa', meaning: 'sofa', characterIds: ['katakana-so', 'katakana-fa', 'katakana-chouon'] },
-  ],
-  'tokushuon-ti-row': [
-    { id: 'tokushuon-ti-paatii', kana: 'パーティー', romaji: 'paatii', meaning: 'party', characterIds: ['katakana-pa', 'katakana-chouon', 'katakana-ti', 'katakana-chouon'] },
-    { id: 'tokushuon-ti-dizunii', kana: 'ディズニー', romaji: 'dizunii', meaning: 'Disney', characterIds: ['katakana-di', 'katakana-zu', 'katakana-ni', 'katakana-chouon'] },
-    // トゥ specifically has thin real vocabulary (most words that could use
-    // it use チュ or ツ instead) — トゥクトゥク (the vehicle) is a genuine,
-    // if unusual, real loanword rather than a manufactured example.
-    { id: 'tokushuon-ti-tukutuku', kana: 'トゥクトゥク', romaji: 'tukutuku', meaning: 'tuk-tuk (auto rickshaw)', characterIds: ['katakana-tu', 'katakana-ku', 'katakana-tu', 'katakana-ku'] },
-    // ドゥ is rarer still; ドゥカティ (the motorcycle brand) doubles as a
-    // review word for ティ too.
-    { id: 'tokushuon-ti-dukati', kana: 'ドゥカティ', romaji: 'dukati', meaning: 'Ducati (motorcycle brand)', characterIds: ['katakana-du', 'katakana-ka', 'katakana-ti'] },
-  ],
-  'tokushuon-wi-row': [
-    { id: 'tokushuon-wi-windou', kana: 'ウィンドウ', romaji: 'windou', meaning: 'window', characterIds: ['katakana-wi', 'katakana-n', 'katakana-do', 'katakana-u'] },
-    { id: 'tokushuon-wi-winku', kana: 'ウィンク', romaji: 'winku', meaning: 'wink', characterIds: ['katakana-wi', 'katakana-n', 'katakana-ku'] },
-    { id: 'tokushuon-wi-weitaa', kana: 'ウェイター', romaji: 'weitaa', meaning: 'waiter', characterIds: ['katakana-we', 'katakana-i', 'katakana-ta', 'katakana-chouon'] },
-    { id: 'tokushuon-wi-wotchi', kana: 'ウォッチ', romaji: 'wotchi', meaning: 'watch (wristwatch)', characterIds: ['katakana-uo', 'katakana-sokuon', 'katakana-chi'] },
-  ],
-  'tokushuon-va-row': [
-    { id: 'tokushuon-va-vaiorin', kana: 'ヴァイオリン', romaji: 'vaiorin', meaning: 'violin', characterIds: ['katakana-va', 'katakana-i', 'katakana-o', 'katakana-ri', 'katakana-n'] },
-    { id: 'tokushuon-va-viinasu', kana: 'ヴィーナス', romaji: 'viinasu', meaning: 'Venus', characterIds: ['katakana-vi', 'katakana-chouon', 'katakana-na', 'katakana-su'] },
-    { id: 'tokushuon-va-vesuto', kana: 'ヴェスト', romaji: 'vesuto', meaning: 'vest', characterIds: ['katakana-ve', 'katakana-su', 'katakana-to'] },
-    { id: 'tokushuon-va-vookaru', kana: 'ヴォーカル', romaji: 'vookaru', meaning: 'vocal (singer/vocalist)', characterIds: ['katakana-vo', 'katakana-chouon', 'katakana-ka', 'katakana-ru'] },
-    // ヴ alone (bare "vu") is the rarest of the five — almost always seen as
-    // part of ヴァ/ヴィ/ヴェ/ヴォ rather than standing on its own. ヴーン
-    // (an engine/buzzing-sound onomatopoeia) is a real, if minor, example
-    // that isn't just ばびぶべぼ with a different mark — same category of
-    // gap as 拗音's undocumented-word rows, see characters.ts's comment.
-    { id: 'tokushuon-va-vuun', kana: 'ヴーン', romaji: 'vuun', meaning: 'vroom / buzzing sound (onomatopoeia)', characterIds: ['katakana-vu', 'katakana-chouon', 'katakana-n'] },
-  ],
-  'tokushuon-che-row': [
-    { id: 'tokushuon-che-jettokoosutaa', kana: 'ジェットコースター', romaji: 'jettokoosutaa', meaning: 'roller coaster', characterIds: ['katakana-je', 'katakana-sokuon', 'katakana-to', 'katakana-ko', 'katakana-chouon', 'katakana-su', 'katakana-ta', 'katakana-chouon'] },
-    { id: 'tokushuon-che-chekku', kana: 'チェック', romaji: 'chekku', meaning: 'check (verify) / checkered pattern', characterIds: ['katakana-che', 'katakana-sokuon', 'katakana-ku'] },
-    { id: 'tokushuon-che-chesu', kana: 'チェス', romaji: 'chesu', meaning: 'chess', characterIds: ['katakana-che', 'katakana-su'] },
-    { id: 'tokushuon-che-shefu', kana: 'シェフ', romaji: 'shefu', meaning: 'chef', characterIds: ['katakana-she', 'katakana-fu'] },
-    { id: 'tokushuon-che-shea', kana: 'シェア', romaji: 'shea', meaning: 'share', characterIds: ['katakana-she', 'katakana-a'] },
-  ],
-  // ツ行 is the rarest family in this category — real, common vocabulary
-  // using ツィ/ツェ/ツォ specifically is thin (most everyday loanwords that
-  // sound similar use チ/ス-based spellings instead). The words below are
-  // genuine dictionary-attested Japanese loanwords, not invented, but skew
-  // toward music/culture terms rather than everyday-object vocabulary —
-  // flagged for review, same spirit as 拗音's rare-combo gaps.
-  'tokushuon-tsa-row': [
-    { id: 'tokushuon-tsa-mootsaruto', kana: 'モーツァルト', romaji: 'mootsaruto', meaning: 'Mozart (composer)', characterIds: ['katakana-mo', 'katakana-chouon', 'katakana-tsa', 'katakana-ru', 'katakana-to'] },
-    { id: 'tokushuon-tsa-pittsa', kana: 'ピッツァ', romaji: 'pittsa', meaning: 'pizza', characterIds: ['katakana-pi', 'katakana-sokuon', 'katakana-tsa'] },
-    { id: 'tokushuon-tsa-tsitaa', kana: 'ツィター', romaji: 'tsitaa', meaning: 'zither (musical instrument)', characterIds: ['katakana-tsi', 'katakana-ta', 'katakana-chouon'] },
-    { id: 'tokushuon-tsa-tsepperin', kana: 'ツェッペリン', romaji: 'tsepperin', meaning: 'zeppelin (airship)', characterIds: ['katakana-tse', 'katakana-sokuon', 'katakana-pe', 'katakana-ri', 'katakana-n'] },
-    { id: 'tokushuon-tsa-kantsoone', kana: 'カンツォーネ', romaji: 'kantsoone', meaning: 'canzone (Italian song style)', characterIds: ['katakana-ka', 'katakana-n', 'katakana-tso', 'katakana-chouon', 'katakana-ne'] },
   ],
 }
 

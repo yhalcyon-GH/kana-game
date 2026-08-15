@@ -1,16 +1,18 @@
 import type { GojuonRow, ScriptCategory } from './types'
 
-// All six planned categories now exist (hiragana/katakana/sokuon/chōon/
-// yōon/特殊音) — see docs/curriculum-extensibility.md for the full design
-// and its "Progress" section for how each landed. Every row below is
-// tagged with a categoryId; nothing else in the app should hardcode the
+// Five categories exist (hiragana/katakana/sokuon/chōon/yōon) — see
+// docs/curriculum-extensibility.md for the full design and its "Progress"
+// section for how each landed. A sixth, 特殊音 (tokushuon, extended katakana
+// loanword digraphs like ファ/ティ/ヴ), was built and shipped once, then
+// deliberately removed at the user's request ("特殊音は今回なくていいです")
+// — the content isn't needed for this curriculum right now. Every row below
+// is tagged with a categoryId; nothing else in the app should hardcode the
 // string 'hiragana'.
 export const DEFAULT_CATEGORY_ID = 'hiragana'
 export const KATAKANA_CATEGORY_ID = 'katakana'
 export const SOKUON_CATEGORY_ID = 'sokuon'
 export const CHOUON_CATEGORY_ID = 'chouon'
 export const YOUON_CATEGORY_ID = 'youon'
-export const TOKUSHUON_CATEGORY_ID = 'tokushuon'
 
 export const CATEGORIES: ScriptCategory[] = [
   { id: DEFAULT_CATEGORY_ID, label: 'ひらがな', learnStyle: 'character-set' },
@@ -32,23 +34,33 @@ export const CATEGORIES: ScriptCategory[] = [
     label: '促音',
     learnStyle: 'contrast-pairs',
     dependsOnCategoryIds: [DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID],
+    explanation:
+      'Sokuon is a short pause before certain consonants, written as a small っ/ッ. It briefly holds the sound and can completely change a word\'s meaning — compare each pair below with and without it.',
   },
   // 長音 (chōon, long vowels) — the second 'contrast-pairs' category, and
   // the first with NO new characters of its own: katakana's ー was already
-  // taught fresh under カタカナ単音 (katakana-a-row), and hiragana has
-  // no dedicated long-vowel glyph at all — long vowels are written by
+  // taught fresh under カタカナ単音 (katakana-a-row), and hiragana has no
+  // dedicated long-vowel glyph at all — long vowels are written by
   // repeating/combining existing vowel characters (おかあさん, せんせい,
-  // とうきょう), which is exactly the nuance this lesson's minimal-pair
-  // words teach. Its row's `characterIds` is therefore `[]` — see
+  // とうきょう). Every row's `characterIds` is therefore `[]` — see
   // docs/curriculum-extensibility.md's "Remaining structural note" and
   // curriculum.test.ts's zero-new-character coverage. Depends on both
   // hiragana and katakana for the same reason sokuon does: its words mix
-  // real syllables from both scripts.
+  // real syllables from both scripts (but NOT yōon — see the chouon rows'
+  // comment below for why that matters).
+  //
+  // Unlike sokuon (one rule, one row), 長音 genuinely has 5 different
+  // hiragana spelling rules depending on which vowel column precedes the
+  // long vowel — per the user's own teaching material (see below) each gets
+  // its own row so the rule can be taught (and reviewed via a row-level
+  // `explanation`) one at a time, plus a 6th row reviewing katakana's ー.
   {
     id: CHOUON_CATEGORY_ID,
     label: '長音',
     learnStyle: 'contrast-pairs',
     dependsOnCategoryIds: [DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID],
+    explanation:
+      'Chōon means a "long vowel" — a vowel sound held for an extra beat. Katakana always spells it with ー, but hiragana has no dedicated mark: it spells a long vowel by repeating or extending the vowel that comes before it, and exactly how depends on which vowel that is. Each row below covers one of those rules.',
   },
   // 拗音 (yōon, contracted sounds like きゃ/kya) — back to 'character-set'
   // (flashcard -> recap -> words, all four mini-games), same shape as
@@ -68,25 +80,8 @@ export const CATEGORIES: ScriptCategory[] = [
     label: '拗音',
     learnStyle: 'character-set',
     dependsOnCategoryIds: [DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID],
-  },
-  // 特殊音 (tokushuon, extended katakana combinations for loanword sounds) —
-  // the sixth and final planned category. 'character-set' like 拗音/カタカナ
-  // (pure content, no flow changes needed). Genuinely katakana-ONLY, unlike
-  // every other non-hiragana category above: hiragana never spells loanword
-  // sounds this way, so this deliberately does NOT list DEFAULT_CATEGORY_ID
-  // in dependsOnCategoryIds — see the CHARACTERS comment block for the full
-  // combination list and rationale. It DOES depend on sokuon (in addition
-  // to katakana) because real example vocabulary needs っ/ッ for gemination
-  // (e.g. ジェットコースター "roller coaster") — chōon's own long-vowel mark
-  // needs no separate dependency since it's already part of the katakana
-  // category (katakana-chouon, taught under カタカナ単音), not the chōon
-  // category (which contributes no characters of its own, see
-  // CHOUON_CATEGORY_ID above).
-  {
-    id: TOKUSHUON_CATEGORY_ID,
-    label: '特殊音',
-    learnStyle: 'character-set',
-    dependsOnCategoryIds: [KATAKANA_CATEGORY_ID, SOKUON_CATEGORY_ID],
+    explanation:
+      'Yōon are contracted sounds made from a consonant + い kana (き/し/ち/に/ひ/み/り, or their voiced forms) followed by a small ゃ/ゅ/ょ. Two characters, but only ONE syllable — きゃ isn\'t "ki-ya", it\'s one quick "kya".',
   },
 ]
 
@@ -238,28 +233,78 @@ export const ROWS: GojuonRow[] = [
   },
 
   // ===== 長音 (chōon) — own order sequence, starting at 0 again =====
-  // A single row spanning both scripts, same shape as sokuon-row above —
-  // per the design, 長音 teaches the rule once, reviewing katakana's ー
-  // (already taught under カタカナ単音) alongside hiragana's several
-  // vowel-repetition spelling patterns, rather than a per-script lesson.
-  // `characterIds: []` is deliberate, not an oversight — this row
-  // introduces NO new characters (see the CHOUON_CATEGORY_ID comment
-  // above); every place that reads a row's `characterIds` (Learn's
-  // flashcard step, Tracing's character phase, Kana Quiz's pool) already
-  // branches on `learnStyle` first and never reaches an empty-array bug
-  // for a 'contrast-pairs' row — see curriculum.test.ts and
-  // src/App.test.tsx's zero-new-character coverage, and
-  // docs/curriculum-extensibility.md. Label is 'ー' (kana-only, matching
-  // sokuon-row's convention — see its comment) even though hiragana's own
-  // words in this lesson don't use that literal glyph, since ー is the
-  // universally recognized long-vowel symbol and is already in the
-  // font-kana subset (katakana-chouon's `kana`).
+  // Six rows, all spanning both scripts and all with `characterIds: []`
+  // (deliberate, not an oversight — see the CHOUON_CATEGORY_ID comment
+  // above; every place that reads a row's `characterIds` already branches
+  // on `learnStyle` first, see curriculum.test.ts / App.test.tsx). Rows 0-4
+  // are hiragana's 5 vowel-column long-vowel rules — per the user's own
+  // teaching material, each vowel column spells a long vowel differently,
+  // so each gets its own row + `explanation` rather than one lesson
+  // covering all 5 at once:
+  //   ①ア段 -> +あ   ②イ段 -> +い   ③ウ段 -> +う
+  //   ④エ段 -> +い (exception: real え, e.g. おねえさん)
+  //   ⑤オ段 -> +う (exception: real お, e.g. とおい/おおきい/こおり/...)
+  // Row 5 reviews katakana's ー (already taught under カタカナ単音) — no
+  // rule to teach there, katakana is always ー regardless of vowel.
+  //
+  // Every word in every row below uses ONLY hiragana + katakana characters
+  // (this category's actual dependsOnCategoryIds), never yōon combinations
+  // (きょ/しゅ/...) even where the source material's own examples used them
+  // (e.g. とうきょう, ぎゅうにゅう) — chōon does not depend on the yōon
+  // category, and yōon is now its own separate top-level page that a
+  // learner may not have reached yet, so pulling in its characters here
+  // would either violate curriculum.test.ts's "words only use characters
+  // introduced before this row" check or silently assume an ordering the
+  // page structure no longer guarantees. Labels are kana-only (vowel + ー,
+  // e.g. 'あー') per RowMap's font-kana subset (hiragana + katakana + ～/・
+  // only, no kanji — see index.css) — 段/行 aren't in it.
   {
-    id: 'chouon-row',
+    id: 'chouon-a-row',
     categoryId: CHOUON_CATEGORY_ID,
-    label: 'ー',
+    label: 'あー',
     order: 0,
     characterIds: [],
+    explanation: '①ア段 (a-column): a long vowel after an あ-row sound is written by adding あ. E.g. おかあさん (mother) — compare おばさん (aunt, no long vowel) with おばあさん (grandmother, long vowel).',
+  },
+  {
+    id: 'chouon-i-row',
+    categoryId: CHOUON_CATEGORY_ID,
+    label: 'いー',
+    order: 1,
+    characterIds: [],
+    explanation: '②イ段 (i-column): a long vowel after an い-row sound is written by adding い. E.g. おじさん (uncle, no long vowel) vs. おじいさん (grandfather, long vowel).',
+  },
+  {
+    id: 'chouon-u-row',
+    categoryId: CHOUON_CATEGORY_ID,
+    label: 'うー',
+    order: 2,
+    characterIds: [],
+    explanation: '③ウ段 (u-column): a long vowel after a う-row sound is written by adding う. E.g. ゆうき (courage).',
+  },
+  {
+    id: 'chouon-e-row',
+    categoryId: CHOUON_CATEGORY_ID,
+    label: 'えー',
+    order: 3,
+    characterIds: [],
+    explanation: '④エ段 (e-column): a long vowel after an え-row sound is usually written with い, not え — e.g. えいが (movie). The big exception: おねえさん (older sister) really is spelled with え.',
+  },
+  {
+    id: 'chouon-o-row',
+    categoryId: CHOUON_CATEGORY_ID,
+    label: 'おー',
+    order: 4,
+    characterIds: [],
+    explanation: '⑤オ段 (o-column): a long vowel after an お-row sound is usually written with う, not お — e.g. おはよう (good morning). But several common words really are spelled with お: おおきい (big), とおい (far), こおり (ice), and a few more — these just have to be memorized.',
+  },
+  {
+    id: 'chouon-katakana-row',
+    categoryId: CHOUON_CATEGORY_ID,
+    label: 'ー',
+    order: 5,
+    characterIds: [],
+    explanation: 'Katakana never has this problem — a long vowel is always written with ー, no matter which vowel it follows. Compare ビル (building, no long vowel) with ビール (beer, long vowel).',
   },
 
   // ===== 拗音 (yōon) — own order sequence, starting at 0 again =====
@@ -385,57 +430,6 @@ export const ROWS: GojuonRow[] = [
     label: 'リャ・リュ・リョ',
     order: 13,
     characterIds: ['katakana-rya', 'katakana-ryu', 'katakana-ryo'],
-  },
-
-  // ===== 特殊音 (tokushuon) — own order sequence, starting at 0 again =====
-  // Extended katakana digraphs for loanword sounds that don't fit standard
-  // gojūon or 拗音 — see characters.ts's ===== 特殊音 ===== comment block
-  // for the full 23-combination set and how each id was chosen. Grouped
-  // into 6 rows by base-consonant family (mirroring how ka-row/sa-row/...
-  // fold dakuten/handakuten combos together), in an order that goes
-  // "nearest to already-familiar sounds first": ファ行 (built on already-
-  // familiar フ) before ヴ行 (a wholly new base glyph).
-  {
-    id: 'tokushuon-fa-row',
-    categoryId: TOKUSHUON_CATEGORY_ID,
-    label: 'ファ・フィ・フェ・フォ',
-    order: 0,
-    characterIds: ['katakana-fa', 'katakana-fi', 'katakana-fe', 'katakana-fo'],
-  },
-  {
-    id: 'tokushuon-ti-row',
-    categoryId: TOKUSHUON_CATEGORY_ID,
-    label: 'ティ・ディ・トゥ・ドゥ',
-    order: 1,
-    characterIds: ['katakana-ti', 'katakana-di', 'katakana-tu', 'katakana-du'],
-  },
-  {
-    id: 'tokushuon-wi-row',
-    categoryId: TOKUSHUON_CATEGORY_ID,
-    label: 'ウィ・ウェ・ウォ',
-    order: 2,
-    characterIds: ['katakana-wi', 'katakana-we', 'katakana-uo'],
-  },
-  {
-    id: 'tokushuon-va-row',
-    categoryId: TOKUSHUON_CATEGORY_ID,
-    label: 'ヴ・ヴァ・ヴィ・ヴェ・ヴォ',
-    order: 3,
-    characterIds: ['katakana-vu', 'katakana-va', 'katakana-vi', 'katakana-ve', 'katakana-vo'],
-  },
-  {
-    id: 'tokushuon-che-row',
-    categoryId: TOKUSHUON_CATEGORY_ID,
-    label: 'チェ・ジェ・シェ',
-    order: 4,
-    characterIds: ['katakana-che', 'katakana-je', 'katakana-she'],
-  },
-  {
-    id: 'tokushuon-tsa-row',
-    categoryId: TOKUSHUON_CATEGORY_ID,
-    label: 'ツァ・ツィ・ツェ・ツォ',
-    order: 5,
-    characterIds: ['katakana-tsa', 'katakana-tsi', 'katakana-tse', 'katakana-tso'],
   },
 ]
 
