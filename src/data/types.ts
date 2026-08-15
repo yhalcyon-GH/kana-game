@@ -34,6 +34,12 @@ export type ScriptCategory = {
   // build on hiragana. Do NOT infer this from CATEGORIES array order —
   // "comes later in the list" isn't the same claim as "depends on."
   dependsOnCategoryIds?: string[]
+  // Short English intro shown once at the top of this category's section on
+  // CategoryRowsPage (see App.tsx's /other, /youon routes etc.) — answers
+  // "what is this sound category" for a category whose whole point is a
+  // rule (促音/長音/拗音), not obvious from a row-card grid alone. Absent
+  // for hiragana/katakana, whose rows speak for themselves.
+  explanation?: string
 }
 
 export type GojuonRow = {
@@ -42,6 +48,12 @@ export type GojuonRow = {
   label: string
   characterIds: string[]
   order: number
+  // Short English note shown above this row's word grid on LearnPage (step
+  // B) — for a row that teaches a SPECIFIC rule variant within its category
+  // (e.g. 長音's per-vowel-row spelling rules), not covered by the
+  // category-level `explanation` above, which only introduces the concept
+  // once in general terms.
+  explanation?: string
 }
 
 export type AnchorWord = {
