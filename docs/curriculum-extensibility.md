@@ -4,7 +4,7 @@
 
 ## Progress
 
-- **カタカナ単音 (katakana) — done, `feature/katakana` branch.** Full character set (71 + ー), all 11 rows, 74 vocabulary words, stroke data, font subset. Went first specifically because `learnStyle: 'character-set'` needed zero new Learn/Practice/Tracing code — pure content on top of the already-merged `ScriptCategory`/`Lesson`-adjacent structural foundation (`CATEGORIES`/`ROWS[].categoryId`/category-scoped order helpers). Flagged for the user's review: no word-icon art yet (AnchorWord.image made optional, with a placeholder — see `WordImage.tsx`), ヲ has no vocabulary reinforcement (unlike hiragana's を), and katakana-chouon's romaji (`'-'`) is a placeholder pending real 長音 support.
+- **カタカナ単音 (katakana) — done, `feature/katakana` branch.** Full character set (71 + ー), all 9 rows, 81 vocabulary words, stroke data, font subset. ー (chōon) and ン are taught in the first row (katakana-a-row) rather than a dedicated final row, and ワ/ヲ are folded into the last row (katakana-ra-row) alongside ラ~ロ — see curriculum.ts's ROWS comment for why. Went first specifically because `learnStyle: 'character-set'` needed zero new Learn/Practice/Tracing code — pure content on top of the already-merged `ScriptCategory`/`Lesson`-adjacent structural foundation (`CATEGORIES`/`ROWS[].categoryId`/category-scoped order helpers). Flagged for the user's review: no word-icon art yet (AnchorWord.image made optional, with a placeholder — see `WordImage.tsx`), ヲ has no vocabulary reinforcement (unlike hiragana's を), and katakana-chouon's romaji (`'-'`) is a placeholder pending real 長音 support.
 - **促音/長音/拗音/特殊音 — not started.** These need the `'contrast-pairs'` Learn/Practice/Tracing changes described below, which katakana didn't touch.
 
 ## Decisions made
