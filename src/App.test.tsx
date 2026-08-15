@@ -55,7 +55,7 @@ describe('routing', () => {
 
   it('/practice/katakana/katakana-a-row renders that row\'s Practice Hub', () => {
     renderAt('/practice/katakana/katakana-a-row')
-    expect(screen.getByRole('heading', { name: 'ア~オ・ー・ン' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'ア~オ・カ~ゴ・ー・ン' })).toBeInTheDocument()
   })
 
   it('/learn/katakana/katakana-a-row renders the Learn flow for that row', () => {
@@ -107,13 +107,13 @@ describe('script chooser pages', () => {
     renderAt('/hiragana')
     expect(screen.getByRole('heading', { name: 'ひらがな' })).toBeInTheDocument()
     expect(screen.getByText('あ~お')).toBeInTheDocument()
-    expect(screen.queryByText('ア~オ・ー・ン')).not.toBeInTheDocument()
+    expect(screen.queryByText('ア~オ・カ~ゴ・ー・ン')).not.toBeInTheDocument()
   })
 
   it('/katakana shows only katakana rows', () => {
     renderAt('/katakana')
     expect(screen.getByRole('heading', { name: 'カタカナ' })).toBeInTheDocument()
-    expect(screen.getByText('ア~オ・ー・ン')).toBeInTheDocument()
+    expect(screen.getByText('ア~オ・カ~ゴ・ー・ン')).toBeInTheDocument()
     expect(screen.queryByText('あ~お')).not.toBeInTheDocument()
   })
 

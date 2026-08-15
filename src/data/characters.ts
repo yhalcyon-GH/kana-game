@@ -109,36 +109,34 @@ export const CHARACTERS: KanaChar[] = [
   // docs/curriculum-extensibility.md. All ids are 'katakana-' prefixed
   // since they'd otherwise collide with the hiragana ids above (both
   // scripts share the same romaji, e.g. hiragana 'ka' vs katakana 'ka').
-  // ア行 — also carries ー (chōon) and ン from the very first row (see
-  // curriculum.ts's katakana-a-row comment for why: without them, almost
-  // no real katakana word is constructible from vowels alone, and both
-  // are needed constantly throughout every later row's realistic
-  // vocabulary — no reason to make the learner wait until the last row
-  // for either).
+  // ア行 + カ行 — merged into one first lesson at the user's explicit
+  // request, on top of the earlier ー/ン-into-ア行 change: ア~オ alone
+  // (even with ー/ン) is too thin to build much real vocabulary from (no
+  // consonant exists yet), so bundling カ~ゴ in from the start gives the
+  // very first lesson a real consonant set to work with. See
+  // curriculum.ts's katakana-a-row comment and words.ts's merged word list.
   { id: 'katakana-a', kana: 'ア', romaji: 'a', rowId: 'katakana-a-row', type: 'base' },
   { id: 'katakana-i', kana: 'イ', romaji: 'i', rowId: 'katakana-a-row', type: 'base' },
   { id: 'katakana-u', kana: 'ウ', romaji: 'u', rowId: 'katakana-a-row', type: 'base' },
   { id: 'katakana-e', kana: 'エ', romaji: 'e', rowId: 'katakana-a-row', type: 'base' },
   { id: 'katakana-o', kana: 'オ', romaji: 'o', rowId: 'katakana-a-row', type: 'base' },
+  { id: 'katakana-ka', kana: 'カ', romaji: 'ka', rowId: 'katakana-a-row', type: 'base' },
+  { id: 'katakana-ki', kana: 'キ', romaji: 'ki', rowId: 'katakana-a-row', type: 'base' },
+  { id: 'katakana-ku', kana: 'ク', romaji: 'ku', rowId: 'katakana-a-row', type: 'base' },
+  { id: 'katakana-ke', kana: 'ケ', romaji: 'ke', rowId: 'katakana-a-row', type: 'base' },
+  { id: 'katakana-ko', kana: 'コ', romaji: 'ko', rowId: 'katakana-a-row', type: 'base' },
+  // ガ行 (taught together with カ行)
+  { id: 'katakana-ga', kana: 'ガ', romaji: 'ga', rowId: 'katakana-a-row', type: 'dakuten' },
+  { id: 'katakana-gi', kana: 'ギ', romaji: 'gi', rowId: 'katakana-a-row', type: 'dakuten' },
+  { id: 'katakana-gu', kana: 'グ', romaji: 'gu', rowId: 'katakana-a-row', type: 'dakuten' },
+  { id: 'katakana-ge', kana: 'ゲ', romaji: 'ge', rowId: 'katakana-a-row', type: 'dakuten' },
+  { id: 'katakana-go', kana: 'ゴ', romaji: 'go', rowId: 'katakana-a-row', type: 'dakuten' },
   // ー (chōon / long-vowel mark) — not a mora of its own; extends the
   // preceding vowel sound (see words.ts's katakana-a-row comment for how
   // that's represented in romaji). Romaji '-' is a placeholder reading,
   // not a real pronunciation — flagged for the user's sign-off.
   { id: 'katakana-chouon', kana: 'ー', romaji: '-', rowId: 'katakana-a-row', type: 'base' },
   { id: 'katakana-n', kana: 'ン', romaji: 'n', rowId: 'katakana-a-row', type: 'base' },
-
-  // カ行
-  { id: 'katakana-ka', kana: 'カ', romaji: 'ka', rowId: 'katakana-ka-row', type: 'base' },
-  { id: 'katakana-ki', kana: 'キ', romaji: 'ki', rowId: 'katakana-ka-row', type: 'base' },
-  { id: 'katakana-ku', kana: 'ク', romaji: 'ku', rowId: 'katakana-ka-row', type: 'base' },
-  { id: 'katakana-ke', kana: 'ケ', romaji: 'ke', rowId: 'katakana-ka-row', type: 'base' },
-  { id: 'katakana-ko', kana: 'コ', romaji: 'ko', rowId: 'katakana-ka-row', type: 'base' },
-  // ガ行 (taught together with カ行)
-  { id: 'katakana-ga', kana: 'ガ', romaji: 'ga', rowId: 'katakana-ka-row', type: 'dakuten' },
-  { id: 'katakana-gi', kana: 'ギ', romaji: 'gi', rowId: 'katakana-ka-row', type: 'dakuten' },
-  { id: 'katakana-gu', kana: 'グ', romaji: 'gu', rowId: 'katakana-ka-row', type: 'dakuten' },
-  { id: 'katakana-ge', kana: 'ゲ', romaji: 'ge', rowId: 'katakana-ka-row', type: 'dakuten' },
-  { id: 'katakana-go', kana: 'ゴ', romaji: 'go', rowId: 'katakana-ka-row', type: 'dakuten' },
 
   // サ行
   { id: 'katakana-sa', kana: 'サ', romaji: 'sa', rowId: 'katakana-sa-row', type: 'base' },

@@ -151,19 +151,18 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
   // — this is a known, flagged gap, not an oversight.
   //
   // ー (chōon) and ン (n) are taught in katakana-a-row itself (unlike
-  // hiragana's あ行, and unlike this category's own earlier draft, which
-  // gave them their own late/final rows) — see curriculum.ts's ROWS comment.
-  // Real katakana vocabulary leans heavily on both, so every row below,
-  // starting with katakana-a-row, draws on a noticeably richer pool than
-  // that earlier draft could: even katakana-a-row — constrained to only
-  // ア/イ/ウ/エ/オ/ー/ン, since no consonant row is taught yet — now has
-  // genuine words (イオン, オーイ) and a nursery-song animal name
-  // (アイアイ) instead of reaching for obscure astronomy terms or a native
-  // Japanese given name spelled in katakana (neither of which is how a
-  // Japanese child would actually encounter those characters). It's still
-  // the thinnest row in the category for the same structural reason as
-  // before — no consonant means no ordinary loanword — but it's real
-  // vocabulary now, not filler.
+  // hiragana's あ行, and unlike this category's own earlier drafts, which
+  // gave them their own late/final rows), and katakana-a-row also bundles
+  // in カ~ゴ (also unlike hiragana, and unlike an earlier draft that kept
+  // ア~オ as its own thin first row) — see curriculum.ts's ROWS comment.
+  // Real katakana vocabulary leans heavily on ー/ン, and ア~オ alone has no
+  // consonant to build ordinary loanwords from at all, so the merged first
+  // lesson is the row every later row's richness was already assuming.
+  // Words originally written for the separate ア行/カ行 drafts are simply
+  // combined below (both already drew from exactly this same pool, so
+  // nothing needed re-deriving) — a few genuine ア~オ-only words (イオン,
+  // オーイ, the アイアイ nursery-song reference) alongside the カ~ゴ words
+  // that give this lesson its real depth (ケーキ, アイコン, エアコン, ...).
   //
   // katakana-ra-row's characters include ワ and ヲ (absorbed here as the
   // final row, rather than getting their own row — see curriculum.ts). ワ
@@ -180,18 +179,16 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'katakana-a-aiai', kana: 'アイアイ', romaji: 'aiai', meaning: 'aye-aye (a lemur, from the classic Japanese children\'s song)', characterIds: ['katakana-a', 'katakana-i', 'katakana-a', 'katakana-i'] },
     { id: 'katakana-a-ooi', kana: 'オーイ', romaji: 'ooi', meaning: 'hey! (calling out to someone far away)', characterIds: ['katakana-o', 'katakana-chouon', 'katakana-i'] },
     { id: 'katakana-a-eieioo', kana: 'エイエイオー', romaji: 'eieioo', meaning: 'hooray! (a cheer, e.g. before a sports day race)', characterIds: ['katakana-e', 'katakana-i', 'katakana-e', 'katakana-i', 'katakana-o', 'katakana-chouon'] },
-  ],
-  'katakana-ka-row': [
-    { id: 'katakana-ka-ika', kana: 'イカ', romaji: 'ika', meaning: 'squid', characterIds: ['katakana-i', 'katakana-ka'] },
-    { id: 'katakana-ka-kaki', kana: 'カキ', romaji: 'kaki', meaning: 'oyster', characterIds: ['katakana-ka', 'katakana-ki'] },
-    { id: 'katakana-ka-keeki', kana: 'ケーキ', romaji: 'keeki', meaning: 'cake', characterIds: ['katakana-ke', 'katakana-chouon', 'katakana-ki'] },
-    { id: 'katakana-ka-koin', kana: 'コイン', romaji: 'koin', meaning: 'coin', characterIds: ['katakana-ko', 'katakana-i', 'katakana-n'] },
-    { id: 'katakana-ka-aikon', kana: 'アイコン', romaji: 'aikon', meaning: 'icon (e.g. an app icon)', characterIds: ['katakana-a', 'katakana-i', 'katakana-ko', 'katakana-n'] },
-    { id: 'katakana-ka-eakon', kana: 'エアコン', romaji: 'eakon', meaning: 'air conditioner', characterIds: ['katakana-e', 'katakana-a', 'katakana-ko', 'katakana-n'] },
-    { id: 'katakana-ka-kiui', kana: 'キウイ', romaji: 'kiui', meaning: 'kiwi (fruit or bird)', characterIds: ['katakana-ki', 'katakana-u', 'katakana-i'] },
-    { id: 'katakana-ka-kokoa', kana: 'ココア', romaji: 'kokoa', meaning: 'cocoa', characterIds: ['katakana-ko', 'katakana-ko', 'katakana-a'] },
-    { id: 'katakana-ka-kakao', kana: 'カカオ', romaji: 'kakao', meaning: 'cacao', characterIds: ['katakana-ka', 'katakana-ka', 'katakana-o'] },
-    { id: 'katakana-ka-gia', kana: 'ギア', romaji: 'gia', meaning: 'gear (e.g. on a bicycle)', characterIds: ['katakana-gi', 'katakana-a'] },
+    { id: 'katakana-a-ika', kana: 'イカ', romaji: 'ika', meaning: 'squid', characterIds: ['katakana-i', 'katakana-ka'] },
+    { id: 'katakana-a-kaki', kana: 'カキ', romaji: 'kaki', meaning: 'oyster', characterIds: ['katakana-ka', 'katakana-ki'] },
+    { id: 'katakana-a-keeki', kana: 'ケーキ', romaji: 'keeki', meaning: 'cake', characterIds: ['katakana-ke', 'katakana-chouon', 'katakana-ki'] },
+    { id: 'katakana-a-koin', kana: 'コイン', romaji: 'koin', meaning: 'coin', characterIds: ['katakana-ko', 'katakana-i', 'katakana-n'] },
+    { id: 'katakana-a-aikon', kana: 'アイコン', romaji: 'aikon', meaning: 'icon (e.g. an app icon)', characterIds: ['katakana-a', 'katakana-i', 'katakana-ko', 'katakana-n'] },
+    { id: 'katakana-a-eakon', kana: 'エアコン', romaji: 'eakon', meaning: 'air conditioner', characterIds: ['katakana-e', 'katakana-a', 'katakana-ko', 'katakana-n'] },
+    { id: 'katakana-a-kiui', kana: 'キウイ', romaji: 'kiui', meaning: 'kiwi (fruit or bird)', characterIds: ['katakana-ki', 'katakana-u', 'katakana-i'] },
+    { id: 'katakana-a-kokoa', kana: 'ココア', romaji: 'kokoa', meaning: 'cocoa', characterIds: ['katakana-ko', 'katakana-ko', 'katakana-a'] },
+    { id: 'katakana-a-kakao', kana: 'カカオ', romaji: 'kakao', meaning: 'cacao', characterIds: ['katakana-ka', 'katakana-ka', 'katakana-o'] },
+    { id: 'katakana-a-gia', kana: 'ギア', romaji: 'gia', meaning: 'gear (e.g. on a bicycle)', characterIds: ['katakana-gi', 'katakana-a'] },
   ],
   'katakana-sa-row': [
     { id: 'katakana-sa-aisu', kana: 'アイス', romaji: 'aisu', meaning: 'ice cream', characterIds: ['katakana-a', 'katakana-i', 'katakana-su'] },

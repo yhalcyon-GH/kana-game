@@ -66,35 +66,29 @@ export const ROWS: GojuonRow[] = [
   { id: 'wa-row', categoryId: DEFAULT_CATEGORY_ID, label: 'わ~ん', order: 9, characterIds: ['wa', 'wo', 'n'] },
 
   // ===== カタカナ (katakana) — own order sequence, starting at 0 again =====
-  // ア~オ also carries ー (chōon) and ン here, unlike hiragana's あ行 — see
-  // characters.ts's comment. Without them almost no real katakana word is
-  // constructible from vowels alone (katakana's actual role is loanwords,
-  // which lean heavily on ン and ー), and every later row's vocabulary
-  // benefits from having both available from the very start rather than
-  // waiting for a dedicated final row — see words.ts's katakana-a-row
-  // comment for the vocabulary this unlocks.
+  // ア~オ・カ~ゴ・ー・ン are all one combined first lesson, at the user's
+  // explicit request: ア~オ alone (even with ー/ン) has no consonant to
+  // build real vocabulary from, so the first lesson bundles in カ~ゴ too —
+  // see characters.ts's comment and words.ts's katakana-a-row word list
+  // (merged from the former separate a-row/ka-row lists, still valid since
+  // both drew from exactly this same combined character pool already).
   {
     id: 'katakana-a-row',
     categoryId: KATAKANA_CATEGORY_ID,
-    label: 'ア~オ・ー・ン',
+    label: 'ア~オ・カ~ゴ・ー・ン',
     order: 0,
-    characterIds: ['katakana-a', 'katakana-i', 'katakana-u', 'katakana-e', 'katakana-o', 'katakana-chouon', 'katakana-n'],
-  },
-  {
-    id: 'katakana-ka-row',
-    categoryId: KATAKANA_CATEGORY_ID,
-    label: 'カ~コ・ガ~ゴ',
-    order: 1,
     characterIds: [
+      'katakana-a', 'katakana-i', 'katakana-u', 'katakana-e', 'katakana-o',
       'katakana-ka', 'katakana-ki', 'katakana-ku', 'katakana-ke', 'katakana-ko',
       'katakana-ga', 'katakana-gi', 'katakana-gu', 'katakana-ge', 'katakana-go',
+      'katakana-chouon', 'katakana-n',
     ],
   },
   {
     id: 'katakana-sa-row',
     categoryId: KATAKANA_CATEGORY_ID,
     label: 'サ~ソ・ザ~ゾ',
-    order: 2,
+    order: 1,
     characterIds: [
       'katakana-sa', 'katakana-shi', 'katakana-su', 'katakana-se', 'katakana-so',
       'katakana-za', 'katakana-ji', 'katakana-zu', 'katakana-ze', 'katakana-zo',
@@ -104,7 +98,7 @@ export const ROWS: GojuonRow[] = [
     id: 'katakana-ta-row',
     categoryId: KATAKANA_CATEGORY_ID,
     label: 'タ~ト・ダ~ド',
-    order: 3,
+    order: 2,
     characterIds: [
       'katakana-ta', 'katakana-chi', 'katakana-tsu', 'katakana-te', 'katakana-to',
       'katakana-da', 'katakana-dji', 'katakana-dzu', 'katakana-de', 'katakana-do',
@@ -114,14 +108,14 @@ export const ROWS: GojuonRow[] = [
     id: 'katakana-na-row',
     categoryId: KATAKANA_CATEGORY_ID,
     label: 'ナ~ノ',
-    order: 4,
+    order: 3,
     characterIds: ['katakana-na', 'katakana-ni', 'katakana-nu', 'katakana-ne', 'katakana-no'],
   },
   {
     id: 'katakana-ha-row',
     categoryId: KATAKANA_CATEGORY_ID,
     label: 'ハ~ホ・バ~ボ・パ~ポ',
-    order: 5,
+    order: 4,
     characterIds: [
       'katakana-ha', 'katakana-hi', 'katakana-fu', 'katakana-he', 'katakana-ho',
       'katakana-ba', 'katakana-bi', 'katakana-bu', 'katakana-be', 'katakana-bo',
@@ -132,14 +126,14 @@ export const ROWS: GojuonRow[] = [
     id: 'katakana-ma-row',
     categoryId: KATAKANA_CATEGORY_ID,
     label: 'マ~モ',
-    order: 6,
+    order: 5,
     characterIds: ['katakana-ma', 'katakana-mi', 'katakana-mu', 'katakana-me', 'katakana-mo'],
   },
   {
     id: 'katakana-ya-row',
     categoryId: KATAKANA_CATEGORY_ID,
     label: 'ヤ・ユ・ヨ',
-    order: 7,
+    order: 6,
     characterIds: ['katakana-ya', 'katakana-yu', 'katakana-yo'],
   },
   // ラ~ロ・ワ・ヲ — the final katakana row, absorbing ワ/ヲ (ン already
@@ -150,7 +144,7 @@ export const ROWS: GojuonRow[] = [
     id: 'katakana-ra-row',
     categoryId: KATAKANA_CATEGORY_ID,
     label: 'ラ~ロ・ワ・ヲ',
-    order: 8,
+    order: 7,
     characterIds: ['katakana-ra', 'katakana-ri', 'katakana-ru', 'katakana-re', 'katakana-ro', 'katakana-wa', 'katakana-wo'],
   },
 ]
