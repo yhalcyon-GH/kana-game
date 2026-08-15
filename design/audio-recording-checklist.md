@@ -1,9 +1,13 @@
 # Audio recording checklist — katakana / 促音 / 長音 / 拗音
 
 Generated from the current curriculum data (2026-08-15). Everything below has
-NO existing clip yet — hiragana's audio is already complete and not listed.
-Record in this order (matches the curriculum's teaching order); check each
-box as you go.
+NO existing clip yet — hiragana's own audio is already complete, and every
+katakana character with the same sound as its hiragana counterpart now
+reuses that existing clip (copied file-for-file, e.g. `katakana-a.wav` is a
+copy of `a.wav`) — those are no longer listed either. Only ー
+(katakana-chouon, no hiragana equivalent), っ/ッ, and every 拗音 character
+(new to both scripts) still need real recordings. Record in this order
+(matches the curriculum's teaching order); check each box as you go.
 
 - Character clips go to `public/audio/characters/<id>.wav`, read the "kana" text.
 - Word clips go to `public/audio/words/<id>.wav`, read the "say" text (the
@@ -21,23 +25,7 @@ box as you go.
 
 Characters:
 
-- [ ] `characters/katakana-a.wav` — ア
-- [ ] `characters/katakana-i.wav` — イ
-- [ ] `characters/katakana-u.wav` — ウ
-- [ ] `characters/katakana-e.wav` — エ
-- [ ] `characters/katakana-o.wav` — オ
-- [ ] `characters/katakana-ka.wav` — カ
-- [ ] `characters/katakana-ki.wav` — キ
-- [ ] `characters/katakana-ku.wav` — ク
-- [ ] `characters/katakana-ke.wav` — ケ
-- [ ] `characters/katakana-ko.wav` — コ
-- [ ] `characters/katakana-ga.wav` — ガ
-- [ ] `characters/katakana-gi.wav` — ギ
-- [ ] `characters/katakana-gu.wav` — グ
-- [ ] `characters/katakana-ge.wav` — ゲ
-- [ ] `characters/katakana-go.wav` — ゴ
 - [ ] `characters/katakana-chouon.wav` — ー
-- [ ] `characters/katakana-n.wav` — ン
 
 Words:
 
@@ -53,19 +41,6 @@ Words:
 
 
 ### サ~ソ・ザ~ゾ
-
-Characters:
-
-- [ ] `characters/katakana-sa.wav` — サ
-- [ ] `characters/katakana-shi.wav` — シ
-- [ ] `characters/katakana-su.wav` — ス
-- [ ] `characters/katakana-se.wav` — セ
-- [ ] `characters/katakana-so.wav` — ソ
-- [ ] `characters/katakana-za.wav` — ザ
-- [ ] `characters/katakana-ji.wav` — ジ
-- [ ] `characters/katakana-zu.wav` — ズ
-- [ ] `characters/katakana-ze.wav` — ゼ
-- [ ] `characters/katakana-zo.wav` — ゾ
 
 Words:
 
@@ -83,19 +58,6 @@ Words:
 
 ### タ~ト・ダ~ド
 
-Characters:
-
-- [ ] `characters/katakana-ta.wav` — タ
-- [ ] `characters/katakana-chi.wav` — チ
-- [ ] `characters/katakana-tsu.wav` — ツ
-- [ ] `characters/katakana-te.wav` — テ
-- [ ] `characters/katakana-to.wav` — ト
-- [ ] `characters/katakana-da.wav` — ダ
-- [ ] `characters/katakana-dji.wav` — ヂ
-- [ ] `characters/katakana-dzu.wav` — ヅ
-- [ ] `characters/katakana-de.wav` — デ
-- [ ] `characters/katakana-do.wav` — ド
-
 Words:
 
 - [ ] `words/katakana-ta-tokage.wav` — say: **トカゲ** (トカゲ, "lizard")
@@ -111,14 +73,6 @@ Words:
 
 ### ナ~ノ
 
-Characters:
-
-- [ ] `characters/katakana-na.wav` — ナ
-- [ ] `characters/katakana-ni.wav` — ニ
-- [ ] `characters/katakana-nu.wav` — ヌ
-- [ ] `characters/katakana-ne.wav` — ネ
-- [ ] `characters/katakana-no.wav` — ノ
-
 Words:
 
 - [ ] `words/katakana-na-kani.wav` — say: **カニ** (カニ, "crab")
@@ -132,24 +86,6 @@ Words:
 
 
 ### ハ~ホ・バ~ボ・パ~ポ
-
-Characters:
-
-- [ ] `characters/katakana-ha.wav` — ハ
-- [ ] `characters/katakana-hi.wav` — ヒ
-- [ ] `characters/katakana-fu.wav` — フ
-- [ ] `characters/katakana-he.wav` — ヘ
-- [ ] `characters/katakana-ho.wav` — ホ
-- [ ] `characters/katakana-ba.wav` — バ
-- [ ] `characters/katakana-bi.wav` — ビ
-- [ ] `characters/katakana-bu.wav` — ブ
-- [ ] `characters/katakana-be.wav` — ベ
-- [ ] `characters/katakana-bo.wav` — ボ
-- [ ] `characters/katakana-pa.wav` — パ
-- [ ] `characters/katakana-pi.wav` — ピ
-- [ ] `characters/katakana-pu.wav` — プ
-- [ ] `characters/katakana-pe.wav` — ペ
-- [ ] `characters/katakana-po.wav` — ポ
 
 Words:
 
@@ -167,14 +103,6 @@ Words:
 
 ### マ~モ
 
-Characters:
-
-- [ ] `characters/katakana-ma.wav` — マ
-- [ ] `characters/katakana-mi.wav` — ミ
-- [ ] `characters/katakana-mu.wav` — ム
-- [ ] `characters/katakana-me.wav` — メ
-- [ ] `characters/katakana-mo.wav` — モ
-
 Words:
 
 - [ ] `words/katakana-ma-mama.wav` — say: **ママ** (ママ, "mom")
@@ -191,12 +119,6 @@ Words:
 
 ### ヤ・ユ・ヨ
 
-Characters:
-
-- [ ] `characters/katakana-ya.wav` — ヤ
-- [ ] `characters/katakana-yu.wav` — ユ
-- [ ] `characters/katakana-yo.wav` — ヨ
-
 Words:
 
 - [ ] `words/katakana-ya-hiyoko.wav` — say: **ヒヨコ** (ヒヨコ, "baby chick")
@@ -208,16 +130,6 @@ Words:
 
 
 ### ラ~ロ・ワ・ヲ
-
-Characters:
-
-- [ ] `characters/katakana-ra.wav` — ラ
-- [ ] `characters/katakana-ri.wav` — リ
-- [ ] `characters/katakana-ru.wav` — ル
-- [ ] `characters/katakana-re.wav` — レ
-- [ ] `characters/katakana-ro.wav` — ロ
-- [ ] `characters/katakana-wa.wav` — ワ
-- [ ] `characters/katakana-wo.wav` — ヲ
 
 Words:
 
@@ -548,4 +460,4 @@ Words:
 
 ---
 
-Total: 140 character clips + 176 word clips = 316 clips.
+Total: 69 character clips + 176 word clips = 245 clips.
