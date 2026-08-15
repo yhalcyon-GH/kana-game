@@ -17,6 +17,17 @@ export interface VoiceCheckThresholds {
 
 export type PronunciationStatus = 'PASS' | 'WARNING' | 'FAIL'
 
+// Shared 0-100 score -> PASS/WARNING/FAIL classification, used both by
+// checkPronunciation below (whisper-based reading-mismatch score) and by
+// scripts/checkVoiceQuality.ts's Azure integration (AccuracyScore) — same
+// shape, different score source, so this is the one place the cutoff logic
+// lives.
+export function classifyScore(score: number, thresholds: VoiceCheckThresholds): PronunciationStatus {
+  if (score >= thresholds.passScore) return 'PASS'
+  if (score >= thresholds.warningScore) return 'WARNING'
+  return 'FAIL'
+}
+
 export interface PronunciationCheckResult {
   expectedReading: string
   detectedReading: string
@@ -47,12 +58,7 @@ export function checkPronunciation(
   const maxLen = Math.max(expectedMorae.length, detectedMorae.length, 1)
   const pronunciationScore = Math.round(100 * (1 - distance / maxLen))
 
-  const pronunciationStatus: PronunciationStatus =
-    pronunciationScore >= thresholds.passScore
-      ? 'PASS'
-      : pronunciationScore >= thresholds.warningScore
-        ? 'WARNING'
-        : 'FAIL'
+  const pronunciationStatus = classifyScore(pronunciationScore, thresholds)
 
   const reasons: string[] =
     pronunciationStatus === 'PASS'

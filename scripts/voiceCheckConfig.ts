@@ -10,6 +10,15 @@ export const DEFAULT_THRESHOLDS: VoiceCheckThresholds = {
   warningScore: 70,
 }
 
+// Azure Pronunciation Assessment (AccuracyScore, HundredMark scale) — a
+// separate score space from the whisper-based check above, so its own
+// thresholds. Starting values per the original spec; retune after seeing
+// real ElevenLabs output distributions, same as DEFAULT_THRESHOLDS above.
+export const AZURE_THRESHOLDS: VoiceCheckThresholds = {
+  passScore: 90,
+  warningScore: 75,
+}
+
 // 'medium' balances Japanese accuracy against local download size/CPU time.
 // Bump to 'large-v3' if WARNING volume turns out too high in practice.
 export const WHISPER_MODEL = 'medium'

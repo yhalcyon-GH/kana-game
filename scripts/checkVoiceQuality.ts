@@ -5,22 +5,35 @@
 // scores it against the word's expected reading, and writes both a console
 // summary and voice-check-report.json. Never calls the paid ElevenLabs API
 // unless BOTH --regenerate and --yes are given — see the --regenerate
-// handling below.
+// handling below. Never calls Azure unless --azure is given (real, if
+// small, per-call cost — see scripts/azurePronunciation.ts's header for why
+// this is a second, independent check rather than a replacement).
 //
-//   npm run check-voices                          # check everything
+//   npm run check-voices                          # check everything (whisper only)
 //   npm run check-voices -- --row ka-row           # check one row
+//   npm run check-voices -- --azure                # also run Azure Pronunciation Assessment
 //   npm run check-voices -- --regenerate           # dry run: show what would be regenerated
 //   npm run check-voices -- --regenerate --yes     # actually regenerate FAILed clips (paid)
 import path from 'node:path'
 import { writeFile } from 'node:fs/promises'
 import type { AnchorWord } from '../src/data/types'
 import { ALL_WORDS, WORDS_BY_ROW } from '../src/data/words'
-import { checkPronunciation, type PronunciationStatus } from '../src/lib/voiceQuality'
+import { checkPronunciation, classifyScore, type PronunciationStatus } from '../src/lib/voiceQuality'
 import { transcribeToHiragana } from './asr'
+import { assessPronunciation, requireAzureCredentials } from './azurePronunciation'
 import { fileExists, OUT_DIR, requireApiKey, synthesizeToFile } from './elevenLabsClient'
-import { DEFAULT_THRESHOLDS, MAX_REGENERATE_ATTEMPTS, WHISPER_MODEL } from './voiceCheckConfig'
+import { AZURE_THRESHOLDS, DEFAULT_THRESHOLDS, MAX_REGENERATE_ATTEMPTS, WHISPER_MODEL } from './voiceCheckConfig'
 
 type ReportStatus = PronunciationStatus | 'MISSING_AUDIO'
+
+interface AzureCheckFields {
+  azureAccuracyScore: number
+  azureFluencyScore: number
+  azureCompletenessScore: number
+  azurePronScore: number
+  azureStatus: PronunciationStatus
+  azureRecognizedText: string
+}
 
 interface VoiceCheckEntry {
   wordId: string
@@ -30,13 +43,45 @@ interface VoiceCheckEntry {
   pronunciationScore: number
   pronunciationStatus: ReportStatus
   reasons: string[]
+  azure?: AzureCheckFields
 }
 
 interface VoiceCheckReport {
   generatedAt: string
   config: typeof DEFAULT_THRESHOLDS
+  azureConfig?: typeof AZURE_THRESHOLDS
   totals: Record<ReportStatus, number>
   results: VoiceCheckEntry[]
+}
+
+// Runs Azure Pronunciation Assessment for one word and attaches the result
+// to its entry. Separate from checkWord() (which only ever needs the local
+// whisper path) so --azure stays fully opt-in — this is never called
+// unless the flag is passed. A per-word Azure failure (rate limit, network
+// blip) must not abort the whole run, same reasoning as
+// regenerateFailures' try/catch below — it's recorded as a WARNING on that
+// one entry instead.
+async function checkWordAzure(entry: VoiceCheckEntry, word: AnchorWord, key: string, region: string): Promise<VoiceCheckEntry> {
+  const wavPath = wavPathFor(word.id)
+  if (!(await fileExists(wavPath))) return entry
+  try {
+    const result = await assessPronunciation(wavPath, word.kana, key, region)
+    const azureStatus = classifyScore(result.accuracyScore, AZURE_THRESHOLDS)
+    return {
+      ...entry,
+      azure: {
+        azureAccuracyScore: result.accuracyScore,
+        azureFluencyScore: result.fluencyScore,
+        azureCompletenessScore: result.completenessScore,
+        azurePronScore: result.pronScore,
+        azureStatus,
+        azureRecognizedText: result.recognizedText,
+      },
+    }
+  } catch (err) {
+    console.error(`  Azure assessment failed for ${word.id}: ${err instanceof Error ? err.message : String(err)}`)
+    return entry
+  }
 }
 
 function wavPathFor(wordId: string): string {
@@ -86,7 +131,7 @@ async function checkWord(word: AnchorWord): Promise<VoiceCheckEntry> {
   }
 }
 
-function printSummary(results: VoiceCheckEntry[]) {
+function printSummary(results: VoiceCheckEntry[], azureRan: boolean) {
   const totals: Record<ReportStatus, number> = { PASS: 0, WARNING: 0, FAIL: 0, MISSING_AUDIO: 0 }
   for (const r of results) totals[r.pronunciationStatus]++
 
@@ -99,7 +144,7 @@ function printSummary(results: VoiceCheckEntry[]) {
 
   const fails = results.filter((r) => r.pronunciationStatus === 'FAIL')
   if (fails.length > 0) {
-    console.log('\nFAILURES\n')
+    console.log('\nFAILURES (reading mismatch)\n')
     fails.forEach((r, i) => {
       console.log(`${i + 1}. ${r.wordId}`)
       console.log(`   Expected: ${r.expectedReading}`)
@@ -107,12 +152,40 @@ function printSummary(results: VoiceCheckEntry[]) {
       console.log(`   Reason: ${r.reasons.join('; ')}\n`)
     })
   }
+
+  if (azureRan) {
+    const azureTotals: Record<PronunciationStatus, number> = { PASS: 0, WARNING: 0, FAIL: 0 }
+    const withAzure = results.filter((r): r is VoiceCheckEntry & { azure: AzureCheckFields } => r.azure != null)
+    for (const r of withAzure) azureTotals[r.azure.azureStatus]++
+
+    console.log('\nAzure Pronunciation Assessment (accuracy/fluency/clarity — separate from the reading check above)\n')
+    console.log(`Checked: ${withAzure.length}`)
+    console.log(`PASS:    ${azureTotals.PASS}`)
+    console.log(`WARNING: ${azureTotals.WARNING}`)
+    console.log(`FAIL:    ${azureTotals.FAIL}`)
+
+    const azureFails = withAzure.filter((r) => r.azure.azureStatus === 'FAIL')
+    if (azureFails.length > 0) {
+      console.log('\nAZURE FAILURES (low accuracy/fluency)\n')
+      azureFails.forEach((r, i) => {
+        console.log(`${i + 1}. ${r.wordId}`)
+        console.log(`   Accuracy: ${r.azure.azureAccuracyScore}  Fluency: ${r.azure.azureFluencyScore}  Completeness: ${r.azure.azureCompletenessScore}  Overall: ${r.azure.azurePronScore}`)
+        console.log(`   Recognized: ${r.azure.azureRecognizedText}\n`)
+      })
+    }
+  }
 }
 
-async function writeReport(results: VoiceCheckEntry[]): Promise<void> {
+async function writeReport(results: VoiceCheckEntry[], azureRan: boolean): Promise<void> {
   const totals: Record<ReportStatus, number> = { PASS: 0, WARNING: 0, FAIL: 0, MISSING_AUDIO: 0 }
   for (const r of results) totals[r.pronunciationStatus]++
-  const report: VoiceCheckReport = { generatedAt: new Date().toISOString(), config: DEFAULT_THRESHOLDS, totals, results }
+  const report: VoiceCheckReport = {
+    generatedAt: new Date().toISOString(),
+    config: DEFAULT_THRESHOLDS,
+    ...(azureRan ? { azureConfig: AZURE_THRESHOLDS } : {}),
+    totals,
+    results,
+  }
   const reportPath = path.resolve(import.meta.dirname, '../voice-check-report.json')
   await writeFile(reportPath, JSON.stringify(report, null, 2))
   console.log(`\nReport written to ${reportPath}`)
@@ -175,11 +248,12 @@ function parseArgs(argv: string[]) {
     rowFilter,
     regenerate: argv.includes('--regenerate'),
     confirmed: argv.includes('--yes'),
+    azure: argv.includes('--azure'),
   }
 }
 
 async function main() {
-  const { rowFilter, regenerate, confirmed } = parseArgs(process.argv.slice(2))
+  const { rowFilter, regenerate, confirmed, azure } = parseArgs(process.argv.slice(2))
   const words: AnchorWord[] = rowFilter ? (WORDS_BY_ROW[rowFilter] ?? []) : ALL_WORDS
 
   if (rowFilter && words.length === 0) {
@@ -197,8 +271,20 @@ async function main() {
     results = await regenerateFailures(results, words, confirmed)
   }
 
-  printSummary(results)
-  await writeReport(results)
+  if (azure) {
+    const { key, region } = requireAzureCredentials()
+    const wordsById = new Map(words.map((w) => [w.id, w]))
+    console.log(`\nRunning Azure Pronunciation Assessment on ${results.length} clip(s)...`)
+    const withAzure: VoiceCheckEntry[] = []
+    for (const entry of results) {
+      const word = wordsById.get(entry.wordId)
+      withAzure.push(word ? await checkWordAzure(entry, word, key, region) : entry)
+    }
+    results = withAzure
+  }
+
+  printSummary(results, azure)
+  await writeReport(results, azure)
 }
 
 main().catch((err) => {

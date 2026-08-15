@@ -1,7 +1,28 @@
 import { describe, expect, it } from 'vitest'
-import { checkPronunciation, type VoiceCheckThresholds } from './voiceQuality'
+import { checkPronunciation, classifyScore, type VoiceCheckThresholds } from './voiceQuality'
 
 const THRESHOLDS: VoiceCheckThresholds = { passScore: 90, warningScore: 70 }
+
+describe('classifyScore', () => {
+  // Same thresholds shape Azure's AccuracyScore is classified with in
+  // scripts/checkVoiceQuality.ts, not just checkPronunciation's own score.
+  const T: VoiceCheckThresholds = { passScore: 90, warningScore: 75 }
+
+  it('PASSes at or above passScore', () => {
+    expect(classifyScore(90, T)).toBe('PASS')
+    expect(classifyScore(100, T)).toBe('PASS')
+  })
+
+  it('WARNs between warningScore and passScore', () => {
+    expect(classifyScore(75, T)).toBe('WARNING')
+    expect(classifyScore(89, T)).toBe('WARNING')
+  })
+
+  it('FAILs below warningScore', () => {
+    expect(classifyScore(74, T)).toBe('FAIL')
+    expect(classifyScore(0, T)).toBe('FAIL')
+  })
+})
 
 describe('checkPronunciation', () => {
   it('PASSes an exact reading match', () => {

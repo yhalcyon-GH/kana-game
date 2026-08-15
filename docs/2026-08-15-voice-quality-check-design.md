@@ -165,3 +165,19 @@ CLI出力は依頼文の例に準じた人間可読フォーマット（Total/PA
 - whisper.cppのNodeバインディング（`nodejs-whisper` / `smart-whisper` 等）の具体的な選定とモデルサイズ（速度 vs 精度、ディスク容量）。
 - モーラ単位編集距離のスコア化アルゴリズムの具体的な重み付け。
 - PASS/WARNING/FAILのデフォルト閾値の初期値。
+
+## 追記（2026-08-15）: Azure Pronunciation Assessment 統合
+
+フェーズ1実装後、実際にElevenLabsで生成した音声を人間が聞いた結果、whisper.cppの誤読検出だけでは拾えない問題（「あか」が「ばか」に、「きく」「がいこく」の語尾のくが脱落する等）が見つかった。これらは誤読というより発音の不明瞭さ・不安定さに近く、ユーザーからAzure AI Speech Pronunciation Assessmentの追加導入を依頼された。
+
+**役割分担**: whisper.cppベースのチェック（既存）は「読み間違いがないか」、Azureは「どれだけ明瞭・流暢に発音されているか」（AccuracyScore/FluencyScore/CompletenessScore/PronScore）を見る、独立した2つ目のシグナルとして追加した。どちらかがどちらかを置き換えるものではない。
+
+**言語ロケール**: `ja-JP` はAzureのPronunciation Assessment専用の言語サポート表（`includes/language-support/pronunciation-assessment.md`）でGA（一般提供）であることを公式ドキュメントで確認済み（一般的な言語サポート表の方は列の対応関係が紛らわしく誤読しやすいので、専用表を直接参照した）。Prosody Assessment（韻律評価）は公式ドキュメントで `en-US` 限定と明記されているため、意図的に有効化していない — 東京式アクセント判定は別途accents.tsのデータを使った将来のフェーズ2スコープのまま。
+
+**実装**:
+- `scripts/azurePronunciation.ts`（新規）: `microsoft-cognitiveservices-speech-sdk`（MIT）を使い、Scripted Assessment（`referenceText` = `word.kana`）、HundredMarkグレーディング、Phoneme粒度、miscue検出有効で1単語ずつ評価。
+- `voiceCheckConfig.ts`: `AZURE_THRESHOLDS`（passScore 90 / warningScore 75、初期値）を追加。
+- `src/lib/voiceQuality.ts`: スコア→PASS/WARNING/FAIL判定ロジックを `classifyScore()` として抽出し、whisperベースの判定とAzureのAccuracyScore判定の両方から共有。
+- `checkVoiceQuality.ts`: `--azure` フラグ（デフォルトOFF、明示指定時のみAzure APIを呼ぶ）。単語ごとの失敗はその1件をWARNING扱いにして続行し、全体を止めない（`--regenerate`のElevenLabsループと同じ設計）。
+
+**コスト**: Azureは無料枠が月5時間、本プロジェクトの実際の音声量（数百単語 × 数秒）は無料枠内に収まる見込み。有料枠でも標準ティアで概ね$1〜1.32/時間程度（2026-08-15時点、要最新確認）。`--azure`を明示的に付けない限り呼ばれない。
