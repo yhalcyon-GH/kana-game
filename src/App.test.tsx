@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it } from 'vitest'
 import App from './App'
@@ -153,6 +153,58 @@ describe('script chooser pages', () => {
     expect(screen.getByRole('link', { name: /カタカナ/ })).toHaveAttribute('href', '/katakana')
     expect(screen.getByRole('link', { name: /ようおん/ })).toHaveAttribute('href', '/youon')
     expect(screen.getByRole('link', { name: /そのほか/ })).toHaveAttribute('href', '/other')
+  })
+})
+
+// HubBreadcrumb (see components/HubBreadcrumb.tsx) — added because the
+// Practice Hub used to be a dead end: after finishing a row, the only ways
+// out were "back to this exact row" or all the way Home, with no way back
+// to the row's parent category page (the user's own complaint, verbatim:
+// "カキクケコ練習したあとに、カ行に戻るかホームに戻るかしかなくて、カタカナ
+// 全体に戻れない"). This also exercises `GojuonRow.englishLabel`, the short
+// romaji "session name" shown here for a learner who can't yet read a row's
+// kana `label`.
+describe('Practice Hub breadcrumb / cross-session navigation', () => {
+  it('shows Home -> category page -> this row, using the row\'s englishLabel', () => {
+    renderAt('/practice/katakana/katakana-sa-row')
+    const breadcrumb = within(screen.getByRole('navigation', { name: 'Breadcrumb' }))
+    expect(breadcrumb.getByRole('link', { name: /Home/ })).toHaveAttribute('href', '/')
+    expect(breadcrumb.getByRole('link', { name: /カタカナ/ })).toHaveAttribute('href', '/katakana')
+    expect(screen.getByText('Sa Row')).toBeInTheDocument()
+  })
+
+  it('a middle row shows both prev/next quick links to adjacent rows in the same category', () => {
+    renderAt('/practice/katakana/katakana-sa-row')
+    expect(screen.getByRole('link', { name: /A Row/ })).toHaveAttribute('href', '/practice/katakana/katakana-a-row')
+    expect(screen.getByRole('link', { name: /Ta Row/ })).toHaveAttribute('href', '/practice/katakana/katakana-ta-row')
+  })
+
+  it('the first row in a category has no prev link', () => {
+    renderAt('/practice/katakana/katakana-a-row')
+    expect(screen.queryByRole('link', { name: /^‹/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Sa Row/ })).toBeInTheDocument()
+  })
+
+  it('the last row in a category has no next link', () => {
+    renderAt('/practice/katakana/katakana-ra-row')
+    expect(screen.queryByRole('link', { name: /›$/ })).not.toBeInTheDocument()
+  })
+
+  it('prev/next links do not cross category boundaries (regression)', () => {
+    // sokuon-row is the only row in its category, so both should be absent.
+    renderAt('/practice/sokuon/sokuon-row')
+    expect(screen.queryByRole('link', { name: /Row/ })).not.toBeInTheDocument()
+  })
+
+  it('links back to a bundled category (促音) go to /other, not a dedicated page', () => {
+    renderAt('/practice/sokuon/sokuon-row')
+    const breadcrumb = within(screen.getByRole('navigation', { name: 'Breadcrumb' }))
+    expect(breadcrumb.getByRole('link', { name: /促音/ })).toHaveAttribute('href', '/other')
+  })
+
+  it('the Review hub does not show a category breadcrumb (it has no single category)', () => {
+    renderAt('/practice/review')
+    expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).not.toBeInTheDocument()
   })
 })
 

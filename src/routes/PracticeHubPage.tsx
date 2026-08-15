@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import { HubBreadcrumb } from '../components/HubBreadcrumb'
 import { CATEGORIES_BY_ID, ROWS_BY_ID } from '../data/curriculum'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../hooks/useCurriculum'
 
@@ -89,6 +90,7 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
 
   return (
     <div className="flex flex-col items-center gap-6">
+      {!isReview && <HubBreadcrumb rowId={rowId} categoryId={categoryId!} />}
       <h1 className="text-2xl font-bold">{isReview ? 'Review — all learned rows' : row!.label}</h1>
       {isReview && (
         <p className="text-sm text-neutral-500 dark:text-neutral-400">

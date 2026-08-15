@@ -2,10 +2,10 @@ import { NavLink } from 'react-router-dom'
 import { useCurriculum } from '../hooks/useCurriculum'
 
 const LINKS = [
-  { to: '/', label: 'Home' },
-  { to: '/review', label: 'Review' },
-  { to: '/settings', label: 'Settings' },
-  { to: '/about', label: 'About' },
+  { to: '/', label: 'Home', icon: '🏠' },
+  { to: '/review', label: 'Review', icon: '🔁' },
+  { to: '/settings', label: 'Settings', icon: '⚙️' },
+  { to: '/about', label: 'About', icon: 'ℹ️' },
 ]
 
 export function NavBar() {
@@ -26,7 +26,7 @@ export function NavBar() {
             }`
           }
         >
-          {link.label}
+          {link.icon} {link.label}
           {link.to === '/review' && dueReviewCount > 0 && (
             <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-semibold text-white">
               {dueReviewCount}

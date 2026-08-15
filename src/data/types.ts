@@ -40,6 +40,12 @@ export type ScriptCategory = {
   // rule (促音/長音/拗音), not obvious from a row-card grid alone. Absent
   // for hiragana/katakana, whose rows speak for themselves.
   explanation?: string
+  // Single emoji shown alongside `label` in navigation (breadcrumbs, the
+  // home page chooser) — added so a learner who can't read `label` (real
+  // kana, e.g. カタカナ) yet still has a visual anchor to recognize the
+  // category by while navigating. Not shown on RowMap's row cards, which
+  // already show real kana front and center.
+  icon?: string
 }
 
 export type GojuonRow = {
@@ -54,6 +60,13 @@ export type GojuonRow = {
   // category-level `explanation` above, which only introduces the concept
   // once in general terms.
   explanation?: string
+  // Short romaji/English "session name" (e.g. 'Ka Row', 'Chōon: A') used in
+  // navigation UI (breadcrumbs, prev/next session links on the Practice
+  // Hub) where a foreign learner needs to recognize/distinguish a row
+  // without necessarily being able to read `label`'s kana yet. `label`
+  // itself stays kana-only and remains the row-card display name — this is
+  // additive, not a replacement.
+  englishLabel?: string
 }
 
 export type AnchorWord = {

@@ -15,13 +15,13 @@ export const CHOUON_CATEGORY_ID = 'chouon'
 export const YOUON_CATEGORY_ID = 'youon'
 
 export const CATEGORIES: ScriptCategory[] = [
-  { id: DEFAULT_CATEGORY_ID, label: 'ひらがな', learnStyle: 'character-set' },
+  { id: DEFAULT_CATEGORY_ID, label: 'ひらがな', learnStyle: 'character-set', icon: '🎴' },
   // カタカナ単音 (single-kana katakana) — same 'character-set' Learn/Practice
   // shape as hiragana (flashcard -> recap -> words, all four mini-games).
   // Chosen to go first of the five planned new categories specifically
   // because it needs none of the contrast-pairs/zero-new-character
   // machinery that 促音/長音 will — see docs/curriculum-extensibility.md.
-  { id: KATAKANA_CATEGORY_ID, label: 'カタカナ', learnStyle: 'character-set' },
+  { id: KATAKANA_CATEGORY_ID, label: 'カタカナ', learnStyle: 'character-set', icon: '🔤' },
   // 促音 (sokuon, the small-tsu gemination mark) — the first 'contrast-pairs'
   // category: Learn listens through minimal-pair WORDS (おと vs おっと)
   // instead of flashcarding っ/ッ in isolation, Tracing is word-level only,
@@ -36,6 +36,7 @@ export const CATEGORIES: ScriptCategory[] = [
     dependsOnCategoryIds: [DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID],
     explanation:
       'Sokuon is a short pause before certain consonants, written as a small っ/ッ. It briefly holds the sound and can completely change a word\'s meaning — compare each pair below with and without it.',
+    icon: '⏸️',
   },
   // 長音 (chōon, long vowels) — the second 'contrast-pairs' category, and
   // the first with NO new characters of its own: katakana's ー was already
@@ -61,6 +62,7 @@ export const CATEGORIES: ScriptCategory[] = [
     dependsOnCategoryIds: [DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID],
     explanation:
       'Chōon means a "long vowel" — a vowel sound held for an extra beat. Katakana always spells it with ー, but hiragana has no dedicated mark: it spells a long vowel by repeating or extending the vowel that comes before it, and exactly how depends on which vowel that is. Each row below covers one of those rules.',
+    icon: '➖',
   },
   // 拗音 (yōon, contracted sounds like きゃ/kya) — back to 'character-set'
   // (flashcard -> recap -> words, all four mini-games), same shape as
@@ -82,6 +84,7 @@ export const CATEGORIES: ScriptCategory[] = [
     dependsOnCategoryIds: [DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID],
     explanation:
       'Yōon are contracted sounds made from a consonant + い kana (き/し/ち/に/ひ/み/り, or their voiced forms) followed by a small ゃ/ゅ/ょ. Two characters, but only ONE syllable — きゃ isn\'t "ki-ya", it\'s one quick "kya".',
+    icon: '🔗',
   },
 ]
 
@@ -94,13 +97,14 @@ export const CATEGORIES_BY_ID: Record<string, ScriptCategory> = Object.fromEntri
 // (see getCumulativeCharacterIds etc. below) — a second category starts
 // its own ordering from 0, independent of this one.
 export const ROWS: GojuonRow[] = [
-  { id: 'a-row', categoryId: DEFAULT_CATEGORY_ID, label: 'あ~お', order: 0, characterIds: ['a', 'i', 'u', 'e', 'o'] },
+  { id: 'a-row', categoryId: DEFAULT_CATEGORY_ID, label: 'あ~お', order: 0, characterIds: ['a', 'i', 'u', 'e', 'o'], englishLabel: 'A Row' },
   {
     id: 'ka-row',
     categoryId: DEFAULT_CATEGORY_ID,
     label: 'か~こ・が~ご',
     order: 1,
     characterIds: ['ka', 'ki', 'ku', 'ke', 'ko', 'ga', 'gi', 'gu', 'ge', 'go'],
+    englishLabel: 'Ka Row',
   },
   {
     id: 'sa-row',
@@ -108,6 +112,7 @@ export const ROWS: GojuonRow[] = [
     label: 'さ~そ・ざ~ぞ',
     order: 2,
     characterIds: ['sa', 'shi', 'su', 'se', 'so', 'za', 'ji', 'zu', 'ze', 'zo'],
+    englishLabel: 'Sa Row',
   },
   {
     id: 'ta-row',
@@ -115,8 +120,9 @@ export const ROWS: GojuonRow[] = [
     label: 'た~と・だ~ど',
     order: 3,
     characterIds: ['ta', 'chi', 'tsu', 'te', 'to', 'da', 'dji', 'dzu', 'de', 'do'],
+    englishLabel: 'Ta Row',
   },
-  { id: 'na-row', categoryId: DEFAULT_CATEGORY_ID, label: 'な~の', order: 4, characterIds: ['na', 'ni', 'nu', 'ne', 'no'] },
+  { id: 'na-row', categoryId: DEFAULT_CATEGORY_ID, label: 'な~の', order: 4, characterIds: ['na', 'ni', 'nu', 'ne', 'no'], englishLabel: 'Na Row' },
   {
     id: 'ha-row',
     categoryId: DEFAULT_CATEGORY_ID,
@@ -127,11 +133,12 @@ export const ROWS: GojuonRow[] = [
       'ba', 'bi', 'bu', 'be', 'bo',
       'pa', 'pi', 'pu', 'pe', 'po',
     ],
+    englishLabel: 'Ha Row',
   },
-  { id: 'ma-row', categoryId: DEFAULT_CATEGORY_ID, label: 'ま~も', order: 6, characterIds: ['ma', 'mi', 'mu', 'me', 'mo'] },
-  { id: 'ya-row', categoryId: DEFAULT_CATEGORY_ID, label: 'や・ゆ・よ', order: 7, characterIds: ['ya', 'yu', 'yo'] },
-  { id: 'ra-row', categoryId: DEFAULT_CATEGORY_ID, label: 'ら~ろ', order: 8, characterIds: ['ra', 'ri', 'ru', 're', 'ro'] },
-  { id: 'wa-row', categoryId: DEFAULT_CATEGORY_ID, label: 'わ~ん', order: 9, characterIds: ['wa', 'wo', 'n'] },
+  { id: 'ma-row', categoryId: DEFAULT_CATEGORY_ID, label: 'ま~も', order: 6, characterIds: ['ma', 'mi', 'mu', 'me', 'mo'], englishLabel: 'Ma Row' },
+  { id: 'ya-row', categoryId: DEFAULT_CATEGORY_ID, label: 'や・ゆ・よ', order: 7, characterIds: ['ya', 'yu', 'yo'], englishLabel: 'Ya Row' },
+  { id: 'ra-row', categoryId: DEFAULT_CATEGORY_ID, label: 'ら~ろ', order: 8, characterIds: ['ra', 'ri', 'ru', 're', 'ro'], englishLabel: 'Ra Row' },
+  { id: 'wa-row', categoryId: DEFAULT_CATEGORY_ID, label: 'わ~ん', order: 9, characterIds: ['wa', 'wo', 'n'], englishLabel: 'Wa Row' },
 
   // ===== カタカナ (katakana) — own order sequence, starting at 0 again =====
   // ア~オ・カ~ゴ・ー・ン are all one combined first lesson, at the user's
@@ -151,6 +158,7 @@ export const ROWS: GojuonRow[] = [
       'katakana-ga', 'katakana-gi', 'katakana-gu', 'katakana-ge', 'katakana-go',
       'katakana-n', 'katakana-chouon',
     ],
+    englishLabel: 'A Row',
   },
   {
     id: 'katakana-sa-row',
@@ -161,6 +169,7 @@ export const ROWS: GojuonRow[] = [
       'katakana-sa', 'katakana-shi', 'katakana-su', 'katakana-se', 'katakana-so',
       'katakana-za', 'katakana-ji', 'katakana-zu', 'katakana-ze', 'katakana-zo',
     ],
+    englishLabel: 'Sa Row',
   },
   {
     id: 'katakana-ta-row',
@@ -171,6 +180,7 @@ export const ROWS: GojuonRow[] = [
       'katakana-ta', 'katakana-chi', 'katakana-tsu', 'katakana-te', 'katakana-to',
       'katakana-da', 'katakana-dji', 'katakana-dzu', 'katakana-de', 'katakana-do',
     ],
+    englishLabel: 'Ta Row',
   },
   {
     id: 'katakana-na-row',
@@ -178,6 +188,7 @@ export const ROWS: GojuonRow[] = [
     label: 'ナ~ノ',
     order: 3,
     characterIds: ['katakana-na', 'katakana-ni', 'katakana-nu', 'katakana-ne', 'katakana-no'],
+    englishLabel: 'Na Row',
   },
   {
     id: 'katakana-ha-row',
@@ -189,6 +200,7 @@ export const ROWS: GojuonRow[] = [
       'katakana-ba', 'katakana-bi', 'katakana-bu', 'katakana-be', 'katakana-bo',
       'katakana-pa', 'katakana-pi', 'katakana-pu', 'katakana-pe', 'katakana-po',
     ],
+    englishLabel: 'Ha Row',
   },
   {
     id: 'katakana-ma-row',
@@ -196,6 +208,7 @@ export const ROWS: GojuonRow[] = [
     label: 'マ~モ',
     order: 5,
     characterIds: ['katakana-ma', 'katakana-mi', 'katakana-mu', 'katakana-me', 'katakana-mo'],
+    englishLabel: 'Ma Row',
   },
   {
     id: 'katakana-ya-row',
@@ -203,6 +216,7 @@ export const ROWS: GojuonRow[] = [
     label: 'ヤ・ユ・ヨ',
     order: 6,
     characterIds: ['katakana-ya', 'katakana-yu', 'katakana-yo'],
+    englishLabel: 'Ya Row',
   },
   // ラ~ロ・ワ・ヲ — the final katakana row, absorbing ワ/ヲ (ン already
   // moved up to ア行, above) rather than giving them their own row, since
@@ -214,6 +228,7 @@ export const ROWS: GojuonRow[] = [
     label: 'ラ~ロ・ワ・ヲ',
     order: 7,
     characterIds: ['katakana-ra', 'katakana-ri', 'katakana-ru', 'katakana-re', 'katakana-ro', 'katakana-wa', 'katakana-wo'],
+    englishLabel: 'Ra Row',
   },
 
   // ===== 促音 (sokuon) — own order sequence, starting at 0 again =====
@@ -230,6 +245,7 @@ export const ROWS: GojuonRow[] = [
     label: 'っ・ッ',
     order: 0,
     characterIds: ['sokuon', 'katakana-sokuon'],
+    englishLabel: 'Sokuon',
   },
 
   // ===== 長音 (chōon) — own order sequence, starting at 0 again =====
@@ -265,6 +281,7 @@ export const ROWS: GojuonRow[] = [
     order: 0,
     characterIds: [],
     explanation: '①ア段 (a-column): a long vowel after an あ-row sound is written by adding あ. E.g. おかあさん (mother) — compare おばさん (aunt, no long vowel) with おばあさん (grandmother, long vowel).',
+    englishLabel: 'Chōon: A',
   },
   {
     id: 'chouon-i-row',
@@ -273,6 +290,7 @@ export const ROWS: GojuonRow[] = [
     order: 1,
     characterIds: [],
     explanation: '②イ段 (i-column): a long vowel after an い-row sound is written by adding い. E.g. おじさん (uncle, no long vowel) vs. おじいさん (grandfather, long vowel).',
+    englishLabel: 'Chōon: I',
   },
   {
     id: 'chouon-u-row',
@@ -281,6 +299,7 @@ export const ROWS: GojuonRow[] = [
     order: 2,
     characterIds: [],
     explanation: '③ウ段 (u-column): a long vowel after a う-row sound is written by adding う. E.g. ゆうき (courage).',
+    englishLabel: 'Chōon: U',
   },
   {
     id: 'chouon-e-row',
@@ -289,6 +308,7 @@ export const ROWS: GojuonRow[] = [
     order: 3,
     characterIds: [],
     explanation: '④エ段 (e-column): a long vowel after an え-row sound is usually written with い, not え — e.g. えいが (movie). The big exception: おねえさん (older sister) really is spelled with え.',
+    englishLabel: 'Chōon: E',
   },
   {
     id: 'chouon-o-row',
@@ -297,6 +317,7 @@ export const ROWS: GojuonRow[] = [
     order: 4,
     characterIds: [],
     explanation: '⑤オ段 (o-column): a long vowel after an お-row sound is usually written with う, not お — e.g. おはよう (good morning). But several common words really are spelled with お: おおきい (big), とおい (far), こおり (ice), and a few more — these just have to be memorized.',
+    englishLabel: 'Chōon: O',
   },
   {
     id: 'chouon-katakana-row',
@@ -305,6 +326,7 @@ export const ROWS: GojuonRow[] = [
     order: 5,
     characterIds: [],
     explanation: 'Katakana never has this problem — a long vowel is always written with ー, no matter which vowel it follows. Compare ビル (building, no long vowel) with ビール (beer, long vowel).',
+    englishLabel: 'Chōon: Katakana ー',
   },
 
   // ===== 拗音 (yōon) — own order sequence, starting at 0 again =====
@@ -335,6 +357,7 @@ export const ROWS: GojuonRow[] = [
     label: 'きゃ・きゅ・きょ・ぎゃ・ぎゅ・ぎょ',
     order: 0,
     characterIds: ['kya', 'kyu', 'kyo', 'gya', 'gyu', 'gyo'],
+    englishLabel: 'Kya Row',
   },
   {
     id: 'youon-sha-row',
@@ -342,6 +365,7 @@ export const ROWS: GojuonRow[] = [
     label: 'しゃ・しゅ・しょ・じゃ・じゅ・じょ',
     order: 1,
     characterIds: ['sha', 'shu', 'sho', 'ja', 'ju', 'jo'],
+    englishLabel: 'Sha Row',
   },
   {
     id: 'youon-cha-row',
@@ -349,6 +373,7 @@ export const ROWS: GojuonRow[] = [
     label: 'ちゃ・ちゅ・ちょ',
     order: 2,
     characterIds: ['cha', 'chu', 'cho'],
+    englishLabel: 'Cha Row',
   },
   {
     id: 'youon-na-row',
@@ -356,6 +381,7 @@ export const ROWS: GojuonRow[] = [
     label: 'にゃ・にゅ・にょ',
     order: 3,
     characterIds: ['nya', 'nyu', 'nyo'],
+    englishLabel: 'Nya Row',
   },
   {
     id: 'youon-ha-row',
@@ -363,6 +389,7 @@ export const ROWS: GojuonRow[] = [
     label: 'ひゃ・ひゅ・ひょ・びゃ・びゅ・びょ・ぴゃ・ぴゅ・ぴょ',
     order: 4,
     characterIds: ['hya', 'hyu', 'hyo', 'bya', 'byu', 'byo', 'pya', 'pyu', 'pyo'],
+    englishLabel: 'Hya Row',
   },
   {
     id: 'youon-ma-row',
@@ -370,6 +397,7 @@ export const ROWS: GojuonRow[] = [
     label: 'みゃ・みゅ・みょ',
     order: 5,
     characterIds: ['mya', 'myu', 'myo'],
+    englishLabel: 'Mya Row',
   },
   {
     id: 'youon-ra-row',
@@ -377,6 +405,7 @@ export const ROWS: GojuonRow[] = [
     label: 'りゃ・りゅ・りょ',
     order: 6,
     characterIds: ['rya', 'ryu', 'ryo'],
+    englishLabel: 'Rya Row',
   },
   {
     id: 'youon-katakana-ka-row',
@@ -384,6 +413,7 @@ export const ROWS: GojuonRow[] = [
     label: 'キャ・キュ・キョ・ギャ・ギュ・ギョ',
     order: 7,
     characterIds: ['katakana-kya', 'katakana-kyu', 'katakana-kyo', 'katakana-gya', 'katakana-gyu', 'katakana-gyo'],
+    englishLabel: 'Kya Row',
   },
   {
     id: 'youon-katakana-sha-row',
@@ -391,6 +421,7 @@ export const ROWS: GojuonRow[] = [
     label: 'シャ・シュ・ショ・ジャ・ジュ・ジョ',
     order: 8,
     characterIds: ['katakana-sha', 'katakana-shu', 'katakana-sho', 'katakana-ja', 'katakana-ju', 'katakana-jo'],
+    englishLabel: 'Sha Row',
   },
   {
     id: 'youon-katakana-cha-row',
@@ -398,6 +429,7 @@ export const ROWS: GojuonRow[] = [
     label: 'チャ・チュ・チョ',
     order: 9,
     characterIds: ['katakana-cha', 'katakana-chu', 'katakana-cho'],
+    englishLabel: 'Cha Row',
   },
   {
     id: 'youon-katakana-na-row',
@@ -405,6 +437,7 @@ export const ROWS: GojuonRow[] = [
     label: 'ニャ・ニュ・ニョ',
     order: 10,
     characterIds: ['katakana-nya', 'katakana-nyu', 'katakana-nyo'],
+    englishLabel: 'Nya Row',
   },
   {
     id: 'youon-katakana-ha-row',
@@ -416,6 +449,7 @@ export const ROWS: GojuonRow[] = [
       'katakana-bya', 'katakana-byu', 'katakana-byo',
       'katakana-pya', 'katakana-pyu', 'katakana-pyo',
     ],
+    englishLabel: 'Hya Row',
   },
   {
     id: 'youon-katakana-ma-row',
@@ -423,6 +457,7 @@ export const ROWS: GojuonRow[] = [
     label: 'ミャ・ミュ・ミョ',
     order: 12,
     characterIds: ['katakana-mya', 'katakana-myu', 'katakana-myo'],
+    englishLabel: 'Mya Row',
   },
   {
     id: 'youon-katakana-ra-row',
@@ -430,6 +465,7 @@ export const ROWS: GojuonRow[] = [
     label: 'リャ・リュ・リョ',
     order: 13,
     characterIds: ['katakana-rya', 'katakana-ryu', 'katakana-ryo'],
+    englishLabel: 'Rya Row',
   },
 ]
 
@@ -439,6 +475,17 @@ export const ROWS_BY_ID: Record<string, GojuonRow> = Object.fromEntries(
 
 export function getRowOrder(rowId: string): number {
   return ROWS_BY_ID[rowId]?.order ?? -1
+}
+
+// Which top-level script page (App.tsx's routes) a category's rows live on
+// — hiragana/katakana/yōon each get their own page at `/<categoryId>` (true
+// by construction: those three route paths were chosen to match their
+// category id exactly), everything else (促音/長音, and any future small
+// category) is bundled onto '/other'. Used for the "back to category page"
+// breadcrumb link on PracticeHubPage — see HubBreadcrumb.tsx.
+const DEDICATED_CATEGORY_PAGES = new Set([DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID, YOUON_CATEGORY_ID])
+export function getCategoryPagePath(categoryId: string): string {
+  return DEDICATED_CATEGORY_PAGES.has(categoryId) ? `/${categoryId}` : '/other'
 }
 
 // getPreviousRowId/getNextRowId both scope their search to the SAME category

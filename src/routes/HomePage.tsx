@@ -1,17 +1,23 @@
 import { Link } from 'react-router-dom'
 
-type ScriptCard = { to: string; label: string; description: string }
+type ScriptCard = { to: string; label: string; description: string; icon: string }
 
+// Icons match each destination's ScriptCategory.icon (curriculum.ts) where
+// there's a 1:1 category, so the same visual anchor carries through into
+// the breadcrumb on PracticeHubPage (see HubBreadcrumb.tsx) — a learner who
+// can't yet read a card's kana label still has a consistent icon to
+// recognize it by. そのほか bundles multiple categories, so it gets its own
+// generic "miscellaneous" icon rather than borrowing one category's.
 const SCRIPT_CARDS: ScriptCard[] = [
-  { to: '/hiragana', label: 'ひらがな', description: 'あ行から、単語と一緒に学ぶ' },
-  { to: '/katakana', label: 'カタカナ', description: 'ア行から、単語と一緒に学ぶ' },
+  { to: '/hiragana', label: 'ひらがな', description: 'あ行から、単語と一緒に学ぶ', icon: '🎴' },
+  { to: '/katakana', label: 'カタカナ', description: 'ア行から、単語と一緒に学ぶ', icon: '🔤' },
   // 'ようおん' (not '拗音') — same font-kana glyph-coverage reason as
   // そのほか below: 拗/音 are kanji, not in the subset.
-  { to: '/youon', label: 'ようおん', description: 'きゃ・きゅ・きょ… セッションがたくさんあるので独立ページ' },
+  { to: '/youon', label: 'ようおん', description: 'きゃ・きゅ・きょ… セッションがたくさんあるので独立ページ', icon: '🔗' },
   // 'そのほか' (not 'その他') — the card label renders through the
   // hand-subsetted kana-only .font-kana font (see index.css's header
   // comment), which has no 他 glyph.
-  { to: '/other', label: 'そのほか', description: '促音・長音など' },
+  { to: '/other', label: 'そのほか', description: '促音・長音など', icon: '📦' },
 ]
 
 // Top-level chooser — four script groups, each its own page
@@ -34,6 +40,7 @@ export function HomePage() {
             to={card.to}
             className="flex flex-col items-center gap-2 rounded-xl border border-neutral-300 bg-white p-6 text-center hover:border-blue-400 dark:border-neutral-600 dark:bg-neutral-800"
           >
+            <span className="text-2xl" aria-hidden="true">{card.icon}</span>
             <span className="font-kana text-2xl font-bold">{card.label}</span>
             <span className="text-xs text-neutral-500 dark:text-neutral-400">{card.description}</span>
           </Link>
