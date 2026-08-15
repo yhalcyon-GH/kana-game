@@ -14,8 +14,9 @@ import { isAnswerCorrect, normalizeKana, normalizeRomaji } from '../../lib/answe
 import { isNearMissText } from '../../lib/answerCloseness'
 import { useProgressStore } from '../../store/progressStore'
 
-// Types a whole word — in kana OR romaji, either is accepted (see
-// isAnswerCorrect) — from its audio/emoji/meaning prompt, instead of
+// Types a whole word — in hiragana, katakana, OR romaji, any of the three
+// is accepted regardless of which script the word is actually printed in
+// (see isAnswerCorrect) — from its audio/emoji/meaning prompt, instead of
 // picking it out of multiple choice (see ListeningPage). Production recall
 // is a meaningfully different, harder skill than recognition, and it's the
 // single most-praised mechanic across competing kana apps.

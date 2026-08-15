@@ -38,6 +38,14 @@ describe('isAnswerCorrect', () => {
     expect(isAnswerCorrect('  inu  ', INU)).toBe(true)
   })
 
+  it('accepts the katakana spelling of a hiragana word, and vice versa (Kana Typing tests the sound, not the script)', () => {
+    expect(isAnswerCorrect('イヌ', INU)).toBe(true)
+
+    const sakkaa = { kana: 'サッカー', romaji: 'sakkaa' }
+    expect(isAnswerCorrect('さっかー', sakkaa)).toBe(true)
+    expect(isAnswerCorrect('サッカー', sakkaa)).toBe(true)
+  })
+
   it('rejects a wrong answer', () => {
     expect(isAnswerCorrect('ねこ', INU)).toBe(false)
     expect(isAnswerCorrect('neko', INU)).toBe(false)
