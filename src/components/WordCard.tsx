@@ -1,6 +1,7 @@
 import { ACCENT_PATTERNS } from '../data/accents'
 import type { AnchorWord } from '../data/types'
 import { useTTS } from '../hooks/useTTS'
+import { WordImage } from './WordImage'
 
 type Props = {
   word: AnchorWord
@@ -60,7 +61,7 @@ export function WordCard({ word }: Props) {
       aria-label={`Play pronunciation of ${word.kana}`}
       className="flex flex-col items-center gap-1 rounded-2xl border border-neutral-200 bg-white p-4 text-center shadow-sm transition hover:border-blue-400 active:scale-95 dark:border-neutral-700 dark:bg-neutral-800"
     >
-      <img src={`${import.meta.env.BASE_URL}${word.image}`} alt="" className="h-16 w-16" />
+      <WordImage word={word} className="h-16 w-16" />
       <span className="mt-2 mb-0.5">
         <AccentedKana kana={word.kana} accent={ACCENT_PATTERNS[word.id]} />
       </span>

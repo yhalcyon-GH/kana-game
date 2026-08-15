@@ -47,9 +47,12 @@ describe('pickEvaluationFeedback', () => {
     expect(pickEvaluationFeedback(0).id).toBe('kanpeki')
   })
 
-  it('says おしい for 1-2 mistakes', () => {
+  it('says おしい for exactly 1 mistake', () => {
     expect(pickEvaluationFeedback(1).id).toBe('oshii')
-    expect(pickEvaluationFeedback(2).id).toBe('oshii')
+  })
+
+  it('says いいね for exactly 2 mistakes', () => {
+    expect(pickEvaluationFeedback(2).id).toBe('iine')
   })
 
   it('says ドンマイ for 3 or more mistakes', () => {

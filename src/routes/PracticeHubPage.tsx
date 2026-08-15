@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ROWS_BY_ID } from '../data/curriculum'
+import { HubBreadcrumb } from '../components/HubBreadcrumb'
+import { CATEGORIES_BY_ID, ROWS_BY_ID } from '../data/curriculum'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../hooks/useCurriculum'
 
 // Tracing sits with Learn rather than the games below: it's how you find
@@ -70,15 +71,26 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
     ...(isReview ? [] : [{ path: `/learn/${categoryId}/${rowId}`, label: 'Learn', emoji: '📖', description: 'Meet the new characters' }]),
     ...(isReview ? [] : [{ path: `${hubBase}/tracing`, label: 'Tracing', emoji: '✍️', description: 'Watch the stroke order, then trace' }]),
   ]
-  const practiceActivities: Activity[] = PRACTICE_GAMES.map((game) => ({
-    path: `${hubBase}/${game.path}`,
-    label: game.label,
-    emoji: game.emoji,
-    description: game.description,
-  }))
+  // Kana Quiz doesn't fit 'contrast-pairs' categories (促音/長音) — there's
+  // no single isolated character to quiz a reading on the way there is for
+  // a normal gojūon row (see docs/curriculum-extensibility.md and
+  // characters.ts's sokuon comment). Review always shows all four games:
+  // it mixes every taught category, most of which ARE quizzable, and
+  // useCurriculum's getScopeQuizCharacterIds already filters contrast-pairs
+  // characters out of Review's own Kana Quiz pool specifically.
+  const isContrastPairs = !isReview && CATEGORIES_BY_ID[categoryId ?? '']?.learnStyle === 'contrast-pairs'
+  const practiceActivities: Activity[] = PRACTICE_GAMES.filter((game) => !(isContrastPairs && game.path === 'kana-quiz')).map(
+    (game) => ({
+      path: `${hubBase}/${game.path}`,
+      label: game.label,
+      emoji: game.emoji,
+      description: game.description,
+    }),
+  )
 
   return (
     <div className="flex flex-col items-center gap-6">
+      {!isReview && <HubBreadcrumb rowId={rowId} categoryId={categoryId!} />}
       <h1 className="text-2xl font-bold">{isReview ? 'Review — all learned rows' : row!.label}</h1>
       {isReview && (
         <p className="text-sm text-neutral-500 dark:text-neutral-400">

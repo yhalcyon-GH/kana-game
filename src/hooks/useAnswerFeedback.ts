@@ -52,7 +52,10 @@ export function useAnswerFeedback() {
 
   // Call once when a session finishes, with the number of items missed —
   // picks and speaks the matching evaluation-screen line (かんぺき/おしい/
-  // ドンマイ) and derives a matching mascot mood for PracticeSummary.
+  // いいね/ドンマイ, see lib/feedbackVoice.ts) and derives a matching mascot
+  // mood for PracticeSummary. 0/1/2 mistakes all get a "bright" mood
+  // (streak's excited face for a flawless run, correct's happy face for 1
+  // or 2 missed); 3+ switches to incorrect's gentler, comforting face.
   const onFinish = (mistakeCount: number) => {
     const { id, text } = pickEvaluationFeedback(mistakeCount)
     speak(`feedback/${id}`, text)

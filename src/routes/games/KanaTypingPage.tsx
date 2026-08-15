@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { AnswerFeedbackRow } from '../../components/AnswerFeedbackRow'
 import { GameRoundHeader } from '../../components/GameRoundHeader'
 import { PracticeSummary } from '../../components/PracticeSummary'
+import { WordImage } from '../../components/WordImage'
 import { ROWS_BY_ID } from '../../data/curriculum'
 import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
@@ -13,8 +14,9 @@ import { isAnswerCorrect, normalizeKana, normalizeRomaji } from '../../lib/answe
 import { isNearMissText } from '../../lib/answerCloseness'
 import { useProgressStore } from '../../store/progressStore'
 
-// Types a whole word — in kana OR romaji, either is accepted (see
-// isAnswerCorrect) — from its audio/emoji/meaning prompt, instead of
+// Types a whole word — in hiragana, katakana, OR romaji, any of the three
+// is accepted regardless of which script the word is actually printed in
+// (see isAnswerCorrect) — from its audio/emoji/meaning prompt, instead of
 // picking it out of multiple choice (see ListeningPage). Production recall
 // is a meaningfully different, harder skill than recognition, and it's the
 // single most-praised mechanic across competing kana apps.
@@ -131,7 +133,7 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
     <div className="flex flex-col items-center gap-6">
       <GameRoundHeader rowId={rowId} categoryId={categoryId} roundIndex={roundIndex} total={queue.length} />
       <div className="flex flex-col items-center gap-2">
-        <img src={`${import.meta.env.BASE_URL}${currentWord.image}`} alt="" className="h-20 w-20" />
+        <WordImage word={currentWord} className="h-20 w-20" />
         <span className="text-lg font-semibold">{currentWord.meaning}</span>
         {supported && (
           <button

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { CHARACTERS_BY_ID } from './characters'
-import { CATEGORIES_BY_ID, getCumulativeCharacterIds, getNextRowId, getPreviousRowId, ROWS } from './curriculum'
-import { WORDS_BY_ROW } from './words'
+import { CHARACTERS, CHARACTERS_BY_ID } from './characters'
+import { CATEGORIES, CATEGORIES_BY_ID, getCumulativeCharacterIds, getNextRowId, getPreviousRowId, ROWS } from './curriculum'
+import { WORDS_BY_ID, WORDS_BY_ROW } from './words'
 
 describe('curriculum content integrity', () => {
   it('every character id referenced by a word exists in characters.ts', () => {
@@ -31,7 +31,14 @@ describe('curriculum content integrity', () => {
   it('word kana string matches the concatenation of its characterIds', () => {
     for (const words of Object.values(WORDS_BY_ROW)) {
       for (const word of words) {
-        const kanaOnly = word.kana.replace(/[^぀-ゟ]/g, '')
+        // U+3040-30FF covers hiragana (3040-309F) AND katakana (30A0-30FF)
+        // contiguously, so one range strips punctuation/kanji from a word's
+        // audioText-adjacent `kana` field regardless of which script it's
+        // in. A hiragana-only range here would silently zero out every
+        // katakana word's comparison (all its characters would be
+        // stripped, both sides would be '', and the check would pass
+        // vacuously) — this bit a first draft of katakana support.
+        const kanaOnly = word.kana.replace(/[^぀-ヿ]/g, '')
         const rebuilt = word.characterIds.map((id) => CHARACTERS_BY_ID[id].kana).join('')
         expect(rebuilt, `word "${word.id}" characterIds don't spell its kana`).toBe(kanaOnly)
       }
@@ -74,5 +81,207 @@ describe('category-scoped row-order helpers', () => {
     expect(getCumulativeCharacterIds('not-a-real-row')).toEqual([])
     expect(getNextRowId('not-a-real-row')).toBeNull()
     expect(getPreviousRowId('not-a-real-row')).toBeNull()
+  })
+})
+
+// Regression + new coverage for getCumulativeCharacterIds' cross-category
+// behavior (see its comment in curriculum.ts): a category's cumulative pool
+// also includes every character from a category explicitly listed in its
+// `dependsOnCategoryIds`, which 促音 (sokuon) relies on since its words mix
+// real hiragana/katakana syllables with っ/ッ, not just its own two
+// characters. This is deliberately an explicit per-category fact, not
+// inferred from CATEGORIES' declared order — an earlier version inferred it
+// from order and incorrectly leaked all of hiragana into katakana's
+// distractor pools (katakana depends on nothing, despite being declared
+// after hiragana) — see the "independent categories" cases below, which
+// exist specifically to catch that regression again.
+describe('cross-category cumulative characters (促音 and beyond)', () => {
+  it('a sokuon row\'s cumulative pool includes its own characters plus every hiragana AND katakana character', () => {
+    const cumulative = getCumulativeCharacterIds('sokuon-row')
+    expect(cumulative).toEqual(expect.arrayContaining(['sokuon', 'katakana-sokuon']))
+    expect(cumulative).toEqual(expect.arrayContaining(['a', 'ka', 'n'])) // hiragana
+    expect(cumulative).toEqual(expect.arrayContaining(['katakana-a', 'katakana-ka', 'katakana-chouon'])) // katakana
+  })
+
+  it('hiragana rows are unaffected by the cross-category change (no later category leaks backward)', () => {
+    const cumulative = getCumulativeCharacterIds('ka-row')
+    expect(cumulative).not.toEqual(expect.arrayContaining(['katakana-a', 'sokuon', 'katakana-sokuon']))
+  })
+
+  it('every category with no dependsOnCategoryIds stays fully independent, even if declared later', () => {
+    for (const category of CATEGORIES) {
+      if ((category.dependsOnCategoryIds ?? []).length > 0) continue
+      for (const row of ROWS.filter((r) => r.categoryId === category.id)) {
+        const cumulative = getCumulativeCharacterIds(row.id)
+        for (const other of CATEGORIES) {
+          if (other.id === category.id) continue
+          const otherCharIds = ROWS.filter((r) => r.categoryId === other.id).flatMap((r) => r.characterIds)
+          expect(
+            cumulative.some((id) => otherCharIds.includes(id)),
+            `"${row.id}" (category "${category.id}", no declared dependency) unexpectedly includes a character from "${other.id}"`,
+          ).toBe(false)
+        }
+      }
+    }
+  })
+
+  it('katakana specifically does not depend on hiragana, despite being declared right after it', () => {
+    expect(CATEGORIES_BY_ID.katakana?.dependsOnCategoryIds ?? []).toEqual([])
+    expect(getCumulativeCharacterIds('katakana-a-row')).not.toEqual(expect.arrayContaining(['a', 'i', 'u', 'e', 'o']))
+  })
+})
+
+// learnStyle-specific content invariants — see docs/curriculum-extensibility.md.
+describe('contrast-pairs category content', () => {
+  const contrastPairsCategoryIds = new Set(
+    CATEGORIES.filter((c) => c.learnStyle === 'contrast-pairs').map((c) => c.id),
+  )
+
+  it('every contrast-pairs row has at least one word (Learn/Practice both operate on words, not flashcards)', () => {
+    for (const row of ROWS) {
+      if (!contrastPairsCategoryIds.has(row.categoryId)) continue
+      expect((WORDS_BY_ROW[row.id] ?? []).length, `contrast-pairs row "${row.id}" has no words`).toBeGreaterThan(0)
+    }
+  })
+
+  it('sokuon is a contrast-pairs category, and its row introduces the sokuon characters', () => {
+    expect(CATEGORIES_BY_ID.sokuon?.learnStyle).toBe('contrast-pairs')
+    expect(ROWS.find((r) => r.id === 'sokuon-row')?.characterIds).toEqual(['sokuon', 'katakana-sokuon'])
+  })
+
+  // 長音 (chōon) rows all have characterIds: [] — none introduce any new
+  // characters at all (see curriculum.ts's chouon-*-row comment and
+  // docs/curriculum-extensibility.md's "Remaining structural note"). This is
+  // the one genuinely novel case in this category's content work, so it
+  // gets its own explicit coverage here on top of the generic contrast-pairs
+  // checks above (which already prove every row has words and every word
+  // only uses already-taught characters). Split into 6 rows — one per
+  // hiragana vowel-column rule (あ/い/う/え/お), plus a katakana review row —
+  // per the user's own teaching material, rather than one flat lesson.
+  it('chouon is a contrast-pairs category whose 6 rows introduce ZERO new characters between them', () => {
+    expect(CATEGORIES_BY_ID.chouon?.learnStyle).toBe('contrast-pairs')
+    const chouonRows = ROWS.filter((r) => r.categoryId === 'chouon')
+    expect(chouonRows).toHaveLength(6)
+    expect(chouonRows.every((r) => r.characterIds.length === 0)).toBe(true)
+  })
+
+  it('chouon still depends on hiragana+katakana, so its words can freely draw on both scripts despite having no characters of its own', () => {
+    expect(CATEGORIES_BY_ID.chouon?.dependsOnCategoryIds).toEqual(
+      expect.arrayContaining(['hiragana', 'katakana']),
+    )
+    const cumulative = getCumulativeCharacterIds('chouon-a-row')
+    // The row's own characterIds contributes nothing, but the dependency
+    // pool should still be the full hiragana + katakana character set.
+    expect(cumulative).toEqual(expect.arrayContaining(['a', 'o', 'sa', 'n'])) // hiragana
+    expect(cumulative).toEqual(expect.arrayContaining(['katakana-bi', 'katakana-ru', 'katakana-chouon'])) // katakana
+  })
+
+  it('no chouon word anywhere uses a yōon character, even though the source material\'s own examples did (とうきょう, ぎゅうにゅう) — chouon does not depend on youon', () => {
+    // Every yōon character id is 3+ letters ending in a/u/o preceded by y
+    // (kya/sha/cha/...) — simplest robust check: none of chouon's words use
+    // any character id that belongs to a youon-category row.
+    const youonCharIds = new Set(ROWS.filter((r) => r.categoryId === 'youon').flatMap((r) => r.characterIds))
+    const chouonRows = ROWS.filter((r) => r.categoryId === 'chouon')
+    for (const row of chouonRows) {
+      for (const word of WORDS_BY_ROW[row.id] ?? []) {
+        for (const charId of word.characterIds) {
+          expect(youonCharIds.has(charId), `word "${word.id}" uses yōon character "${charId}"`).toBe(false)
+        }
+      }
+    }
+  })
+
+  it('each of the 5 hiragana vowel-column rules is covered by its own row, with its rule explanation and real example words', () => {
+    const expected: Record<string, { kana: string; explanationMatch: RegExp }> = {
+      'chouon-a-row': { kana: 'おかあさん', explanationMatch: /①ア段/ },
+      'chouon-i-row': { kana: 'おじいさん', explanationMatch: /②イ段/ },
+      'chouon-u-row': { kana: 'ゆうき', explanationMatch: /③ウ段/ },
+      'chouon-e-row': { kana: 'えいが', explanationMatch: /④エ段/ },
+      'chouon-o-row': { kana: 'おとうと', explanationMatch: /⑤オ段/ },
+    }
+    for (const [rowId, { kana, explanationMatch }] of Object.entries(expected)) {
+      const row = ROWS.find((r) => r.id === rowId)
+      expect(row?.explanation, `${rowId} should have an explanation`).toMatch(explanationMatch)
+      expect((WORDS_BY_ROW[rowId] ?? []).some((w) => w.kana === kana), `${rowId} should include ${kana}`).toBe(true)
+    }
+  })
+
+  it('the え-row and お-row rows include their documented exception words (おねえさん, おおきい/とおい/こおり)', () => {
+    expect((WORDS_BY_ROW['chouon-e-row'] ?? []).some((w) => w.kana === 'おねえさん')).toBe(true)
+    const oRowKana = (WORDS_BY_ROW['chouon-o-row'] ?? []).map((w) => w.kana)
+    expect(oRowKana).toEqual(expect.arrayContaining(['おおきい', 'とおい', 'こおり']))
+  })
+
+  it('the katakana review row (chouon-katakana-row) shows the ビル/ビール minimal pair', () => {
+    const kana = (WORDS_BY_ROW['chouon-katakana-row'] ?? []).map((w) => w.kana)
+    expect(kana).toEqual(expect.arrayContaining(['ビル', 'ビール']))
+  })
+})
+
+// 拗音 (yōon) is back to 'character-set' — same Learn/Practice/Tracing shape
+// as hiragana/katakana, unlike sokuon/chōon above — see
+// docs/curriculum-extensibility.md and CLAUDE.md's category summary.
+describe('character-set category content (拗音/yōon)', () => {
+  it('youon is a character-set category (not contrast-pairs like sokuon/chōon)', () => {
+    expect(CATEGORIES_BY_ID.youon?.learnStyle).toBe('character-set')
+  })
+
+  it('youon depends on hiragana + katakana, same as sokuon/chōon, since its words mix in already-taught plain kana', () => {
+    expect(CATEGORIES_BY_ID.youon?.dependsOnCategoryIds).toEqual(expect.arrayContaining(['hiragana', 'katakana']))
+    const cumulative = getCumulativeCharacterIds('youon-ka-row')
+    expect(cumulative).toEqual(expect.arrayContaining(['a', 'ka', 'n'])) // hiragana
+    expect(cumulative).toEqual(expect.arrayContaining(['katakana-a', 'katakana-ka', 'katakana-chouon'])) // katakana
+  })
+
+  it('introduces the standard 33-combination yōon set for each script (66 characters total)', () => {
+    const hiraganaYouon = CHARACTERS.filter((c) => c.rowId.startsWith('youon-') && !c.rowId.includes('katakana'))
+    const katakanaYouon = CHARACTERS.filter((c) => c.rowId.startsWith('youon-katakana-'))
+    expect(hiraganaYouon).toHaveLength(33)
+    expect(katakanaYouon).toHaveLength(33)
+    // Spot-check a few well-known combinations exist with the right glyphs.
+    expect(CHARACTERS_BY_ID.kya?.kana).toBe('きゃ')
+    expect(CHARACTERS_BY_ID.rya?.kana).toBe('りゃ')
+    expect(CHARACTERS_BY_ID['katakana-kya']?.kana).toBe('キャ')
+    expect(CHARACTERS_BY_ID['katakana-rya']?.kana).toBe('リャ')
+  })
+
+  it('every yōon character is a 2-glyph, 1-character-id mora (the documented "one glyph = one mora" break)', () => {
+    const youonChars = CHARACTERS.filter((c) => c.rowId.startsWith('youon-'))
+    expect(youonChars.length).toBeGreaterThan(0)
+    for (const c of youonChars) {
+      expect([...c.kana], `"${c.id}" (${c.kana}) should be exactly 2 glyphs`).toHaveLength(2)
+    }
+  })
+
+  it('a real yōon word\'s characterIds is shorter than its glyph count — the exact mismatch AccentedKana/buildAccentData.mjs guard against', () => {
+    // きゃく (kyaku): 2 characterIds (kya, ku) but 3 glyphs (き/ゃ/く) — see
+    // WordCard.test.tsx for the rendering-level proof this is handled
+    // safely, and buildAccentData.mjs's length-mismatch guard.
+    const word = WORDS_BY_ID['youon-ka-kyaku']
+    expect(word).toBeDefined()
+    expect(word.characterIds).toHaveLength(2)
+    expect([...word.kana]).toHaveLength(3)
+  })
+
+  // 14 rows -> 10 (2026-08-15): ちゃ/にゃ and みゃ/りゃ each merged into one
+  // row per script (real everyday vocabulary for にゃ/みゃ/りゃ alone was
+  // too thin to justify a dedicated row — see words.ts's comments).
+  it('the hiragana yōon rows (order 0-4) and katakana yōon rows (order 5-9) share one monotonic order sequence within the category', () => {
+    const youonRows = ROWS.filter((r) => r.categoryId === 'youon').sort((a, b) => a.order - b.order)
+    expect(youonRows).toHaveLength(10)
+    expect(youonRows.map((r) => r.order)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+    expect(youonRows.slice(0, 5).every((r) => !r.id.includes('katakana'))).toBe(true)
+    expect(youonRows.slice(5).every((r) => r.id.includes('katakana'))).toBe(true)
+  })
+
+  it('a later katakana yōon row\'s cumulative pool includes earlier hiragana yōon rows\' characters too (same-category, order-scoped)', () => {
+    const cumulative = getCumulativeCharacterIds('youon-katakana-ma-ra-row')
+    expect(cumulative).toEqual(expect.arrayContaining(['kya', 'rya'])) // hiragana yōon, earlier order
+    expect(cumulative).toEqual(expect.arrayContaining(['katakana-kya', 'katakana-rya'])) // katakana yōon, own row
+  })
+
+  it('an early yōon row\'s cumulative pool does NOT include later yōon rows\' characters (order still matters within the category)', () => {
+    const cumulative = getCumulativeCharacterIds('youon-ka-row')
+    expect(cumulative).not.toEqual(expect.arrayContaining(['rya', 'katakana-kya']))
   })
 })

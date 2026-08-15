@@ -31,7 +31,7 @@ async function main() {
   }
 
   const body = entries
-    .map(([id, strokes]) => `  ${id}: [${strokes.map((s) => JSON.stringify(s)).join(', ')}],`)
+    .map(([id, strokes]) => `  ${JSON.stringify(id)}: [${strokes.map((s) => JSON.stringify(s)).join(', ')}],`)
     .join('\n')
 
   const content = `// Hiragana stroke-order path data, sourced from the KanjiVG project

@@ -27,10 +27,9 @@ export function normalizeKana(text: string): string {
 // character in range by that offset converts script wholesale. Characters
 // outside either range (ー, ・, spaces, ...) pass through unchanged, so
 // applying the "wrong" direction to a word that's already in the target
-// script is a harmless no-op rather than mangling it. Added for
-// src/lib/voiceQuality.ts's reading normalization — not used by
-// isAnswerCorrect below, so this doesn't change any existing answer-checking
-// behavior.
+// script is a harmless no-op rather than mangling it. toHiragana is
+// exported for src/lib/voiceQuality.ts's ASR reading normalization too, in
+// addition to its use in isAnswerCorrect below.
 function shiftKanaScript(text: string, from: [number, number], offset: number): string {
   return [...text]
     .map((ch) => {
@@ -39,6 +38,7 @@ function shiftKanaScript(text: string, from: [number, number], offset: number): 
     })
     .join('')
 }
+const toKatakana = (text: string) => shiftKanaScript(text, [0x3041, 0x3096], 0x60)
 export const toHiragana = (text: string) => shiftKanaScript(text, [0x30a1, 0x30f6], -0x60)
 
 // Alternate acceptable spellings of word.romaji, built by walking
@@ -69,7 +69,10 @@ function romajiVariants(word: Pick<AnchorWord, 'romaji' | 'characterIds'>): stri
   ])
 }
 
-// A typed answer is correct if it matches the word's kana, its canonical
+// A typed answer is correct if it matches the word's kana IN EITHER SCRIPT
+// (a katakana word like サッカー also accepts さっかー, and vice versa — Kana
+// Typing is testing whether the learner knows the sound and can type it in
+// kana, not which script the word happens to be printed in), its canonical
 // romaji, or a romaji variant using an alternate romanization system (see
 // romajiVariants) — the learner can answer any of these ways.
 export function isAnswerCorrect(
@@ -77,7 +80,11 @@ export function isAnswerCorrect(
   word: Pick<AnchorWord, 'kana' | 'romaji'> & Partial<Pick<AnchorWord, 'characterIds'>>,
 ): boolean {
   const normInput = normalizeRomaji(input)
-  if (normalizeKana(input) === normalizeKana(word.kana) || normInput === normalizeRomaji(word.romaji)) return true
+  const normInputKana = normalizeKana(input)
+  const kanaMatches = [word.kana, toKatakana(word.kana), toHiragana(word.kana)].some(
+    (variant) => normInputKana === normalizeKana(variant),
+  )
+  if (kanaMatches || normInput === normalizeRomaji(word.romaji)) return true
   if (!word.characterIds) return false
   return romajiVariants({ romaji: word.romaji, characterIds: word.characterIds }).some(
     (variant) => normInput === normalizeRomaji(variant),

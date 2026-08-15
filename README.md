@@ -1,6 +1,6 @@
 # Kana Game
 
-A hiragana-learning web app: one gojūon row at a time, paired with real everyday words, drilled through four graded mini-games plus free-form tracing practice. Built with React, TypeScript, Vite, Tailwind CSS, React Router, and Zustand; deployed to GitHub Pages.
+A kana-learning web app (hiragana and katakana): one gojūon row at a time, paired with real everyday words, drilled through four graded mini-games plus free-form tracing practice. Built with React, TypeScript, Vite, Tailwind CSS, React Router, and Zustand; deployed to GitHub Pages.
 
 For architecture, data model, and development guidance, see [CLAUDE.md](./CLAUDE.md) — it's written for both human and AI contributors and is the fastest way to get oriented.
 
