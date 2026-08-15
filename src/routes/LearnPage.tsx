@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { CharacterCard } from '../components/CharacterCard'
 import { WordCard } from '../components/WordCard'
 import { CHARACTERS_BY_ID } from '../data/characters'
-import { ROWS_BY_ID } from '../data/curriculum'
+import { CATEGORIES_BY_ID, ROWS_BY_ID } from '../data/curriculum'
 import { WORDS_BY_ROW } from '../data/words'
 import { useTTS } from '../hooks/useTTS'
 import { useProgressStore } from '../store/progressStore'
@@ -14,13 +14,23 @@ import { useProgressStore } from '../store/progressStore'
 // Step B: show every word buildable from this row's characters +
 // everything already known, all at once — this is where character and
 // vocabulary actually connect. See curriculum.ts/words.ts.
+//
+// 'contrast-pairs' categories (促音/長音) skip straight to step B: the rule
+// is taught BY the words (minimal pairs like おと/おっと), not by
+// flashcarding っ/ッ in isolation first — see
+// docs/curriculum-extensibility.md. Step B's word grid already IS "listen
+// through the words that isolate the rule" once there's no preceding
+// flashcard step, so it needs no separate rendering path of its own, just a
+// different entry point and a "Back" that returns to the hub instead of a
+// recap step that doesn't exist for this learnStyle.
 export function LearnPage() {
   const { categoryId, rowId } = useParams<{ categoryId: string; rowId: string }>()
   const navigate = useNavigate()
   const markRowTaught = useProgressStore((s) => s.markRowTaught)
 
   const row = rowId ? ROWS_BY_ID[rowId] : undefined
-  const [step, setStep] = useState<'A' | 'recap' | 'B'>('A')
+  const isContrastPairs = CATEGORIES_BY_ID[categoryId ?? '']?.learnStyle === 'contrast-pairs'
+  const [step, setStep] = useState<'A' | 'recap' | 'B'>(isContrastPairs ? 'B' : 'A')
   const [charIndex, setCharIndex] = useState(0)
   const { speak } = useTTS()
 
@@ -138,7 +148,9 @@ export function LearnPage() {
 
   return (
     <div className="flex flex-col items-center gap-6">
-      <h1 className="text-2xl font-bold">{row.label} — words you can already read</h1>
+      <h1 className="text-2xl font-bold">
+        {isContrastPairs ? `${row.label} — listen and compare` : `${row.label} — words you can already read`}
+      </h1>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         {words.map((word) => (
           <WordCard key={word.id} word={word} />
@@ -147,7 +159,7 @@ export function LearnPage() {
       <div className="flex gap-3">
         <button
           type="button"
-          onClick={() => setStep('recap')}
+          onClick={() => (isContrastPairs ? navigate(`/practice/${categoryId}/${rowId}`) : setStep('recap'))}
           className="rounded-full border border-neutral-300 px-6 py-2 font-semibold hover:border-blue-400 dark:border-neutral-600"
         >
           Back

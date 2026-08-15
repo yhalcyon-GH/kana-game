@@ -5,7 +5,7 @@ import { BackToHubLink } from '../../components/BackToHubLink'
 import { PracticeSummary } from '../../components/PracticeSummary'
 import { StrokeOrderAnimation } from '../../components/StrokeOrderAnimation'
 import { CHARACTERS_BY_ID } from '../../data/characters'
-import { ROWS_BY_ID } from '../../data/curriculum'
+import { CATEGORIES_BY_ID, ROWS_BY_ID } from '../../data/curriculum'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
 import { useTTS } from '../../hooks/useTTS'
 
@@ -21,12 +21,19 @@ const WORD_CHAR_SIZE = 130 // CSS pixels per character, word phase
 // Two phases: every character on its own (as before), then every word from
 // this row spelled out in one continuous guide — carrying single-character
 // stroke order into the multi-character rhythm of actually writing a word.
+//
+// 'contrast-pairs' categories (促音/長音) skip the character phase entirely
+// and start straight in the word phase — there's no isolated "trace this
+// one new glyph on its own" step for these, even for 促音's っ (a genuine
+// new glyph); the rule is only ever traced as part of a whole word. See
+// docs/curriculum-extensibility.md.
 export function TracingPage() {
   const { categoryId, rowId } = useParams<{ categoryId: string; rowId: string }>()
   const navigate = useNavigate()
   const { isScopeReady, getScopeQuizCharacterIds, getScopeWords } = useCurriculum()
   const { speak, supported } = useTTS()
   const isReview = rowId === REVIEW_SCOPE_ID
+  const isContrastPairs = CATEGORIES_BY_ID[categoryId ?? '']?.learnStyle === 'contrast-pairs'
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const isDrawingRef = useRef(false)
 
@@ -49,19 +56,26 @@ export function TracingPage() {
 
   // Tracing goes through every character/word in order (like Learn), not a
   // shuffled/capped subset — it's stroke-order practice, not a quiz, so
-  // there's no benefit to randomizing or limiting round count.
+  // there's no benefit to randomizing or limiting round count. Contrast-pairs
+  // categories start directly in the 'words' phase (see file header) and
+  // never populate a 'chars' queue at all.
   const startSession = useCallback(() => {
-    setPhase('chars')
-    setQueue(charPool)
+    if (isContrastPairs) {
+      setPhase('words')
+      setQueue(wordIds)
+    } else {
+      setPhase('chars')
+      setQueue(charPool)
+    }
     setRoundIndex(0)
     setFinished(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [charPool])
+  }, [charPool, wordIds, isContrastPairs])
 
   useEffect(() => {
-    if (charPool.length > 0) startSession()
+    if (isContrastPairs ? wordIds.length > 0 : charPool.length > 0) startSession()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [charPool.length])
+  }, [charPool.length, wordIds.length, isContrastPairs])
 
   const currentCharId = phase === 'chars' && queue.length > 0 ? queue[roundIndex] : undefined
   const currentWord = phase === 'words' && queue.length > 0 ? wordsById[queue[roundIndex]] : undefined
@@ -162,16 +176,24 @@ export function TracingPage() {
   }, [roundIndex, queue.length, phase, wordIds])
 
   if (!rowId || !isScopeReady(rowId)) return null
-  if (charPool.length === 0) return null
+  // Contrast-pairs categories may have zero new characters of their own
+  // (see docs/curriculum-extensibility.md's note on 長音) — checking
+  // charPool here would incorrectly hide Tracing entirely for those, so
+  // check the queue that phase actually starts from instead.
+  if (isContrastPairs ? words.length === 0 : charPool.length === 0) return null
 
   if (finished) {
     return (
       <PracticeSummary
         title="Tracing complete!"
-        stats={[
-          { label: 'Characters traced', value: charPool.length },
-          { label: 'Words traced', value: wordIds.length },
-        ]}
+        stats={
+          isContrastPairs
+            ? [{ label: 'Words traced', value: wordIds.length }]
+            : [
+                { label: 'Characters traced', value: charPool.length },
+                { label: 'Words traced', value: wordIds.length },
+              ]
+        }
         backHref={isReview ? '/practice/review' : `/practice/${categoryId}/${rowId}`}
         onRetry={startSession}
       />

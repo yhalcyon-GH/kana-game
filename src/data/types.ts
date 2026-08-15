@@ -26,6 +26,14 @@ export type ScriptCategory = {
   id: string
   label: string
   learnStyle: 'character-set' | 'contrast-pairs'
+  // Other categories this one's content draws characters from, if any — see
+  // getCumulativeCharacterIds in curriculum.ts. A cross-cutting category
+  // like 促音 (whose words mix hiragana AND katakana syllables, since it's
+  // taught after both scripts are known) lists both; an independent script
+  // track like katakana lists none, since learning it doesn't require or
+  // build on hiragana. Do NOT infer this from CATEGORIES array order —
+  // "comes later in the list" isn't the same claim as "depends on."
+  dependsOnCategoryIds?: string[]
 }
 
 export type GojuonRow = {

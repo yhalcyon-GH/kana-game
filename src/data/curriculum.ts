@@ -1,11 +1,16 @@
 import type { GojuonRow, ScriptCategory } from './types'
 
-// Only one category exists so far — see docs/curriculum-extensibility.md
-// for the decided (not yet implemented beyond this scaffolding) design for
-// katakana/sokuon/chōon/yōon/特殊音. Every row below is tagged with this id;
-// nothing else in the app should hardcode the string 'hiragana'.
+// All six planned categories now exist (hiragana/katakana/sokuon/chōon/
+// yōon/特殊音) — see docs/curriculum-extensibility.md for the full design
+// and its "Progress" section for how each landed. Every row below is
+// tagged with a categoryId; nothing else in the app should hardcode the
+// string 'hiragana'.
 export const DEFAULT_CATEGORY_ID = 'hiragana'
 export const KATAKANA_CATEGORY_ID = 'katakana'
+export const SOKUON_CATEGORY_ID = 'sokuon'
+export const CHOUON_CATEGORY_ID = 'chouon'
+export const YOUON_CATEGORY_ID = 'youon'
+export const TOKUSHUON_CATEGORY_ID = 'tokushuon'
 
 export const CATEGORIES: ScriptCategory[] = [
   { id: DEFAULT_CATEGORY_ID, label: 'ひらがな', learnStyle: 'character-set' },
@@ -15,6 +20,74 @@ export const CATEGORIES: ScriptCategory[] = [
   // because it needs none of the contrast-pairs/zero-new-character
   // machinery that 促音/長音 will — see docs/curriculum-extensibility.md.
   { id: KATAKANA_CATEGORY_ID, label: 'カタカナ', learnStyle: 'character-set' },
+  // 促音 (sokuon, the small-tsu gemination mark) — the first 'contrast-pairs'
+  // category: Learn listens through minimal-pair WORDS (おと vs おっと)
+  // instead of flashcarding っ/ッ in isolation, Tracing is word-level only,
+  // and Practice drops Kana Quiz (no isolated character to quiz on in the
+  // same way) — see docs/curriculum-extensibility.md and LearnPage.tsx/
+  // PracticeHubPage.tsx/TracingPage.tsx, all of which branch on
+  // `learnStyle` rather than special-casing this category id directly.
+  {
+    id: SOKUON_CATEGORY_ID,
+    label: '促音',
+    learnStyle: 'contrast-pairs',
+    dependsOnCategoryIds: [DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID],
+  },
+  // 長音 (chōon, long vowels) — the second 'contrast-pairs' category, and
+  // the first with NO new characters of its own: katakana's ー was already
+  // taught fresh under カタカナ単音 (katakana-a-row), and hiragana has
+  // no dedicated long-vowel glyph at all — long vowels are written by
+  // repeating/combining existing vowel characters (おかあさん, せんせい,
+  // とうきょう), which is exactly the nuance this lesson's minimal-pair
+  // words teach. Its row's `characterIds` is therefore `[]` — see
+  // docs/curriculum-extensibility.md's "Remaining structural note" and
+  // curriculum.test.ts's zero-new-character coverage. Depends on both
+  // hiragana and katakana for the same reason sokuon does: its words mix
+  // real syllables from both scripts.
+  {
+    id: CHOUON_CATEGORY_ID,
+    label: '長音',
+    learnStyle: 'contrast-pairs',
+    dependsOnCategoryIds: [DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID],
+  },
+  // 拗音 (yōon, contracted sounds like きゃ/kya) — back to 'character-set'
+  // (flashcard -> recap -> words, all four mini-games), same shape as
+  // hiragana/katakana, NOT 'contrast-pairs' like sokuon/chōon — see
+  // docs/curriculum-extensibility.md. Depends on both hiragana and katakana
+  // for the same reason sokuon/chōon do: real yōon vocabulary freely mixes
+  // in already-taught plain kana (きゃく uses きゃ + く, ミャンマー uses
+  // ミャ + ン + マ + ー) alongside its own new characters — it does NOT
+  // need `dependsOnCategoryIds` to include sokuon/chōon too: content here
+  // was deliberately written to avoid っ/ッ/ー-requiring words needing the
+  // sokuon category specifically (ー itself is fine — it's a KATAKANA
+  // category character, not sokuon/chōon), keeping this category's
+  // prerequisites simple and explicit rather than accreting every prior
+  // category "just in case".
+  {
+    id: YOUON_CATEGORY_ID,
+    label: '拗音',
+    learnStyle: 'character-set',
+    dependsOnCategoryIds: [DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID],
+  },
+  // 特殊音 (tokushuon, extended katakana combinations for loanword sounds) —
+  // the sixth and final planned category. 'character-set' like 拗音/カタカナ
+  // (pure content, no flow changes needed). Genuinely katakana-ONLY, unlike
+  // every other non-hiragana category above: hiragana never spells loanword
+  // sounds this way, so this deliberately does NOT list DEFAULT_CATEGORY_ID
+  // in dependsOnCategoryIds — see the CHARACTERS comment block for the full
+  // combination list and rationale. It DOES depend on sokuon (in addition
+  // to katakana) because real example vocabulary needs っ/ッ for gemination
+  // (e.g. ジェットコースター "roller coaster") — chōon's own long-vowel mark
+  // needs no separate dependency since it's already part of the katakana
+  // category (katakana-chouon, taught under カタカナ単音), not the chōon
+  // category (which contributes no characters of its own, see
+  // CHOUON_CATEGORY_ID above).
+  {
+    id: TOKUSHUON_CATEGORY_ID,
+    label: '特殊音',
+    learnStyle: 'character-set',
+    dependsOnCategoryIds: [KATAKANA_CATEGORY_ID, SOKUON_CATEGORY_ID],
+  },
 ]
 
 export const CATEGORIES_BY_ID: Record<string, ScriptCategory> = Object.fromEntries(CATEGORIES.map((c) => [c.id, c]))
@@ -147,6 +220,223 @@ export const ROWS: GojuonRow[] = [
     order: 7,
     characterIds: ['katakana-ra', 'katakana-ri', 'katakana-ru', 'katakana-re', 'katakana-ro', 'katakana-wa', 'katakana-wo'],
   },
+
+  // ===== 促音 (sokuon) — own order sequence, starting at 0 again =====
+  // A single row covering BOTH hiragana's っ and katakana's ッ together —
+  // per the design, 促音 teaches the rule once, not once per script (unlike
+  // hiragana/katakana above, which each get their own full row sequence).
+  // See docs/curriculum-extensibility.md's "促音 (sokuon) and 長音 (chōon)"
+  // section. Label is deliberately kana-only (no 促音 kanji) since RowMap
+  // renders it with the hand-subsetted .font-kana font, which only ever
+  // covers hiragana + katakana + ～/・ — see src/index.css's header comment.
+  {
+    id: 'sokuon-row',
+    categoryId: SOKUON_CATEGORY_ID,
+    label: 'っ・ッ',
+    order: 0,
+    characterIds: ['sokuon', 'katakana-sokuon'],
+  },
+
+  // ===== 長音 (chōon) — own order sequence, starting at 0 again =====
+  // A single row spanning both scripts, same shape as sokuon-row above —
+  // per the design, 長音 teaches the rule once, reviewing katakana's ー
+  // (already taught under カタカナ単音) alongside hiragana's several
+  // vowel-repetition spelling patterns, rather than a per-script lesson.
+  // `characterIds: []` is deliberate, not an oversight — this row
+  // introduces NO new characters (see the CHOUON_CATEGORY_ID comment
+  // above); every place that reads a row's `characterIds` (Learn's
+  // flashcard step, Tracing's character phase, Kana Quiz's pool) already
+  // branches on `learnStyle` first and never reaches an empty-array bug
+  // for a 'contrast-pairs' row — see curriculum.test.ts and
+  // src/App.test.tsx's zero-new-character coverage, and
+  // docs/curriculum-extensibility.md. Label is 'ー' (kana-only, matching
+  // sokuon-row's convention — see its comment) even though hiragana's own
+  // words in this lesson don't use that literal glyph, since ー is the
+  // universally recognized long-vowel symbol and is already in the
+  // font-kana subset (katakana-chouon's `kana`).
+  {
+    id: 'chouon-row',
+    categoryId: CHOUON_CATEGORY_ID,
+    label: 'ー',
+    order: 0,
+    characterIds: [],
+  },
+
+  // ===== 拗音 (yōon) — own order sequence, starting at 0 again =====
+  // Unlike sokuon/chōon (one combined row for both scripts, since those
+  // teach a single rule), yōon has real per-consonant-group structure worth
+  // multiple rows on each script, like hiragana/katakana's own rows do — but
+  // 拗音 is still ONE category (per docs/curriculum-extensibility.md's
+  // ScriptCategory id list), and `order` is scoped per-category, not
+  // per-script-within-a-category — there's no schema support for two
+  // independent order-0 sequences inside one category (getNextRowId/
+  // getCumulativeCharacterIds only filter by categoryId+order). So this is
+  // ONE monotonic order sequence (0-13) split into two back-to-back blocks:
+  // all 7 hiragana yōon rows first (order 0-6, mirroring the same
+  // か/さ/た/な/は/ま/ら consonant order hiragana's own rows use — や/わ are
+  // skipped since neither combines with ゃゅょ), then all 7 katakana yōon
+  // rows (order 7-13). This is a judgment call, not a spec requirement —
+  // teaching hiragana's full yōon set before starting katakana's mirrors
+  // how the rest of the curriculum already treats the two scripts as
+  // separate large blocks (all of hiragana, THEN all of katakana), rather
+  // than interleaving corresponding hiragana/katakana rows lesson-by-lesson.
+  // Each row folds its dakuten/handakuten combos in together, exactly like
+  // ka-row/sa-row/ta-row/ha-row already do for the base gojūon (きゃ行 +
+  // ぎゃ行 taught together, etc.) — see characters.ts's comment for why
+  // ぢゃ行 doesn't exist as a row.
+  {
+    id: 'youon-ka-row',
+    categoryId: YOUON_CATEGORY_ID,
+    label: 'きゃ・きゅ・きょ・ぎゃ・ぎゅ・ぎょ',
+    order: 0,
+    characterIds: ['kya', 'kyu', 'kyo', 'gya', 'gyu', 'gyo'],
+  },
+  {
+    id: 'youon-sha-row',
+    categoryId: YOUON_CATEGORY_ID,
+    label: 'しゃ・しゅ・しょ・じゃ・じゅ・じょ',
+    order: 1,
+    characterIds: ['sha', 'shu', 'sho', 'ja', 'ju', 'jo'],
+  },
+  {
+    id: 'youon-cha-row',
+    categoryId: YOUON_CATEGORY_ID,
+    label: 'ちゃ・ちゅ・ちょ',
+    order: 2,
+    characterIds: ['cha', 'chu', 'cho'],
+  },
+  {
+    id: 'youon-na-row',
+    categoryId: YOUON_CATEGORY_ID,
+    label: 'にゃ・にゅ・にょ',
+    order: 3,
+    characterIds: ['nya', 'nyu', 'nyo'],
+  },
+  {
+    id: 'youon-ha-row',
+    categoryId: YOUON_CATEGORY_ID,
+    label: 'ひゃ・ひゅ・ひょ・びゃ・びゅ・びょ・ぴゃ・ぴゅ・ぴょ',
+    order: 4,
+    characterIds: ['hya', 'hyu', 'hyo', 'bya', 'byu', 'byo', 'pya', 'pyu', 'pyo'],
+  },
+  {
+    id: 'youon-ma-row',
+    categoryId: YOUON_CATEGORY_ID,
+    label: 'みゃ・みゅ・みょ',
+    order: 5,
+    characterIds: ['mya', 'myu', 'myo'],
+  },
+  {
+    id: 'youon-ra-row',
+    categoryId: YOUON_CATEGORY_ID,
+    label: 'りゃ・りゅ・りょ',
+    order: 6,
+    characterIds: ['rya', 'ryu', 'ryo'],
+  },
+  {
+    id: 'youon-katakana-ka-row',
+    categoryId: YOUON_CATEGORY_ID,
+    label: 'キャ・キュ・キョ・ギャ・ギュ・ギョ',
+    order: 7,
+    characterIds: ['katakana-kya', 'katakana-kyu', 'katakana-kyo', 'katakana-gya', 'katakana-gyu', 'katakana-gyo'],
+  },
+  {
+    id: 'youon-katakana-sha-row',
+    categoryId: YOUON_CATEGORY_ID,
+    label: 'シャ・シュ・ショ・ジャ・ジュ・ジョ',
+    order: 8,
+    characterIds: ['katakana-sha', 'katakana-shu', 'katakana-sho', 'katakana-ja', 'katakana-ju', 'katakana-jo'],
+  },
+  {
+    id: 'youon-katakana-cha-row',
+    categoryId: YOUON_CATEGORY_ID,
+    label: 'チャ・チュ・チョ',
+    order: 9,
+    characterIds: ['katakana-cha', 'katakana-chu', 'katakana-cho'],
+  },
+  {
+    id: 'youon-katakana-na-row',
+    categoryId: YOUON_CATEGORY_ID,
+    label: 'ニャ・ニュ・ニョ',
+    order: 10,
+    characterIds: ['katakana-nya', 'katakana-nyu', 'katakana-nyo'],
+  },
+  {
+    id: 'youon-katakana-ha-row',
+    categoryId: YOUON_CATEGORY_ID,
+    label: 'ヒャ・ヒュ・ヒョ・ビャ・ビュ・ビョ・ピャ・ピュ・ピョ',
+    order: 11,
+    characterIds: [
+      'katakana-hya', 'katakana-hyu', 'katakana-hyo',
+      'katakana-bya', 'katakana-byu', 'katakana-byo',
+      'katakana-pya', 'katakana-pyu', 'katakana-pyo',
+    ],
+  },
+  {
+    id: 'youon-katakana-ma-row',
+    categoryId: YOUON_CATEGORY_ID,
+    label: 'ミャ・ミュ・ミョ',
+    order: 12,
+    characterIds: ['katakana-mya', 'katakana-myu', 'katakana-myo'],
+  },
+  {
+    id: 'youon-katakana-ra-row',
+    categoryId: YOUON_CATEGORY_ID,
+    label: 'リャ・リュ・リョ',
+    order: 13,
+    characterIds: ['katakana-rya', 'katakana-ryu', 'katakana-ryo'],
+  },
+
+  // ===== 特殊音 (tokushuon) — own order sequence, starting at 0 again =====
+  // Extended katakana digraphs for loanword sounds that don't fit standard
+  // gojūon or 拗音 — see characters.ts's ===== 特殊音 ===== comment block
+  // for the full 23-combination set and how each id was chosen. Grouped
+  // into 6 rows by base-consonant family (mirroring how ka-row/sa-row/...
+  // fold dakuten/handakuten combos together), in an order that goes
+  // "nearest to already-familiar sounds first": ファ行 (built on already-
+  // familiar フ) before ヴ行 (a wholly new base glyph).
+  {
+    id: 'tokushuon-fa-row',
+    categoryId: TOKUSHUON_CATEGORY_ID,
+    label: 'ファ・フィ・フェ・フォ',
+    order: 0,
+    characterIds: ['katakana-fa', 'katakana-fi', 'katakana-fe', 'katakana-fo'],
+  },
+  {
+    id: 'tokushuon-ti-row',
+    categoryId: TOKUSHUON_CATEGORY_ID,
+    label: 'ティ・ディ・トゥ・ドゥ',
+    order: 1,
+    characterIds: ['katakana-ti', 'katakana-di', 'katakana-tu', 'katakana-du'],
+  },
+  {
+    id: 'tokushuon-wi-row',
+    categoryId: TOKUSHUON_CATEGORY_ID,
+    label: 'ウィ・ウェ・ウォ',
+    order: 2,
+    characterIds: ['katakana-wi', 'katakana-we', 'katakana-uo'],
+  },
+  {
+    id: 'tokushuon-va-row',
+    categoryId: TOKUSHUON_CATEGORY_ID,
+    label: 'ヴ・ヴァ・ヴィ・ヴェ・ヴォ',
+    order: 3,
+    characterIds: ['katakana-vu', 'katakana-va', 'katakana-vi', 'katakana-ve', 'katakana-vo'],
+  },
+  {
+    id: 'tokushuon-che-row',
+    categoryId: TOKUSHUON_CATEGORY_ID,
+    label: 'チェ・ジェ・シェ',
+    order: 4,
+    characterIds: ['katakana-che', 'katakana-je', 'katakana-she'],
+  },
+  {
+    id: 'tokushuon-tsa-row',
+    categoryId: TOKUSHUON_CATEGORY_ID,
+    label: 'ツァ・ツィ・ツェ・ツォ',
+    order: 5,
+    characterIds: ['katakana-tsa', 'katakana-tsi', 'katakana-tse', 'katakana-tso'],
+  },
 ]
 
 export const ROWS_BY_ID: Record<string, GojuonRow> = Object.fromEntries(
@@ -157,11 +447,12 @@ export function getRowOrder(rowId: string): number {
   return ROWS_BY_ID[rowId]?.order ?? -1
 }
 
-// These three all scope their search to the SAME category as `rowId` — once
-// a second category exists, its rows number their own `order` starting
-// from 0 independently, so cross-category order comparisons would be
-// meaningless (and cross-category "cumulative characters" would be wrong:
-// katakana isn't a prerequisite pool for a hiragana word's distractors).
+// getPreviousRowId/getNextRowId both scope their search to the SAME category
+// as `rowId` — once a second category exists, its rows number their own
+// `order` starting from 0 independently, so cross-category order
+// comparisons would be meaningless ("next row after the last katakana row"
+// isn't a question these two answer — see getNextRowId('katakana-ra-row')
+// returning null, not the first sokuon row).
 export function getPreviousRowId(rowId: string): string | null {
   const row = ROWS_BY_ID[rowId]
   if (!row) return null
@@ -175,10 +466,25 @@ export function getNextRowId(rowId: string): string | null {
 }
 
 // All character ids introduced at or before the given row (inclusive) WITHIN
-// THE SAME CATEGORY, i.e. the vocabulary-eligible character pool once that
-// row is unlocked.
+// THE SAME CATEGORY, PLUS every character from any category explicitly
+// listed in this row's category's `dependsOnCategoryIds` — i.e. the
+// vocabulary/distractor-eligible character pool once that row is unlocked.
+//
+// This is deliberately NOT "every category declared earlier in CATEGORIES,"
+// which was tried and reverted: katakana is declared after hiragana but
+// doesn't depend on it (learning カ doesn't require か), and that version
+// leaked all 71 hiragana characters into every katakana row's distractor
+// pool — e.g. katakana-a-row's Kana Quiz could show hiragana あ as a wrong
+// answer for ア. `dependsOnCategoryIds` makes each category's real
+// prerequisites an explicit fact, not an accident of array order — see
+// ScriptCategory's comment in data/types.ts. 促音 depends on both hiragana
+// and katakana because its words genuinely mix scripts (おっと, ベッド, ...);
+// katakana depends on nothing, so its pool stays katakana-only.
 export function getCumulativeCharacterIds(rowId: string): string[] {
   const row = ROWS_BY_ID[rowId]
   if (!row) return []
-  return ROWS.filter((r) => r.categoryId === row.categoryId && r.order <= row.order).flatMap((r) => r.characterIds)
+  const dependsOnCategoryIds = new Set(CATEGORIES_BY_ID[row.categoryId]?.dependsOnCategoryIds ?? [])
+  return ROWS.filter(
+    (r) => (r.categoryId === row.categoryId && r.order <= row.order) || dependsOnCategoryIds.has(r.categoryId),
+  ).flatMap((r) => r.characterIds)
 }

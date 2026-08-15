@@ -51,7 +51,7 @@ export const CONFUSABLE_PAIRS: Record<string, string[]> = {
   // katakana — shape confusions specific to that script (different glyphs
   // than the hiragana pairs above, so listed separately)
   'katakana-shi': ['katakana-tsu'],
-  'katakana-tsu': ['katakana-shi'],
+  'katakana-tsu': ['katakana-shi', 'katakana-sokuon'],
   'katakana-so': ['katakana-n'],
   'katakana-n': ['katakana-so', 'katakana-wa'],
   'katakana-wa': ['katakana-n'],
@@ -67,6 +67,76 @@ export const CONFUSABLE_PAIRS: Record<string, string[]> = {
   'katakana-pe': ['katakana-be'],
   'katakana-bo': ['katakana-po'],
   'katakana-po': ['katakana-bo'],
+
+  // small-vs-full-size kana confusions: っ/ッ (sokuon) are literally a
+  // smaller-printed つ/ツ, the single easiest thing to mix up once both
+  // exist in the same word pool (see curriculum-extensibility.md's sokuon
+  // section). katakana-tsu's entry above already carries the katakana half
+  // of this (merged there instead of duplicated, since that key already
+  // existed for the shi/tsu shape confusion).
+  sokuon: ['tsu'],
+  tsu: ['sokuon'],
+  'katakana-sokuon': ['katakana-tsu'],
+
+  // 拗音 (yōon) dakuten/handakuten confusions — same shape logic as the
+  // ba/pa-style entries above, just for the contracted forms.
+  kya: ['gya'],
+  gya: ['kya'],
+  kyu: ['gyu'],
+  gyu: ['kyu'],
+  kyo: ['gyo'],
+  gyo: ['kyo'],
+  sha: ['ja'],
+  ja: ['sha'],
+  shu: ['ju'],
+  ju: ['shu'],
+  sho: ['jo'],
+  jo: ['sho'],
+  hya: ['bya', 'pya'],
+  bya: ['hya', 'pya'],
+  pya: ['hya', 'bya'],
+  hyu: ['byu', 'pyu'],
+  byu: ['hyu', 'pyu'],
+  pyu: ['hyu', 'byu'],
+  hyo: ['byo', 'pyo'],
+  byo: ['hyo', 'pyo'],
+  pyo: ['hyo', 'byo'],
+  'katakana-kya': ['katakana-gya'],
+  'katakana-gya': ['katakana-kya'],
+  'katakana-kyu': ['katakana-gyu'],
+  'katakana-gyu': ['katakana-kyu'],
+  'katakana-kyo': ['katakana-gyo'],
+  'katakana-gyo': ['katakana-kyo'],
+  'katakana-sha': ['katakana-ja'],
+  'katakana-ja': ['katakana-sha'],
+  'katakana-shu': ['katakana-ju'],
+  'katakana-ju': ['katakana-shu'],
+  'katakana-sho': ['katakana-jo'],
+  'katakana-jo': ['katakana-sho'],
+  'katakana-hya': ['katakana-bya', 'katakana-pya'],
+  'katakana-bya': ['katakana-hya', 'katakana-pya'],
+  'katakana-pya': ['katakana-hya', 'katakana-bya'],
+  'katakana-hyu': ['katakana-byu', 'katakana-pyu'],
+  'katakana-byu': ['katakana-hyu', 'katakana-pyu'],
+  'katakana-pyu': ['katakana-hyu', 'katakana-byu'],
+  'katakana-hyo': ['katakana-byo', 'katakana-pyo'],
+  'katakana-byo': ['katakana-hyo', 'katakana-pyo'],
+  'katakana-pyo': ['katakana-hyo', 'katakana-byo'],
+
+  // 特殊音 (tokushuon) confusions. Voiced/voiceless pairs, same shape as the
+  // ba/pa-style entries above: ティ/ディ and トゥ/ドゥ differ only by a
+  // dakuten. va/vi/ve/vo/vu vs ba/bi/be/bo/bu is the genuinely hard one for
+  // a learner — the v/b distinction barely exists in Japanese phonology, so
+  // ヴ-row characters are easy to misread as their b-row look/sound-alikes.
+  'katakana-ti': ['katakana-di'],
+  'katakana-di': ['katakana-ti'],
+  'katakana-tu': ['katakana-du'],
+  'katakana-du': ['katakana-tu'],
+  'katakana-va': ['katakana-ba'],
+  'katakana-vi': ['katakana-bi'],
+  'katakana-ve': ['katakana-be'],
+  'katakana-vo': ['katakana-bo'],
+  'katakana-vu': ['katakana-bu'],
 }
 
 export function getConfusableIds(charId: string): string[] {

@@ -1,9 +1,25 @@
 import { useMemo } from 'react'
-import { getCumulativeCharacterIds, ROWS, ROWS_BY_ID } from '../data/curriculum'
+import { CHARACTERS_BY_ID } from '../data/characters'
+import { CATEGORIES_BY_ID, getCumulativeCharacterIds, ROWS, ROWS_BY_ID } from '../data/curriculum'
 import type { AnchorWord } from '../data/types'
 import { WORDS_BY_ROW } from '../data/words'
 import { isDue } from '../lib/srs'
 import { useProgressStore } from '../store/progressStore'
+
+// Kana Quiz's "see an isolated character, pick its reading" premise doesn't
+// fit a 'contrast-pairs' category (促音/長音) — there's no single correct
+// romaji for っ/ー in isolation (see characters.ts's sokuon comment). A
+// real row hides the Kana Quiz card entirely for these (PracticeHubPage)
+// and blocks direct navigation to it (KanaQuizPage), but the Review scope
+// mixes every taught row together regardless of category, so it needs its
+// own filter to keep contrast-pairs characters out of ITS Kana Quiz pool
+// without excluding them from other games (they're still fine as Word
+// Builder distractor tiles, for instance).
+function isQuizzableCharacterId(id: string): boolean {
+  const rowId = CHARACTERS_BY_ID[id]?.rowId
+  const categoryId = rowId ? ROWS_BY_ID[rowId]?.categoryId : undefined
+  return CATEGORIES_BY_ID[categoryId ?? '']?.learnStyle !== 'contrast-pairs'
+}
 
 // Pseudo row id used by the Review pages/routes (/practice/review/*) to
 // mean "mix every taught row" instead of one specific row — it reuses the
@@ -72,7 +88,11 @@ export function useCurriculum() {
   // (same fallback as getScopeWords: everything taught, if nothing's due).
   const getScopeQuizCharacterIds = (rowId: string | undefined): string[] => {
     if (!rowId) return []
-    if (rowId === REVIEW_SCOPE_ID) return dueCharacterIds.length > 0 ? dueCharacterIds : unlockedCharacterIds
+    if (rowId === REVIEW_SCOPE_ID) {
+      const due = dueCharacterIds.filter(isQuizzableCharacterId)
+      if (due.length > 0) return due
+      return unlockedCharacterIds.filter(isQuizzableCharacterId)
+    }
     return ROWS_BY_ID[rowId]?.characterIds ?? []
   }
 

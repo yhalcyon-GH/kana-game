@@ -217,6 +217,208 @@ export const CHARACTERS: KanaChar[] = [
   // hiragana's を, it gets no vocabulary/phrase reinforcement).
   { id: 'katakana-wa', kana: 'ワ', romaji: 'wa', rowId: 'katakana-ra-row', type: 'base' },
   { id: 'katakana-wo', kana: 'ヲ', romaji: 'wo', rowId: 'katakana-ra-row', type: 'base' },
+
+  // ===== 促音 (sokuon) =====
+  // っ/ッ mark gemination — a held/doubled consonant, e.g. おと "oto" vs.
+  // おっと "otto" — taught through contrast-pair vocabulary rather than a
+  // flashcard step (see curriculum.ts's sokuon-row and
+  // docs/curriculum-extensibility.md's 'contrast-pairs' learnStyle), but
+  // they're still real characters needing a normal CHARACTERS entry (stroke
+  // data, CONFUSABLE_PAIRS) like any other. `romaji: '-'` is a placeholder,
+  // same convention as katakana-chouon above: っ/ッ's actual spoken
+  // contribution is just doubling the FIRST LETTER of the following mora,
+  // which varies per word (otto's t, gakkou's k, kippu's p, ...) and can't
+  // be captured as one fixed string. Only this placeholder's LENGTH (1)
+  // matters — see answerChecking.ts's romajiVariants, which walks a word's
+  // characterIds in lockstep with its canonical romaji using each
+  // character's romaji LENGTH for bookkeeping; a real typed answer is
+  // checked directly against word.romaji first, so this placeholder is
+  // never itself shown as "the" correct answer.
+  { id: 'sokuon', kana: 'っ', romaji: '-', rowId: 'sokuon-row', type: 'base' },
+  { id: 'katakana-sokuon', kana: 'ッ', romaji: '-', rowId: 'sokuon-row', type: 'base' },
+
+  // ===== 拗音 (yōon) =====
+  // The standard contracted-sound set: a base/dakuten/handakuten consonant
+  // kana + a small ゃ/ゅ/ょ, spelling ONE mora with TWO glyphs (きゃ = "kya",
+  // one syllable, two characters). `kana` is genuinely 2 characters long for
+  // every entry here — this is the one real technical wrinkle in this
+  // category, see WordCard.tsx's AccentedKana and its curriculum.test.ts/
+  // App.test.tsx coverage, plus docs/curriculum-extensibility.md. `romaji`
+  // is a real, full 3-letter reading (not a placeholder like sokuon/chōon
+  // above) since a yōon mora DOES have one fixed, unambiguous pronunciation
+  // regardless of context — answerChecking.ts's romajiVariants bookkeeping
+  // already walks characterIds using each character's OWN romaji length, so
+  // a 3-letter romaji on a 2-glyph character needs no special handling
+  // there either. `type` follows the same base/dakuten/handakuten
+  // convention as the row it contracts (きゃ is 'base' like き; ぎゃ is
+  // 'dakuten' like ぎ; ぴゃ is 'handakuten' like ぴ). ぢゃ/ぢゅ/ぢょ are
+  // omitted — vanishingly rare in modern Japanese, not part of the standard
+  // yōon set taught here (mirrors ぢ/づ already being folded into だ行
+  // rather than getting separate emphasis).
+  // き行/ぎ行
+  { id: 'kya', kana: 'きゃ', romaji: 'kya', rowId: 'youon-ka-row', type: 'base' },
+  { id: 'kyu', kana: 'きゅ', romaji: 'kyu', rowId: 'youon-ka-row', type: 'base' },
+  { id: 'kyo', kana: 'きょ', romaji: 'kyo', rowId: 'youon-ka-row', type: 'base' },
+  { id: 'gya', kana: 'ぎゃ', romaji: 'gya', rowId: 'youon-ka-row', type: 'dakuten' },
+  { id: 'gyu', kana: 'ぎゅ', romaji: 'gyu', rowId: 'youon-ka-row', type: 'dakuten' },
+  { id: 'gyo', kana: 'ぎょ', romaji: 'gyo', rowId: 'youon-ka-row', type: 'dakuten' },
+  // し行/じ行
+  { id: 'sha', kana: 'しゃ', romaji: 'sha', rowId: 'youon-sha-row', type: 'base' },
+  { id: 'shu', kana: 'しゅ', romaji: 'shu', rowId: 'youon-sha-row', type: 'base' },
+  { id: 'sho', kana: 'しょ', romaji: 'sho', rowId: 'youon-sha-row', type: 'base' },
+  { id: 'ja', kana: 'じゃ', romaji: 'ja', rowId: 'youon-sha-row', type: 'dakuten' },
+  { id: 'ju', kana: 'じゅ', romaji: 'ju', rowId: 'youon-sha-row', type: 'dakuten' },
+  { id: 'jo', kana: 'じょ', romaji: 'jo', rowId: 'youon-sha-row', type: 'dakuten' },
+  // ち行 (no dakuten row — see note above)
+  { id: 'cha', kana: 'ちゃ', romaji: 'cha', rowId: 'youon-cha-row', type: 'base' },
+  { id: 'chu', kana: 'ちゅ', romaji: 'chu', rowId: 'youon-cha-row', type: 'base' },
+  { id: 'cho', kana: 'ちょ', romaji: 'cho', rowId: 'youon-cha-row', type: 'base' },
+  // に行 (no dakuten)
+  { id: 'nya', kana: 'にゃ', romaji: 'nya', rowId: 'youon-na-row', type: 'base' },
+  { id: 'nyu', kana: 'にゅ', romaji: 'nyu', rowId: 'youon-na-row', type: 'base' },
+  { id: 'nyo', kana: 'にょ', romaji: 'nyo', rowId: 'youon-na-row', type: 'base' },
+  // ひ行/び行/ぴ行
+  { id: 'hya', kana: 'ひゃ', romaji: 'hya', rowId: 'youon-ha-row', type: 'base' },
+  { id: 'hyu', kana: 'ひゅ', romaji: 'hyu', rowId: 'youon-ha-row', type: 'base' },
+  { id: 'hyo', kana: 'ひょ', romaji: 'hyo', rowId: 'youon-ha-row', type: 'base' },
+  { id: 'bya', kana: 'びゃ', romaji: 'bya', rowId: 'youon-ha-row', type: 'dakuten' },
+  { id: 'byu', kana: 'びゅ', romaji: 'byu', rowId: 'youon-ha-row', type: 'dakuten' },
+  { id: 'byo', kana: 'びょ', romaji: 'byo', rowId: 'youon-ha-row', type: 'dakuten' },
+  { id: 'pya', kana: 'ぴゃ', romaji: 'pya', rowId: 'youon-ha-row', type: 'handakuten' },
+  { id: 'pyu', kana: 'ぴゅ', romaji: 'pyu', rowId: 'youon-ha-row', type: 'handakuten' },
+  { id: 'pyo', kana: 'ぴょ', romaji: 'pyo', rowId: 'youon-ha-row', type: 'handakuten' },
+  // み行 (no dakuten)
+  { id: 'mya', kana: 'みゃ', romaji: 'mya', rowId: 'youon-ma-row', type: 'base' },
+  { id: 'myu', kana: 'みゅ', romaji: 'myu', rowId: 'youon-ma-row', type: 'base' },
+  { id: 'myo', kana: 'みょ', romaji: 'myo', rowId: 'youon-ma-row', type: 'base' },
+  // り行 (no dakuten)
+  { id: 'rya', kana: 'りゃ', romaji: 'rya', rowId: 'youon-ra-row', type: 'base' },
+  { id: 'ryu', kana: 'りゅ', romaji: 'ryu', rowId: 'youon-ra-row', type: 'base' },
+  { id: 'ryo', kana: 'りょ', romaji: 'ryo', rowId: 'youon-ra-row', type: 'base' },
+
+  // ===== 拗音 (yōon) — カタカナ =====
+  // Same 33-combination set as hiragana above, 'katakana-' prefixed per the
+  // established convention (see the カタカナ section's header comment).
+  // Real loanwords use these constantly (キャンプ camp, ジュース juice,
+  // ミャンマー Myanmar) — this is NOT the same thing as 特殊音's extended
+  // combinations for sounds with no native mora at all (ファ/ティ/ヴ/...),
+  // which is a separate, not-yet-started category — see
+  // docs/curriculum-extensibility.md.
+  // キ行/ギ行
+  { id: 'katakana-kya', kana: 'キャ', romaji: 'kya', rowId: 'youon-katakana-ka-row', type: 'base' },
+  { id: 'katakana-kyu', kana: 'キュ', romaji: 'kyu', rowId: 'youon-katakana-ka-row', type: 'base' },
+  { id: 'katakana-kyo', kana: 'キョ', romaji: 'kyo', rowId: 'youon-katakana-ka-row', type: 'base' },
+  { id: 'katakana-gya', kana: 'ギャ', romaji: 'gya', rowId: 'youon-katakana-ka-row', type: 'dakuten' },
+  { id: 'katakana-gyu', kana: 'ギュ', romaji: 'gyu', rowId: 'youon-katakana-ka-row', type: 'dakuten' },
+  { id: 'katakana-gyo', kana: 'ギョ', romaji: 'gyo', rowId: 'youon-katakana-ka-row', type: 'dakuten' },
+  // シ行/ジ行
+  { id: 'katakana-sha', kana: 'シャ', romaji: 'sha', rowId: 'youon-katakana-sha-row', type: 'base' },
+  { id: 'katakana-shu', kana: 'シュ', romaji: 'shu', rowId: 'youon-katakana-sha-row', type: 'base' },
+  { id: 'katakana-sho', kana: 'ショ', romaji: 'sho', rowId: 'youon-katakana-sha-row', type: 'base' },
+  { id: 'katakana-ja', kana: 'ジャ', romaji: 'ja', rowId: 'youon-katakana-sha-row', type: 'dakuten' },
+  { id: 'katakana-ju', kana: 'ジュ', romaji: 'ju', rowId: 'youon-katakana-sha-row', type: 'dakuten' },
+  { id: 'katakana-jo', kana: 'ジョ', romaji: 'jo', rowId: 'youon-katakana-sha-row', type: 'dakuten' },
+  // チ行
+  { id: 'katakana-cha', kana: 'チャ', romaji: 'cha', rowId: 'youon-katakana-cha-row', type: 'base' },
+  { id: 'katakana-chu', kana: 'チュ', romaji: 'chu', rowId: 'youon-katakana-cha-row', type: 'base' },
+  { id: 'katakana-cho', kana: 'チョ', romaji: 'cho', rowId: 'youon-katakana-cha-row', type: 'base' },
+  // ニ行
+  { id: 'katakana-nya', kana: 'ニャ', romaji: 'nya', rowId: 'youon-katakana-na-row', type: 'base' },
+  { id: 'katakana-nyu', kana: 'ニュ', romaji: 'nyu', rowId: 'youon-katakana-na-row', type: 'base' },
+  { id: 'katakana-nyo', kana: 'ニョ', romaji: 'nyo', rowId: 'youon-katakana-na-row', type: 'base' },
+  // ヒ行/ビ行/ピ行
+  { id: 'katakana-hya', kana: 'ヒャ', romaji: 'hya', rowId: 'youon-katakana-ha-row', type: 'base' },
+  { id: 'katakana-hyu', kana: 'ヒュ', romaji: 'hyu', rowId: 'youon-katakana-ha-row', type: 'base' },
+  { id: 'katakana-hyo', kana: 'ヒョ', romaji: 'hyo', rowId: 'youon-katakana-ha-row', type: 'base' },
+  { id: 'katakana-bya', kana: 'ビャ', romaji: 'bya', rowId: 'youon-katakana-ha-row', type: 'dakuten' },
+  { id: 'katakana-byu', kana: 'ビュ', romaji: 'byu', rowId: 'youon-katakana-ha-row', type: 'dakuten' },
+  { id: 'katakana-byo', kana: 'ビョ', romaji: 'byo', rowId: 'youon-katakana-ha-row', type: 'dakuten' },
+  { id: 'katakana-pya', kana: 'ピャ', romaji: 'pya', rowId: 'youon-katakana-ha-row', type: 'handakuten' },
+  { id: 'katakana-pyu', kana: 'ピュ', romaji: 'pyu', rowId: 'youon-katakana-ha-row', type: 'handakuten' },
+  { id: 'katakana-pyo', kana: 'ピョ', romaji: 'pyo', rowId: 'youon-katakana-ha-row', type: 'handakuten' },
+  // ミ行
+  { id: 'katakana-mya', kana: 'ミャ', romaji: 'mya', rowId: 'youon-katakana-ma-row', type: 'base' },
+  { id: 'katakana-myu', kana: 'ミュ', romaji: 'myu', rowId: 'youon-katakana-ma-row', type: 'base' },
+  { id: 'katakana-myo', kana: 'ミョ', romaji: 'myo', rowId: 'youon-katakana-ma-row', type: 'base' },
+  // リ行
+  { id: 'katakana-rya', kana: 'リャ', romaji: 'rya', rowId: 'youon-katakana-ra-row', type: 'base' },
+  { id: 'katakana-ryu', kana: 'リュ', romaji: 'ryu', rowId: 'youon-katakana-ra-row', type: 'base' },
+  { id: 'katakana-ryo', kana: 'リョ', romaji: 'ryo', rowId: 'youon-katakana-ra-row', type: 'base' },
+
+  // ===== 特殊音 (tokushuon) =====
+  // Extended katakana digraphs used to spell loanword sounds that fit
+  // neither standard gojūon nor 拗音's contracted-consonant set — a base
+  // katakana glyph + a small vowel (ァィゥェォ), same "2 glyphs, 1 mora"
+  // shape as yōon's き+ゃ, and covered by the exact same fallbacks (see
+  // WordCard.test.tsx / StrokeOrderAnimation.test.tsx / docs/
+  // curriculum-extensibility.md). This is genuinely katakana-only — real
+  // Japanese never spells a loanword sound this way in hiragana — so, unlike
+  // every other CHARACTERS section, there is no hiragana-id counterpart
+  // here to worry about colliding with; every id below is still
+  // 'katakana-' prefixed anyway, both for consistency with the rest of this
+  // file and because it turns out to matter once (see the ウォ note below).
+  //
+  // Included (23 combinations, the standard/common set): フ-row (ファ/フィ/
+  // フェ/フォ), テ/デ/ト/ド-row (ティ/ディ/トゥ/ドゥ), ウ-row (ウィ/ウェ/ウォ),
+  // ヴ-row (ヴ alone plus ヴァ/ヴィ/ヴェ/ヴォ), チ/ジ/シ-row (チェ/ジェ/シェ),
+  // ツ-row (ツァ/ツィ/ツェ/ツォ).
+  //
+  // Deliberately excluded as too rare/obsolete even by this category's own
+  // "extended" standard: グァ/クァ (gwa/kwa, archaic/rare even in loanwords
+  // now mostly replaced by グア/グラ-style spellings), イェ (ye, vanishingly
+  // rare outside a handful of proper nouns), and the doubled-vowel-only
+  // theoretical combinations some fonts render but no real vocabulary uses
+  // (テュ/デュ, スィ/ズィ). ツィ/ツェ/ツォ in particular have thin real
+  // vocabulary even among the included set — see words.ts's tokushuon-tsa-
+  // row comment.
+  //
+  // `type` follows the same convention as yōon: it mirrors the base
+  // glyph's own type (フ/テ/ト/ウ/チ/シ/ツ are 'base'; デ/ド/ジ are
+  // 'dakuten' since で/ど/じ are). ヴ is treated as 'dakuten' of ウ (it's
+  // literally ウ + a dakuten mark, the same construction as か→が), and
+  // ヴァ/ヴィ/ヴェ/ヴォ inherit that.
+  //
+  // フ行 (フ + small ァィェォ)
+  { id: 'katakana-fa', kana: 'ファ', romaji: 'fa', rowId: 'tokushuon-fa-row', type: 'base' },
+  { id: 'katakana-fi', kana: 'フィ', romaji: 'fi', rowId: 'tokushuon-fa-row', type: 'base' },
+  { id: 'katakana-fe', kana: 'フェ', romaji: 'fe', rowId: 'tokushuon-fa-row', type: 'base' },
+  { id: 'katakana-fo', kana: 'フォ', romaji: 'fo', rowId: 'tokushuon-fa-row', type: 'base' },
+  // テ/デ + small ィ, ト/ド + small ゥ
+  { id: 'katakana-ti', kana: 'ティ', romaji: 'ti', rowId: 'tokushuon-ti-row', type: 'base' },
+  { id: 'katakana-di', kana: 'ディ', romaji: 'di', rowId: 'tokushuon-ti-row', type: 'dakuten' },
+  { id: 'katakana-tu', kana: 'トゥ', romaji: 'tu', rowId: 'tokushuon-ti-row', type: 'base' },
+  { id: 'katakana-du', kana: 'ドゥ', romaji: 'du', rowId: 'tokushuon-ti-row', type: 'dakuten' },
+  // ウ + small ィェォ. ウォ's id is 'katakana-uo', NOT the more obvious
+  // 'katakana-wo' — that id is already taken by ヲ (see the ワ行 section
+  // above), which happens to share the same conventional romaji ('wo').
+  // Two different characters can share a romaji string (they already do:
+  // hiragana わ and katakana-wa both are 'wa') but not an id, so this one
+  // needed a distinct id; 'uo' names it by its actual glyph construction
+  // (ウ='u' + small ォ='o') instead, similar in spirit to ぢ/づ's id vs.
+  // displayed-romaji split ('dji'/'ji', 'dzu'/'zu') earlier in this file.
+  { id: 'katakana-wi', kana: 'ウィ', romaji: 'wi', rowId: 'tokushuon-wi-row', type: 'base' },
+  { id: 'katakana-we', kana: 'ウェ', romaji: 'we', rowId: 'tokushuon-wi-row', type: 'base' },
+  { id: 'katakana-uo', kana: 'ウォ', romaji: 'wo', rowId: 'tokushuon-wi-row', type: 'base' },
+  // ヴ alone (the one 1-glyph/1-character-id entry in this whole category —
+  // ウ + a dakuten mark, not a digraph) plus ヴ + small ァィェォ. Confirmed
+  // deliberately: WordCard.test.tsx uses 'tokushuon-va-vuun' as the
+  // regression case proving the yōon-style mismatch guard does NOT
+  // universally suppress the accent line — a single-glyph tokushuon
+  // character is a normal 1-glyph/1-mora case, same as any base kana.
+  { id: 'katakana-vu', kana: 'ヴ', romaji: 'vu', rowId: 'tokushuon-va-row', type: 'dakuten' },
+  { id: 'katakana-va', kana: 'ヴァ', romaji: 'va', rowId: 'tokushuon-va-row', type: 'dakuten' },
+  { id: 'katakana-vi', kana: 'ヴィ', romaji: 'vi', rowId: 'tokushuon-va-row', type: 'dakuten' },
+  { id: 'katakana-ve', kana: 'ヴェ', romaji: 've', rowId: 'tokushuon-va-row', type: 'dakuten' },
+  { id: 'katakana-vo', kana: 'ヴォ', romaji: 'vo', rowId: 'tokushuon-va-row', type: 'dakuten' },
+  // チ/ジ/シ + small ェ
+  { id: 'katakana-che', kana: 'チェ', romaji: 'che', rowId: 'tokushuon-che-row', type: 'base' },
+  { id: 'katakana-je', kana: 'ジェ', romaji: 'je', rowId: 'tokushuon-che-row', type: 'dakuten' },
+  { id: 'katakana-she', kana: 'シェ', romaji: 'she', rowId: 'tokushuon-che-row', type: 'base' },
+  // ツ + small ァィェォ
+  { id: 'katakana-tsa', kana: 'ツァ', romaji: 'tsa', rowId: 'tokushuon-tsa-row', type: 'base' },
+  { id: 'katakana-tsi', kana: 'ツィ', romaji: 'tsi', rowId: 'tokushuon-tsa-row', type: 'base' },
+  { id: 'katakana-tse', kana: 'ツェ', romaji: 'tse', rowId: 'tokushuon-tsa-row', type: 'base' },
+  { id: 'katakana-tso', kana: 'ツォ', romaji: 'tso', rowId: 'tokushuon-tsa-row', type: 'base' },
 ]
 
 export const CHARACTERS_BY_ID: Record<string, KanaChar> = Object.fromEntries(
@@ -244,4 +446,25 @@ export const ROMAJI_ALTERNATES: Record<string, string[]> = {
   'katakana-dzu': ['du'],
   'katakana-fu': ['hu'],
   'katakana-wo': ['o'],
+  // 拗音 (yōon) Kunrei-shiki alternates — same divergence pattern as their
+  // base-row counterparts above (shi/si, chi/ti, ji/zi), just contracted:
+  // sha/sya, cha/tya, ja/zya, etc.
+  sha: ['sya'],
+  shu: ['syu'],
+  sho: ['syo'],
+  cha: ['tya'],
+  chu: ['tyu'],
+  cho: ['tyo'],
+  ja: ['zya'],
+  ju: ['zyu'],
+  jo: ['zyo'],
+  'katakana-sha': ['sya'],
+  'katakana-shu': ['syu'],
+  'katakana-sho': ['syo'],
+  'katakana-cha': ['tya'],
+  'katakana-chu': ['tyu'],
+  'katakana-cho': ['tyo'],
+  'katakana-ja': ['zya'],
+  'katakana-ju': ['zyu'],
+  'katakana-jo': ['zyo'],
 }
