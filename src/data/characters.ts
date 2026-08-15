@@ -135,7 +135,7 @@ export const CHARACTERS: KanaChar[] = [
   // preceding vowel sound (see words.ts's katakana-a-row comment for how
   // that's represented in romaji). Romaji '-' is a placeholder reading,
   // not a real pronunciation — flagged for the user's sign-off.
-  { id: 'katakana-chouon', kana: 'ー', romaji: '-', rowId: 'katakana-a-row', type: 'base' },
+  { id: 'katakana-chouon', kana: 'ー', romaji: '-', displayLabel: 'Long Vowel', rowId: 'katakana-a-row', type: 'base' },
   { id: 'katakana-n', kana: 'ン', romaji: 'n', rowId: 'katakana-a-row', type: 'base' },
 
   // サ行

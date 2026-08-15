@@ -6,6 +6,13 @@ export type KanaChar = {
   romaji: string
   rowId: string
   type: CharType
+  // Shown instead of `romaji` on the Learn flashcard (see CharacterCard.tsx)
+  // for characters whose `romaji` is a placeholder rather than a real
+  // pronunciation (e.g. ー's romaji is '-', kept 1 character long so the
+  // answer-checking length math in lib/answerChecking.ts still lines up —
+  // see characters.ts's comment on katakana-chouon). Leave unset for any
+  // character whose `romaji` is already meaningful on its own.
+  displayLabel?: string
 }
 
 // A top-level script/sound-type grouping (hiragana, katakana, sokuon, ...) —

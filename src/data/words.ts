@@ -157,14 +157,17 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
   // ア~オ as its own thin first row) — see curriculum.ts's ROWS comment.
   // Real katakana vocabulary leans heavily on ー/ン, and ア~オ alone has no
   // consonant to build ordinary loanwords from at all, so the merged first
-  // lesson is the row every later row's richness was already assuming.
-  // アイアイ is the one pure ア~オ-only word kept (a real nursery-song
-  // reference); a first pass also included イオン/エイ/エイエイオー/オーイ,
-  // removed at the user's request as unnatural (an abstract brand/
-  // chemistry term, a not-especially-everyday animal name, and two
-  // interjections rather than concrete vocabulary) — see this row's own
-  // inline comment. The row's real depth comes from カ~ゴ (ケーキ, アイコン,
-  // エアコン, ...).
+  // lesson is the row every later row's richness was already assuming; its
+  // real depth comes from カ~ゴ (ケーキ, アイコン, エアコン, ...).
+  //
+  // No katakana word anywhere in this category duplicates a hiragana
+  // word's MEANING (e.g. katakana イカ/squid was removed since hiragana's
+  // か-row already has いか; katakana タコ/octopus removed since hiragana's
+  // た-row already has たこ) — a real-world concept taught twice under two
+  // different spellings would just be confusing, not reinforcing, for a
+  // beginner who doesn't yet know the two scripts are different words for
+  // the same thing. Check any new katakana word against the full hiragana
+  // list in this file before adding it.
   //
   // katakana-ra-row's characters include ワ and ヲ (absorbed here as the
   // final row, rather than getting their own row — see curriculum.ts). ワ
@@ -176,15 +179,13 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
   // flashcard, stroke order) for structural completeness with hiragana's
   // を, it just has no vocabulary reinforcement — flagged for review.
   'katakana-a-row': [
-    // アイアイ is the one pure ア~オ-only word left (no consonant needed) —
-    // kept for the same reason as before (a real nursery-song reference).
-    // イオン/エイ/エイエイオー/オーイ were removed at the user's request as
-    // unnatural (an abstract brand/chemistry term, a not-especially-
-    // everyday animal name, and two interjections rather than vocabulary) —
-    // the row doesn't need vowel-only filler now that it's merged with
-    // カ~ゴ below.
-    { id: 'katakana-a-aiai', kana: 'アイアイ', romaji: 'aiai', meaning: 'aye-aye (a lemur, from the classic Japanese children\'s song)', characterIds: ['katakana-a', 'katakana-i', 'katakana-a', 'katakana-i'] },
-    { id: 'katakana-a-ika', kana: 'イカ', romaji: 'ika', meaning: 'squid', characterIds: ['katakana-i', 'katakana-ka'] },
+    // イオン/エイ/エイエイオー/オーイ/アイアイ/イカ were all removed at the
+    // user's request: the first four as unnatural (abstract brand/
+    // chemistry term, an animal name, two interjections), and アイアイ/イカ
+    // specifically because katakana content shouldn't duplicate a word
+    // already taught in hiragana (いか/squid already exists in hiragana's
+    // か-row) — same reasoning applied category-wide, see this section's
+    // header comment above and た行's note below (たこ/octopus).
     { id: 'katakana-a-kaki', kana: 'カキ', romaji: 'kaki', meaning: 'oyster', characterIds: ['katakana-ka', 'katakana-ki'] },
     { id: 'katakana-a-keeki', kana: 'ケーキ', romaji: 'keeki', meaning: 'cake', characterIds: ['katakana-ke', 'katakana-chouon', 'katakana-ki'] },
     { id: 'katakana-a-koin', kana: 'コイン', romaji: 'koin', meaning: 'coin', characterIds: ['katakana-ko', 'katakana-i', 'katakana-n'] },
@@ -212,7 +213,8 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'katakana-sa-keesu', kana: 'ケース', romaji: 'keesu', meaning: 'case', characterIds: ['katakana-ke', 'katakana-chouon', 'katakana-su'] },
   ],
   'katakana-ta-row': [
-    { id: 'katakana-ta-tako', kana: 'タコ', romaji: 'tako', meaning: 'octopus', characterIds: ['katakana-ta', 'katakana-ko'] },
+    // タコ (octopus) removed — duplicates hiragana's たこ, already taught
+    // in た行 there (see this section's header comment).
     { id: 'katakana-ta-tokage', kana: 'トカゲ', romaji: 'tokage', meaning: 'lizard', characterIds: ['katakana-to', 'katakana-ka', 'katakana-ge'] },
     { id: 'katakana-ta-tesuto', kana: 'テスト', romaji: 'tesuto', meaning: 'test', characterIds: ['katakana-te', 'katakana-su', 'katakana-to'] },
     { id: 'katakana-ta-tai', kana: 'タイ', romaji: 'tai', meaning: 'Thailand', characterIds: ['katakana-ta', 'katakana-i'] },
