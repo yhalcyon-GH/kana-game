@@ -66,12 +66,19 @@ export const ROWS: GojuonRow[] = [
   { id: 'wa-row', categoryId: DEFAULT_CATEGORY_ID, label: 'わ~ん', order: 9, characterIds: ['wa', 'wo', 'n'] },
 
   // ===== カタカナ (katakana) — own order sequence, starting at 0 again =====
+  // ア~オ also carries ー (chōon) and ン here, unlike hiragana's あ行 — see
+  // characters.ts's comment. Without them almost no real katakana word is
+  // constructible from vowels alone (katakana's actual role is loanwords,
+  // which lean heavily on ン and ー), and every later row's vocabulary
+  // benefits from having both available from the very start rather than
+  // waiting for a dedicated final row — see words.ts's katakana-a-row
+  // comment for the vocabulary this unlocks.
   {
     id: 'katakana-a-row',
     categoryId: KATAKANA_CATEGORY_ID,
-    label: 'ア~オ',
+    label: 'ア~オ・ー・ン',
     order: 0,
-    characterIds: ['katakana-a', 'katakana-i', 'katakana-u', 'katakana-e', 'katakana-o'],
+    characterIds: ['katakana-a', 'katakana-i', 'katakana-u', 'katakana-e', 'katakana-o', 'katakana-chouon', 'katakana-n'],
   },
   {
     id: 'katakana-ka-row',
@@ -135,28 +142,16 @@ export const ROWS: GojuonRow[] = [
     order: 7,
     characterIds: ['katakana-ya', 'katakana-yu', 'katakana-yo'],
   },
+  // ラ~ロ・ワ・ヲ — the final katakana row, absorbing ワ/ヲ (ン already
+  // moved up to ア行, above) rather than giving them their own row, since
+  // they're otherwise the only two single-kana characters left without
+  // one — see characters.ts's comment.
   {
     id: 'katakana-ra-row',
     categoryId: KATAKANA_CATEGORY_ID,
-    label: 'ラ~ロ',
+    label: 'ラ~ロ・ワ・ヲ',
     order: 8,
-    characterIds: ['katakana-ra', 'katakana-ri', 'katakana-ru', 'katakana-re', 'katakana-ro'],
-  },
-  {
-    id: 'katakana-wa-row',
-    categoryId: KATAKANA_CATEGORY_ID,
-    label: 'ワ~ン',
-    order: 9,
-    characterIds: ['katakana-wa', 'katakana-wo', 'katakana-n'],
-  },
-  // ー (chōon/long-vowel mark) as its own small final row — see
-  // characters.ts and words.ts for why it isn't folded into wa-row.
-  {
-    id: 'katakana-chouon-row',
-    categoryId: KATAKANA_CATEGORY_ID,
-    label: 'ー',
-    order: 10,
-    characterIds: ['katakana-chouon'],
+    characterIds: ['katakana-ra', 'katakana-ri', 'katakana-ru', 'katakana-re', 'katakana-ro', 'katakana-wa', 'katakana-wo'],
   },
 ]
 

@@ -55,7 +55,7 @@ describe('routing', () => {
 
   it('/practice/katakana/katakana-a-row renders that row\'s Practice Hub', () => {
     renderAt('/practice/katakana/katakana-a-row')
-    expect(screen.getByRole('heading', { name: 'ア~オ' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'ア~オ・ー・ン' })).toBeInTheDocument()
   })
 
   it('/learn/katakana/katakana-a-row renders the Learn flow for that row', () => {

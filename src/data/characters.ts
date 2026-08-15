@@ -109,12 +109,23 @@ export const CHARACTERS: KanaChar[] = [
   // docs/curriculum-extensibility.md. All ids are 'katakana-' prefixed
   // since they'd otherwise collide with the hiragana ids above (both
   // scripts share the same romaji, e.g. hiragana 'ka' vs katakana 'ka').
-  // ア行
+  // ア行 — also carries ー (chōon) and ン from the very first row (see
+  // curriculum.ts's katakana-a-row comment for why: without them, almost
+  // no real katakana word is constructible from vowels alone, and both
+  // are needed constantly throughout every later row's realistic
+  // vocabulary — no reason to make the learner wait until the last row
+  // for either).
   { id: 'katakana-a', kana: 'ア', romaji: 'a', rowId: 'katakana-a-row', type: 'base' },
   { id: 'katakana-i', kana: 'イ', romaji: 'i', rowId: 'katakana-a-row', type: 'base' },
   { id: 'katakana-u', kana: 'ウ', romaji: 'u', rowId: 'katakana-a-row', type: 'base' },
   { id: 'katakana-e', kana: 'エ', romaji: 'e', rowId: 'katakana-a-row', type: 'base' },
   { id: 'katakana-o', kana: 'オ', romaji: 'o', rowId: 'katakana-a-row', type: 'base' },
+  // ー (chōon / long-vowel mark) — not a mora of its own; extends the
+  // preceding vowel sound (see words.ts's katakana-a-row comment for how
+  // that's represented in romaji). Romaji '-' is a placeholder reading,
+  // not a real pronunciation — flagged for the user's sign-off.
+  { id: 'katakana-chouon', kana: 'ー', romaji: '-', rowId: 'katakana-a-row', type: 'base' },
+  { id: 'katakana-n', kana: 'ン', romaji: 'n', rowId: 'katakana-a-row', type: 'base' },
 
   // カ行
   { id: 'katakana-ka', kana: 'カ', romaji: 'ka', rowId: 'katakana-ka-row', type: 'base' },
@@ -200,19 +211,14 @@ export const CHARACTERS: KanaChar[] = [
   { id: 'katakana-re', kana: 'レ', romaji: 're', rowId: 'katakana-ra-row', type: 'base' },
   { id: 'katakana-ro', kana: 'ロ', romaji: 'ro', rowId: 'katakana-ra-row', type: 'base' },
 
-  // ワ行 + ン (no dakuten). ヲ is kept for structural completeness (see
-  // words.ts's katakana-wa-row comment for why, unlike hiragana's を, it
-  // gets no vocabulary/phrase reinforcement).
-  { id: 'katakana-wa', kana: 'ワ', romaji: 'wa', rowId: 'katakana-wa-row', type: 'base' },
-  { id: 'katakana-wo', kana: 'ヲ', romaji: 'wo', rowId: 'katakana-wa-row', type: 'base' },
-  { id: 'katakana-n', kana: 'ン', romaji: 'n', rowId: 'katakana-wa-row', type: 'base' },
-
-  // ー (chōon / long-vowel mark) — its own tiny final row. Not a mora of
-  // its own; extends the preceding vowel sound (see words.ts's
-  // katakana-chouon-row comment for how that's represented in romaji).
-  // Romaji '-' is a placeholder reading, not a real pronunciation — see
-  // final report / PR description for why this needs the user's sign-off.
-  { id: 'katakana-chouon', kana: 'ー', romaji: '-', rowId: 'katakana-chouon-row', type: 'base' },
+  // ワ・ヲ — folded into ラ行 rather than kept as their own final row (ン
+  // moved up to ア行, above): ワ/ヲ are otherwise the only two characters
+  // left with no row of their own, and ラ~ロ is the natural place to end
+  // the single-kana sequence with them. ヲ is kept for structural
+  // completeness (see words.ts's katakana-ra-row comment for why, unlike
+  // hiragana's を, it gets no vocabulary/phrase reinforcement).
+  { id: 'katakana-wa', kana: 'ワ', romaji: 'wa', rowId: 'katakana-ra-row', type: 'base' },
+  { id: 'katakana-wo', kana: 'ヲ', romaji: 'wo', rowId: 'katakana-ra-row', type: 'base' },
 ]
 
 export const CHARACTERS_BY_ID: Record<string, KanaChar> = Object.fromEntries(
