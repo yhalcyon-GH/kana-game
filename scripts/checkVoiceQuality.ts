@@ -143,11 +143,24 @@ async function regenerateFailures(results: VoiceCheckEntry[], words: AnchorWord[
     const audioTextUsed = word.audioText ?? word.kana
     const wavPath = wavPathFor(word.id)
     let latest = fail
-    for (let attempt = 1; attempt <= MAX_REGENERATE_ATTEMPTS; attempt++) {
-      console.log(`  regenerating ${word.id} (attempt ${attempt}/${MAX_REGENERATE_ATTEMPTS})...`)
-      await synthesizeToFile(wavPath, audioTextUsed, apiKey)
-      latest = await checkWord(word)
-      if (latest.pronunciationStatus !== 'FAIL') break
+    try {
+      for (let attempt = 1; attempt <= MAX_REGENERATE_ATTEMPTS; attempt++) {
+        console.log(`  regenerating ${word.id} (attempt ${attempt}/${MAX_REGENERATE_ATTEMPTS})...`)
+        await synthesizeToFile(wavPath, audioTextUsed, apiKey)
+        latest = await checkWord(word)
+        if (latest.pronunciationStatus !== 'FAIL') break
+      }
+    } catch (err) {
+      // A mid-loop ElevenLabs error (e.g. rate limit, network blip) must not
+      // crash the whole run — money may already have been spent on words
+      // regenerated earlier in this same loop, and their results would be
+      // lost along with everyone else's report if this propagated as an
+      // unhandled rejection. Record the failure and move on to the next word.
+      console.error(`  regeneration failed for ${word.id}: ${err instanceof Error ? err.message : String(err)}`)
+      latest = {
+        ...fail,
+        reasons: [...fail.reasons, `regeneration attempt failed: ${err instanceof Error ? err.message : String(err)}`],
+      }
     }
     const index = updated.findIndex((r) => r.wordId === word.id)
     if (index !== -1) updated[index] = latest
@@ -188,4 +201,7 @@ async function main() {
   await writeReport(results)
 }
 
-main()
+main().catch((err) => {
+  console.error(err)
+  process.exit(1)
+})

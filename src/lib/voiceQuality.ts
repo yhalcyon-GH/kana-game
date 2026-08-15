@@ -31,8 +31,17 @@ export function checkPronunciation(
   thresholds: VoiceCheckThresholds,
 ): PronunciationCheckResult {
   const expectedReading = toHiragana(expectedKana)
+  // The detected side needs the same normalization: despite the parameter
+  // name, kuroshiro (scripts/asr.ts's transcribeToHiragana) converts kanji
+  // to hiragana but leaves katakana untouched, so a katakana-transcribed
+  // word would otherwise never match its (correctly pronounced) hiragana
+  // expected reading. Whisper's Japanese output also routinely includes
+  // punctuation (。、) that toMorae would otherwise count as its own mora —
+  // strip anything outside the hiragana/katakana Unicode range (U+3040-30FF,
+  // same range curriculum.test.ts uses) after normalizing.
+  const detectedReading = toHiragana(detectedHiragana).replace(/[^぀-ヿ]/g, '')
   const expectedMorae = toMorae(expectedReading)
-  const detectedMorae = toMorae(detectedHiragana)
+  const detectedMorae = toMorae(detectedReading)
 
   const distance = levenshteinDistance(expectedMorae, detectedMorae)
   const maxLen = Math.max(expectedMorae.length, detectedMorae.length, 1)
@@ -48,7 +57,7 @@ export function checkPronunciation(
   const reasons: string[] =
     pronunciationStatus === 'PASS'
       ? []
-      : [`Expected ${expectedReading} but detected ${detectedHiragana || '(empty)'}`]
+      : [`Expected ${expectedReading} but detected ${detectedReading || '(empty)'}`]
 
-  return { expectedReading, detectedReading: detectedHiragana, pronunciationScore, pronunciationStatus, reasons }
+  return { expectedReading, detectedReading, pronunciationScore, pronunciationStatus, reasons }
 }

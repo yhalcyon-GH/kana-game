@@ -53,4 +53,16 @@ describe('checkPronunciation', () => {
     expect(result.pronunciationStatus).toBe('FAIL')
     expect(result.detectedReading).toBe('')
   })
+
+  it('normalizes a katakana detected reading to hiragana before comparing', () => {
+    const result = checkPronunciation('たこ', 'タコ', THRESHOLDS)
+    expect(result.pronunciationStatus).toBe('PASS')
+    expect(result.detectedReading).toBe('たこ')
+  })
+
+  it('strips ASR punctuation from the detected reading before comparing', () => {
+    const result = checkPronunciation('いえ', 'いえ。', THRESHOLDS)
+    expect(result.pronunciationStatus).toBe('PASS')
+    expect(result.detectedReading).toBe('いえ')
+  })
 })
