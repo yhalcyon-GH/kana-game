@@ -151,6 +151,9 @@ export function LearnPage() {
       <h1 className="text-2xl font-bold">
         {isContrastPairs ? `${row.label} — listen and compare` : `${row.label} — words you can already read`}
       </h1>
+      {row.explanation && (
+        <p className="max-w-md text-center text-sm text-neutral-500 dark:text-neutral-400">{row.explanation}</p>
+      )}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         {words.map((word) => (
           <WordCard key={word.id} word={word} />

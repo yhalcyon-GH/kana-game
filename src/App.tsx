@@ -1,6 +1,6 @@
 import { Route, Routes } from 'react-router-dom'
 import { NavBar } from './components/NavBar'
-import { CATEGORIES, DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID } from './data/curriculum'
+import { CATEGORIES, DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID, YOUON_CATEGORY_ID } from './data/curriculum'
 import { REVIEW_SCOPE_ID } from './hooks/useCurriculum'
 import { KanaQuizPage } from './routes/games/KanaQuizPage'
 import { KanaTypingPage } from './routes/games/KanaTypingPage'
@@ -15,12 +15,14 @@ import { PracticeHubPage } from './routes/PracticeHubPage'
 import { ReviewPage } from './routes/ReviewPage'
 import { SettingsPage } from './routes/SettingsPage'
 
-// Every category that isn't hiragana/katakana gets bundled into one
+// Every category that isn't hiragana/katakana/yōon gets bundled into one
 // 'そのほか' page rather than a new top-level page per category — computed
-// from CATEGORIES so a future category (促音, ...) just appears here
-// automatically once its branch merges, no route change needed.
+// from CATEGORIES so a future category just appears here automatically once
+// its branch merges, no route change needed. 拗音 gets its own dedicated
+// page (below) rather than joining this bundle, at the user's explicit
+// request: it has enough rows ("セッションがたくさんある") to deserve one.
 const OTHER_CATEGORY_IDS = CATEGORIES.map((c) => c.id).filter(
-  (id) => id !== DEFAULT_CATEGORY_ID && id !== KATAKANA_CATEGORY_ID,
+  (id) => id !== DEFAULT_CATEGORY_ID && id !== KATAKANA_CATEGORY_ID && id !== YOUON_CATEGORY_ID,
 )
 
 function App() {
@@ -51,11 +53,21 @@ function App() {
             }
           />
           <Route
+            path="/youon"
+            element={
+              <CategoryRowsPage
+                title="拗音"
+                description="Contracted sounds like きゃ/kya — one row per consonant group, hiragana then katakana."
+                categoryIds={[YOUON_CATEGORY_ID]}
+              />
+            }
+          />
+          <Route
             path="/other"
             element={
               <CategoryRowsPage
                 title="そのほか"
-                description="促音・長音・拗音・特殊音 — other sounds beyond the basic hiragana/katakana rows."
+                description="促音・長音 — other sounds beyond the basic hiragana/katakana rows."
                 categoryIds={OTHER_CATEGORY_IDS}
               />
             }

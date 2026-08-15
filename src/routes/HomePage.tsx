@@ -5,17 +5,21 @@ type ScriptCard = { to: string; label: string; description: string }
 const SCRIPT_CARDS: ScriptCard[] = [
   { to: '/hiragana', label: 'ひらがな', description: 'あ行から、単語と一緒に学ぶ' },
   { to: '/katakana', label: 'カタカナ', description: 'ア行から、単語と一緒に学ぶ' },
+  // 'ようおん' (not '拗音') — same font-kana glyph-coverage reason as
+  // そのほか below: 拗/音 are kanji, not in the subset.
+  { to: '/youon', label: 'ようおん', description: 'きゃ・きゅ・きょ… セッションがたくさんあるので独立ページ' },
   // 'そのほか' (not 'その他') — the card label renders through the
   // hand-subsetted kana-only .font-kana font (see index.css's header
   // comment), which has no 他 glyph.
-  { to: '/other', label: 'そのほか', description: '促音・長音・拗音・特殊音など' },
+  { to: '/other', label: 'そのほか', description: '促音・長音など' },
 ]
 
-// Top-level chooser — three script groups, each its own page
+// Top-level chooser — four script groups, each its own page
 // (CategoryRowsPage), rather than one long page stacking every category's
 // rows together. "その他" bundles every category that isn't hiragana/
-// katakana (see App.tsx's /other route) so it doesn't need a new card here
-// each time a category like 促音 is added later.
+// katakana/拗音 (see App.tsx's OTHER_CATEGORY_IDS) so it doesn't need a new
+// card here each time a small category is added later; 拗音 gets its own
+// card since it has enough rows to deserve one.
 export function HomePage() {
   return (
     <div className="flex flex-col items-center gap-6">
@@ -23,7 +27,7 @@ export function HomePage() {
       <p className="max-w-md text-center text-neutral-500 dark:text-neutral-400">
         Learn hiragana and katakana one row at a time, paired with real everyday words.
       </p>
-      <div className="grid w-full max-w-2xl grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid w-full max-w-2xl grid-cols-2 gap-4 sm:grid-cols-4">
         {SCRIPT_CARDS.map((card) => (
           <Link
             key={card.to}
