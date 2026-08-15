@@ -34,7 +34,7 @@ export function HubBreadcrumb({ rowId, categoryId }: Props) {
         </Link>
         <span aria-hidden="true">›</span>
         <Link to={getCategoryPagePath(categoryId)} className="hover:text-blue-600 dark:hover:text-blue-400">
-          {category.icon} {category.label}
+          {category.icon} {category.displayLabel ?? category.label}
         </Link>
         <span aria-hidden="true">›</span>
         <span className="font-semibold text-neutral-700 dark:text-neutral-200">{row.englishLabel ?? row.label}</span>

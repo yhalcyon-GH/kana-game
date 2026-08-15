@@ -46,12 +46,12 @@ export function CategoryRowsPage({ title, description, categoryIds }: Props) {
       {groups.length > 0 ? (
         groups.map(({ category, rows: groupRows }) => (
           <div key={category?.id} className="flex w-full flex-col items-center gap-4">
-            {/* No .font-kana here (unlike RowMap's row labels/HomePage's
-                cards) — category labels like 促音/長音 are real kanji
-                words, not kana-only, so they render in the default font
-                stack rather than the hand-subsetted kana-only webfont
-                (which has no kanji glyphs — see index.css). */}
-            {groups.length > 1 && <h2 className="text-xl font-semibold">{category?.label}</h2>}
+            {/* displayLabel (○+っ, ○+ー, ...) instead of the real kanji
+                `label` (促音, 長音, ...) — the target audience may not read
+                ANY kana yet, let alone kanji, see ScriptCategory.displayLabel's
+                comment. No .font-kana here either way, since displayLabel's
+                '+'/'○' aren't in the hand-subsetted kana-only webfont. */}
+            {groups.length > 1 && <h2 className="text-xl font-semibold">{category?.displayLabel ?? category?.label}</h2>}
             {category?.explanation && (
               <p className="max-w-xl text-center text-sm text-neutral-500 dark:text-neutral-400">{category.explanation}</p>
             )}

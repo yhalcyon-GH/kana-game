@@ -46,6 +46,13 @@ export type ScriptCategory = {
   // category by while navigating. Not shown on RowMap's row cards, which
   // already show real kana front and center.
   icon?: string
+  // Kanji-free stand-in for `label`, shown wherever a total beginner (who
+  // may not read ANY kana yet, let alone kanji) would otherwise see raw
+  // kanji — HubBreadcrumb, route page titles, a multi-category page's
+  // per-category subheading. `label` itself (促音/長音/拗音) stays the real
+  // term, used in body copy once the learner has some footing. Unset for
+  // hiragana/katakana, whose `label` is already kana-only.
+  displayLabel?: string
 }
 
 export type GojuonRow = {

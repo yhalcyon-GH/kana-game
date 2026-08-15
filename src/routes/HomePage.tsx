@@ -1,23 +1,26 @@
 import { Link } from 'react-router-dom'
 
-type ScriptCard = { to: string; label: string; description: string; icon: string }
+type ScriptCard = { to: string; label: string; english: string; icon: string }
 
-// Icons match each destination's ScriptCategory.icon (curriculum.ts) where
-// there's a 1:1 category, so the same visual anchor carries through into
-// the breadcrumb on PracticeHubPage (see HubBreadcrumb.tsx) — a learner who
-// can't yet read a card's kana label still has a consistent icon to
-// recognize it by. そのほか bundles multiple categories, so it gets its own
-// generic "miscellaneous" icon rather than borrowing one category's.
+// This is the very first screen a total-beginner foreigner sees — someone
+// who may not read hiragana OR katakana yet, so a bare Japanese label alone
+// (even kana-only) isn't necessarily readable. Every card therefore pairs
+// its native label with a short English word (2026-08-15, at the user's
+// explicit request). 拗音 and そのほか additionally avoid spelling out a
+// Japanese TERM at all (拗音/その他 are kanji; even ようおん/そのほか are
+// kana a beginner may not read yet) — 拗音 uses a structural symbol instead
+// (○+ゃゅょ: "a base kana plus a small ゃゅょ"), and そのほか keeps its kana
+// but appends "+" to signal "and other things bundled in here". Icons match
+// each destination's ScriptCategory.icon (curriculum.ts) where there's a
+// 1:1 category, so the same visual anchor carries through into the
+// breadcrumb on PracticeHubPage (see HubBreadcrumb.tsx) — そのほか bundles
+// multiple categories, so it gets its own generic "miscellaneous" icon
+// rather than borrowing one category's.
 const SCRIPT_CARDS: ScriptCard[] = [
-  { to: '/hiragana', label: 'ひらがな', description: 'あ行から、単語と一緒に学ぶ', icon: '🎴' },
-  { to: '/katakana', label: 'カタカナ', description: 'ア行から、単語と一緒に学ぶ', icon: '🔤' },
-  // 'ようおん' (not '拗音') — same font-kana glyph-coverage reason as
-  // そのほか below: 拗/音 are kanji, not in the subset.
-  { to: '/youon', label: 'ようおん', description: 'きゃ・きゅ・きょ… セッションがたくさんあるので独立ページ', icon: '🔗' },
-  // 'そのほか' (not 'その他') — the card label renders through the
-  // hand-subsetted kana-only .font-kana font (see index.css's header
-  // comment), which has no 他 glyph.
-  { to: '/other', label: 'そのほか', description: '促音・長音など', icon: '📦' },
+  { to: '/hiragana', label: 'ひらがな', english: 'Hiragana', icon: '🎴' },
+  { to: '/katakana', label: 'カタカナ', english: 'Katakana', icon: '🔤' },
+  { to: '/youon', label: '○+ゃゅょ', english: 'Yōon', icon: '🔗' },
+  { to: '/other', label: 'そのほか +', english: 'Other', icon: '📦' },
 ]
 
 // Top-level chooser — four script groups, each its own page
@@ -42,7 +45,7 @@ export function HomePage() {
           >
             <span className="text-2xl" aria-hidden="true">{card.icon}</span>
             <span className="font-kana text-2xl font-bold">{card.label}</span>
-            <span className="text-xs text-neutral-500 dark:text-neutral-400">{card.description}</span>
+            <span className="text-sm font-semibold text-neutral-500 dark:text-neutral-400">{card.english}</span>
           </Link>
         ))}
       </div>

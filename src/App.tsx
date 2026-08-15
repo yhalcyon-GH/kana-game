@@ -1,6 +1,6 @@
 import { Route, Routes } from 'react-router-dom'
 import { NavBar } from './components/NavBar'
-import { CATEGORIES, DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID, YOUON_CATEGORY_ID } from './data/curriculum'
+import { CATEGORIES, CATEGORIES_BY_ID, DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID, YOUON_CATEGORY_ID } from './data/curriculum'
 import { REVIEW_SCOPE_ID } from './hooks/useCurriculum'
 import { KanaQuizPage } from './routes/games/KanaQuizPage'
 import { KanaTypingPage } from './routes/games/KanaTypingPage'
@@ -56,8 +56,11 @@ function App() {
             path="/youon"
             element={
               <CategoryRowsPage
-                title="拗音"
-                description="Contracted sounds like きゃ/kya — one row per consonant group, hiragana then katakana."
+                // Kanji-free title (拗音's real name) — the target audience
+                // may not read any kana yet, let alone kanji, see
+                // ScriptCategory.displayLabel's comment.
+                title={CATEGORIES_BY_ID[YOUON_CATEGORY_ID].displayLabel!}
+                description="Contracted sounds like きゃ/kya (Yōon) — one row per consonant group, hiragana then katakana."
                 categoryIds={[YOUON_CATEGORY_ID]}
               />
             }
@@ -66,8 +69,8 @@ function App() {
             path="/other"
             element={
               <CategoryRowsPage
-                title="そのほか"
-                description="促音・長音 — other sounds beyond the basic hiragana/katakana rows."
+                title="そのほか +"
+                description="Other sounds beyond the basic hiragana/katakana rows."
                 categoryIds={OTHER_CATEGORY_IDS}
               />
             }

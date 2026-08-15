@@ -119,12 +119,14 @@ describe('script chooser pages', () => {
 
   // 拗音 now has its own page (see App.tsx's /youon route), separate from
   // そのほか — the user's explicit request, since it has enough rows
-  // ("セッションがたくさんある") to deserve one.
+  // ("セッションがたくさんある") to deserve one. Its page title is
+  // ScriptCategory.displayLabel ('○+ゃゅょ'), not the kanji '拗音' — the
+  // target audience may not read any kana yet, let alone kanji.
   it('/youon shows only yōon rows, with no category subheading (single-category page)', () => {
     renderAt('/youon')
-    expect(screen.getByRole('heading', { name: '拗音' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '○+ゃゅょ' })).toBeInTheDocument()
     expect(screen.getByText('きゃ・きゅ・きょ・ぎゃ・ぎゅ・ぎょ')).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { name: '拗音', level: 2 })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument()
     expect(screen.queryByText('っ・ッ')).not.toBeInTheDocument()
     expect(screen.queryByText('あー')).not.toBeInTheDocument()
   })
@@ -132,13 +134,14 @@ describe('script chooser pages', () => {
   // OTHER_CATEGORY_IDS (App.tsx) is computed from CATEGORIES, so /other
   // shows real rows for every non-hiragana/katakana/拗音 category (促音/
   // 長音) automatically now that they exist, not the empty state — and
-  // shows each category's own subheading since it bundles more than one.
+  // shows each category's own subheading (displayLabel, kanji-free) since
+  // it bundles more than one.
   it('/other shows rows from 促音 and 長音, each under its own subheading, but not 拗音', () => {
     renderAt('/other')
-    expect(screen.getByRole('heading', { name: 'そのほか' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'そのほか +' })).toBeInTheDocument()
     expect(screen.queryByText('まだ利用できるレッスンがありません。')).not.toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '促音' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '長音' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '○+っ' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '○+ー' })).toBeInTheDocument()
     expect(screen.getByText('っ・ッ')).toBeInTheDocument()
     expect(screen.getByText('あー')).toBeInTheDocument()
     expect(screen.getByText('ー')).toBeInTheDocument()
@@ -147,12 +150,12 @@ describe('script chooser pages', () => {
     expect(screen.queryByText('ア~オ・カ~ゴ・ン・ー')).not.toBeInTheDocument()
   })
 
-  it('home page links to all four script pages', () => {
+  it('home page links to all four script pages, each paired with an English label', () => {
     renderAt('/')
-    expect(screen.getByRole('link', { name: /ひらがな/ })).toHaveAttribute('href', '/hiragana')
-    expect(screen.getByRole('link', { name: /カタカナ/ })).toHaveAttribute('href', '/katakana')
-    expect(screen.getByRole('link', { name: /ようおん/ })).toHaveAttribute('href', '/youon')
-    expect(screen.getByRole('link', { name: /そのほか/ })).toHaveAttribute('href', '/other')
+    expect(screen.getByRole('link', { name: /ひらがな.*Hiragana/s })).toHaveAttribute('href', '/hiragana')
+    expect(screen.getByRole('link', { name: /カタカナ.*Katakana/s })).toHaveAttribute('href', '/katakana')
+    expect(screen.getByRole('link', { name: /○\+ゃゅょ.*Yōon/s })).toHaveAttribute('href', '/youon')
+    expect(screen.getByRole('link', { name: /そのほか \+.*Other/s })).toHaveAttribute('href', '/other')
   })
 })
 
@@ -196,10 +199,10 @@ describe('Practice Hub breadcrumb / cross-session navigation', () => {
     expect(screen.queryByRole('link', { name: /Row/ })).not.toBeInTheDocument()
   })
 
-  it('links back to a bundled category (促音) go to /other, not a dedicated page', () => {
+  it('links back to a bundled category (促音, shown kanji-free as ○+っ) go to /other, not a dedicated page', () => {
     renderAt('/practice/sokuon/sokuon-row')
     const breadcrumb = within(screen.getByRole('navigation', { name: 'Breadcrumb' }))
-    expect(breadcrumb.getByRole('link', { name: /促音/ })).toHaveAttribute('href', '/other')
+    expect(breadcrumb.getByRole('link', { name: /○\+っ/ })).toHaveAttribute('href', '/other')
   })
 
   it('the Review hub does not show a category breadcrumb (it has no single category)', () => {

@@ -37,6 +37,7 @@ export const CATEGORIES: ScriptCategory[] = [
     explanation:
       'Sokuon is a short pause before certain consonants, written as a small っ/ッ. It briefly holds the sound and can completely change a word\'s meaning — compare each pair below with and without it.',
     icon: '⏸️',
+    displayLabel: '○+っ',
   },
   // 長音 (chōon, long vowels) — the second 'contrast-pairs' category, and
   // the first with NO new characters of its own: katakana's ー was already
@@ -63,6 +64,7 @@ export const CATEGORIES: ScriptCategory[] = [
     explanation:
       'Chōon means a "long vowel" — a vowel sound held for an extra beat. Katakana always spells it with ー, but hiragana has no dedicated mark: it spells a long vowel by repeating or extending the vowel that comes before it, and exactly how depends on which vowel that is. Each row below covers one of those rules.',
     icon: '➖',
+    displayLabel: '○+ー',
   },
   // 拗音 (yōon, contracted sounds like きゃ/kya) — back to 'character-set'
   // (flashcard -> recap -> words, all four mini-games), same shape as
@@ -85,6 +87,7 @@ export const CATEGORIES: ScriptCategory[] = [
     explanation:
       'Yōon are contracted sounds made from a consonant + い kana (き/し/ち/に/ひ/み/り, or their voiced forms) followed by a small ゃ/ゅ/ょ. Two characters, but only ONE syllable — きゃ isn\'t "ki-ya", it\'s one quick "kya".',
     icon: '🔗',
+    displayLabel: '○+ゃゅょ',
   },
 ]
 
