@@ -11,8 +11,14 @@
 // Text sent to the API is `word.audioText ?? word.kana` for words (see
 // src/data/words.ts's audioText comment for why bare kana is often the
 // wrong input) and the bare kana character for single kana.
+//
+// SKIPS any id that already has a clip on disk (same safety convention as
+// scripts/generateFeedbackAudio.ts) — re-running this after adding new
+// content only pays for what's actually new/missing, never re-charges for
+// clips that already exist. Delete a specific .wav first if you deliberately
+// want to regenerate just that one.
 //   ELEVENLABS_API_KEY=sk_... npx tsx scripts/generateAudioElevenLabs.ts
-import { mkdir, writeFile } from 'node:fs/promises'
+import { access, mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { CHARACTERS } from '../src/data/characters'
 import { ALL_WORDS } from '../src/data/words'
@@ -59,13 +65,27 @@ async function synthesize(text: string): Promise<Buffer> {
   return pcmToWav(pcm)
 }
 
+async function exists(p: string): Promise<boolean> {
+  try {
+    await access(p)
+    return true
+  } catch {
+    return false
+  }
+}
+
 async function generateAll(subdir: string, items: { id: string; text: string }[]) {
   const dir = path.join(OUT_DIR, subdir)
   await mkdir(dir, { recursive: true })
   for (const { id, text } of items) {
+    const outPath = path.join(dir, `${id}.wav`)
+    if (await exists(outPath)) {
+      console.log(`  skip ${subdir}/${id}.wav (already exists)`)
+      continue
+    }
     const wav = await synthesize(text)
-    await writeFile(path.join(dir, `${id}.wav`), wav)
-    console.log(`  ${subdir}/${id}.wav  ("${text}")`)
+    await writeFile(outPath, wav)
+    console.log(`  wrote ${subdir}/${id}.wav  ("${text}")`)
   }
 }
 
