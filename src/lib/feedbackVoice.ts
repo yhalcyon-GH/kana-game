@@ -1,6 +1,7 @@
 import {
   DONMAI,
   type FeedbackLine,
+  IINE,
   INCORRECT_LINES,
   KAKKOII,
   KAKKOII_CHANCE,
@@ -39,10 +40,13 @@ export function pickIncorrectFeedback(isNearMiss: boolean): FeedbackClip {
   return clipFor(pickOne(pool))
 }
 
-// Played once at session end: かんぺき for a flawless run, おしい for a
-// near-flawless one (1-2 missed), ドンマイ otherwise.
+// Played once at session end: かんぺき for a flawless run, おしい for
+// exactly 1 missed, いいね for exactly 2 missed, ドンマイ for 3 or more.
+// The first three are the "bright" tiers (see Mascot's mood mapping in
+// useAnswerFeedback.ts); ドンマイ alone gets the gentler, comforting tone.
 export function pickEvaluationFeedback(mistakeCount: number): FeedbackClip {
   if (mistakeCount === 0) return clipFor(KANPEKI)
-  if (mistakeCount <= 2) return clipFor(OSHII)
+  if (mistakeCount === 1) return clipFor(OSHII)
+  if (mistakeCount === 2) return clipFor(IINE)
   return clipFor(DONMAI)
 }

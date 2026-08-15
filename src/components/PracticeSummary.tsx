@@ -35,12 +35,6 @@ export function PracticeSummary({
 }: Props) {
   return (
     <div className="flex flex-col items-center gap-6">
-      {mood && (
-        <div className="flex flex-col items-center gap-2">
-          <Mascot mood={mood} />
-          {comment && <p className="text-lg font-semibold">{comment}</p>}
-        </div>
-      )}
       <h2 className="text-2xl font-bold">{title}</h2>
       <div className="flex flex-wrap justify-center gap-3">
         {stats.map((s) => (
@@ -88,6 +82,15 @@ export function PracticeSummary({
           Back to hub
         </Link>
       </div>
+
+      {/* Tamamizu's reaction sits at the bottom of the screen, below the
+          actions — moved here from the top at the user's explicit request. */}
+      {mood && (
+        <div className="flex flex-col items-center gap-2">
+          <Mascot mood={mood} />
+          {comment && <p className="text-lg font-semibold">{comment}</p>}
+        </div>
+      )}
     </div>
   )
 }
