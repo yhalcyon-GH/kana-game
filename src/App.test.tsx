@@ -99,7 +99,7 @@ describe('routing', () => {
   })
 })
 
-// The three top-level script pages (see HomePage.tsx's chooser cards and
+// The four top-level script pages (see HomePage.tsx's chooser cards and
 // App.tsx's OTHER_CATEGORY_IDS) — replaced the single flat HomePage that
 // used to stack every category's rows on one page.
 describe('script chooser pages', () => {
@@ -117,25 +117,41 @@ describe('script chooser pages', () => {
     expect(screen.queryByText('あ~お')).not.toBeInTheDocument()
   })
 
+  // 拗音 now has its own page (see App.tsx's /youon route), separate from
+  // そのほか — the user's explicit request, since it has enough rows
+  // ("セッションがたくさんある") to deserve one.
+  it('/youon shows only yōon rows, with no category subheading (single-category page)', () => {
+    renderAt('/youon')
+    expect(screen.getByRole('heading', { name: '拗音' })).toBeInTheDocument()
+    expect(screen.getByText('きゃ・きゅ・きょ・ぎゃ・ぎゅ・ぎょ')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '拗音', level: 2 })).not.toBeInTheDocument()
+    expect(screen.queryByText('っ・ッ')).not.toBeInTheDocument()
+    expect(screen.queryByText('あー')).not.toBeInTheDocument()
+  })
+
   // OTHER_CATEGORY_IDS (App.tsx) is computed from CATEGORIES, so /other
-  // shows real rows for every non-hiragana/katakana category (促音/長音/
-  // 拗音/特殊音) automatically now that they exist, not the empty state.
-  it('/other shows rows from every non-hiragana/katakana category', () => {
+  // shows real rows for every non-hiragana/katakana/拗音 category (促音/
+  // 長音) automatically now that they exist, not the empty state — and
+  // shows each category's own subheading since it bundles more than one.
+  it('/other shows rows from 促音 and 長音, each under its own subheading, but not 拗音', () => {
     renderAt('/other')
     expect(screen.getByRole('heading', { name: 'そのほか' })).toBeInTheDocument()
     expect(screen.queryByText('まだ利用できるレッスンがありません。')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '促音' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '長音' })).toBeInTheDocument()
     expect(screen.getByText('っ・ッ')).toBeInTheDocument()
+    expect(screen.getByText('あー')).toBeInTheDocument()
     expect(screen.getByText('ー')).toBeInTheDocument()
-    expect(screen.getByText('きゃ・きゅ・きょ・ぎゃ・ぎゅ・ぎょ')).toBeInTheDocument()
-    expect(screen.getByText('ファ・フィ・フェ・フォ')).toBeInTheDocument()
+    expect(screen.queryByText('きゃ・きゅ・きょ・ぎゃ・ぎゅ・ぎょ')).not.toBeInTheDocument()
     expect(screen.queryByText('あ~お')).not.toBeInTheDocument()
     expect(screen.queryByText('ア~オ・カ~ゴ・ン・ー')).not.toBeInTheDocument()
   })
 
-  it('home page links to all three script pages', () => {
+  it('home page links to all four script pages', () => {
     renderAt('/')
     expect(screen.getByRole('link', { name: /ひらがな/ })).toHaveAttribute('href', '/hiragana')
     expect(screen.getByRole('link', { name: /カタカナ/ })).toHaveAttribute('href', '/katakana')
+    expect(screen.getByRole('link', { name: /ようおん/ })).toHaveAttribute('href', '/youon')
     expect(screen.getByRole('link', { name: /そのほか/ })).toHaveAttribute('href', '/other')
   })
 })
@@ -225,21 +241,23 @@ describe('contrast-pairs learnStyle (sokuon)', () => {
   })
 })
 
-// 長音 (chōon) is also 'contrast-pairs', but its row's characterIds is []
-// (see curriculum.ts's chouon-row comment) — the first real test of the
-// "zero new characters" path docs/curriculum-extensibility.md flagged as
-// future-proofed-but-untested when sokuon's generalization landed. These
-// tests prove Learn/Practice/Tracing all handle an empty characterIds row
-// the same way they handle sokuon's non-empty one, with no crash and no
-// broken/empty screen.
+// 長音 (chōon) is also 'contrast-pairs', but every one of its rows has
+// characterIds: [] (see curriculum.ts's chouon-*-row comment) — the first
+// real test of the "zero new characters" path docs/curriculum-
+// extensibility.md flagged as future-proofed-but-untested when sokuon's
+// generalization landed. These tests prove Learn/Practice/Tracing all
+// handle an empty characterIds row the same way they handle sokuon's
+// non-empty one, with no crash and no broken/empty screen. Targets
+// chouon-katakana-row specifically (any of the 6 rows would do for this
+// plumbing check; this one's label happens to still be 'ー').
 describe('contrast-pairs learnStyle with zero new characters (chōon)', () => {
-  it('/practice/chouon/chouon-row renders that row\'s Practice Hub', () => {
-    renderAt('/practice/chouon/chouon-row')
+  it('/practice/chouon/chouon-katakana-row renders that row\'s Practice Hub', () => {
+    renderAt('/practice/chouon/chouon-katakana-row')
     expect(screen.getByRole('heading', { name: 'ー' })).toBeInTheDocument()
   })
 
   it('the chouon Practice Hub offers Learn, Tracing, and 3 games, but NOT Kana Quiz', () => {
-    renderAt('/practice/chouon/chouon-row')
+    renderAt('/practice/chouon/chouon-katakana-row')
     expect(screen.getByRole('link', { name: /Learn/ })).toBeInTheDocument()
     expect(screen.getByText('Tracing')).toBeInTheDocument()
     expect(screen.getByText('Word Builder')).toBeInTheDocument()
@@ -248,35 +266,45 @@ describe('contrast-pairs learnStyle with zero new characters (chōon)', () => {
     expect(screen.queryByText('Kana Quiz')).not.toBeInTheDocument()
   })
 
-  it('/learn/chouon/chouon-row skips the flashcard step (no characters to flashcard) and goes straight to the word list', () => {
-    renderAt('/learn/chouon/chouon-row')
+  it('/learn/chouon/chouon-katakana-row skips the flashcard step (no characters to flashcard), shows the row explanation, and goes straight to the word list', () => {
+    renderAt('/learn/chouon/chouon-katakana-row')
     expect(screen.getByText(/listen and compare/)).toBeInTheDocument()
     expect(screen.queryByText(/new characters/)).not.toBeInTheDocument()
+    // The row's explanation (GojuonRow.explanation) renders above the word
+    // grid for a row that has one.
+    expect(screen.getByText(/Katakana never has this problem/)).toBeInTheDocument()
     // The word list itself must actually render real content, not an
     // empty grid — confirms an empty characterIds row doesn't also end up
     // with an empty word list.
-    expect(screen.getByText('おかあさん')).toBeInTheDocument()
+    expect(screen.getByText('ビル')).toBeInTheDocument()
   })
 
-  it('/practice/chouon/chouon-row/tracing starts directly in the word phase, and does not crash despite an empty character pool', () => {
-    renderAt('/practice/chouon/chouon-row/tracing')
+  it('/practice/chouon/chouon-katakana-row/tracing starts directly in the word phase, and does not crash despite an empty character pool', () => {
+    renderAt('/practice/chouon/chouon-katakana-row/tracing')
     expect(screen.getByText('Trace each word')).toBeInTheDocument()
     expect(screen.queryByText('Trace each character')).not.toBeInTheDocument()
   })
 
   it('direct navigation to the chouon Kana Quiz route redirects home rather than rendering', () => {
-    renderAt('/practice/chouon/chouon-row/kana-quiz')
+    renderAt('/practice/chouon/chouon-katakana-row/kana-quiz')
     expect(screen.getByRole('heading', { name: 'Kana Game' })).toBeInTheDocument()
   })
 
-  it('/practice/chouon/chouon-row/word-builder still renders normally, drawing distractor tiles from the full hiragana+katakana pool', () => {
-    renderAt('/practice/chouon/chouon-row/word-builder')
+  it('/practice/chouon/chouon-katakana-row/word-builder still renders normally, drawing distractor tiles from the full hiragana+katakana pool', () => {
+    renderAt('/practice/chouon/chouon-katakana-row/word-builder')
     expect(screen.getByText(/Round 1/)).toBeInTheDocument()
   })
 
-  it('/practice/chouon/chouon-row/listening still renders normally', () => {
-    renderAt('/practice/chouon/chouon-row/listening')
+  it('/practice/chouon/chouon-katakana-row/listening still renders normally', () => {
+    renderAt('/practice/chouon/chouon-katakana-row/listening')
     expect(screen.getByText(/Round 1/)).toBeInTheDocument()
+  })
+
+  it('a different chouon row (chouon-a-row) also renders correctly, with its own explanation and words (regression: not just the one row tested above)', () => {
+    renderAt('/learn/chouon/chouon-a-row')
+    expect(screen.getByText(/listen and compare/)).toBeInTheDocument()
+    expect(screen.getByText(/①ア段/)).toBeInTheDocument()
+    expect(screen.getByText('おかあさん')).toBeInTheDocument()
   })
 
   it('sokuon and hiragana/katakana behavior is unaffected by chouon existing (regression)', () => {
@@ -337,66 +365,6 @@ describe('character-set learnStyle with yōon (multi-glyph, one-mora characters)
     renderAt('/practice/sokuon/sokuon-row')
     expect(screen.getByRole('heading', { name: 'っ・ッ' })).toBeInTheDocument()
     expect(screen.queryByText('Kana Quiz')).not.toBeInTheDocument()
-
-    renderAt('/practice/hiragana/a-row')
-    expect(screen.getByText('Kana Quiz')).toBeInTheDocument()
-  })
-})
-
-// 特殊音 (tokushuon) — the sixth and final planned category (see
-// docs/curriculum-extensibility.md), also 'character-set' like 拗音/カタカナ.
-// Same generic-flow confirmation as yōon's block above, plus its own
-// multi-glyph wrinkle already proven safe in isolation by
-// WordCard.test.tsx/StrokeOrderAnimation.test.tsx — these confirm the same
-// holds mounted inside the real page flow.
-describe('character-set learnStyle with 特殊音/tokushuon (multi-glyph characters, one genuinely 1-glyph exception)', () => {
-  it('/practice/tokushuon/tokushuon-fa-row renders that row\'s Practice Hub', () => {
-    renderAt('/practice/tokushuon/tokushuon-fa-row')
-    expect(screen.getByRole('heading', { name: 'ファ・フィ・フェ・フォ' })).toBeInTheDocument()
-  })
-
-  it('the tokushuon Practice Hub offers all 4 games, including Kana Quiz (regression: character-set categories keep it, unlike contrast-pairs)', () => {
-    renderAt('/practice/tokushuon/tokushuon-fa-row')
-    expect(screen.getByText('Kana Quiz')).toBeInTheDocument()
-    expect(screen.getByText('Kana Typing')).toBeInTheDocument()
-    expect(screen.getByText('Listening')).toBeInTheDocument()
-    expect(screen.getByText('Word Builder')).toBeInTheDocument()
-  })
-
-  it('/learn/tokushuon/tokushuon-fa-row starts on the flashcard step, like hiragana/katakana/yōon (not skipped like contrast-pairs)', () => {
-    renderAt('/learn/tokushuon/tokushuon-fa-row')
-    expect(screen.getByText(/new characters/)).toBeInTheDocument()
-  })
-
-  it('/practice/tokushuon/tokushuon-fa-row/kana-quiz renders normally rather than redirecting home', () => {
-    renderAt('/practice/tokushuon/tokushuon-fa-row/kana-quiz')
-    expect(screen.getByText(/Round 1/)).toBeInTheDocument()
-  })
-
-  it('/practice/tokushuon/tokushuon-fa-row/tracing starts in the character phase and does not crash on a tokushuon character with no stroke data', () => {
-    renderAt('/practice/tokushuon/tokushuon-fa-row/tracing')
-    expect(screen.getByText('Trace each character')).toBeInTheDocument()
-  })
-
-  it('/practice/tokushuon/tokushuon-fa-row/word-builder renders real words built from multi-glyph tokushuon characters', () => {
-    renderAt('/practice/tokushuon/tokushuon-fa-row/word-builder')
-    expect(screen.getByText(/Round 1/)).toBeInTheDocument()
-  })
-
-  it('/practice/tokushuon/tokushuon-va-row renders the row containing the one 1-glyph tokushuon character (ヴ) without crashing', () => {
-    renderAt('/practice/tokushuon/tokushuon-va-row')
-    expect(screen.getByRole('heading', { name: 'ヴ・ヴァ・ヴィ・ヴェ・ヴォ' })).toBeInTheDocument()
-  })
-
-  it('sokuon/chōon/yōon/hiragana/katakana behavior is unaffected by tokushuon existing (regression)', () => {
-    const sokuonRender = renderAt('/practice/sokuon/sokuon-row')
-    expect(screen.getByRole('heading', { name: 'っ・ッ' })).toBeInTheDocument()
-    expect(screen.queryByText('Kana Quiz')).not.toBeInTheDocument()
-    sokuonRender.unmount()
-
-    const youonRender = renderAt('/practice/youon/youon-ka-row')
-    expect(screen.getByText('Kana Quiz')).toBeInTheDocument()
-    youonRender.unmount()
 
     renderAt('/practice/hiragana/a-row')
     expect(screen.getByText('Kana Quiz')).toBeInTheDocument()
