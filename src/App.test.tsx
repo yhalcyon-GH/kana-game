@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it } from 'vitest'
 import App from './App'
@@ -55,7 +55,7 @@ describe('routing', () => {
 
   it('/practice/katakana/katakana-a-row renders that row\'s Practice Hub', () => {
     renderAt('/practice/katakana/katakana-a-row')
-    expect(screen.getByRole('heading', { name: 'ア~オ・カ~ゴ・ー・ン' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'ア~オ・カ~ゴ・ン・ー' })).toBeInTheDocument()
   })
 
   it('/learn/katakana/katakana-a-row renders the Learn flow for that row', () => {
@@ -107,13 +107,13 @@ describe('script chooser pages', () => {
     renderAt('/hiragana')
     expect(screen.getByRole('heading', { name: 'ひらがな' })).toBeInTheDocument()
     expect(screen.getByText('あ~お')).toBeInTheDocument()
-    expect(screen.queryByText('ア~オ・カ~ゴ・ー・ン')).not.toBeInTheDocument()
+    expect(screen.queryByText('ア~オ・カ~ゴ・ン・ー')).not.toBeInTheDocument()
   })
 
   it('/katakana shows only katakana rows', () => {
     renderAt('/katakana')
     expect(screen.getByRole('heading', { name: 'カタカナ' })).toBeInTheDocument()
-    expect(screen.getByText('ア~オ・カ~ゴ・ー・ン')).toBeInTheDocument()
+    expect(screen.getByText('ア~オ・カ~ゴ・ン・ー')).toBeInTheDocument()
     expect(screen.queryByText('あ~お')).not.toBeInTheDocument()
   })
 
@@ -128,5 +128,32 @@ describe('script chooser pages', () => {
     expect(screen.getByRole('link', { name: /ひらがな/ })).toHaveAttribute('href', '/hiragana')
     expect(screen.getByRole('link', { name: /カタカナ/ })).toHaveAttribute('href', '/katakana')
     expect(screen.getByRole('link', { name: /そのほか/ })).toHaveAttribute('href', '/other')
+  })
+})
+
+// Learn's step-A jump-ahead links (see LearnPage.tsx) — added because
+// katakana's merged ア~ゴ lesson has enough characters that clicking Next
+// through every one just to reach the recap grid or word list is a lot of
+// taps; these skip straight there.
+describe('Learn jump-ahead links', () => {
+  it('"See them all" jumps straight to the recap grid from the first character', () => {
+    renderAt('/learn/katakana/katakana-a-row')
+    expect(screen.getByText(/new characters/)).toBeInTheDocument()
+    fireEvent.click(screen.getByText('See them all'))
+    expect(screen.getByText(/all together/)).toBeInTheDocument()
+  })
+
+  it('"See the words" jumps straight to the word list from the first character', () => {
+    renderAt('/learn/katakana/katakana-a-row')
+    fireEvent.click(screen.getByText('See the words'))
+    expect(screen.getByText(/words you can already read/)).toBeInTheDocument()
+  })
+
+  it('"Back" from a later character still steps back one at a time, not straight to the hub', () => {
+    renderAt('/learn/katakana/katakana-a-row')
+    fireEvent.click(screen.getByText('Next')) // charIndex 0 -> 1
+    expect(screen.getByText('2 / 17')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Back')) // charIndex 1 -> 0, not the hub
+    expect(screen.getByText('1 / 17')).toBeInTheDocument()
   })
 })

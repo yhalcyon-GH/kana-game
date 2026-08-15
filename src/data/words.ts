@@ -158,11 +158,13 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
   // Real katakana vocabulary leans heavily on ー/ン, and ア~オ alone has no
   // consonant to build ordinary loanwords from at all, so the merged first
   // lesson is the row every later row's richness was already assuming.
-  // Words originally written for the separate ア行/カ行 drafts are simply
-  // combined below (both already drew from exactly this same pool, so
-  // nothing needed re-deriving) — a few genuine ア~オ-only words (イオン,
-  // オーイ, the アイアイ nursery-song reference) alongside the カ~ゴ words
-  // that give this lesson its real depth (ケーキ, アイコン, エアコン, ...).
+  // アイアイ is the one pure ア~オ-only word kept (a real nursery-song
+  // reference); a first pass also included イオン/エイ/エイエイオー/オーイ,
+  // removed at the user's request as unnatural (an abstract brand/
+  // chemistry term, a not-especially-everyday animal name, and two
+  // interjections rather than concrete vocabulary) — see this row's own
+  // inline comment. The row's real depth comes from カ~ゴ (ケーキ, アイコン,
+  // エアコン, ...).
   //
   // katakana-ra-row's characters include ワ and ヲ (absorbed here as the
   // final row, rather than getting their own row — see curriculum.ts). ワ
@@ -174,11 +176,14 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
   // flashcard, stroke order) for structural completeness with hiragana's
   // を, it just has no vocabulary reinforcement — flagged for review.
   'katakana-a-row': [
-    { id: 'katakana-a-ion', kana: 'イオン', romaji: 'ion', meaning: 'ion (also AEON, a major Japanese store chain)', characterIds: ['katakana-i', 'katakana-o', 'katakana-n'] },
-    { id: 'katakana-a-ei', kana: 'エイ', romaji: 'ei', meaning: 'stingray', characterIds: ['katakana-e', 'katakana-i'] },
+    // アイアイ is the one pure ア~オ-only word left (no consonant needed) —
+    // kept for the same reason as before (a real nursery-song reference).
+    // イオン/エイ/エイエイオー/オーイ were removed at the user's request as
+    // unnatural (an abstract brand/chemistry term, a not-especially-
+    // everyday animal name, and two interjections rather than vocabulary) —
+    // the row doesn't need vowel-only filler now that it's merged with
+    // カ~ゴ below.
     { id: 'katakana-a-aiai', kana: 'アイアイ', romaji: 'aiai', meaning: 'aye-aye (a lemur, from the classic Japanese children\'s song)', characterIds: ['katakana-a', 'katakana-i', 'katakana-a', 'katakana-i'] },
-    { id: 'katakana-a-ooi', kana: 'オーイ', romaji: 'ooi', meaning: 'hey! (calling out to someone far away)', characterIds: ['katakana-o', 'katakana-chouon', 'katakana-i'] },
-    { id: 'katakana-a-eieioo', kana: 'エイエイオー', romaji: 'eieioo', meaning: 'hooray! (a cheer, e.g. before a sports day race)', characterIds: ['katakana-e', 'katakana-i', 'katakana-e', 'katakana-i', 'katakana-o', 'katakana-chouon'] },
     { id: 'katakana-a-ika', kana: 'イカ', romaji: 'ika', meaning: 'squid', characterIds: ['katakana-i', 'katakana-ka'] },
     { id: 'katakana-a-kaki', kana: 'カキ', romaji: 'kaki', meaning: 'oyster', characterIds: ['katakana-ka', 'katakana-ki'] },
     { id: 'katakana-a-keeki', kana: 'ケーキ', romaji: 'keeki', meaning: 'cake', characterIds: ['katakana-ke', 'katakana-chouon', 'katakana-ki'] },
@@ -199,8 +204,12 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'katakana-sa-sain', kana: 'サイン', romaji: 'sain', meaning: 'autograph / signature', characterIds: ['katakana-sa', 'katakana-i', 'katakana-n'] },
     { id: 'katakana-sa-saizu', kana: 'サイズ', romaji: 'saizu', meaning: 'size', characterIds: ['katakana-sa', 'katakana-i', 'katakana-zu'] },
     { id: 'katakana-sa-sukii', kana: 'スキー', romaji: 'sukii', meaning: 'ski / skiing', characterIds: ['katakana-su', 'katakana-ki', 'katakana-chouon'] },
-    { id: 'katakana-sa-sazae', kana: 'サザエ', romaji: 'sazae', meaning: 'turban shell (also the anime Sazae-san)', characterIds: ['katakana-sa', 'katakana-za', 'katakana-e'] },
-    { id: 'katakana-sa-gaaze', kana: 'ガーゼ', romaji: 'gaaze', meaning: 'gauze', characterIds: ['katakana-ga', 'katakana-chouon', 'katakana-ze'] },
+    // サザエ (turban shell) and ガーゼ (gauze) were removed at the user's
+    // request as unnatural (a niche seafood term and a medical-supply
+    // word — neither is everyday kid vocabulary), replaced with two more
+    // common food/practical words.
+    { id: 'katakana-sa-sooseeji', kana: 'ソーセージ', romaji: 'sooseeji', meaning: 'sausage', characterIds: ['katakana-so', 'katakana-chouon', 'katakana-se', 'katakana-chouon', 'katakana-ji'] },
+    { id: 'katakana-sa-keesu', kana: 'ケース', romaji: 'keesu', meaning: 'case', characterIds: ['katakana-ke', 'katakana-chouon', 'katakana-su'] },
   ],
   'katakana-ta-row': [
     { id: 'katakana-ta-tako', kana: 'タコ', romaji: 'tako', meaning: 'octopus', characterIds: ['katakana-ta', 'katakana-ko'] },

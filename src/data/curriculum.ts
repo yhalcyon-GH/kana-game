@@ -75,13 +75,13 @@ export const ROWS: GojuonRow[] = [
   {
     id: 'katakana-a-row',
     categoryId: KATAKANA_CATEGORY_ID,
-    label: 'ア~オ・カ~ゴ・ー・ン',
+    label: 'ア~オ・カ~ゴ・ン・ー',
     order: 0,
     characterIds: [
       'katakana-a', 'katakana-i', 'katakana-u', 'katakana-e', 'katakana-o',
       'katakana-ka', 'katakana-ki', 'katakana-ku', 'katakana-ke', 'katakana-ko',
       'katakana-ga', 'katakana-gi', 'katakana-gu', 'katakana-ge', 'katakana-go',
-      'katakana-chouon', 'katakana-n',
+      'katakana-n', 'katakana-chouon',
     ],
   },
   {

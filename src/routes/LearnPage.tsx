@@ -89,6 +89,19 @@ export function LearnPage() {
             {charIndex < characters.length - 1 ? 'Next' : 'See them all'}
           </button>
         </div>
+        {/* Jump-ahead links — a long row (e.g. katakana's merged ア~ゴ
+            lesson) means clicking Next through every character just to
+            reach the recap grid or word list is a lot of taps; these skip
+            straight there without losing the "Back" behavior above, which
+            still steps back one character at a time. */}
+        <div className="flex gap-4 text-sm">
+          <button type="button" onClick={() => setStep('recap')} className="text-neutral-500 underline hover:text-blue-600 dark:text-neutral-400 dark:hover:text-blue-400">
+            See them all
+          </button>
+          <button type="button" onClick={() => setStep('B')} className="text-neutral-500 underline hover:text-blue-600 dark:text-neutral-400 dark:hover:text-blue-400">
+            See the words
+          </button>
+        </div>
       </div>
     )
   }
