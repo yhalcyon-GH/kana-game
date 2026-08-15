@@ -41,8 +41,8 @@ export function pcmToWav(pcm: Buffer, sampleRate = SAMPLE_RATE, numChannels = 1,
   return Buffer.concat([header, pcm])
 }
 
-export async function synthesize(text: string, apiKey: string): Promise<Buffer> {
-  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}?output_format=pcm_${SAMPLE_RATE}`, {
+export async function synthesize(text: string, apiKey: string, voiceId: string = VOICE_ID): Promise<Buffer> {
+  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=pcm_${SAMPLE_RATE}`, {
     method: 'POST',
     headers: { 'xi-api-key': apiKey, 'Content-Type': 'application/json' },
     body: JSON.stringify({ text, model_id: MODEL_ID }),
@@ -64,8 +64,8 @@ export async function fileExists(p: string): Promise<boolean> {
 // Always overwrites — the skip-if-exists decision belongs to the caller
 // (generateAudioElevenLabs.ts's bulk loop skips; checkVoiceQuality.ts's
 // --regenerate path deliberately wants to overwrite a bad clip).
-export async function synthesizeToFile(outPath: string, text: string, apiKey: string): Promise<void> {
+export async function synthesizeToFile(outPath: string, text: string, apiKey: string, voiceId: string = VOICE_ID): Promise<void> {
   await mkdir(path.dirname(outPath), { recursive: true })
-  const wav = await synthesize(text, apiKey)
+  const wav = await synthesize(text, apiKey, voiceId)
   await writeFile(outPath, wav)
 }
