@@ -413,6 +413,21 @@ describe('character-set learnStyle with yōon (multi-glyph, one-mora characters)
     expect(screen.getByText(/Round 1/)).toBeInTheDocument()
   })
 
+  // Word Builder splits a multi-glyph character like きゃ into two SEPARATE
+  // tiles (き, ゃ) rather than one pre-combined きゃ tile — see
+  // WordBuilderPage.tsx's TrayTile comment. Every word in youon-ka-row
+  // contains exactly one small ゃ/ゅ/ょ glyph, so regardless of which word
+  // the session picks, some button's accessible text should be exactly one
+  // of those three characters on its own — never paired with its base
+  // consonant in the same tile.
+  it('/practice/youon/youon-ka-row/word-builder splits combo characters into individual glyph tiles', () => {
+    renderAt('/practice/youon/youon-ka-row/word-builder')
+    const buttonTexts = screen.getAllByRole('button').map((b) => b.textContent)
+    expect(buttonTexts.some((t) => t === 'ゃ' || t === 'ゅ' || t === 'ょ')).toBe(true)
+    // Regression: no tile should show a full 2-glyph combo like きゃ/ぎょ.
+    expect(buttonTexts.some((t) => t != null && [...t].length === 2 && /[ぁ-ん]/.test(t))).toBe(false)
+  })
+
   it('sokuon/chōon/hiragana/katakana behavior is unaffected by youon existing (regression)', () => {
     renderAt('/practice/sokuon/sokuon-row')
     expect(screen.getByRole('heading', { name: 'っ・ッ' })).toBeInTheDocument()

@@ -259,14 +259,16 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'katakana-ma-suimingu', kana: 'スイミング', romaji: 'suimingu', meaning: 'swimming', characterIds: ['katakana-su', 'katakana-i', 'katakana-mi', 'katakana-n', 'katakana-gu'] },
     { id: 'katakana-ma-masuku', kana: 'マスク', romaji: 'masuku', meaning: 'mask', characterIds: ['katakana-ma', 'katakana-su', 'katakana-ku'] },
   ],
+  // ハヤブサ (falcon/spacecraft) and ユニコーン (unicorn, fictional) were
+  // removed at the user's request as weak everyday vocabulary for a foreign
+  // learner (2026-08-15) — one's a narrow/specific animal+proper-noun, the
+  // other isn't a real-world thing at all.
   'katakana-ya-row': [
     { id: 'katakana-ya-hiyoko', kana: 'ヒヨコ', romaji: 'hiyoko', meaning: 'baby chick', characterIds: ['katakana-hi', 'katakana-yo', 'katakana-ko'] },
     { id: 'katakana-ya-taiya', kana: 'タイヤ', romaji: 'taiya', meaning: 'tire', characterIds: ['katakana-ta', 'katakana-i', 'katakana-ya'] },
     { id: 'katakana-ya-yoga', kana: 'ヨガ', romaji: 'yoga', meaning: 'yoga', characterIds: ['katakana-yo', 'katakana-ga'] },
-    { id: 'katakana-ya-hayabusa', kana: 'ハヤブサ', romaji: 'hayabusa', meaning: 'peregrine falcon (also a famous spacecraft)', characterIds: ['katakana-ha', 'katakana-ya', 'katakana-bu', 'katakana-sa'] },
     { id: 'katakana-ya-daiya', kana: 'ダイヤ', romaji: 'daiya', meaning: 'diamond', characterIds: ['katakana-da', 'katakana-i', 'katakana-ya'] },
     { id: 'katakana-ya-moyashi', kana: 'モヤシ', romaji: 'moyashi', meaning: 'bean sprouts', characterIds: ['katakana-mo', 'katakana-ya', 'katakana-shi'] },
-    { id: 'katakana-ya-yunikoon', kana: 'ユニコーン', romaji: 'yunikoon', meaning: 'unicorn', characterIds: ['katakana-yu', 'katakana-ni', 'katakana-ko', 'katakana-chouon', 'katakana-n'] },
     { id: 'katakana-ya-yagi', kana: 'ヤギ', romaji: 'yagi', meaning: 'goat', characterIds: ['katakana-ya', 'katakana-gi'] },
   ],
   'katakana-ra-row': [
@@ -396,8 +398,12 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'youon-ka-gyouza', kana: 'ぎょうざ', romaji: 'gyouza', meaning: 'dumpling', characterIds: ['gyo', 'u', 'za'], audioText: '餃子' },
     { id: 'youon-ka-gyaku', kana: 'ぎゃく', romaji: 'gyaku', meaning: 'opposite / reverse', characterIds: ['gya', 'ku'], audioText: '逆' },
     { id: 'youon-ka-kingyo', kana: 'きんぎょ', romaji: 'kingyo', meaning: 'goldfish', characterIds: ['ki', 'n', 'gyo'], audioText: '金魚' },
-    { id: 'youon-ka-kyuuri', kana: 'きゅうり', romaji: 'kyuuri', meaning: 'cucumber', characterIds: ['kyu', 'u', 'ri'] },
     { id: 'youon-ka-gyuuniku', kana: 'ぎゅうにく', romaji: 'gyuuniku', meaning: 'beef', characterIds: ['gyu', 'u', 'ni', 'ku'], audioText: '牛肉' },
+    // きゅうり (cucumber) removed here — kept only as キュウリ in
+    // youon-katakana-ka-row, per the standing "no duplicate meaning across
+    // scripts within one category" rule (see katakana-a-row's comment),
+    // also applied to 拗音 now (2026-08-15): it had briefly slipped into
+    // both forms.
   ],
   'youon-sha-row': [
     { id: 'youon-sha-shashin', kana: 'しゃしん', romaji: 'shashin', meaning: 'photo', characterIds: ['sha', 'shi', 'n'], audioText: '写真' },
@@ -409,53 +415,49 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'youon-sha-juu', kana: 'じゅう', romaji: 'juu', meaning: 'ten', characterIds: ['ju', 'u'], audioText: '十' },
     { id: 'youon-sha-jouzu', kana: 'じょうず', romaji: 'jouzu', meaning: 'skillful', characterIds: ['jo', 'u', 'zu'], audioText: '上手' },
   ],
-  'youon-cha-row': [
-    { id: 'youon-cha-ocha', kana: 'おちゃ', romaji: 'ocha', meaning: 'tea', characterIds: ['o', 'cha'], audioText: 'お茶' },
-    { id: 'youon-cha-chawan', kana: 'ちゃわん', romaji: 'chawan', meaning: 'rice bowl', characterIds: ['cha', 'wa', 'n'], audioText: '茶碗' },
-    { id: 'youon-cha-chou', kana: 'ちょう', romaji: 'chou', meaning: 'butterfly', characterIds: ['cho', 'u'], audioText: '蝶' },
-    { id: 'youon-cha-chuui', kana: 'ちゅうい', romaji: 'chuui', meaning: 'caution / attention', characterIds: ['chu', 'u', 'i'], audioText: '注意' },
-    { id: 'youon-cha-omocha', kana: 'おもちゃ', romaji: 'omocha', meaning: 'toy', characterIds: ['o', 'mo', 'cha'] },
-    { id: 'youon-cha-chokin', kana: 'ちょきん', romaji: 'chokin', meaning: 'savings', characterIds: ['cho', 'ki', 'n'], audioText: '貯金' },
-  ],
-  // にゃ/にゅ are covered below; にょ only appears in にょきにょき (a
-  // mimetic word) — real everyday にょ vocabulary is otherwise about as
-  // scarce as this row's character count would suggest.
-  'youon-na-row': [
-    { id: 'youon-na-konnyaku', kana: 'こんにゃく', romaji: 'konnyaku', meaning: 'konjac (a food)', characterIds: ['ko', 'n', 'nya', 'ku'] },
-    { id: 'youon-na-nyanko', kana: 'にゃんこ', romaji: 'nyanko', meaning: 'kitty (informal for cat)', characterIds: ['nya', 'n', 'ko'] },
-    { id: 'youon-na-nyuuin', kana: 'にゅういん', romaji: 'nyuuin', meaning: 'hospitalization', characterIds: ['nyu', 'u', 'i', 'n'], audioText: '入院' },
-    { id: 'youon-na-gyuunyuu', kana: 'ぎゅうにゅう', romaji: 'gyuunyuu', meaning: 'milk', characterIds: ['gyu', 'u', 'nyu', 'u'], audioText: '牛乳' },
-    { id: 'youon-na-nyuugaku', kana: 'にゅうがく', romaji: 'nyuugaku', meaning: 'school enrollment', characterIds: ['nyu', 'u', 'ga', 'ku'], audioText: '入学' },
-    { id: 'youon-na-nyokinyoki', kana: 'にょきにょき', romaji: 'nyokinyoki', meaning: 'sprouting up one after another (onomatopoeia)', characterIds: ['nyo', 'ki', 'nyo', 'ki'] },
+  // ちゃ行 + にゃ行 merged into one row (2026-08-15, at the user's request —
+  // real everyday にゃ/にゅ/にょ vocabulary on its own was too thin to
+  // justify a dedicated row). Re-reviewed for daily-life relevance at the
+  // same time: こんにゃく (konjac, a niche food) and にゅうがく (school
+  // enrollment, narrow/academic) were cut as low-value; にょきにょき (a
+  // mimetic/onomatopoeia word) was cut per the user's request.
+  'youon-cha-na-row': [
+    { id: 'youon-cha-na-ocha', kana: 'おちゃ', romaji: 'ocha', meaning: 'tea', characterIds: ['o', 'cha'], audioText: 'お茶' },
+    { id: 'youon-cha-na-chawan', kana: 'ちゃわん', romaji: 'chawan', meaning: 'rice bowl', characterIds: ['cha', 'wa', 'n'], audioText: '茶碗' },
+    { id: 'youon-cha-na-chou', kana: 'ちょう', romaji: 'chou', meaning: 'butterfly', characterIds: ['cho', 'u'], audioText: '蝶' },
+    { id: 'youon-cha-na-chuui', kana: 'ちゅうい', romaji: 'chuui', meaning: 'caution / attention', characterIds: ['chu', 'u', 'i'], audioText: '注意' },
+    { id: 'youon-cha-na-omocha', kana: 'おもちゃ', romaji: 'omocha', meaning: 'toy', characterIds: ['o', 'mo', 'cha'] },
+    { id: 'youon-cha-na-chokin', kana: 'ちょきん', romaji: 'chokin', meaning: 'savings', characterIds: ['cho', 'ki', 'n'], audioText: '貯金' },
+    { id: 'youon-cha-na-nyanko', kana: 'にゃんこ', romaji: 'nyanko', meaning: 'kitty (informal for cat)', characterIds: ['nya', 'n', 'ko'] },
+    { id: 'youon-cha-na-nyuuin', kana: 'にゅういん', romaji: 'nyuuin', meaning: 'hospitalization', characterIds: ['nyu', 'u', 'i', 'n'], audioText: '入院' },
+    { id: 'youon-cha-na-gyuunyuu', kana: 'ぎゅうにゅう', romaji: 'gyuunyuu', meaning: 'milk', characterIds: ['gyu', 'u', 'nyu', 'u'], audioText: '牛乳' },
   ],
   // hya/byu/pyu have no dedicated word below — real vocabulary/loanwords
   // using them specifically is scarce; every other character in this row
-  // gets real coverage.
+  // gets real coverage. ぴょんぴょん (onomatopoeia) was cut per the user's
+  // request (2026-08-15); ひょう (leopard) was cut here too — kept only as
+  // ヒョウ in youon-katakana-ha-row, same duplicate-meaning fix as
+  // きゅうり above.
   'youon-ha-row': [
     { id: 'youon-ha-hyaku', kana: 'ひゃく', romaji: 'hyaku', meaning: 'hundred', characterIds: ['hya', 'ku'], audioText: '百' },
     { id: 'youon-ha-hyakuen', kana: 'ひゃくえん', romaji: 'hyakuen', meaning: '100 yen', characterIds: ['hya', 'ku', 'e', 'n'], audioText: '百円' },
     { id: 'youon-ha-byouin', kana: 'びょういん', romaji: 'byouin', meaning: 'hospital', characterIds: ['byo', 'u', 'i', 'n'], audioText: '病院' },
     { id: 'youon-ha-byouki', kana: 'びょうき', romaji: 'byouki', meaning: 'sickness', characterIds: ['byo', 'u', 'ki'], audioText: '病気' },
     { id: 'youon-ha-sanbyaku', kana: 'さんびゃく', romaji: 'sanbyaku', meaning: 'three hundred', characterIds: ['sa', 'n', 'bya', 'ku'], audioText: '三百' },
-    { id: 'youon-ha-hyou', kana: 'ひょう', romaji: 'hyou', meaning: 'leopard', characterIds: ['hyo', 'u'], audioText: '豹' },
-    { id: 'youon-ha-pyonpyon', kana: 'ぴょんぴょん', romaji: 'pyonpyon', meaning: 'hop, hop (onomatopoeia)', characterIds: ['pyo', 'n', 'pyo', 'n'] },
   ],
-  // みゅ has no dedicated word below — genuinely rare/absent from native
-  // Japanese vocabulary outside loanwords (which spell it in katakana, see
-  // youon-katakana-ma-row).
-  'youon-ma-row': [
-    { id: 'youon-ma-myouji', kana: 'みょうじ', romaji: 'myouji', meaning: 'surname / family name', characterIds: ['myo', 'u', 'ji'], audioText: '名字' },
-    { id: 'youon-ma-myaku', kana: 'みゃく', romaji: 'myaku', meaning: 'pulse', characterIds: ['mya', 'ku'], audioText: '脈' },
-    { id: 'youon-ma-bimyou', kana: 'びみょう', romaji: 'bimyou', meaning: 'subtle / delicate', characterIds: ['bi', 'myo', 'u'], audioText: '微妙' },
-    { id: 'youon-ma-kimyou', kana: 'きみょう', romaji: 'kimyou', meaning: 'strange / odd', characterIds: ['ki', 'myo', 'u'], audioText: '奇妙' },
-  ],
-  // りゃ has no dedicated word below for the same reason — rare/absent from
-  // native vocabulary (its katakana counterpart is real: リャマ "llama").
-  'youon-ra-row': [
-    { id: 'youon-ra-ryokou', kana: 'りょこう', romaji: 'ryokou', meaning: 'travel / trip', characterIds: ['ryo', 'ko', 'u'], audioText: '旅行' },
-    { id: 'youon-ra-ryouri', kana: 'りょうり', romaji: 'ryouri', meaning: 'cooking / cuisine', characterIds: ['ryo', 'u', 'ri'], audioText: '料理' },
-    { id: 'youon-ra-ryuu', kana: 'りゅう', romaji: 'ryuu', meaning: 'dragon', characterIds: ['ryu', 'u'], audioText: '竜' },
-    { id: 'youon-ra-ryokan', kana: 'りょかん', romaji: 'ryokan', meaning: 'traditional Japanese inn', characterIds: ['ryo', 'ka', 'n'], audioText: '旅館' },
+  // みゃ行 + りゃ行 merged into one row (2026-08-15), same reasoning as
+  // ちゃ/にゃ above. りゅう (dragon) was cut at the user's request — real
+  // vocabulary using りゃ specifically is still thin (its katakana
+  // counterpart is real: see youon-katakana-ma-ra-row's リャマ "llama"), a
+  // documented gap same as elsewhere in this category.
+  'youon-ma-ra-row': [
+    { id: 'youon-ma-ra-myouji', kana: 'みょうじ', romaji: 'myouji', meaning: 'surname / family name', characterIds: ['myo', 'u', 'ji'], audioText: '名字' },
+    { id: 'youon-ma-ra-myaku', kana: 'みゃく', romaji: 'myaku', meaning: 'pulse', characterIds: ['mya', 'ku'], audioText: '脈' },
+    { id: 'youon-ma-ra-bimyou', kana: 'びみょう', romaji: 'bimyou', meaning: 'subtle / delicate', characterIds: ['bi', 'myo', 'u'], audioText: '微妙' },
+    { id: 'youon-ma-ra-kimyou', kana: 'きみょう', romaji: 'kimyou', meaning: 'strange / odd', characterIds: ['ki', 'myo', 'u'], audioText: '奇妙' },
+    { id: 'youon-ma-ra-ryokou', kana: 'りょこう', romaji: 'ryokou', meaning: 'travel / trip', characterIds: ['ryo', 'ko', 'u'], audioText: '旅行' },
+    { id: 'youon-ma-ra-ryouri', kana: 'りょうり', romaji: 'ryouri', meaning: 'cooking / cuisine', characterIds: ['ryo', 'u', 'ri'], audioText: '料理' },
+    { id: 'youon-ma-ra-ryokan', kana: 'りょかん', romaji: 'ryokan', meaning: 'traditional Japanese inn', characterIds: ['ryo', 'ka', 'n'], audioText: '旅館' },
   ],
 
   // ===== 拗音 (yōon) vocabulary — カタカナ =====
@@ -463,11 +465,12 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
   // vocabulary above. ー is freely usable here (it's a カタカナ category
   // character — see curriculum.ts's YOUON_CATEGORY_ID comment for why that's
   // in scope even though sokuon's っ/ッ deliberately isn't).
+  // ギョーザ removed here — kept only as ぎょうざ in youon-ka-row, same
+  // duplicate-meaning fix as elsewhere in this category (2026-08-15).
   'youon-katakana-ka-row': [
     { id: 'youon-katakana-ka-kyabetsu', kana: 'キャベツ', romaji: 'kyabetsu', meaning: 'cabbage', characterIds: ['katakana-kya', 'katakana-be', 'katakana-tsu'] },
     { id: 'youon-katakana-ka-kyanpu', kana: 'キャンプ', romaji: 'kyanpu', meaning: 'camp', characterIds: ['katakana-kya', 'katakana-n', 'katakana-pu'] },
     { id: 'youon-katakana-ka-gyagu', kana: 'ギャグ', romaji: 'gyagu', meaning: 'gag / joke', characterIds: ['katakana-gya', 'katakana-gu'] },
-    { id: 'youon-katakana-ka-gyouza', kana: 'ギョーザ', romaji: 'gyouza', meaning: 'dumpling (katakana spelling)', characterIds: ['katakana-gyo', 'katakana-chouon', 'katakana-za'] },
     { id: 'youon-katakana-ka-kyuuri', kana: 'キュウリ', romaji: 'kyuuri', meaning: 'cucumber (katakana spelling)', characterIds: ['katakana-kyu', 'katakana-u', 'katakana-ri'] },
     { id: 'youon-katakana-ka-regyuraa', kana: 'レギュラー', romaji: 'regyuraa', meaning: 'regular', characterIds: ['katakana-re', 'katakana-gyu', 'katakana-ra', 'katakana-chouon'] },
   ],
@@ -480,44 +483,47 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'youon-katakana-sha-juusu', kana: 'ジュース', romaji: 'juusu', meaning: 'juice', characterIds: ['katakana-ju', 'katakana-chouon', 'katakana-su'] },
     { id: 'youon-katakana-sha-jogingu', kana: 'ジョギング', romaji: 'jogingu', meaning: 'jogging', characterIds: ['katakana-jo', 'katakana-gi', 'katakana-n', 'katakana-gu'] },
   ],
-  'youon-katakana-cha-row': [
-    { id: 'youon-katakana-cha-chansu', kana: 'チャンス', romaji: 'chansu', meaning: 'chance', characterIds: ['katakana-cha', 'katakana-n', 'katakana-su'] },
-    { id: 'youon-katakana-cha-chaimu', kana: 'チャイム', romaji: 'chaimu', meaning: 'chime', characterIds: ['katakana-cha', 'katakana-i', 'katakana-mu'] },
-    { id: 'youon-katakana-cha-chuubu', kana: 'チューブ', romaji: 'chuubu', meaning: 'tube', characterIds: ['katakana-chu', 'katakana-chouon', 'katakana-bu'] },
-    { id: 'youon-katakana-cha-chooku', kana: 'チョーク', romaji: 'chooku', meaning: 'chalk', characterIds: ['katakana-cho', 'katakana-chouon', 'katakana-ku'] },
-    { id: 'youon-katakana-cha-chokoreeto', kana: 'チョコレート', romaji: 'chokoreeto', meaning: 'chocolate', characterIds: ['katakana-cho', 'katakana-ko', 'katakana-re', 'katakana-chouon', 'katakana-to'] },
-  ],
-  // ニョ has no dedicated word below — rare even among katakana loanwords.
-  'youon-katakana-na-row': [
-    { id: 'youon-katakana-na-nyaa', kana: 'ニャー', romaji: 'nyaa', meaning: 'meow', characterIds: ['katakana-nya', 'katakana-chouon'] },
-    { id: 'youon-katakana-na-nyuusu', kana: 'ニュース', romaji: 'nyuusu', meaning: 'news', characterIds: ['katakana-nyu', 'katakana-chouon', 'katakana-su'] },
-    { id: 'youon-katakana-na-manyuaru', kana: 'マニュアル', romaji: 'manyuaru', meaning: 'manual', characterIds: ['katakana-ma', 'katakana-nyu', 'katakana-a', 'katakana-ru'] },
-    { id: 'youon-katakana-na-nyuuyooku', kana: 'ニューヨーク', romaji: 'nyuuyooku', meaning: 'New York', characterIds: ['katakana-nyu', 'katakana-chouon', 'katakana-yo', 'katakana-chouon', 'katakana-ku'] },
+  // チャ行 + ニャ行 merged into one row (2026-08-15), mirroring the
+  // hiragana youon-cha-na-row merge above.
+  'youon-katakana-cha-na-row': [
+    { id: 'youon-katakana-cha-na-chansu', kana: 'チャンス', romaji: 'chansu', meaning: 'chance', characterIds: ['katakana-cha', 'katakana-n', 'katakana-su'] },
+    { id: 'youon-katakana-cha-na-chaimu', kana: 'チャイム', romaji: 'chaimu', meaning: 'chime', characterIds: ['katakana-cha', 'katakana-i', 'katakana-mu'] },
+    { id: 'youon-katakana-cha-na-chuubu', kana: 'チューブ', romaji: 'chuubu', meaning: 'tube', characterIds: ['katakana-chu', 'katakana-chouon', 'katakana-bu'] },
+    { id: 'youon-katakana-cha-na-chooku', kana: 'チョーク', romaji: 'chooku', meaning: 'chalk', characterIds: ['katakana-cho', 'katakana-chouon', 'katakana-ku'] },
+    { id: 'youon-katakana-cha-na-chokoreeto', kana: 'チョコレート', romaji: 'chokoreeto', meaning: 'chocolate', characterIds: ['katakana-cho', 'katakana-ko', 'katakana-re', 'katakana-chouon', 'katakana-to'] },
+    { id: 'youon-katakana-cha-na-nyaa', kana: 'ニャー', romaji: 'nyaa', meaning: 'meow', characterIds: ['katakana-nya', 'katakana-chouon'] },
+    { id: 'youon-katakana-cha-na-nyuusu', kana: 'ニュース', romaji: 'nyuusu', meaning: 'news', characterIds: ['katakana-nyu', 'katakana-chouon', 'katakana-su'] },
+    { id: 'youon-katakana-cha-na-manyuaru', kana: 'マニュアル', romaji: 'manyuaru', meaning: 'manual', characterIds: ['katakana-ma', 'katakana-nyu', 'katakana-a', 'katakana-ru'] },
+    { id: 'youon-katakana-cha-na-nyuuyooku', kana: 'ニューヨーク', romaji: 'nyuuyooku', meaning: 'New York', characterIds: ['katakana-nyu', 'katakana-chouon', 'katakana-yo', 'katakana-chouon', 'katakana-ku'] },
+    // ニョ has no dedicated word below — rare even among katakana loanwords.
   ],
   // ヒャ/ビャ have no dedicated word below — rare even among katakana
   // loanwords (their sense mostly belongs to native vocabulary already
-  // covered by youon-ha-row's ひゃく/さんびゃく).
+  // covered by youon-ha-row's ひゃく/さんびゃく). ピョコピョコ (onomatopoeia)
+  // was cut at the user's request (2026-08-15); ヒョウ (leopard) stays here
+  // as the only surviving spelling after the ひょう/ヒョウ duplicate fix
+  // (see youon-ha-row). ヒューズ (fuse) was flagged as a niche/technical
+  // word but kept — every row needs at least 4 words (curriculum.test.ts),
+  // and no better everyday ヒュ example was available.
   'youon-katakana-ha-row': [
     { id: 'youon-katakana-ha-hyou', kana: 'ヒョウ', romaji: 'hyou', meaning: 'leopard (katakana spelling)', characterIds: ['katakana-hyo', 'katakana-u'] },
     { id: 'youon-katakana-ha-hyuuzu', kana: 'ヒューズ', romaji: 'hyuuzu', meaning: 'fuse (electrical)', characterIds: ['katakana-hyu', 'katakana-chouon', 'katakana-zu'] },
     { id: 'youon-katakana-ha-debyuu', kana: 'デビュー', romaji: 'debyuu', meaning: 'debut', characterIds: ['katakana-de', 'katakana-byu', 'katakana-chouon'] },
     { id: 'youon-katakana-ha-pyua', kana: 'ピュア', romaji: 'pyua', meaning: 'pure', characterIds: ['katakana-pyu', 'katakana-a'] },
-    { id: 'youon-katakana-ha-pyokopyoko', kana: 'ピョコピョコ', romaji: 'pyokopyoko', meaning: 'hop, hop (onomatopoeia)', characterIds: ['katakana-pyo', 'katakana-ko', 'katakana-pyo', 'katakana-ko'] },
   ],
   // ミョ has no dedicated word below — rare even among katakana loanwords.
-  'youon-katakana-ma-row': [
-    { id: 'youon-katakana-ma-myanmaa', kana: 'ミャンマー', romaji: 'myanmaa', meaning: 'Myanmar', characterIds: ['katakana-mya', 'katakana-n', 'katakana-ma', 'katakana-chouon'] },
-    { id: 'youon-katakana-ma-myuujiamu', kana: 'ミュージアム', romaji: 'myuujiamu', meaning: 'museum', characterIds: ['katakana-myu', 'katakana-chouon', 'katakana-ji', 'katakana-a', 'katakana-mu'] },
-    { id: 'youon-katakana-ma-myuuto', kana: 'ミュート', romaji: 'myuuto', meaning: 'mute', characterIds: ['katakana-myu', 'katakana-chouon', 'katakana-to'] },
-    { id: 'youon-katakana-ma-myuujishan', kana: 'ミュージシャン', romaji: 'myuujishan', meaning: 'musician', characterIds: ['katakana-myu', 'katakana-chouon', 'katakana-ji', 'katakana-sha', 'katakana-n'] },
-  ],
-  // りゃ's own row (youon-ra-row) has no native-vocabulary example — リャマ
-  // here is the real word that pattern is missing.
-  'youon-katakana-ra-row': [
-    { id: 'youon-katakana-ra-ryama', kana: 'リャマ', romaji: 'ryama', meaning: 'llama', characterIds: ['katakana-rya', 'katakana-ma'] },
-    { id: 'youon-katakana-ra-ryuu', kana: 'リュウ', romaji: 'ryuu', meaning: 'Ryu (a name) / dragon', characterIds: ['katakana-ryu', 'katakana-u'] },
-    { id: 'youon-katakana-ra-boryuumu', kana: 'ボリューム', romaji: 'boryuumu', meaning: 'volume', characterIds: ['katakana-bo', 'katakana-ryu', 'katakana-chouon', 'katakana-mu'] },
-    { id: 'youon-katakana-ra-ryou', kana: 'リョウ', romaji: 'ryou', meaning: 'Ryo (a name)', characterIds: ['katakana-ryo', 'katakana-u'] },
+  // ミャ行 + リャ行 merged into one row (2026-08-15), mirroring the
+  // hiragana youon-ma-ra-row merge above. リュウ/リョウ (both just a
+  // person's name, not real vocabulary) were cut at the user's request —
+  // リョ specifically now has no dedicated word in this merged row, the
+  // same kind of documented gap as elsewhere in this category.
+  'youon-katakana-ma-ra-row': [
+    { id: 'youon-katakana-ma-ra-myanmaa', kana: 'ミャンマー', romaji: 'myanmaa', meaning: 'Myanmar', characterIds: ['katakana-mya', 'katakana-n', 'katakana-ma', 'katakana-chouon'] },
+    { id: 'youon-katakana-ma-ra-myuujiamu', kana: 'ミュージアム', romaji: 'myuujiamu', meaning: 'museum', characterIds: ['katakana-myu', 'katakana-chouon', 'katakana-ji', 'katakana-a', 'katakana-mu'] },
+    { id: 'youon-katakana-ma-ra-myuuto', kana: 'ミュート', romaji: 'myuuto', meaning: 'mute', characterIds: ['katakana-myu', 'katakana-chouon', 'katakana-to'] },
+    { id: 'youon-katakana-ma-ra-myuujishan', kana: 'ミュージシャン', romaji: 'myuujishan', meaning: 'musician', characterIds: ['katakana-myu', 'katakana-chouon', 'katakana-ji', 'katakana-sha', 'katakana-n'] },
+    { id: 'youon-katakana-ma-ra-ryama', kana: 'リャマ', romaji: 'ryama', meaning: 'llama', characterIds: ['katakana-rya', 'katakana-ma'] },
+    { id: 'youon-katakana-ma-ra-boryuumu', kana: 'ボリューム', romaji: 'boryuumu', meaning: 'volume', characterIds: ['katakana-bo', 'katakana-ryu', 'katakana-chouon', 'katakana-mu'] },
   ],
 }
 

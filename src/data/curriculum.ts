@@ -338,19 +338,20 @@ export const ROWS: GojuonRow[] = [
   // per-script-within-a-category — there's no schema support for two
   // independent order-0 sequences inside one category (getNextRowId/
   // getCumulativeCharacterIds only filter by categoryId+order). So this is
-  // ONE monotonic order sequence (0-13) split into two back-to-back blocks:
-  // all 7 hiragana yōon rows first (order 0-6, mirroring the same
-  // か/さ/た/な/は/ま/ら consonant order hiragana's own rows use — や/わ are
-  // skipped since neither combines with ゃゅょ), then all 7 katakana yōon
-  // rows (order 7-13). This is a judgment call, not a spec requirement —
-  // teaching hiragana's full yōon set before starting katakana's mirrors
-  // how the rest of the curriculum already treats the two scripts as
-  // separate large blocks (all of hiragana, THEN all of katakana), rather
-  // than interleaving corresponding hiragana/katakana rows lesson-by-lesson.
-  // Each row folds its dakuten/handakuten combos in together, exactly like
-  // ka-row/sa-row/ta-row/ha-row already do for the base gojūon (きゃ行 +
-  // ぎゃ行 taught together, etc.) — see characters.ts's comment for why
-  // ぢゃ行 doesn't exist as a row.
+  // ONE monotonic order sequence (0-9) split into two back-to-back blocks:
+  // all 5 hiragana yōon rows first (order 0-4), then all 5 katakana yōon
+  // rows (order 5-9) — mirroring how the rest of the curriculum already
+  // treats the two scripts as separate large blocks (all of hiragana, THEN
+  // all of katakana), rather than interleaving corresponding hiragana/
+  // katakana rows lesson-by-lesson.
+  //
+  // ちゃ/にゃ and みゃ/りゃ are each merged into ONE row per script (2026-08-
+  // 15, at the user's request: real everyday vocabulary for にゃ/みゃ/りゃ
+  // specifically is thin enough on its own that finding good words for a
+  // whole dedicated row was a struggle — see words.ts's comments on what got
+  // cut). This drops the category from 14 rows to 10; every row still folds
+  // its dakuten/handakuten combos in together exactly like ka-row/sa-row/
+  // ta-row/ha-row already do for the base gojūon.
   {
     id: 'youon-ka-row',
     categoryId: YOUON_CATEGORY_ID,
@@ -368,50 +369,34 @@ export const ROWS: GojuonRow[] = [
     englishLabel: 'Sha Row',
   },
   {
-    id: 'youon-cha-row',
+    id: 'youon-cha-na-row',
     categoryId: YOUON_CATEGORY_ID,
-    label: 'ちゃ・ちゅ・ちょ',
+    label: 'ちゃ・ちゅ・ちょ・にゃ・にゅ・にょ',
     order: 2,
-    characterIds: ['cha', 'chu', 'cho'],
-    englishLabel: 'Cha Row',
-  },
-  {
-    id: 'youon-na-row',
-    categoryId: YOUON_CATEGORY_ID,
-    label: 'にゃ・にゅ・にょ',
-    order: 3,
-    characterIds: ['nya', 'nyu', 'nyo'],
-    englishLabel: 'Nya Row',
+    characterIds: ['cha', 'chu', 'cho', 'nya', 'nyu', 'nyo'],
+    englishLabel: 'Cha/Nya Row',
   },
   {
     id: 'youon-ha-row',
     categoryId: YOUON_CATEGORY_ID,
     label: 'ひゃ・ひゅ・ひょ・びゃ・びゅ・びょ・ぴゃ・ぴゅ・ぴょ',
-    order: 4,
+    order: 3,
     characterIds: ['hya', 'hyu', 'hyo', 'bya', 'byu', 'byo', 'pya', 'pyu', 'pyo'],
     englishLabel: 'Hya Row',
   },
   {
-    id: 'youon-ma-row',
+    id: 'youon-ma-ra-row',
     categoryId: YOUON_CATEGORY_ID,
-    label: 'みゃ・みゅ・みょ',
-    order: 5,
-    characterIds: ['mya', 'myu', 'myo'],
-    englishLabel: 'Mya Row',
-  },
-  {
-    id: 'youon-ra-row',
-    categoryId: YOUON_CATEGORY_ID,
-    label: 'りゃ・りゅ・りょ',
-    order: 6,
-    characterIds: ['rya', 'ryu', 'ryo'],
-    englishLabel: 'Rya Row',
+    label: 'みゃ・みゅ・みょ・りゃ・りゅ・りょ',
+    order: 4,
+    characterIds: ['mya', 'myu', 'myo', 'rya', 'ryu', 'ryo'],
+    englishLabel: 'Mya/Rya Row',
   },
   {
     id: 'youon-katakana-ka-row',
     categoryId: YOUON_CATEGORY_ID,
     label: 'キャ・キュ・キョ・ギャ・ギュ・ギョ',
-    order: 7,
+    order: 5,
     characterIds: ['katakana-kya', 'katakana-kyu', 'katakana-kyo', 'katakana-gya', 'katakana-gyu', 'katakana-gyo'],
     englishLabel: 'Kya Row',
   },
@@ -419,31 +404,23 @@ export const ROWS: GojuonRow[] = [
     id: 'youon-katakana-sha-row',
     categoryId: YOUON_CATEGORY_ID,
     label: 'シャ・シュ・ショ・ジャ・ジュ・ジョ',
-    order: 8,
+    order: 6,
     characterIds: ['katakana-sha', 'katakana-shu', 'katakana-sho', 'katakana-ja', 'katakana-ju', 'katakana-jo'],
     englishLabel: 'Sha Row',
   },
   {
-    id: 'youon-katakana-cha-row',
+    id: 'youon-katakana-cha-na-row',
     categoryId: YOUON_CATEGORY_ID,
-    label: 'チャ・チュ・チョ',
-    order: 9,
-    characterIds: ['katakana-cha', 'katakana-chu', 'katakana-cho'],
-    englishLabel: 'Cha Row',
-  },
-  {
-    id: 'youon-katakana-na-row',
-    categoryId: YOUON_CATEGORY_ID,
-    label: 'ニャ・ニュ・ニョ',
-    order: 10,
-    characterIds: ['katakana-nya', 'katakana-nyu', 'katakana-nyo'],
-    englishLabel: 'Nya Row',
+    label: 'チャ・チュ・チョ・ニャ・ニュ・ニョ',
+    order: 7,
+    characterIds: ['katakana-cha', 'katakana-chu', 'katakana-cho', 'katakana-nya', 'katakana-nyu', 'katakana-nyo'],
+    englishLabel: 'Cha/Nya Row',
   },
   {
     id: 'youon-katakana-ha-row',
     categoryId: YOUON_CATEGORY_ID,
     label: 'ヒャ・ヒュ・ヒョ・ビャ・ビュ・ビョ・ピャ・ピュ・ピョ',
-    order: 11,
+    order: 8,
     characterIds: [
       'katakana-hya', 'katakana-hyu', 'katakana-hyo',
       'katakana-bya', 'katakana-byu', 'katakana-byo',
@@ -452,20 +429,12 @@ export const ROWS: GojuonRow[] = [
     englishLabel: 'Hya Row',
   },
   {
-    id: 'youon-katakana-ma-row',
+    id: 'youon-katakana-ma-ra-row',
     categoryId: YOUON_CATEGORY_ID,
-    label: 'ミャ・ミュ・ミョ',
-    order: 12,
-    characterIds: ['katakana-mya', 'katakana-myu', 'katakana-myo'],
-    englishLabel: 'Mya Row',
-  },
-  {
-    id: 'youon-katakana-ra-row',
-    categoryId: YOUON_CATEGORY_ID,
-    label: 'リャ・リュ・リョ',
-    order: 13,
-    characterIds: ['katakana-rya', 'katakana-ryu', 'katakana-ryo'],
-    englishLabel: 'Rya Row',
+    label: 'ミャ・ミュ・ミョ・リャ・リュ・リョ',
+    order: 9,
+    characterIds: ['katakana-mya', 'katakana-myu', 'katakana-myo', 'katakana-rya', 'katakana-ryu', 'katakana-ryo'],
+    englishLabel: 'Mya/Rya Row',
   },
 ]
 

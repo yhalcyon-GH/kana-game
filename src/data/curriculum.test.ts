@@ -263,16 +263,19 @@ describe('character-set category content (拗音/yōon)', () => {
     expect([...word.kana]).toHaveLength(3)
   })
 
-  it('the hiragana yōon rows (order 0-6) and katakana yōon rows (order 7-13) share one monotonic order sequence within the category', () => {
+  // 14 rows -> 10 (2026-08-15): ちゃ/にゃ and みゃ/りゃ each merged into one
+  // row per script (real everyday vocabulary for にゃ/みゃ/りゃ alone was
+  // too thin to justify a dedicated row — see words.ts's comments).
+  it('the hiragana yōon rows (order 0-4) and katakana yōon rows (order 5-9) share one monotonic order sequence within the category', () => {
     const youonRows = ROWS.filter((r) => r.categoryId === 'youon').sort((a, b) => a.order - b.order)
-    expect(youonRows).toHaveLength(14)
-    expect(youonRows.map((r) => r.order)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
-    expect(youonRows.slice(0, 7).every((r) => !r.id.includes('katakana'))).toBe(true)
-    expect(youonRows.slice(7).every((r) => r.id.includes('katakana'))).toBe(true)
+    expect(youonRows).toHaveLength(10)
+    expect(youonRows.map((r) => r.order)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
+    expect(youonRows.slice(0, 5).every((r) => !r.id.includes('katakana'))).toBe(true)
+    expect(youonRows.slice(5).every((r) => r.id.includes('katakana'))).toBe(true)
   })
 
   it('a later katakana yōon row\'s cumulative pool includes earlier hiragana yōon rows\' characters too (same-category, order-scoped)', () => {
-    const cumulative = getCumulativeCharacterIds('youon-katakana-ra-row')
+    const cumulative = getCumulativeCharacterIds('youon-katakana-ma-ra-row')
     expect(cumulative).toEqual(expect.arrayContaining(['kya', 'rya'])) // hiragana yōon, earlier order
     expect(cumulative).toEqual(expect.arrayContaining(['katakana-kya', 'katakana-rya'])) // katakana yōon, own row
   })

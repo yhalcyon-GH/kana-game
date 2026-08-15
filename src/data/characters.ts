@@ -270,13 +270,13 @@ export const CHARACTERS: KanaChar[] = [
   { id: 'ju', kana: 'じゅ', romaji: 'ju', rowId: 'youon-sha-row', type: 'dakuten' },
   { id: 'jo', kana: 'じょ', romaji: 'jo', rowId: 'youon-sha-row', type: 'dakuten' },
   // ち行 (no dakuten row — see note above)
-  { id: 'cha', kana: 'ちゃ', romaji: 'cha', rowId: 'youon-cha-row', type: 'base' },
-  { id: 'chu', kana: 'ちゅ', romaji: 'chu', rowId: 'youon-cha-row', type: 'base' },
-  { id: 'cho', kana: 'ちょ', romaji: 'cho', rowId: 'youon-cha-row', type: 'base' },
+  { id: 'cha', kana: 'ちゃ', romaji: 'cha', rowId: 'youon-cha-na-row', type: 'base' },
+  { id: 'chu', kana: 'ちゅ', romaji: 'chu', rowId: 'youon-cha-na-row', type: 'base' },
+  { id: 'cho', kana: 'ちょ', romaji: 'cho', rowId: 'youon-cha-na-row', type: 'base' },
   // に行 (no dakuten)
-  { id: 'nya', kana: 'にゃ', romaji: 'nya', rowId: 'youon-na-row', type: 'base' },
-  { id: 'nyu', kana: 'にゅ', romaji: 'nyu', rowId: 'youon-na-row', type: 'base' },
-  { id: 'nyo', kana: 'にょ', romaji: 'nyo', rowId: 'youon-na-row', type: 'base' },
+  { id: 'nya', kana: 'にゃ', romaji: 'nya', rowId: 'youon-cha-na-row', type: 'base' },
+  { id: 'nyu', kana: 'にゅ', romaji: 'nyu', rowId: 'youon-cha-na-row', type: 'base' },
+  { id: 'nyo', kana: 'にょ', romaji: 'nyo', rowId: 'youon-cha-na-row', type: 'base' },
   // ひ行/び行/ぴ行
   { id: 'hya', kana: 'ひゃ', romaji: 'hya', rowId: 'youon-ha-row', type: 'base' },
   { id: 'hyu', kana: 'ひゅ', romaji: 'hyu', rowId: 'youon-ha-row', type: 'base' },
@@ -288,13 +288,13 @@ export const CHARACTERS: KanaChar[] = [
   { id: 'pyu', kana: 'ぴゅ', romaji: 'pyu', rowId: 'youon-ha-row', type: 'handakuten' },
   { id: 'pyo', kana: 'ぴょ', romaji: 'pyo', rowId: 'youon-ha-row', type: 'handakuten' },
   // み行 (no dakuten)
-  { id: 'mya', kana: 'みゃ', romaji: 'mya', rowId: 'youon-ma-row', type: 'base' },
-  { id: 'myu', kana: 'みゅ', romaji: 'myu', rowId: 'youon-ma-row', type: 'base' },
-  { id: 'myo', kana: 'みょ', romaji: 'myo', rowId: 'youon-ma-row', type: 'base' },
+  { id: 'mya', kana: 'みゃ', romaji: 'mya', rowId: 'youon-ma-ra-row', type: 'base' },
+  { id: 'myu', kana: 'みゅ', romaji: 'myu', rowId: 'youon-ma-ra-row', type: 'base' },
+  { id: 'myo', kana: 'みょ', romaji: 'myo', rowId: 'youon-ma-ra-row', type: 'base' },
   // り行 (no dakuten)
-  { id: 'rya', kana: 'りゃ', romaji: 'rya', rowId: 'youon-ra-row', type: 'base' },
-  { id: 'ryu', kana: 'りゅ', romaji: 'ryu', rowId: 'youon-ra-row', type: 'base' },
-  { id: 'ryo', kana: 'りょ', romaji: 'ryo', rowId: 'youon-ra-row', type: 'base' },
+  { id: 'rya', kana: 'りゃ', romaji: 'rya', rowId: 'youon-ma-ra-row', type: 'base' },
+  { id: 'ryu', kana: 'りゅ', romaji: 'ryu', rowId: 'youon-ma-ra-row', type: 'base' },
+  { id: 'ryo', kana: 'りょ', romaji: 'ryo', rowId: 'youon-ma-ra-row', type: 'base' },
 
   // ===== 拗音 (yōon) — カタカナ =====
   // Same 33-combination set as hiragana above, 'katakana-' prefixed per the
@@ -316,13 +316,13 @@ export const CHARACTERS: KanaChar[] = [
   { id: 'katakana-ju', kana: 'ジュ', romaji: 'ju', rowId: 'youon-katakana-sha-row', type: 'dakuten' },
   { id: 'katakana-jo', kana: 'ジョ', romaji: 'jo', rowId: 'youon-katakana-sha-row', type: 'dakuten' },
   // チ行
-  { id: 'katakana-cha', kana: 'チャ', romaji: 'cha', rowId: 'youon-katakana-cha-row', type: 'base' },
-  { id: 'katakana-chu', kana: 'チュ', romaji: 'chu', rowId: 'youon-katakana-cha-row', type: 'base' },
-  { id: 'katakana-cho', kana: 'チョ', romaji: 'cho', rowId: 'youon-katakana-cha-row', type: 'base' },
+  { id: 'katakana-cha', kana: 'チャ', romaji: 'cha', rowId: 'youon-katakana-cha-na-row', type: 'base' },
+  { id: 'katakana-chu', kana: 'チュ', romaji: 'chu', rowId: 'youon-katakana-cha-na-row', type: 'base' },
+  { id: 'katakana-cho', kana: 'チョ', romaji: 'cho', rowId: 'youon-katakana-cha-na-row', type: 'base' },
   // ニ行
-  { id: 'katakana-nya', kana: 'ニャ', romaji: 'nya', rowId: 'youon-katakana-na-row', type: 'base' },
-  { id: 'katakana-nyu', kana: 'ニュ', romaji: 'nyu', rowId: 'youon-katakana-na-row', type: 'base' },
-  { id: 'katakana-nyo', kana: 'ニョ', romaji: 'nyo', rowId: 'youon-katakana-na-row', type: 'base' },
+  { id: 'katakana-nya', kana: 'ニャ', romaji: 'nya', rowId: 'youon-katakana-cha-na-row', type: 'base' },
+  { id: 'katakana-nyu', kana: 'ニュ', romaji: 'nyu', rowId: 'youon-katakana-cha-na-row', type: 'base' },
+  { id: 'katakana-nyo', kana: 'ニョ', romaji: 'nyo', rowId: 'youon-katakana-cha-na-row', type: 'base' },
   // ヒ行/ビ行/ピ行
   { id: 'katakana-hya', kana: 'ヒャ', romaji: 'hya', rowId: 'youon-katakana-ha-row', type: 'base' },
   { id: 'katakana-hyu', kana: 'ヒュ', romaji: 'hyu', rowId: 'youon-katakana-ha-row', type: 'base' },
@@ -334,13 +334,13 @@ export const CHARACTERS: KanaChar[] = [
   { id: 'katakana-pyu', kana: 'ピュ', romaji: 'pyu', rowId: 'youon-katakana-ha-row', type: 'handakuten' },
   { id: 'katakana-pyo', kana: 'ピョ', romaji: 'pyo', rowId: 'youon-katakana-ha-row', type: 'handakuten' },
   // ミ行
-  { id: 'katakana-mya', kana: 'ミャ', romaji: 'mya', rowId: 'youon-katakana-ma-row', type: 'base' },
-  { id: 'katakana-myu', kana: 'ミュ', romaji: 'myu', rowId: 'youon-katakana-ma-row', type: 'base' },
-  { id: 'katakana-myo', kana: 'ミョ', romaji: 'myo', rowId: 'youon-katakana-ma-row', type: 'base' },
+  { id: 'katakana-mya', kana: 'ミャ', romaji: 'mya', rowId: 'youon-katakana-ma-ra-row', type: 'base' },
+  { id: 'katakana-myu', kana: 'ミュ', romaji: 'myu', rowId: 'youon-katakana-ma-ra-row', type: 'base' },
+  { id: 'katakana-myo', kana: 'ミョ', romaji: 'myo', rowId: 'youon-katakana-ma-ra-row', type: 'base' },
   // リ行
-  { id: 'katakana-rya', kana: 'リャ', romaji: 'rya', rowId: 'youon-katakana-ra-row', type: 'base' },
-  { id: 'katakana-ryu', kana: 'リュ', romaji: 'ryu', rowId: 'youon-katakana-ra-row', type: 'base' },
-  { id: 'katakana-ryo', kana: 'リョ', romaji: 'ryo', rowId: 'youon-katakana-ra-row', type: 'base' },
+  { id: 'katakana-rya', kana: 'リャ', romaji: 'rya', rowId: 'youon-katakana-ma-ra-row', type: 'base' },
+  { id: 'katakana-ryu', kana: 'リュ', romaji: 'ryu', rowId: 'youon-katakana-ma-ra-row', type: 'base' },
+  { id: 'katakana-ryo', kana: 'リョ', romaji: 'ryo', rowId: 'youon-katakana-ma-ra-row', type: 'base' },
 ]
 
 export const CHARACTERS_BY_ID: Record<string, KanaChar> = Object.fromEntries(
