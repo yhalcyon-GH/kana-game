@@ -227,6 +227,19 @@ const RESOLVED_BY_SOURCE_CONSENSUS = {
   'ma-tamago': 'LHL',
   'ya-yuki': 'LH',
   'ra-sakura': 'LHH',
+  // Katakana loanwords: no kanji exists to disambiguate by, so these are
+  // resolved directly by counting sources per candidate accent (see the
+  // per-word source breakdown this script prints for any AMBIGUOUS entry
+  // without a resolution here) rather than filtering by kanji variant.
+  'katakana-a-aikon': 'HLLL', // 4 sources (Wiktionary/NHK/Kanjium/Kishimoto) vs 1 (NHK)
+  'katakana-a-kokoa': 'HLL', // 5 sources vs 4
+  'katakana-sa-sooseeji': 'HLLLL', // 4 sources vs 3
+  'katakana-ta-aidea': 'LHHL', // 5 sources vs 4
+  'katakana-ta-toosuto': 'HLLL', // 5 sources vs 3
+  'katakana-ma-anime': 'HLL', // 5 sources vs 4
+  'katakana-ma-misu': 'HL', // 5 sources vs 1
+  'katakana-ma-suimingu': 'LHLLL', // 4 sources vs 2
+  'katakana-ra-booru': 'LHH', // 5 sources vs 3
 }
 
 const results = []
@@ -245,6 +258,13 @@ for (const w of words) {
   }
   const pick = MEANING_TO_KANJI[w.id]
   if (!pick) {
+    const noKanjiResolved = RESOLVED_BY_SOURCE_CONSENSUS[w.id]
+    if (noKanjiResolved && allAccents.includes(noKanjiResolved)) {
+      results.push({ id: w.id, kana: w.kana, romaji: w.romaji, accent: noKanjiResolved })
+      continue
+    }
+    console.log(`\n${w.id} (${w.kana} "${w.meaning}") has conflicting accents, no kanji to disambiguate by:`)
+    for (const e of entries) console.log(`  ${e.accent}  [${e.sources.join(', ')}]  variants: ${e.variants.join(', ')}`)
     skipped.push(`${w.id}: AMBIGUOUS, no disambiguation entry — ${w.kana} "${w.meaning}"`)
     continue
   }
