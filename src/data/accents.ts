@@ -169,6 +169,7 @@ export const ACCENT_PATTERNS: Record<string, string> = {
   'sokuon-kitte': 'LHH', // きって (kitte)
   'sokuon-mate': 'HL', // まて (mate)
   'sokuon-motte': 'HLL', // もって (motte)
+  'sokuon-iki': 'HL', // いき (iki) — user-provided, not in accentjiten
   'sokuon-oto': 'LH', // おと (oto)
   'ta-chikatetsu': 'LHHH', // ちかてつ (chikatetsu)
   'ta-chizu': 'HL', // ちず (chizu)
