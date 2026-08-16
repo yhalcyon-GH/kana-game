@@ -83,7 +83,7 @@ export const ACCENT_PATTERNS: Record<string, string> = {
   'katakana-ma-memo': 'HL', // メモ (memo)
   'katakana-ma-misu': 'HL', // ミス (misu)
   'katakana-ma-same': 'LH', // サメ (same)
-  'katakana-ma-suimingu': 'LHLLL', // スイミング (suimingu)
+  'katakana-ma-suimingu': 'HLLLL', // スイミング (suimingu) — user-corrected from accentjiten's LHLLL majority (4 vs 2 sources)
   'katakana-ma-tomato': 'HLL', // トマト (tomato)
   'katakana-na-antena': 'LHHH', // アンテナ (antena)
   'katakana-na-doonatsu': 'HLLL', // ドーナツ (doonatsu)
