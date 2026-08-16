@@ -38,7 +38,7 @@ function AccentedKana({ kana, accent }: { kana: string; accent?: string }) {
           points={points.join(' ')}
           fill="none"
           stroke="#dc2626"
-          strokeWidth={1.5}
+          strokeWidth={0.8}
           strokeLinecap="round"
           strokeLinejoin="round"
           vectorEffect="non-scaling-stroke"
