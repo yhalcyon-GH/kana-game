@@ -21,7 +21,27 @@ export function requireApiKey(): string {
   return apiKey
 }
 
+// ElevenLabs' raw PCM stream sometimes ends mid-waveform (no natural
+// decay to silence), which plays back as an audible click/pop ("プツッ")
+// at the very end of short clips — most noticeable on single-mora
+// character audio. A short linear fade-out on the last few ms removes the
+// discontinuity without perceptibly shortening the sound.
+function fadeOutTail(pcm: Buffer, sampleRate: number, durationMs = 15): Buffer {
+  const faded = Buffer.from(pcm)
+  const fadeSamples = Math.min(Math.floor((sampleRate * durationMs) / 1000), Math.floor(faded.length / 2))
+  const totalSamples = faded.length / 2
+  for (let i = 0; i < fadeSamples; i++) {
+    const sampleIndex = totalSamples - fadeSamples + i
+    const gain = 1 - i / fadeSamples
+    const offset = sampleIndex * 2
+    const sample = faded.readInt16LE(offset)
+    faded.writeInt16LE(Math.round(sample * gain), offset)
+  }
+  return faded
+}
+
 export function pcmToWav(pcm: Buffer, sampleRate = SAMPLE_RATE, numChannels = 1, bitsPerSample = 16): Buffer {
+  pcm = fadeOutTail(pcm, sampleRate)
   const byteRate = (sampleRate * numChannels * bitsPerSample) / 8
   const blockAlign = (numChannels * bitsPerSample) / 8
   const header = Buffer.alloc(44)
