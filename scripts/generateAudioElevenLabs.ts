@@ -19,14 +19,20 @@
 // want to regenerate just that one (or use `npm run check-voices --
 // --regenerate --yes`, which does this for FAILed clips automatically).
 //   ELEVENLABS_API_KEY=sk_... npx tsx scripts/generateAudioElevenLabs.ts
+//   ELEVENLABS_API_KEY=sk_... npx tsx scripts/generateAudioElevenLabs.ts --voice <elevenLabsVoiceId>
 import path from 'node:path'
 import { CHARACTERS } from '../src/data/characters'
 import { ALL_WORDS } from '../src/data/words'
-import { fileExists, OUT_DIR, requireApiKey, synthesizeToFile } from './elevenLabsClient'
+import { fileExists, OUT_DIR, requireApiKey, synthesizeToFile, VOICE_ID } from './elevenLabsClient'
 
 const apiKey = requireApiKey()
 
-async function generateAll(subdir: string, items: { id: string; text: string }[]) {
+function parseArgs(argv: string[]) {
+  const voiceIndex = argv.indexOf('--voice')
+  return { voice: voiceIndex !== -1 ? argv[voiceIndex + 1] : VOICE_ID }
+}
+
+async function generateAll(subdir: string, items: { id: string; text: string }[], voice: string) {
   const dir = path.join(OUT_DIR, subdir)
   for (const { id, text } of items) {
     const outPath = path.join(dir, `${id}.wav`)
@@ -34,22 +40,27 @@ async function generateAll(subdir: string, items: { id: string; text: string }[]
       console.log(`  skip ${subdir}/${id}.wav (already exists)`)
       continue
     }
-    await synthesizeToFile(outPath, text, apiKey)
+    await synthesizeToFile(outPath, text, apiKey, voice)
     console.log(`  wrote ${subdir}/${id}.wav  ("${text}")`)
   }
 }
 
 async function main() {
+  const { voice } = parseArgs(process.argv.slice(2))
+  console.log(`Voice: ${voice}${voice === VOICE_ID ? ' (default)' : ' (override)'}`)
+
   console.log(`Generating ${CHARACTERS.length} character clips...`)
   await generateAll(
     'characters',
     CHARACTERS.map((c) => ({ id: c.id, text: c.kana })),
+    voice,
   )
 
   console.log(`Generating ${ALL_WORDS.length} word clips...`)
   await generateAll(
     'words',
     ALL_WORDS.map((w) => ({ id: w.id, text: w.audioText ?? w.kana })),
+    voice,
   )
 
   console.log('Done.')

@@ -1,17 +1,25 @@
 // scripts/checkVoiceQuality.ts
 // CLI entry point for the automated voice-quality pipeline described in
 // docs/2026-08-15-voice-quality-check-design.md. For every word (or every
-// word in one row, with --row), transcribes its existing clip locally,
-// scores it against the word's expected reading, and writes both a console
-// summary and voice-check-report.json. Never calls the paid ElevenLabs API
-// unless BOTH --regenerate and --yes are given — see the --regenerate
-// handling below. Never calls Azure unless --azure is given (real, if
-// small, per-call cost — see scripts/azurePronunciation.ts's header for why
-// this is a second, independent check rather than a replacement).
+// word in one row, with --row), scores its existing clip against the
+// word's expected reading, and writes both a console summary and
+// voice-check-report.json. Never calls the paid ElevenLabs API unless BOTH
+// --regenerate and --yes are given — see the --regenerate handling below.
 //
-//   npm run check-voices                          # check everything (whisper only)
+// Azure Pronunciation Assessment now runs BY DEFAULT (real, if small,
+// per-call cost — see scripts/azurePronunciation.ts's header). The local
+// whisper.cpp+kuroshiro check is opt-in via --whisper: across this
+// project's actual usage, whisper had a high false-positive rate on short
+// isolated words (no sentence context to disambiguate) and Azure's
+// accuracy score proved far more trustworthy — see
+// project_kana_game_audio_generation_status memory / session history for
+// the comparisons that established this. Keep --whisper around for a
+// second opinion on a specific word, not as the default gate.
+//
+//   npm run check-voices                          # check everything (Azure only)
 //   npm run check-voices -- --row ka-row           # check one row
-//   npm run check-voices -- --azure                # also run Azure Pronunciation Assessment
+//   npm run check-voices -- --whisper              # also run local whisper.cpp check
+//   npm run check-voices -- --no-azure             # skip Azure (whisper-only, needs --whisper)
 //   npm run check-voices -- --regenerate           # dry run: show what would be regenerated
 //   npm run check-voices -- --regenerate --yes     # actually regenerate FAILed clips (paid)
 import path from 'node:path'
@@ -48,6 +56,7 @@ interface VoiceCheckEntry {
 
 interface VoiceCheckReport {
   generatedAt: string
+  whisperRan: boolean
   config: typeof DEFAULT_THRESHOLDS
   azureConfig?: typeof AZURE_THRESHOLDS
   totals: Record<ReportStatus, number>
@@ -88,7 +97,7 @@ function wavPathFor(wordId: string): string {
   return path.join(OUT_DIR, 'words', `${wordId}.wav`)
 }
 
-async function checkWord(word: AnchorWord): Promise<VoiceCheckEntry> {
+async function checkWord(word: AnchorWord, useWhisper: boolean): Promise<VoiceCheckEntry> {
   const audioTextUsed = word.audioText ?? word.kana
   const wavPath = wavPathFor(word.id)
 
@@ -101,6 +110,18 @@ async function checkWord(word: AnchorWord): Promise<VoiceCheckEntry> {
       pronunciationScore: 0,
       pronunciationStatus: 'MISSING_AUDIO',
       reasons: ['audio file not found'],
+    }
+  }
+
+  if (!useWhisper) {
+    return {
+      wordId: word.id,
+      expectedReading: word.kana,
+      audioTextUsed,
+      detectedReading: '',
+      pronunciationScore: 0,
+      pronunciationStatus: 'PASS',
+      reasons: ['whisper check skipped (pass --whisper to enable)'],
     }
   }
 
@@ -131,26 +152,36 @@ async function checkWord(word: AnchorWord): Promise<VoiceCheckEntry> {
   }
 }
 
-function printSummary(results: VoiceCheckEntry[], azureRan: boolean) {
-  const totals: Record<ReportStatus, number> = { PASS: 0, WARNING: 0, FAIL: 0, MISSING_AUDIO: 0 }
-  for (const r of results) totals[r.pronunciationStatus]++
-
+function printSummary(results: VoiceCheckEntry[], whisperRan: boolean, azureRan: boolean) {
   console.log('\nJapanese Voice Quality Check\n')
-  console.log(`Total: ${results.length}\n`)
-  console.log(`PASS:    ${totals.PASS}`)
-  console.log(`WARNING: ${totals.WARNING}`)
-  console.log(`FAIL:    ${totals.FAIL}`)
-  if (totals.MISSING_AUDIO > 0) console.log(`MISSING: ${totals.MISSING_AUDIO}`)
+  console.log(`Total: ${results.length}`)
 
-  const fails = results.filter((r) => r.pronunciationStatus === 'FAIL')
-  if (fails.length > 0) {
-    console.log('\nFAILURES (reading mismatch)\n')
-    fails.forEach((r, i) => {
-      console.log(`${i + 1}. ${r.wordId}`)
-      console.log(`   Expected: ${r.expectedReading}`)
-      console.log(`   Detected: ${r.detectedReading}`)
-      console.log(`   Reason: ${r.reasons.join('; ')}\n`)
-    })
+  if (whisperRan) {
+    const totals: Record<ReportStatus, number> = { PASS: 0, WARNING: 0, FAIL: 0, MISSING_AUDIO: 0 }
+    for (const r of results) totals[r.pronunciationStatus]++
+
+    console.log('\nWhisper reading check:\n')
+    console.log(`PASS:    ${totals.PASS}`)
+    console.log(`WARNING: ${totals.WARNING}`)
+    console.log(`FAIL:    ${totals.FAIL}`)
+    if (totals.MISSING_AUDIO > 0) console.log(`MISSING: ${totals.MISSING_AUDIO}`)
+
+    const fails = results.filter((r) => r.pronunciationStatus === 'FAIL')
+    if (fails.length > 0) {
+      console.log('\nFAILURES (reading mismatch)\n')
+      fails.forEach((r, i) => {
+        console.log(`${i + 1}. ${r.wordId}`)
+        console.log(`   Expected: ${r.expectedReading}`)
+        console.log(`   Detected: ${r.detectedReading}`)
+        console.log(`   Reason: ${r.reasons.join('; ')}\n`)
+      })
+    }
+  }
+
+  const missing = results.filter((r) => r.pronunciationStatus === 'MISSING_AUDIO')
+  if (!whisperRan && missing.length > 0) {
+    console.log(`\nMISSING audio: ${missing.length}`)
+    missing.forEach((r) => console.log(`  - ${r.wordId}`))
   }
 
   if (azureRan) {
@@ -173,14 +204,25 @@ function printSummary(results: VoiceCheckEntry[], azureRan: boolean) {
         console.log(`   Recognized: ${r.azure.azureRecognizedText}\n`)
       })
     }
+
+    const azureWarnings = withAzure.filter((r) => r.azure.azureStatus === 'WARNING')
+    if (azureWarnings.length > 0) {
+      console.log('\nAZURE WARNINGS (borderline accuracy/fluency)\n')
+      azureWarnings.forEach((r, i) => {
+        console.log(`${i + 1}. ${r.wordId}`)
+        console.log(`   Accuracy: ${r.azure.azureAccuracyScore}  Fluency: ${r.azure.azureFluencyScore}  Completeness: ${r.azure.azureCompletenessScore}  Overall: ${r.azure.azurePronScore}`)
+        console.log(`   Recognized: ${r.azure.azureRecognizedText}\n`)
+      })
+    }
   }
 }
 
-async function writeReport(results: VoiceCheckEntry[], azureRan: boolean): Promise<void> {
+async function writeReport(results: VoiceCheckEntry[], whisperRan: boolean, azureRan: boolean): Promise<void> {
   const totals: Record<ReportStatus, number> = { PASS: 0, WARNING: 0, FAIL: 0, MISSING_AUDIO: 0 }
   for (const r of results) totals[r.pronunciationStatus]++
   const report: VoiceCheckReport = {
     generatedAt: new Date().toISOString(),
+    whisperRan,
     config: DEFAULT_THRESHOLDS,
     ...(azureRan ? { azureConfig: AZURE_THRESHOLDS } : {}),
     totals,
@@ -248,12 +290,13 @@ function parseArgs(argv: string[]) {
     rowFilter,
     regenerate: argv.includes('--regenerate'),
     confirmed: argv.includes('--yes'),
-    azure: argv.includes('--azure'),
+    whisper: argv.includes('--whisper'),
+    azure: !argv.includes('--no-azure'),
   }
 }
 
 async function main() {
-  const { rowFilter, regenerate, confirmed, azure } = parseArgs(process.argv.slice(2))
+  const { rowFilter, regenerate, confirmed, whisper, azure } = parseArgs(process.argv.slice(2))
   const words: AnchorWord[] = rowFilter ? (WORDS_BY_ROW[rowFilter] ?? []) : ALL_WORDS
 
   if (rowFilter && words.length === 0) {
@@ -264,7 +307,7 @@ async function main() {
   console.log(`Checking ${words.length} word clip(s)...`)
   let results: VoiceCheckEntry[] = []
   for (const word of words) {
-    results.push(await checkWord(word))
+    results.push(await checkWord(word, whisper))
   }
 
   if (regenerate) {
@@ -283,8 +326,8 @@ async function main() {
     results = withAzure
   }
 
-  printSummary(results, azure)
-  await writeReport(results, azure)
+  printSummary(results, whisper, azure)
+  await writeReport(results, whisper, azure)
 }
 
 main().catch((err) => {
