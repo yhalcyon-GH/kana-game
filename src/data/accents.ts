@@ -130,7 +130,7 @@ export const ACCENT_PATTERNS: Record<string, string> = {
   'katakana-ta-tento': 'HLL', // テント (tento)
   'katakana-ta-tesuto': 'HLL', // テスト (tesuto)
   'katakana-ta-tokage': 'LHH', // トカゲ (tokage)
-  'katakana-ta-toosuto': 'HLLL', // トースト (toosuto)
+  'katakana-ta-toosuto': 'LHHH', // トースト (toosuto)
   'katakana-ya-hiyoko': 'LHH', // ヒヨコ (hiyoko)
   'katakana-ya-moyashi': 'LHH', // モヤシ (moyashi)
   'katakana-ya-taiya': 'LHH', // タイヤ (taiya)

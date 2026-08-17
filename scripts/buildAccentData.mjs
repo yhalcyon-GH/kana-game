@@ -285,7 +285,7 @@ const RESOLVED_BY_SOURCE_CONSENSUS = {
   'katakana-a-kokoa': 'HLL', // 5 sources vs 4
   'katakana-sa-sooseeji': 'HLLLL', // 4 sources vs 3
   'katakana-ta-aidea': 'LHHL', // 5 sources vs 4
-  'katakana-ta-toosuto': 'HLLL', // 5 sources vs 3
+  'katakana-ta-toosuto': 'LHHH', // user-corrected — dataset majority was HLLL (5 vs 3) but user preferred the minority reading
   'katakana-ma-anime': 'HLL', // 5 sources vs 4
   'katakana-ma-misu': 'HL', // 5 sources vs 1
   'katakana-ma-suimingu': 'LHLLL', // 4 sources vs 2
