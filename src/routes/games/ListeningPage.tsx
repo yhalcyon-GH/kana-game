@@ -25,7 +25,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
   const params = useParams<{ categoryId?: string; rowId?: string }>()
   const rowId = rowIdOverride ?? params.rowId
   const navigate = useNavigate()
-  const { isScopeReady, getScopeWords } = useCurriculum()
+  const { isScopeReady, getScopeWords, getScopeRounds } = useCurriculum()
   const recordResult = useProgressStore((s) => s.recordResult)
   const characters = useProgressStore((s) => s.characters)
   const isReview = rowId === REVIEW_SCOPE_ID
@@ -65,7 +65,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
   )
 
   const { queue, roundIndex, correctCount, setCorrectCount, finished, startSession, startMistakeReview, advance } =
-    useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession })
+    useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession, rounds: getScopeRounds(rowId) })
 
   const [choices, setChoices] = useState<AnchorWord[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)

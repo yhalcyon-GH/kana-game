@@ -11,6 +11,9 @@ type Options = {
   weight: (id: string) => number
   onFinish: (mistakeCount: number) => void
   resetSession: () => void
+  // Overrides GAME_SESSION_ROUNDS — used by the summary rows' fixed
+  // 15-question sessions (see useCurriculum's getScopeRounds).
+  rounds?: number
 }
 
 // Shared round/queue/score state machine for the four graded mini-games
@@ -20,14 +23,14 @@ type Options = {
 // were missed. Each page still owns its own per-round setup (choices, tray
 // tiles, etc.) via currentId/roundIndex — this hook only owns the queue
 // itself.
-export function useGameSession({ ids, weight, onFinish, resetSession }: Options) {
+export function useGameSession({ ids, weight, onFinish, resetSession, rounds = GAME_SESSION_ROUNDS }: Options) {
   const [queue, setQueue] = useState<string[]>([])
   const [roundIndex, setRoundIndex] = useState(0)
   const [correctCount, setCorrectCount] = useState(0)
   const [finished, setFinished] = useState(false)
 
   const startSession = useCallback(() => {
-    setQueue(buildWeightedQueue(ids, weight, Math.min(GAME_SESSION_ROUNDS, ids.length * 3)))
+    setQueue(buildWeightedQueue(ids, weight, Math.min(rounds, ids.length * 3)))
     setRoundIndex(0)
     setCorrectCount(0)
     setFinished(false)

@@ -29,7 +29,7 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
   const params = useParams<{ categoryId?: string; rowId?: string }>()
   const rowId = rowIdOverride ?? params.rowId
   const navigate = useNavigate()
-  const { isScopeReady, getScopeWords } = useCurriculum()
+  const { isScopeReady, getScopeWords, getScopeRounds } = useCurriculum()
   const recordResult = useProgressStore((s) => s.recordResult)
   const characters = useProgressStore((s) => s.characters)
   const { speak, supported } = useTTS()
@@ -70,7 +70,7 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
   )
 
   const { queue, roundIndex, correctCount, setCorrectCount, finished, startSession, startMistakeReview, advance } =
-    useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession })
+    useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession, rounds: getScopeRounds(rowId) })
 
   const [input, setInput] = useState('')
   const [answered, setAnswered] = useState(false)

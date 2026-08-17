@@ -174,6 +174,29 @@ if (!words.some((w) => w.id === 'wa-mizu-wo-nomu')) {
 // kana (e.g. あめ = 雨/rain vs 飴/candy). `null` skip entries have since
 // all been resolved via source-consensus below — kept as documentation.
 const MEANING_TO_KANJI = {
+  'sokuon-otto': '夫',
+  'sokuon-kakko': '括弧',
+  'sokuon-kite': '来て',
+  'sokuon-matte': '待って',
+  'sokuon-ikki': '一気',
+  'sokuon-machi': '町',
+  'chouon-i-ii': '良い',
+  'chouon-u-yuuki': '勇気',
+  'chouon-u-suuji': '数字',
+  'chouon-e-eiga': '映画',
+  'chouon-e-yuumei': '有名',
+  'chouon-o-koukou': '高校',
+  'chouon-o-koori': '氷',
+  'youon-ka-kyaku': '客',
+  'youon-ka-kyou': '今日',
+  'youon-ka-gyouza': '餃子',
+  'youon-sha-densha': '電車',
+  'youon-sha-kaisha': '会社',
+  'youon-sha-jisho': '辞書',
+  'youon-sha-jouzu': '上手',
+  'youon-cha-na-chokin': '貯金',
+  'youon-ha-byouki': '病気',
+  'youon-ma-ra-ryokou': '旅行',
   'a-ai': '愛',
   'ka-aka': '赤',
   'ka-ika': '烏賊',
@@ -226,6 +249,18 @@ const RESOLVED_BY_SOURCE_CONSENSUS = {
   'ha-kutsushita': 'LHLL',
   'ma-tamago': 'LHL',
   'ya-yuki': 'LH',
+  'sokuon-kakko': 'HLL', // 5 sources vs 2
+  'chouon-e-eiga': 'HLL', // 5 sources vs 4
+  'chouon-katakana-koora': 'HLL', // 5 sources vs 1
+  'youon-sha-densha': 'LHH', // 5 sources vs 3
+  'youon-cha-na-chokin': 'LHH', // 5 sources vs 1
+  'youon-katakana-cha-na-manyuaru': 'LHHH', // 5 sources vs 3
+  'youon-katakana-ma-ra-myuujiamu': 'HLLLL', // 4 sources vs 2
+  'youon-katakana-ma-ra-myuujishan': 'LHHLL', // 4 sources vs 1
+  'youon-katakana-ma-ra-boryuumu': 'LHHH', // 5 sources vs 1
+  // sokuon-matte (待って): a 1-source-vs-1-source tie (Wiktionary only, both
+  // sides) — no real majority to resolve by, deliberately left unresolved
+  // rather than picking arbitrarily.
   'ra-sakura': 'LHH',
   // Katakana loanwords: no kanji exists to disambiguate by, so these are
   // resolved directly by counting sources per candidate accent (see the
@@ -242,10 +277,24 @@ const RESOLVED_BY_SOURCE_CONSENSUS = {
   'katakana-ra-booru': 'LHH', // 5 sources vs 3
 }
 
+// Words with NO accentjiten entry at all — supplied directly by the user
+// (by ear/personal knowledge), which is a different thing from Claude
+// guessing from memory (see feedback_dont_guess_pitch_accent memory). Kept
+// here, not just hand-patched into accents.ts, so they survive the next
+// full rebuild instead of silently disappearing.
+const MANUAL_OVERRIDES = {
+  'chouon-a-maamaa': 'LHHL', // まあまあ (maamaa)
+  'sokuon-iki': 'HL', // いき (iki)
+}
+
 const results = []
 const skipped = []
 for (const w of words) {
   if (w.kana.length < 2) continue
+  if (MANUAL_OVERRIDES[w.id]) {
+    results.push({ id: w.id, kana: w.kana, romaji: w.romaji, accent: MANUAL_OVERRIDES[w.id] })
+    continue
+  }
   const entries = byKana.get(w.kana)
   if (!entries || entries.length === 0) {
     skipped.push(`${w.id}: no accentjiten data for "${w.kana}"`)

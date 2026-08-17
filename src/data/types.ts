@@ -74,6 +74,12 @@ export type GojuonRow = {
   // itself stays kana-only and remains the row-card display name — this is
   // additive, not a replacement.
   englishLabel?: string
+  // Marks a synthetic "summary" row (added after a category's/page's last
+  // real row) whose Learn shows every character + every word in the
+  // category at once (no per-character flashcard step) and whose Practice
+  // draws a fixed 15-question pool from the whole category instead of just
+  // this row — see RowMap's ⭐ badge and useCurriculum's summary handling.
+  isSummary?: boolean
 }
 
 export type AnchorWord = {

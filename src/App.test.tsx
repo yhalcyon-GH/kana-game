@@ -188,8 +188,13 @@ describe('Practice Hub breadcrumb / cross-session navigation', () => {
     expect(screen.getByRole('link', { name: /Sa Row/ })).toBeInTheDocument()
   })
 
-  it('the last row in a category has no next link', () => {
+  it('the last real row in a category links next to its ⭐ summary row', () => {
     renderAt('/practice/katakana/katakana-ra-row')
+    expect(screen.getByRole('link', { name: /›$/ })).toBeInTheDocument()
+  })
+
+  it('the ⭐ summary row itself has no next link', () => {
+    renderAt('/practice/katakana/katakana-summary')
     expect(screen.queryByRole('link', { name: /›$/ })).not.toBeInTheDocument()
   })
 
