@@ -285,6 +285,21 @@ const RESOLVED_BY_SOURCE_CONSENSUS = {
 const MANUAL_OVERRIDES = {
   'chouon-a-maamaa': 'LHHL', // まあまあ (maamaa)
   'sokuon-iki': 'HL', // いき (iki)
+  'wa-mizu-wo-nomu': 'LHHHL', // みずをのむ (mizu wo nomu)
+  'katakana-a-kaki': 'HL', // カキ (kaki)
+  'katakana-sa-zou': 'HL', // ゾウ (zou)
+  'katakana-na-nasu': 'HL', // ナス (nasu)
+  'katakana-ya-hiyoko': 'LHH', // ヒヨコ (hiyoko)
+  'katakana-ya-moyashi': 'LHH', // モヤシ (moyashi)
+  'katakana-ra-tora': 'LH', // トラ (tora)
+  'sokuon-matte': 'HLL', // まって (matte)
+  'sokuon-mote': 'HL', // もて (mote)
+  // youon-katakana-ka-kyuuri (キュウリ) and youon-katakana-ha-hyou (ヒョウ)
+  // are 拗音/yōon words: their kana string (4/3 characters) doesn't equal
+  // their mora count (3/2, since キュ/ヒョ are 1 mora each) — this whole
+  // file's format only supports 1-char-per-mora words (see the header
+  // comment), so no yōon word ever gets an entry here, same as every
+  // other yōon word in the curriculum. Not a gap specific to these two.
 }
 
 const results = []
