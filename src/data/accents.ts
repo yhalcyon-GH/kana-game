@@ -1,7 +1,8 @@
-// Pitch accent pattern per word, as a High/Low string aligned 1:1 with
-// `kana` (one letter per character — safe because this curriculum never
-// uses yōon/small-kana digraphs, where one mora spans two characters).
-// Rebuilt by scripts/buildAccentData.mjs from accentjiten.com's aggregated
+// Pitch accent pattern per word, as a High/Low string aligned by MORA
+// (via src/lib/mora.ts's toMorae — a yōon digraph like きゃ is 1 mora, 2
+// characters), consumed by WordCard's AccentedKana, which does the same
+// mora-grouping when drawing the accent line. Rebuilt by
+// scripts/buildAccentData.mjs from accentjiten.com's aggregated
 // NHK/OJAD/Wiktionary/Wadoku/Kanjium/Kishimoto-Tsuneyo dataset — never
 // hand-guessed (see feedback_dont_guess_pitch_accent memory). Words are
 // omitted here only when the word is a single mora (no accent contrast is
@@ -216,4 +217,64 @@ export const ACCENT_PATTERNS: Record<string, string> = {
   'ya-yasai': 'LHH', // やさい (yasai)
   'ya-yuki': 'LH', // ゆき (yuki)
   'ya-yume': 'LH', // ゆめ (yume)
+  'youon-cha-na-chawan': 'LHH', // ちゃわん (chawan)
+  'youon-cha-na-chokin': 'LHH', // ちょきん (chokin)
+  'youon-cha-na-chou': 'HL', // ちょう (chou)
+  'youon-cha-na-chuui': 'HLL', // ちゅうい (chuui)
+  'youon-cha-na-gyuunyuu': 'LHHH', // ぎゅうにゅう (gyuunyuu)
+  'youon-cha-na-nyuuin': 'LHHH', // にゅういん (nyuuin)
+  'youon-cha-na-ocha': 'LH', // おちゃ (ocha)
+  'youon-cha-na-omocha': 'LHL', // おもちゃ (omocha)
+  'youon-ha-byouin': 'LHHH', // びょういん (byouin)
+  'youon-ha-byouki': 'LHH', // びょうき (byouki)
+  'youon-ha-hyaku': 'LH', // ひゃく (hyaku)
+  'youon-ha-sanbyaku': 'HLLL', // さんびゃく (sanbyaku)
+  'youon-ka-gyaku': 'LH', // ぎゃく (gyaku)
+  'youon-ka-gyouza': 'LHH', // ぎょうざ (gyouza)
+  'youon-ka-gyuuniku': 'LHHH', // ぎゅうにく (gyuuniku)
+  'youon-ka-kingyo': 'HLL', // きんぎょ (kingyo)
+  'youon-ka-kyaku': 'LH', // きゃく (kyaku)
+  'youon-ka-kyou': 'HL', // きょう (kyou)
+  'youon-ka-kyoushitsu': 'LHHH', // きょうしつ (kyoushitsu)
+  'youon-katakana-cha-na-chaimu': 'HLL', // チャイム (chaimu)
+  'youon-katakana-cha-na-chansu': 'HLL', // チャンス (chansu)
+  'youon-katakana-cha-na-chokoreeto': 'LHHLL', // チョコレート (chokoreeto)
+  'youon-katakana-cha-na-chooku': 'HLL', // チョーク (chooku)
+  'youon-katakana-cha-na-chuubu': 'HLL', // チューブ (chuubu)
+  'youon-katakana-cha-na-manyuaru': 'LHHH', // マニュアル (manyuaru)
+  'youon-katakana-cha-na-nyuusu': 'HLL', // ニュース (nyuusu)
+  'youon-katakana-cha-na-nyuuyooku': 'LHHLL', // ニューヨーク (nyuuyooku)
+  'youon-katakana-ha-debyuu': 'HLL', // デビュー (debyuu)
+  'youon-katakana-ha-hyuuzu': 'HLL', // ヒューズ (hyuuzu)
+  'youon-katakana-ha-pyua': 'HL', // ピュア (pyua)
+  'youon-katakana-ka-gyagu': 'HL', // ギャグ (gyagu)
+  'youon-katakana-ka-kyabetsu': 'HLL', // キャベツ (kyabetsu)
+  'youon-katakana-ka-kyanpu': 'HLL', // キャンプ (kyanpu)
+  'youon-katakana-ka-regyuraa': 'HLLL', // レギュラー (regyuraa)
+  'youon-katakana-ma-ra-boryuumu': 'LHHH', // ボリューム (boryuumu)
+  'youon-katakana-ma-ra-myanmaa': 'HLLL', // ミャンマー (myanmaa)
+  'youon-katakana-ma-ra-myuujiamu': 'HLLLL', // ミュージアム (myuujiamu)
+  'youon-katakana-ma-ra-myuujishan': 'LHHLL', // ミュージシャン (myuujishan)
+  'youon-katakana-ma-ra-myuuto': 'HLL', // ミュート (myuuto)
+  'youon-katakana-sha-jamu': 'HL', // ジャム (jamu)
+  'youon-katakana-sha-jogingu': 'LHHH', // ジョギング (jogingu)
+  'youon-katakana-sha-juusu': 'HLL', // ジュース (juusu)
+  'youon-katakana-sha-shatsu': 'HL', // シャツ (shatsu)
+  'youon-katakana-sha-shawaa': 'HLL', // シャワー (shawaa)
+  'youon-katakana-sha-shooto': 'HLL', // ショート (shooto)
+  'youon-katakana-sha-shuuto': 'HLL', // シュート (shuuto)
+  'youon-ma-ra-bimyou': 'LHH', // びみょう (bimyou)
+  'youon-ma-ra-myaku': 'LH', // みゃく (myaku)
+  'youon-ma-ra-myouji': 'HLL', // みょうじ (myouji)
+  'youon-ma-ra-ryokan': 'LHH', // りょかん (ryokan)
+  'youon-ma-ra-ryokou': 'LHH', // りょこう (ryokou)
+  'youon-ma-ra-ryouri': 'HLL', // りょうり (ryouri)
+  'youon-sha-densha': 'LHH', // でんしゃ (densha)
+  'youon-sha-jagaimo': 'LHHH', // じゃがいも (jagaimo)
+  'youon-sha-jisho': 'HL', // じしょ (jisho)
+  'youon-sha-jouzu': 'LHH', // じょうず (jouzu)
+  'youon-sha-juu': 'HL', // じゅう (juu)
+  'youon-sha-kaisha': 'LHH', // かいしゃ (kaisha)
+  'youon-sha-shashin': 'LHH', // しゃしん (shashin)
+  'youon-sha-shukudai': 'LHHH', // しゅくだい (shukudai)
 }

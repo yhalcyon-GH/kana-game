@@ -6,11 +6,10 @@ import { useProgressStore } from '../store/progressStore'
 import { WordCard } from './WordCard'
 
 // きゃく (kyaku, "customer") — a real yōon word: 2 glyphs (きゃ + く), one
-// character id (kya) per glyph pair, but only 2 MORAE (kya-ku). Real hiragana
-// content proving AccentedKana's documented fallback (see WordCard.tsx) is
-// actually safe, not just theoretically so — see the CLAUDE.md/
-// docs/curriculum-extensibility.md note on yōon breaking the "one glyph =
-// one mora" assumption pitch-accent rendering relies on.
+// character id (kya) per glyph pair, but only 2 MORAE (kya-ku). AccentedKana
+// aligns by mora (via src/lib/mora.ts's toMorae), not raw glyph count, so
+// this word's accent line renders correctly despite the glyph/mora
+// mismatch — see CLAUDE.md's "one kana glyph = one mora, EXCEPT yōon" note.
 const YOUON_WORD = WORDS_BY_ID['youon-ka-kyaku']
 
 beforeEach(() => {
@@ -28,27 +27,31 @@ describe('WordCard with a yōon word (2 glyphs, 1 character id, but mismatched m
     expect(screen.getByText('きゃく')).toBeInTheDocument()
   })
 
-  it('has no ACCENT_PATTERNS entry — buildAccentData.mjs\'s length-mismatch guard drops it', () => {
-    // The dataset's accent is per-MORA (2 long: kya-ku), but [...kana] in
-    // WordCard.tsx is per-GLYPH (3 long: き/ゃ/く) — buildAccentData.mjs
-    // already drops any entry where those lengths disagree rather than
-    // writing a misaligned one (see its "WARNING — length mismatches"
-    // console output). Confirms there's genuinely no accent data on file to
-    // misrender for this word, not just that AccentedKana would fall back
-    // safely if there somehow were.
-    expect(ACCENT_PATTERNS[YOUON_WORD.id]).toBeUndefined()
+  it('has a real ACCENT_PATTERNS entry, aligned by mora count (2) not glyph count (3)', () => {
+    const accent = ACCENT_PATTERNS[YOUON_WORD.id]
+    expect(accent).toBeDefined()
+    expect(accent).toHaveLength(2)
   })
 
-  it('renders no accent-line svg (the mismatch fallback plain-kana path, not the accent-line path)', () => {
+  it('renders the accent-line svg for this yōon word', () => {
     const { container } = render(<WordCard word={YOUON_WORD} />)
-    expect(container.querySelector('svg')).not.toBeInTheDocument()
+    expect(container.querySelector('svg')).toBeInTheDocument()
   })
 
-  it("still renders a single-mora word's accent line normally (regression: the fallback only engages on real mismatches)", () => {
+  it("still renders a single-mora word's accent line normally (regression: mora-alignment didn't break the simple case)", () => {
     // あい (a-ai) is a real 2-glyph, 2-mora hiragana word with a known
     // ACCENT_PATTERNS entry — confirms this test file would actually catch
-    // a broken AccentedKana, not just always see the fallback path.
+    // a broken AccentedKana, not just always see the accent-line path.
     const { container } = render(<WordCard word={WORDS_BY_ID['a-ai']} />)
     expect(container.querySelector('svg')).toBeInTheDocument()
+  })
+
+  it('falls back to plain kana (no svg) when a word genuinely has no accent data', () => {
+    // youon-katakana-ka-kyuuri (キュウリ) has no accentjiten entry at all —
+    // proves the fallback path still exists and engages correctly.
+    const word = WORDS_BY_ID['youon-katakana-ka-kyuuri']
+    expect(ACCENT_PATTERNS[word.id]).toBeUndefined()
+    const { container } = render(<WordCard word={word} />)
+    expect(container.querySelector('svg')).not.toBeInTheDocument()
   })
 })

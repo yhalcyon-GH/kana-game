@@ -18,6 +18,21 @@ import vm from 'node:vm'
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 
+// Same mora-grouping rule as src/lib/mora.ts (kept as a local duplicate
+// since this script runs under plain node, not tsx) — WordCard's
+// AccentedKana aligns accent strings by mora, not raw character count, so
+// a yōon word's accent (e.g. きゃく = 2 morae, 3 characters) is valid as
+// long as it matches the MORA count, not the kana string's length.
+const SMALL_COMBINING = new Set(['ゃ', 'ゅ', 'ょ', 'ゎ', 'ぁ', 'ぃ', 'ぅ', 'ぇ', 'ぉ', 'ャ', 'ュ', 'ョ', 'ヮ', 'ァ', 'ィ', 'ゥ', 'ェ', 'ォ'])
+function toMorae(kana) {
+  const morae = []
+  for (const ch of kana) {
+    if (SMALL_COMBINING.has(ch) && morae.length > 0) morae[morae.length - 1] += ch
+    else morae.push(ch)
+  }
+  return morae
+}
+
 // The dataset version number is embedded in its filename and increments
 // occasionally; accentjiten.worker.js (fetchable the same way) always
 // references the current one, so resolve it dynamically rather than
@@ -305,7 +320,7 @@ const MANUAL_OVERRIDES = {
 const results = []
 const skipped = []
 for (const w of words) {
-  if (w.kana.length < 2) continue
+  if (toMorae(w.kana).length < 2) continue
   if (MANUAL_OVERRIDES[w.id]) {
     results.push({ id: w.id, kana: w.kana, romaji: w.romaji, accent: MANUAL_OVERRIDES[w.id] })
     continue
@@ -355,21 +370,22 @@ for (const w of words) {
 console.log(`\nResolved: ${results.length}  Skipped: ${skipped.length}`)
 skipped.forEach((s) => console.log('  -', s))
 
-const lengthMismatches = results.filter((r) => r.accent.length !== [...r.kana].length)
+const lengthMismatches = results.filter((r) => r.accent.length !== toMorae(r.kana).length)
 if (lengthMismatches.length > 0) {
   console.log('\nWARNING — length mismatches (dropped from output):')
   lengthMismatches.forEach((m) => console.log('  -', m))
 }
-const clean = results.filter((r) => r.accent.length === [...r.kana].length)
+const clean = results.filter((r) => r.accent.length === toMorae(r.kana).length)
 
 const lines = clean
   .sort((a, b) => a.id.localeCompare(b.id))
   .map((r) => `  '${r.id}': '${r.accent}', // ${r.kana} (${r.romaji})`)
 
-const out = `// Pitch accent pattern per word, as a High/Low string aligned 1:1 with
-// \`kana\` (one letter per character — safe because this curriculum never
-// uses yōon/small-kana digraphs, where one mora spans two characters).
-// Rebuilt by scripts/buildAccentData.mjs from accentjiten.com's aggregated
+const out = `// Pitch accent pattern per word, as a High/Low string aligned by MORA
+// (via src/lib/mora.ts's toMorae — a yōon digraph like きゃ is 1 mora, 2
+// characters), consumed by WordCard's AccentedKana, which does the same
+// mora-grouping when drawing the accent line. Rebuilt by
+// scripts/buildAccentData.mjs from accentjiten.com's aggregated
 // NHK/OJAD/Wiktionary/Wadoku/Kanjium/Kishimoto-Tsuneyo dataset — never
 // hand-guessed (see feedback_dont_guess_pitch_accent memory). Words are
 // omitted here only when the word is a single mora (no accent contrast is
