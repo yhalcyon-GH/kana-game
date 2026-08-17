@@ -27,7 +27,9 @@ export function normalizeKana(text: string): string {
 // character in range by that offset converts script wholesale. Characters
 // outside either range (ー, ・, spaces, ...) pass through unchanged, so
 // applying the "wrong" direction to a word that's already in the target
-// script is a harmless no-op rather than mangling it.
+// script is a harmless no-op rather than mangling it. toHiragana is
+// exported for src/lib/voiceQuality.ts's ASR reading normalization too, in
+// addition to its use in isAnswerCorrect below.
 function shiftKanaScript(text: string, from: [number, number], offset: number): string {
   return [...text]
     .map((ch) => {
@@ -37,7 +39,7 @@ function shiftKanaScript(text: string, from: [number, number], offset: number): 
     .join('')
 }
 const toKatakana = (text: string) => shiftKanaScript(text, [0x3041, 0x3096], 0x60)
-const toHiragana = (text: string) => shiftKanaScript(text, [0x30a1, 0x30f6], -0x60)
+export const toHiragana = (text: string) => shiftKanaScript(text, [0x30a1, 0x30f6], -0x60)
 
 // Alternate acceptable spellings of word.romaji, built by walking
 // characterIds in step with word.romaji's space-separated tokens (a word can

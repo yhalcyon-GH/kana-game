@@ -46,7 +46,11 @@ describe('curriculum content integrity', () => {
   })
 
   it('each row has at least 4 words for the mini-games to draw from', () => {
-    for (const row of ROWS) {
+    // Summary rows (see GojuonRow.isSummary) don't have their own
+    // WORDS_BY_ROW entry — their word pool is assembled at runtime from
+    // every real row in their category (see useCurriculum.ts), not stored
+    // per-row, so this invariant doesn't apply to them.
+    for (const row of ROWS.filter((r) => !r.isSummary)) {
       expect((WORDS_BY_ROW[row.id] ?? []).length, `row "${row.id}" has too few words`).toBeGreaterThanOrEqual(4)
     }
   })
@@ -74,7 +78,11 @@ describe('category-scoped row-order helpers', () => {
     expect(getNextRowId('a-row')).toBe('ka-row')
     expect(getPreviousRowId('ka-row')).toBe('a-row')
     expect(getPreviousRowId('a-row')).toBeNull()
-    expect(getNextRowId('wa-row')).toBeNull()
+    // wa-row is the last REAL hiragana row, but hiragana-summary (⭐, see
+    // GojuonRow.isSummary) now follows it in the same order sequence, so
+    // it's the true end of the category, not wa-row.
+    expect(getNextRowId('wa-row')).toBe('hiragana-summary')
+    expect(getNextRowId('hiragana-summary')).toBeNull()
   })
 
   it('all three helpers return an empty/null result for an unknown row id rather than throwing', () => {
@@ -138,7 +146,7 @@ describe('contrast-pairs category content', () => {
   )
 
   it('every contrast-pairs row has at least one word (Learn/Practice both operate on words, not flashcards)', () => {
-    for (const row of ROWS) {
+    for (const row of ROWS.filter((r) => !r.isSummary)) {
       if (!contrastPairsCategoryIds.has(row.categoryId)) continue
       expect((WORDS_BY_ROW[row.id] ?? []).length, `contrast-pairs row "${row.id}" has no words`).toBeGreaterThan(0)
     }
@@ -267,7 +275,7 @@ describe('character-set category content (拗音/yōon)', () => {
   // row per script (real everyday vocabulary for にゃ/みゃ/りゃ alone was
   // too thin to justify a dedicated row — see words.ts's comments).
   it('the hiragana yōon rows (order 0-4) and katakana yōon rows (order 5-9) share one monotonic order sequence within the category', () => {
-    const youonRows = ROWS.filter((r) => r.categoryId === 'youon').sort((a, b) => a.order - b.order)
+    const youonRows = ROWS.filter((r) => r.categoryId === 'youon' && !r.isSummary).sort((a, b) => a.order - b.order)
     expect(youonRows).toHaveLength(10)
     expect(youonRows.map((r) => r.order)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
     expect(youonRows.slice(0, 5).every((r) => !r.id.includes('katakana'))).toBe(true)

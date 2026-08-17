@@ -25,9 +25,12 @@ export function RowMap({ rows, isUnlocked, isTaught, isMastered }: Props) {
                 : 'border-neutral-200 bg-neutral-50 opacity-50 dark:border-neutral-800 dark:bg-neutral-900'
             }`}
           >
-            <span className="font-kana text-lg font-semibold">{row.label}</span>
+            <span className="font-kana text-lg font-semibold">
+              {row.isSummary && '⭐ '}
+              {row.label}
+            </span>
             <span className="text-xs text-neutral-500 dark:text-neutral-400">
-              {!unlocked ? '🔒 locked' : mastered ? '🌟 mastered' : taught ? '📗 taught' : '📘 new'}
+              {row.isSummary ? '⭐ summary' : !unlocked ? '🔒 locked' : mastered ? '🌟 mastered' : taught ? '📗 taught' : '📘 new'}
             </span>
             {/* Learn and both mini-games all live together on the row's hub
                 page — taught status is informational only, not a gate. */}

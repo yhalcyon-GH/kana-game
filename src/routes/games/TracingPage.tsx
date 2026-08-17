@@ -34,14 +34,19 @@ export function TracingPage() {
   const { speak, supported } = useTTS()
   const isReview = rowId === REVIEW_SCOPE_ID
   const isContrastPairs = CATEGORIES_BY_ID[categoryId ?? '']?.learnStyle === 'contrast-pairs'
+  // ⭐ summary rows (see GojuonRow.isSummary) have no Tracing card on their
+  // hub — a category-wide word list isn't a meaningful "trace this row's
+  // words" phase — but guard direct navigation too, same as Kana Quiz does
+  // for contrast-pairs categories.
+  const isSummary = !!ROWS_BY_ID[rowId ?? '']?.isSummary
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const isDrawingRef = useRef(false)
 
   useEffect(() => {
-    if (!rowId || !isScopeReady(rowId) || ROWS_BY_ID[rowId]?.categoryId !== categoryId) {
+    if (!rowId || !isScopeReady(rowId) || ROWS_BY_ID[rowId]?.categoryId !== categoryId || isSummary) {
       navigate('/', { replace: true })
     }
-  }, [rowId, categoryId, isScopeReady, navigate])
+  }, [rowId, categoryId, isSummary, isScopeReady, navigate])
 
   const charPool = useMemo(() => getScopeQuizCharacterIds(rowId), [rowId, getScopeQuizCharacterIds])
   const words = useMemo(() => getScopeWords(rowId), [rowId, getScopeWords])

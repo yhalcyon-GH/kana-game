@@ -1,6 +1,7 @@
 import { ACCENT_PATTERNS } from '../data/accents'
 import type { AnchorWord } from '../data/types'
 import { useTTS } from '../hooks/useTTS'
+import { toMorae } from '../lib/mora'
 import { WordImage } from './WordImage'
 
 type Props = {
@@ -10,21 +11,29 @@ type Props = {
 // Pitch-accent line in the standard textbook style: a high rail and a low
 // rail above the kana, connected by a vertical step everywhere the pitch
 // rises or falls between morae. From ACCENT_PATTERNS (never guessed — see
-// that file's header). Falls back to plain kana whenever there's no
-// verified pattern, or its length doesn't line up with the kana (shouldn't
-// happen, but a silently mismatched line would be worse than none).
+// that file's header), aligned by MORA (via toMorae — きゃ is 1 mora, 2
+// characters) rather than raw character count, so yōon words render
+// correctly too: each mora's line segment spans as many character-columns
+// as it has glyphs. Falls back to plain kana whenever there's no verified
+// pattern, or its mora count doesn't line up with the accent string
+// (shouldn't happen, but a silently mismatched line would be worse than
+// none).
 function AccentedKana({ kana, accent }: { kana: string; accent?: string }) {
   const chars = [...kana]
   const n = chars.length
-  if (!accent || accent.length !== n) {
+  const morae = toMorae(kana)
+  if (!accent || accent.length !== morae.length) {
     return <span className="font-kana text-2xl font-bold">{kana}</span>
   }
   const HIGH_Y = 2
   const LOW_Y = 9
   const points: string[] = []
-  for (let i = 0; i < n; i++) {
+  let charOffset = 0
+  for (let i = 0; i < morae.length; i++) {
     const y = accent[i] === 'H' ? HIGH_Y : LOW_Y
-    points.push(`${i},${y}`, `${i + 1},${y}`)
+    const start = charOffset
+    charOffset += morae[i].length
+    points.push(`${start},${y}`, `${charOffset},${y}`)
   }
   return (
     <span className="font-kana relative inline-block text-2xl font-bold">
@@ -38,7 +47,7 @@ function AccentedKana({ kana, accent }: { kana: string; accent?: string }) {
           points={points.join(' ')}
           fill="none"
           stroke="#dc2626"
-          strokeWidth={1.5}
+          strokeWidth={0.8}
           strokeLinecap="round"
           strokeLinejoin="round"
           vectorEffect="non-scaling-stroke"

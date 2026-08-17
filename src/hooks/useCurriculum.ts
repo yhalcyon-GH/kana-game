@@ -1,10 +1,31 @@
 import { useMemo } from 'react'
 import { CHARACTERS_BY_ID } from '../data/characters'
-import { CATEGORIES_BY_ID, getCumulativeCharacterIds, ROWS, ROWS_BY_ID } from '../data/curriculum'
+import { CATEGORIES_BY_ID, getCumulativeCharacterIds, ROWS, ROWS_BY_ID, SUMMARY_ROW_SOURCE_CATEGORY_IDS } from '../data/curriculum'
 import type { AnchorWord } from '../data/types'
 import { WORDS_BY_ROW } from '../data/words'
 import { isDue } from '../lib/srs'
 import { useProgressStore } from '../store/progressStore'
+import { GAME_SESSION_ROUNDS } from './useGameSession'
+
+// Fixed practice-session size for a summary row (see GojuonRow.isSummary) —
+// deliberately not the normal weighted GAME_SESSION_ROUNDS sizing, since
+// the whole point is "a fixed-length quiz over everything in the
+// category," not a due-based review.
+export const SUMMARY_SESSION_ROUNDS = 15
+
+function isSummaryRow(rowId: string | undefined): boolean {
+  return !!rowId && !!ROWS_BY_ID[rowId]?.isSummary
+}
+
+// A summary row's own characterIds already hold the full aggregated
+// character list (built once in curriculum.ts) — but its WORDS aren't
+// stored per-row in words.ts (that would mean duplicating every word
+// entry), so they're assembled here from every real row in the categories
+// SUMMARY_ROW_SOURCE_CATEGORY_IDS lists for it.
+function getSummaryWords(rowId: string): AnchorWord[] {
+  const categoryIds = SUMMARY_ROW_SOURCE_CATEGORY_IDS[rowId] ?? []
+  return ROWS.filter((r) => !r.isSummary && categoryIds.includes(r.categoryId)).flatMap((r) => WORDS_BY_ROW[r.id] ?? [])
+}
 
 // Kana Quiz's "see an isolated character, pick its reading" premise doesn't
 // fit a 'contrast-pairs' category (促音/長音) — there's no single correct
@@ -67,6 +88,7 @@ export function useCurriculum() {
       const due = unlockedWords.filter((w) => w.characterIds.some((c) => dueCharacterIds.includes(c)))
       return due.length > 0 ? due : unlockedWords
     }
+    if (isSummaryRow(rowId)) return getSummaryWords(rowId)
     return WORDS_BY_ROW[rowId] ?? []
   }
 
@@ -77,7 +99,13 @@ export function useCurriculum() {
   const getScopeCharacterIds = (rowId: string | undefined): string[] => {
     if (!rowId) return []
     if (rowId === REVIEW_SCOPE_ID) return unlockedCharacterIds
-    return getCumulativeCharacterIds(rowId)
+    // Deduped: a summary row's own characterIds already list its whole
+    // category, so getCumulativeCharacterIds's order<=own-order aggregation
+    // includes that full list a second time via the summary row itself —
+    // without deduping, a distractor pool could contain the same character
+    // id twice, letting pickDistractorCharIds surface it as two identical
+    // wrong-answer choices in one round.
+    return [...new Set(getCumulativeCharacterIds(rowId))]
   }
 
   // Character pool that's actually being TESTED (as opposed to
@@ -106,6 +134,10 @@ export function useCurriculum() {
     return !!ROWS_BY_ID[rowId]
   }
 
+  // Fixed 15-question sessions for a summary row (see GojuonRow.isSummary);
+  // every other scope keeps the normal weighted GAME_SESSION_ROUNDS sizing.
+  const getScopeRounds = (rowId: string | undefined): number => (isSummaryRow(rowId) ? SUMMARY_SESSION_ROUNDS : GAME_SESSION_ROUNDS)
+
   return {
     rows: ROWS,
     unlockedRowIds,
@@ -122,5 +154,7 @@ export function useCurriculum() {
     getScopeCharacterIds,
     getScopeQuizCharacterIds,
     isScopeReady,
+    getScopeRounds,
+    isSummaryRow,
   }
 }

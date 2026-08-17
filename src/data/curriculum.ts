@@ -99,7 +99,7 @@ export const CATEGORIES_BY_ID: Record<string, ScriptCategory> = Object.fromEntri
 // their base row" design decision. `order` is scoped WITHIN a category
 // (see getCumulativeCharacterIds etc. below) — a second category starts
 // its own ordering from 0, independent of this one.
-export const ROWS: GojuonRow[] = [
+const REAL_ROWS: GojuonRow[] = [
   { id: 'a-row', categoryId: DEFAULT_CATEGORY_ID, label: 'あ~お', order: 0, characterIds: ['a', 'i', 'u', 'e', 'o'], englishLabel: 'A Row' },
   {
     id: 'ka-row',
@@ -440,6 +440,69 @@ export const ROWS: GojuonRow[] = [
     englishLabel: 'Mya/Rya Row',
   },
 ]
+
+// Which real categories a summary row's Learn/Practice pool draws from —
+// almost always just its own category, EXCEPT other-summary, which covers
+// both categories bundled onto the '/other' page (促音+長音). Summary rows
+// themselves are excluded from their own aggregation (they contribute no
+// characters/words of their own).
+export const SUMMARY_ROW_SOURCE_CATEGORY_IDS: Record<string, string[]> = {
+  'hiragana-summary': [DEFAULT_CATEGORY_ID],
+  'katakana-summary': [KATAKANA_CATEGORY_ID],
+  'youon-summary': [YOUON_CATEGORY_ID],
+  'other-summary': [SOKUON_CATEGORY_ID, CHOUON_CATEGORY_ID],
+}
+
+function summaryCharacterIds(categoryIds: string[]): string[] {
+  return REAL_ROWS.filter((r) => categoryIds.includes(r.categoryId)).flatMap((r) => r.characterIds)
+}
+
+// Synthetic "see everything" rows, one per top-level page, appended after
+// that page's last real row — see GojuonRow.isSummary's comment. Not
+// gated behind progress (Learn/Practice both draw from the FULL category
+// regardless of taught status, per the user's explicit choice), and not
+// stored in words.ts — see useCurriculum's summary handling for how their
+// word pool is assembled at runtime instead of via WORDS_BY_ROW.
+const SUMMARY_ROWS: GojuonRow[] = [
+  {
+    id: 'hiragana-summary',
+    categoryId: DEFAULT_CATEGORY_ID,
+    label: 'あ〜ん',
+    order: 10,
+    characterIds: summaryCharacterIds(SUMMARY_ROW_SOURCE_CATEGORY_IDS['hiragana-summary']),
+    englishLabel: 'All Hiragana',
+    isSummary: true,
+  },
+  {
+    id: 'katakana-summary',
+    categoryId: KATAKANA_CATEGORY_ID,
+    label: 'ア〜ン',
+    order: 8,
+    characterIds: summaryCharacterIds(SUMMARY_ROW_SOURCE_CATEGORY_IDS['katakana-summary']),
+    englishLabel: 'All Katakana',
+    isSummary: true,
+  },
+  {
+    id: 'youon-summary',
+    categoryId: YOUON_CATEGORY_ID,
+    label: 'すべて',
+    order: 10,
+    characterIds: summaryCharacterIds(SUMMARY_ROW_SOURCE_CATEGORY_IDS['youon-summary']),
+    englishLabel: 'All Yōon',
+    isSummary: true,
+  },
+  {
+    id: 'other-summary',
+    categoryId: SOKUON_CATEGORY_ID,
+    label: 'すべて',
+    order: 1,
+    characterIds: summaryCharacterIds(SUMMARY_ROW_SOURCE_CATEGORY_IDS['other-summary']),
+    englishLabel: 'All Other',
+    isSummary: true,
+  },
+]
+
+export const ROWS: GojuonRow[] = [...REAL_ROWS, ...SUMMARY_ROWS]
 
 export const ROWS_BY_ID: Record<string, GojuonRow> = Object.fromEntries(
   ROWS.map((r) => [r.id, r]),

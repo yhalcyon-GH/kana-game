@@ -7,8 +7,23 @@ type Props = {
 
 // The whole card is the tap target for audio (not just the speaker icon,
 // which is too small to hit reliably) — the icon stays as a visual hint.
+//
+// ー/っ/ッ (romaji: '-') aren't pronounceable in isolation — a long-vowel
+// mark and sokuon only have a sound as part of a word (see their comments
+// in characters.ts) — so these render as a plain, silent card with no
+// speaker button rather than playing a meaningless/placeholder clip.
 export function CharacterCard({ char }: Props) {
   const { speak } = useTTS()
+  const hasSound = char.romaji !== '-'
+
+  if (!hasSound) {
+    return (
+      <div className="flex flex-col items-center gap-2 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-700 dark:bg-neutral-800">
+        <span className="font-kana text-6xl font-bold">{char.kana}</span>
+        <span className="text-lg text-neutral-500 dark:text-neutral-400">{char.displayLabel ?? char.romaji}</span>
+      </div>
+    )
+  }
 
   return (
     <button

@@ -67,9 +67,12 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   // Tracing walks through "every word in this row" as its second phase (see
   // TracingPage) — that only makes sense for a single row's small word
   // list, not Review's every-taught-row mix, so it's excluded there.
+  const isSummary = !isReview && !!row?.isSummary
   const learnActivities: Activity[] = [
     ...(isReview ? [] : [{ path: `/learn/${categoryId}/${rowId}`, label: 'Learn', emoji: '📖', description: 'Meet the new characters' }]),
-    ...(isReview ? [] : [{ path: `${hubBase}/tracing`, label: 'Tracing', emoji: '✍️', description: 'Watch the stroke order, then trace' }]),
+    ...(isReview || isSummary
+      ? []
+      : [{ path: `${hubBase}/tracing`, label: 'Tracing', emoji: '✍️', description: 'Watch the stroke order, then trace' }]),
   ]
   // Kana Quiz doesn't fit 'contrast-pairs' categories (促音/長音) — there's
   // no single isolated character to quiz a reading on the way there is for
@@ -91,7 +94,7 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   return (
     <div className="flex flex-col items-center gap-6">
       {!isReview && <HubBreadcrumb rowId={rowId} categoryId={categoryId!} />}
-      <h1 className="text-2xl font-bold">{isReview ? 'Review — all learned rows' : row!.label}</h1>
+      <h1 className="text-2xl font-bold">{isReview ? 'Review — all learned rows' : `${isSummary ? '⭐ ' : ''}${row!.label}`}</h1>
       {isReview && (
         <p className="text-sm text-neutral-500 dark:text-neutral-400">
           {dueReviewCount > 0

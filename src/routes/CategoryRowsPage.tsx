@@ -24,7 +24,12 @@ export function CategoryRowsPage({ title, description, categoryIds }: Props) {
   // unlockedRowIds/taughtRowIds, which isRowMastered doesn't itself track.
   useProgressStore((s) => s.characters)
 
-  const categoryRows = rows.filter((r) => categoryIds.includes(r.categoryId))
+  const categoryRows = rows.filter((r) => categoryIds.includes(r.categoryId) && !r.isSummary)
+  // Summary rows (⭐, one per page — see GojuonRow.isSummary) render in
+  // their own un-headed section below every category's rows, rather than
+  // inside one category's group, since a multi-category page's summary
+  // (その他's, combining 促音+長音) doesn't belong to just one of them.
+  const summaryRows = rows.filter((r) => categoryIds.includes(r.categoryId) && r.isSummary)
 
   // Grouped by category (in categoryIds' given order) rather than one flat
   // grid, so a multi-category page like その他 (sokuon + chōon) can show
@@ -60,6 +65,9 @@ export function CategoryRowsPage({ title, description, categoryIds }: Props) {
         ))
       ) : (
         <p className="text-neutral-400 dark:text-neutral-500">まだ利用できるレッスンがありません。</p>
+      )}
+      {summaryRows.length > 0 && (
+        <RowMap rows={summaryRows} isUnlocked={isRowUnlocked} isTaught={isRowTaught} isMastered={isRowMastered} />
       )}
     </div>
   )

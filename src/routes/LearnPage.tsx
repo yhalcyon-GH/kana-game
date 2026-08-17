@@ -5,6 +5,7 @@ import { WordCard } from '../components/WordCard'
 import { CHARACTERS_BY_ID } from '../data/characters'
 import { CATEGORIES_BY_ID, ROWS_BY_ID } from '../data/curriculum'
 import { WORDS_BY_ROW } from '../data/words'
+import { useCurriculum } from '../hooks/useCurriculum'
 import { useTTS } from '../hooks/useTTS'
 import { useProgressStore } from '../store/progressStore'
 
@@ -27,11 +28,13 @@ export function LearnPage() {
   const { categoryId, rowId } = useParams<{ categoryId: string; rowId: string }>()
   const navigate = useNavigate()
   const markRowTaught = useProgressStore((s) => s.markRowTaught)
+  const { getScopeWords } = useCurriculum()
 
   const row = rowId ? ROWS_BY_ID[rowId] : undefined
   const isContrastPairs = CATEGORIES_BY_ID[categoryId ?? '']?.learnStyle === 'contrast-pairs'
   const [step, setStep] = useState<'A' | 'recap' | 'B'>(isContrastPairs ? 'B' : 'A')
   const [charIndex, setCharIndex] = useState(0)
+  const [summaryStep, setSummaryStep] = useState<'chars' | 'words'>('chars')
   const { speak } = useTTS()
 
   useEffect(() => {
@@ -45,11 +48,69 @@ export function LearnPage() {
   useEffect(() => {
     if (step !== 'A' || characters.length === 0) return
     const char = characters[charIndex]
-    speak(`characters/${char.id}`, char.kana)
+    // ー/っ/ッ have no sound in isolation — see CharacterCard's comment.
+    if (char.romaji !== '-') speak(`characters/${char.id}`, char.kana)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, charIndex, characters.length])
 
   if (!row || !rowId) return null
+
+  if (row.isSummary) {
+    if (summaryStep === 'chars') {
+      return (
+        <div className="flex flex-col items-center gap-6">
+          <h1 className="text-2xl font-bold">⭐ {row.label} — every character</h1>
+          <div className="grid grid-cols-3 gap-4 sm:grid-cols-5">
+            {characters.map((char) => (
+              <CharacterCard key={char.id} char={char} />
+            ))}
+          </div>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => navigate(`/practice/${categoryId}/${rowId}`)}
+              className="rounded-full border border-neutral-300 px-6 py-2 font-semibold hover:border-blue-400 dark:border-neutral-600"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={() => setSummaryStep('words')}
+              className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
+            >
+              See the words
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return (
+      <div className="flex flex-col items-center gap-6">
+        <h1 className="text-2xl font-bold">⭐ {row.label} — every word</h1>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+          {getScopeWords(rowId).map((word) => (
+            <WordCard key={word.id} word={word} />
+          ))}
+        </div>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => setSummaryStep('chars')}
+            className="rounded-full border border-neutral-300 px-6 py-2 font-semibold hover:border-blue-400 dark:border-neutral-600"
+          >
+            Back
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate(`/practice/${categoryId}/${rowId}`)}
+            className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   const words = WORDS_BY_ROW[rowId] ?? []
 
