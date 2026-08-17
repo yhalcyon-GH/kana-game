@@ -46,11 +46,14 @@ describe('WordCard with a yōon word (2 glyphs, 1 character id, but mismatched m
     expect(container.querySelector('svg')).toBeInTheDocument()
   })
 
-  it('falls back to plain kana (no svg) when a word genuinely has no accent data', () => {
-    // youon-katakana-ka-kyuuri (キュウリ) has no accentjiten entry at all —
-    // proves the fallback path still exists and engages correctly.
-    const word = WORDS_BY_ID['youon-katakana-ka-kyuuri']
-    expect(ACCENT_PATTERNS[word.id]).toBeUndefined()
+  it('falls back to plain kana (no svg) for a word with no accent data at all', () => {
+    // Every real word in the curriculum has accent data as of this test's
+    // writing (261/261 — see buildAccentData.mjs's MANUAL_OVERRIDES for the
+    // ones with no accentjiten entry). Use a word id that doesn't exist in
+    // ACCENT_PATTERNS to prove the fallback path still engages correctly,
+    // rather than relying on a specific real word staying data-less forever.
+    expect(ACCENT_PATTERNS['not-a-real-word-id']).toBeUndefined()
+    const word = { ...WORDS_BY_ID['a-ai'], id: 'not-a-real-word-id' }
     const { container } = render(<WordCard word={word} />)
     expect(container.querySelector('svg')).not.toBeInTheDocument()
   })
