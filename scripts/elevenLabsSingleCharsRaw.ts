@@ -8,7 +8,7 @@ import { CHARACTERS } from '../src/data/characters'
 import { OUT_DIR, requireApiKey, synthesizeToFile } from './elevenLabsClient'
 
 const VOICE_ID = 'XlX7zKbP19omFrVWQ8CU'
-const TARGET_ROMAJI = ['a', 'ze', 'de', 'zo', 'ne', 'bo', 'mu', 'me', 'ra', 'ru', 'ro', 'n']
+const TARGET_ROMAJI = ['a','de','zo','ne','bo','mu','me','ra','ru','ro','n']
 
 const HIRA_ROWS = new Set(['a-row', 'ka-row', 'sa-row', 'ta-row', 'na-row', 'ha-row', 'ma-row', 'ya-row', 'ra-row', 'wa-row'])
 const KATA_ROWS = new Set(['katakana-a-row', 'katakana-sa-row', 'katakana-ta-row', 'katakana-na-row', 'katakana-ha-row', 'katakana-ma-row', 'katakana-ya-row', 'katakana-ra-row'])
