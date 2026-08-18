@@ -7,7 +7,6 @@ import { StrokeOrderAnimation } from '../../components/StrokeOrderAnimation'
 import { CHARACTERS_BY_ID } from '../../data/characters'
 import { CATEGORIES_BY_ID, ROWS_BY_ID } from '../../data/curriculum'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
-import { useSkipFirst } from '../../hooks/useSkipFirst'
 import { useTTS } from '../../hooks/useTTS'
 
 const CANVAS_SIZE = 280 // CSS pixels, single-character phase
@@ -33,7 +32,6 @@ export function TracingPage() {
   const navigate = useNavigate()
   const { isScopeReady, getScopeQuizCharacterIds, getScopeWords } = useCurriculum()
   const { speak, supported } = useTTS()
-  const skipFirstSpeak = useSkipFirst()
   const isReview = rowId === REVIEW_SCOPE_ID
   const isContrastPairs = CATEGORIES_BY_ID[categoryId ?? '']?.learnStyle === 'contrast-pairs'
   // ⭐ summary rows (see GojuonRow.isSummary) have no Tracing card on their
@@ -124,16 +122,14 @@ export function TracingPage() {
   }, [phase, currentCharId, currentWord])
 
   useEffect(() => {
-    const skipSpeak = skipFirstSpeak.current
-    if (skipSpeak) skipFirstSpeak.current = false
     if (phase === 'chars') {
       if (!currentCharId) return
       drawGuide()
-      if (!skipSpeak) speak(`characters/${currentCharId}`, CHARACTERS_BY_ID[currentCharId].kana)
+      speak(`characters/${currentCharId}`, CHARACTERS_BY_ID[currentCharId].kana)
     } else {
       if (!currentWord) return
       drawGuide()
-      if (!skipSpeak) speak(`words/${currentWord.id}`, currentWord.audioText ?? currentWord.kana)
+      speak(`words/${currentWord.id}`, currentWord.audioText ?? currentWord.kana)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, currentCharId, currentWord?.id])

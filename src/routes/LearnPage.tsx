@@ -6,7 +6,6 @@ import { CHARACTERS_BY_ID } from '../data/characters'
 import { CATEGORIES_BY_ID, ROWS_BY_ID } from '../data/curriculum'
 import { WORDS_BY_ROW } from '../data/words'
 import { useCurriculum } from '../hooks/useCurriculum'
-import { useSkipFirst } from '../hooks/useSkipFirst'
 import { useTTS } from '../hooks/useTTS'
 import { useProgressStore } from '../store/progressStore'
 
@@ -37,7 +36,6 @@ export function LearnPage() {
   const [charIndex, setCharIndex] = useState(0)
   const [summaryStep, setSummaryStep] = useState<'chars' | 'words'>('chars')
   const { speak } = useTTS()
-  const skipFirstSpeak = useSkipFirst()
 
   useEffect(() => {
     if (!rowId || !row || row.categoryId !== categoryId) {
@@ -48,16 +46,16 @@ export function LearnPage() {
   const characters = row ? row.characterIds.map((id) => CHARACTERS_BY_ID[id]) : []
 
   useEffect(() => {
-    if (step !== 'A' || characters.length === 0) return
-    if (skipFirstSpeak.current) {
-      skipFirstSpeak.current = false
-      return
-    }
+    // row.isSummary renders an "every character"/"every word" grid instead
+    // of the step-A single-flashcard view below, but `step` still defaults
+    // to 'A' underneath it — without this check, the first character would
+    // auto-play on a page that's meant to be tap-to-play only.
+    if (step !== 'A' || characters.length === 0 || row?.isSummary) return
     const char = characters[charIndex]
     // ー/っ/ッ have no sound in isolation — see CharacterCard's comment.
     if (char.romaji !== '-') speak(`characters/${char.id}`, char.kana)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, charIndex, characters.length])
+  }, [step, charIndex, characters.length, row?.isSummary])
 
   if (!row || !rowId) return null
 

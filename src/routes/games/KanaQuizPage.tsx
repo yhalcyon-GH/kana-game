@@ -9,7 +9,6 @@ import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
 import { useEnterAdvance } from '../../hooks/useEnterAdvance'
 import { useGameSession } from '../../hooks/useGameSession'
-import { useSkipFirst } from '../../hooks/useSkipFirst'
 import { useTTS } from '../../hooks/useTTS'
 import { isNearMissText } from '../../lib/answerCloseness'
 import { pickDistractorCharIds } from '../../lib/distractorPicker'
@@ -35,7 +34,6 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
   const recordResult = useProgressStore((s) => s.recordResult)
   const characters = useProgressStore((s) => s.characters)
   const { speak, supported } = useTTS()
-  const skipFirstSpeak = useSkipFirst()
   const isReview = rowId === REVIEW_SCOPE_ID
   const categoryId = isReview ? undefined : (params.categoryId ?? ROWS_BY_ID[rowId ?? '']?.categoryId)
   const {
@@ -84,11 +82,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
     setSelectedId(null)
     setAnswered(false)
     clear()
-    if (skipFirstSpeak.current) {
-      skipFirstSpeak.current = false
-    } else {
-      speak(`characters/${currentCharId}`, CHARACTERS_BY_ID[currentCharId].kana)
-    }
+    speak(`characters/${currentCharId}`, CHARACTERS_BY_ID[currentCharId].kana)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentCharId])
 

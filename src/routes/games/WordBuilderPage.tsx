@@ -13,7 +13,6 @@ import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
 import { useEnterAdvance } from '../../hooks/useEnterAdvance'
 import { useGameSession } from '../../hooks/useGameSession'
-import { useSkipFirst } from '../../hooks/useSkipFirst'
 import { useTTS } from '../../hooks/useTTS'
 import { isNearMissSequence } from '../../lib/answerCloseness'
 import { pickDistractorCharIds } from '../../lib/distractorPicker'
@@ -43,7 +42,6 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
   const characters = useProgressStore((s) => s.characters)
   const showRomaji = useProgressStore((s) => s.showRomaji)
   const { speak, supported } = useTTS()
-  const skipFirstSpeak = useSkipFirst()
   const isReview = rowId === REVIEW_SCOPE_ID
   const {
     feedback,
@@ -119,10 +117,6 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
 
   useEffect(() => {
     if (!currentWord) return
-    if (skipFirstSpeak.current) {
-      skipFirstSpeak.current = false
-      return
-    }
     speak(`words/${currentWord.id}`, currentWord.audioText ?? currentWord.kana)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentWord?.id])
