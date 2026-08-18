@@ -363,17 +363,17 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'chouon-o-koukou', kana: 'こうこう', romaji: 'koukou', meaning: 'high school', image: 'word-icons/chouon-o-koukou.webp', characterIds: ['ko', 'u', 'ko', 'u'], audioText: '高校' },
     // The exceptions: these are really spelled お, not う — just have to be
     // memorized, per the user's own list.
-    { id: 'chouon-o-ookii', kana: 'おおきい', romaji: 'ookii', meaning: 'big', characterIds: ['o', 'o', 'ki', 'i'], audioText: '大きい。' },
-    { id: 'chouon-o-tooi', kana: 'とおい', romaji: 'tooi', meaning: 'far', characterIds: ['to', 'o', 'i'], audioText: '遠い。' },
-    { id: 'chouon-o-koori', kana: 'こおり', romaji: 'koori', meaning: 'ice', characterIds: ['ko', 'o', 'ri'], audioText: '氷。' },
+    { id: 'chouon-o-ookii', kana: 'おおきい', romaji: 'ookii', meaning: 'big', image: 'word-icons/chouon-o-ookii.webp', characterIds: ['o', 'o', 'ki', 'i'], audioText: '大きい。' },
+    { id: 'chouon-o-tooi', kana: 'とおい', romaji: 'tooi', meaning: 'far', image: 'word-icons/chouon-o-tooi.webp', characterIds: ['to', 'o', 'i'], audioText: '遠い。' },
+    { id: 'chouon-o-koori', kana: 'こおり', romaji: 'koori', meaning: 'ice', image: 'word-icons/chouon-o-koori.webp', characterIds: ['ko', 'o', 'ri'], audioText: '氷。' },
   ],
   'chouon-katakana-row': [
     // Minimal pair, the user's own example: ー is the only thing that
     // separates "building" from "beer".
-    { id: 'chouon-katakana-biru', kana: 'ビル', romaji: 'biru', meaning: 'building', characterIds: ['katakana-bi', 'katakana-ru'] },
-    { id: 'chouon-katakana-biiru', kana: 'ビール', romaji: 'biiru', meaning: 'beer', characterIds: ['katakana-bi', 'katakana-chouon', 'katakana-ru'] },
-    { id: 'chouon-katakana-koohii', kana: 'コーヒー', romaji: 'koohii', meaning: 'coffee', characterIds: ['katakana-ko', 'katakana-chouon', 'katakana-hi', 'katakana-chouon'] },
-    { id: 'chouon-katakana-koora', kana: 'コーラ', romaji: 'koora', meaning: 'cola', characterIds: ['katakana-ko', 'katakana-chouon', 'katakana-ra'] },
+    { id: 'chouon-katakana-biru', kana: 'ビル', romaji: 'biru', meaning: 'building', image: 'word-icons/chouon-katakana-biru.webp', characterIds: ['katakana-bi', 'katakana-ru'] },
+    { id: 'chouon-katakana-biiru', kana: 'ビール', romaji: 'biiru', meaning: 'beer', image: 'word-icons/chouon-katakana-biiru.webp', characterIds: ['katakana-bi', 'katakana-chouon', 'katakana-ru'] },
+    { id: 'chouon-katakana-koohii', kana: 'コーヒー', romaji: 'koohii', meaning: 'coffee', image: 'word-icons/chouon-katakana-koohii.webp', characterIds: ['katakana-ko', 'katakana-chouon', 'katakana-hi', 'katakana-chouon'] },
+    { id: 'chouon-katakana-koora', kana: 'コーラ', romaji: 'koora', meaning: 'cola', image: 'word-icons/chouon-katakana-koora.webp', characterIds: ['katakana-ko', 'katakana-chouon', 'katakana-ra'] },
   ],
 
   // ===== 拗音 (yōon) vocabulary =====
