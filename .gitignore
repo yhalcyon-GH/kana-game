@@ -12,7 +12,7 @@ dist
 dist-ssr
 *.local
 .tmp-icons
-design/word-icons/pending-review
+design/画像/語彙イラスト/pending-review
 
 # Editor directories and files
 .vscode/*

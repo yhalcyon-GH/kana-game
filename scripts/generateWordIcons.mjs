@@ -1,15 +1,15 @@
 // Generates word-icon illustrations for every word in words.ts missing an
 // `image` field (as of 2026-08-18 every word has one — this is for future
 // new vocabulary) via the Gemini image API ("Nano Banana", same model/prompt
-// style as the original hiragana set — see design/word-icons/hiragana/ for
-// those originals, and design/word-icons/*-gemini-review or *-chatgpt for
-// later batches' provenance).
+// style as the original hiragana set — see design/画像/語彙イラスト/hiragana/
+// for those originals, and design/画像/語彙イラスト/*-gemini-review or
+// *-chatgpt for later batches' provenance).
 //
-// Writes to design/word-icons/pending-review/<id>.webp for review FIRST —
-// this does NOT touch words.ts or public/word-icons/. Once the batch is
-// approved, move the files into a permanently-named provenance folder under
-// design/word-icons/, copy them into public/word-icons/, and add each
-// word's `image:` field.
+// Writes to design/画像/語彙イラスト/pending-review/<id>.webp for review
+// FIRST — this does NOT touch words.ts or public/word-icons/. Once the
+// batch is approved, move the files into a permanently-named provenance
+// folder under design/画像/語彙イラスト/, copy them into public/word-icons/,
+// and add each word's `image:` field.
 //
 // See reference_gemini_image_generation_workflow memory: paid tier only
 // (free tier 429s with limit:0 on image models), ~$0.039/image.
@@ -25,7 +25,7 @@ const execFileAsync = promisify(execFile)
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 const FFMPEG = 'C:\\Users\\halcy\\AppData\\Local\\Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe\\ffmpeg-9.0-full_build\\bin\\ffmpeg.exe'
 const MODEL = 'gemini-2.5-flash-image'
-const OUT_SUBDIR = 'design/word-icons/pending-review'
+const OUT_SUBDIR = 'design/画像/語彙イラスト/pending-review'
 
 function buildPrompt(meaning, romaji) {
   return `A simple, cute, flat-design icon illustration of "${meaning}" (${romaji}), for a children's Japanese-vocabulary-learning app. The single most important goal: a learner must be able to instantly recognize this word's meaning at a glance — clarity beats decoration every time.
