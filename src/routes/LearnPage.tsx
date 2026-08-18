@@ -6,6 +6,7 @@ import { CHARACTERS_BY_ID } from '../data/characters'
 import { CATEGORIES_BY_ID, ROWS_BY_ID } from '../data/curriculum'
 import { WORDS_BY_ROW } from '../data/words'
 import { useCurriculum } from '../hooks/useCurriculum'
+import { useSkipFirst } from '../hooks/useSkipFirst'
 import { useTTS } from '../hooks/useTTS'
 import { useProgressStore } from '../store/progressStore'
 
@@ -36,6 +37,7 @@ export function LearnPage() {
   const [charIndex, setCharIndex] = useState(0)
   const [summaryStep, setSummaryStep] = useState<'chars' | 'words'>('chars')
   const { speak } = useTTS()
+  const skipFirstSpeak = useSkipFirst()
 
   useEffect(() => {
     if (!rowId || !row || row.categoryId !== categoryId) {
@@ -47,6 +49,10 @@ export function LearnPage() {
 
   useEffect(() => {
     if (step !== 'A' || characters.length === 0) return
+    if (skipFirstSpeak.current) {
+      skipFirstSpeak.current = false
+      return
+    }
     const char = characters[charIndex]
     // ー/っ/ッ have no sound in isolation — see CharacterCard's comment.
     if (char.romaji !== '-') speak(`characters/${char.id}`, char.kana)

@@ -10,6 +10,7 @@ import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
 import { useEnterAdvance } from '../../hooks/useEnterAdvance'
 import { useGameSession } from '../../hooks/useGameSession'
+import { useSkipFirst } from '../../hooks/useSkipFirst'
 import { useTTS } from '../../hooks/useTTS'
 import { isNearMissText } from '../../lib/answerCloseness'
 import { pickDistractorWords } from '../../lib/distractorPicker'
@@ -32,6 +33,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
   const row = rowId && !isReview ? ROWS_BY_ID[rowId] : undefined
   const categoryId = isReview ? undefined : (params.categoryId ?? row?.categoryId)
   const { speak, supported } = useTTS()
+  const skipFirstSpeak = useSkipFirst()
   const {
     feedback,
     mood,
@@ -80,7 +82,11 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
     setSelectedId(null)
     setAnswered(false)
     clear()
-    speak(`words/${currentWord.id}`, currentWord.audioText ?? currentWord.kana)
+    if (skipFirstSpeak.current) {
+      skipFirstSpeak.current = false
+    } else {
+      speak(`words/${currentWord.id}`, currentWord.audioText ?? currentWord.kana)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentWord?.id])
 
