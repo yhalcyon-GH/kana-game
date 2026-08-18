@@ -42,11 +42,12 @@ session (2026-08-16/17):
    `loudnorm` (EBU R128, -16 LUFS / -1.5dB true peak) to fix volume
    inconsistency across all the above.
 
-See `scripts/azureRegenerateHiragana.ts`, `scripts/azureRegenerateRemaining.ts`,
-`scripts/azureDragonHD*.ts`, `scripts/elevenLabsSingleChars*.ts`,
+See `scripts/archive/azureRegenerateHiragana.ts`, `scripts/archive/azureRegenerateRemaining.ts`,
+`scripts/archive/azureDragonHD*.ts`, `scripts/archive/elevenLabsSingleChars*.ts`,
 `scripts/normalizeAudioVolume.mjs`, and `scripts/buildAccentData.mjs` (pitch
-accent dataset) for the actual generation pipeline — all still present in
-`scripts/` and reusable if this voice is wanted again for a specific word.
+accent dataset) for the generation pipeline — the targeted single-word tool
+is `scripts/azureRegenerateWordIds.ts` (still active); the rest are archived
+one-time/bulk runs, kept as reference if this voice is wanted again.
 
 ## Reuse
 
