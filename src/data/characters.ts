@@ -347,6 +347,19 @@ export const CHARACTERS_BY_ID: Record<string, KanaChar> = Object.fromEntries(
   CHARACTERS.map((c) => [c.id, c]),
 )
 
+// あ/ア, か/カ, きゃ/キャ etc. are pronounced identically — katakana's
+// character audio reuses the matching hiragana clip instead of shipping a
+// duplicate recording of the same sound under a second filename. ー
+// (katakana-chouon) has no hiragana counterpart, and — like っ/ッ — has no
+// sound in isolation (romaji: '-') and no clip either way, so it's left
+// unmapped. katakana-sokuon strips to 'sokuon', which is the same "no sound
+// in isolation" case, so mapping it is a no-op too.
+export function getCharacterAudioId(id: string): string {
+  if (!id.startsWith('katakana-')) return id
+  const stripped = id.slice('katakana-'.length)
+  return stripped in CHARACTERS_BY_ID ? stripped : id
+}
+
 // Kunrei-shiki (and other common) romanizations accepted alongside each
 // character's Hepburn-based canonical romaji in CHARACTERS above — e.g. つ
 // is typed as either "tsu" (Hepburn) or "tu" (Kunrei-shiki). Only characters

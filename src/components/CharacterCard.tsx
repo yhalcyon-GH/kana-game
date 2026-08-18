@@ -1,3 +1,4 @@
+import { getCharacterAudioId } from '../data/characters'
 import type { KanaChar } from '../data/types'
 import { useTTS } from '../hooks/useTTS'
 
@@ -32,7 +33,7 @@ export function CharacterCard({ char }: Props) {
   return (
     <button
       type="button"
-      onClick={() => speak(`characters/${char.id}`, char.kana)}
+      onClick={() => speak(`characters/${getCharacterAudioId(char.id)}`, char.kana)}
       aria-label={`Play pronunciation of ${char.kana}`}
       className="flex flex-col items-center gap-2 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm transition hover:border-blue-400 active:scale-95 dark:border-neutral-700 dark:bg-neutral-800"
     >

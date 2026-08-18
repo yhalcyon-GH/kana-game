@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { AnswerFeedbackRow } from '../../components/AnswerFeedbackRow'
 import { GameRoundHeader } from '../../components/GameRoundHeader'
 import { PracticeSummary } from '../../components/PracticeSummary'
-import { CHARACTERS_BY_ID } from '../../data/characters'
+import { CHARACTERS_BY_ID, getCharacterAudioId } from '../../data/characters'
 import { CATEGORIES_BY_ID, ROWS_BY_ID } from '../../data/curriculum'
 import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
@@ -82,7 +82,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
     setSelectedId(null)
     setAnswered(false)
     clear()
-    speak(`characters/${currentCharId}`, CHARACTERS_BY_ID[currentCharId].kana)
+    speak(`characters/${getCharacterAudioId(currentCharId)}`, CHARACTERS_BY_ID[currentCharId].kana)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentCharId])
 
@@ -135,7 +135,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
         {supported && (
           <button
             type="button"
-            onClick={() => speak(`characters/${currentCharId}`, currentChar.kana)}
+            onClick={() => speak(`characters/${getCharacterAudioId(currentCharId)}`, currentChar.kana)}
             className="rounded-full bg-neutral-100 px-4 py-2 text-lg hover:bg-neutral-200 dark:bg-neutral-700 dark:hover:bg-neutral-600"
             aria-label="Replay audio"
           >

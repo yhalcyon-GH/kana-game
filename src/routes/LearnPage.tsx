@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { CharacterCard } from '../components/CharacterCard'
 import { WordCard } from '../components/WordCard'
-import { CHARACTERS_BY_ID } from '../data/characters'
+import { CHARACTERS_BY_ID, getCharacterAudioId } from '../data/characters'
 import { CATEGORIES_BY_ID, ROWS_BY_ID } from '../data/curriculum'
 import { WORDS_BY_ROW } from '../data/words'
 import { useCurriculum } from '../hooks/useCurriculum'
@@ -53,7 +53,7 @@ export function LearnPage() {
     if (step !== 'A' || characters.length === 0 || row?.isSummary) return
     const char = characters[charIndex]
     // ー/っ/ッ have no sound in isolation — see CharacterCard's comment.
-    if (char.romaji !== '-') speak(`characters/${char.id}`, char.kana)
+    if (char.romaji !== '-') speak(`characters/${getCharacterAudioId(char.id)}`, char.kana)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, charIndex, characters.length, row?.isSummary])
 
