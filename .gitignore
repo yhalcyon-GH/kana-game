@@ -12,6 +12,7 @@ dist
 dist-ssr
 *.local
 .tmp-icons
+design/word-icons/pending-review
 
 # Editor directories and files
 .vscode/*
@@ -31,3 +32,9 @@ voice-check-report.json
 # leaves behind next to each source wav during transcription — not cleaned
 # up by the package itself, and not meant to be committed.
 public/audio/**/*.wav16k.wav
+
+# scripts/voicePipeline working folders — raw recordings and generated
+# splits/reports are review-in-progress content, not shipped assets.
+# Promoting an approved batch into public/audio/ is a separate manual step.
+/input/
+/output/
