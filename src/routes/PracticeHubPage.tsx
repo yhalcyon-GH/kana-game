@@ -68,17 +68,8 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   // TracingPage) — that only makes sense for a single row's small word
   // list, not Review's every-taught-row mix, so it's excluded there.
   const isSummary = !isReview && !!row?.isSummary
-  // Review has no "meet new characters" step (that's what Learn is for on a
-  // real row) — instead its Learn section offers a browse-only look back at
-  // whatever's actually being gotten wrong lately, split 単音/語彙 per the
-  // user's request (see ReviewMistakesPage).
   const learnActivities: Activity[] = [
-    ...(isReview
-      ? [
-          { path: `${hubBase}/learn-chars`, label: 'Weak Kana', emoji: '🔤', description: 'Review characters you keep missing' },
-          { path: `${hubBase}/learn-words`, label: 'Weak Words', emoji: '📚', description: 'Review words you keep missing' },
-        ]
-      : [{ path: `/learn/${categoryId}/${rowId}`, label: 'Learn', emoji: '📖', description: 'Meet the new characters' }]),
+    ...(isReview ? [] : [{ path: `/learn/${categoryId}/${rowId}`, label: 'Learn', emoji: '📖', description: 'Meet the new characters' }]),
     ...(isReview || isSummary
       ? []
       : [{ path: `${hubBase}/tracing`, label: 'Tracing', emoji: '✍️', description: 'Watch the stroke order, then trace' }]),
