@@ -2,8 +2,8 @@
 
 Backups/sources for the vocabulary illustrations shipped at `public/word-icons/<word-id>.webp`. Kept for provenance only — nothing here is read by the app at runtime (see `CLAUDE.md`'s `design/` note).
 
-- **`chatgpt-batch-2026-08-19/`** — the batch used to (re)source illustrations for every word with an `image` field as of 2026-08-19, sourced via ChatGPT directly from finished per-word images (not cropped reference sheets). `main/` (257 files) is the full-catalog pass that replaced most existing icons wholesale; `extras/` (19 files) covers words added or missing an icon at the time; `vocab-mapping.csv` is the word-id ↔ filename mapping used to apply the batch. This batch superseded 95%+ of every earlier batch below.
-- **`still-live-legacy/`** — the handful of pre-2026-08-19 icons that are still actually live because `chatgpt-batch-2026-08-19` didn't happen to cover them: `wa-mizu-wo-nomu` and `youon-ka-gyuuniku`.
+- **`chatgpt-batch-2026-08-19/`** — the batch used to (re)source illustrations for every word with an `image` field as of 2026-08-19, sourced via ChatGPT directly from finished per-word images (not cropped reference sheets). `main/` (257 files) is the full-catalog pass that replaced most existing icons wholesale; `extras/` covers words added or missing an icon at the time, plus later same-day individual replacements (`sokuon-ikki`, `youon-ka-gyuuniku`); `vocab-mapping.csv` is the word-id ↔ filename mapping used to apply the original `main/` pass. This batch superseded 95%+ of every earlier batch below.
+- **`still-live-legacy/`** — the handful of pre-2026-08-19 icons that are still actually live because `chatgpt-batch-2026-08-19` didn't happen to cover them: `wa-mizu-wo-nomu` (`youon-ka-gyuuniku` was here too, until it got its own `extras/` replacement above — its old copy moved to Desktop/Dust).
 
 `pending-review/` (gitignored, created on demand) is where `scripts/generateWordIcons.mjs` writes a fresh batch for review before it gets a permanent named folder here.
 
