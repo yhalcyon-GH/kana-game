@@ -73,9 +73,9 @@ describe('routing', () => {
     expect(screen.getByRole('heading', { name: 'Kana Game' })).toBeInTheDocument()
   })
 
-  it('/practice/review is unreachable (redirects home) until at least one row is taught', () => {
+  it('/practice/review shows a "nothing to review yet" message (not a silent redirect) until at least one row is taught', () => {
     renderAt('/practice/review')
-    expect(screen.getByRole('heading', { name: 'Kana Game' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Nothing to review yet' })).toBeInTheDocument()
   })
 
   it('/practice/review renders once a row has been taught, without a category segment', () => {

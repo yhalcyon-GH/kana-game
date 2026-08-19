@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { HubBreadcrumb } from '../components/HubBreadcrumb'
+import { Mascot } from '../components/Mascot'
 import { CATEGORIES_BY_ID, ROWS_BY_ID } from '../data/curriculum'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../hooks/useCurriculum'
 
@@ -55,12 +56,31 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   const categoryId = isReview ? undefined : (params.categoryId ?? row?.categoryId)
 
   useEffect(() => {
+    // Review with nothing taught yet gets an explanatory message below
+    // instead of a silent bounce to Home — from the learner's side, a tap
+    // that visibly does nothing (or flashes and reverts) looks like a bug,
+    // not "you haven't unlocked this yet." Every other invalid-state case
+    // still redirects exactly as before.
+    if (rowId && isReview && !isScopeReady(rowId)) return
     if (!rowId || !isScopeReady(rowId) || (!isReview && row?.categoryId !== categoryId)) {
       navigate('/', { replace: true })
     }
   }, [rowId, isReview, row, categoryId, isScopeReady, navigate])
 
   if (!rowId || (!isReview && !row)) return null
+
+  if (isReview && !isScopeReady(rowId)) {
+    return (
+      <div className="flex flex-col items-center gap-4 text-center">
+        <Mascot mood="normal" />
+        <h1 className="text-xl font-bold">Nothing to review yet</h1>
+        <p className="text-neutral-500 dark:text-neutral-400">Finish Learn for at least one row first, then come back here.</p>
+        <Link to="/" className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700">
+          Go learn something
+        </Link>
+      </div>
+    )
+  }
 
   const hubBase = isReview ? '/practice/review' : `/practice/${categoryId}/${rowId}`
 
