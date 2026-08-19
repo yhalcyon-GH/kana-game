@@ -54,9 +54,9 @@ scripts/       One-off/regeneratable content-build scripts, run manually with
 public/audio/  Pre-generated static audio clips: characters/, words/, feedback/.
                Shipped as files, not generated at runtime — see "Audio system".
 design/        Non-code creative assets kept for provenance/backup, not referenced
-               by the app at runtime — split into 音声/ (単音/語彙/キャラクターの声,
-               source recordings) and 画像/ (キャラクター mascot concept art,
-               語彙イラスト word-icon provenance).
+               by the app at runtime — split into audio/ (characters/words/
+               character-voice source recordings) and images/ (characters/
+               mascot concept art, word-illustrations word-icon provenance).
 docs/          Design proposals and review notes that are reference material, not
                everyday reading — see docs/README.md for an index.
 ```
