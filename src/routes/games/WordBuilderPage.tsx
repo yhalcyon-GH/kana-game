@@ -128,13 +128,32 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
     const placedGlyphs = slots.map((key) => tray.find((t) => t.key === key)?.glyph)
     const targetGlyphs = [...currentWord.kana]
     const isCorrect = placedGlyphs.every((glyph, i) => glyph === targetGlyphs[i])
-    for (const charId of currentWord.characterIds) recordResult(charId, isCorrect)
+
+    // Record each character's OWN correctness, not the whole word's — a
+    // wrong glyph anywhere used to mark EVERY character in the word wrong,
+    // including ones the learner placed correctly. That was harmless back
+    // when it only fed the SRS box, but now directly drives Review's Weak
+    // Kana list (see lib/srs.ts's isWeak), so a misattributed character
+    // would show up there as "kept missing" when it wasn't the problem.
+    // Walk characterIds consuming each one's own glyph span (most are 1
+    // glyph; yōon like きゃ is 2) rather than assuming a 1:1 index with
+    // targetGlyphs.
+    let glyphOffset = 0
+    for (const charId of currentWord.characterIds) {
+      const glyphSpan = CHARACTERS_BY_ID[charId]?.kana.length ?? 1
+      let charCorrect = true
+      for (let i = 0; i < glyphSpan; i++) {
+        if (placedGlyphs[glyphOffset + i] !== targetGlyphs[glyphOffset + i]) charCorrect = false
+      }
+      recordResult(charId, charCorrect)
+      glyphOffset += glyphSpan
+    }
 
     if (isCorrect) {
       setStatus('correct')
       setCorrectCount((c) => c + 1)
       onCorrect()
-      const timer = setTimeout(advance, 900)
+      const timer = setTimeout(advance, 2000)
       return () => clearTimeout(timer)
     }
 

@@ -97,7 +97,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
     if (isCorrect) {
       setCorrectCount((c) => c + 1)
       onCorrect()
-      setTimeout(advance, 1000)
+      setTimeout(advance, 2000)
     } else {
       onWrong(
         { id: currentCharId, kana: CHARACTERS_BY_ID[currentCharId].kana, romaji: CHARACTERS_BY_ID[currentCharId].romaji },

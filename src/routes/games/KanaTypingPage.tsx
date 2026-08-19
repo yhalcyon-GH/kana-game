@@ -100,7 +100,7 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
     if (isCorrect) {
       setCorrectCount((c) => c + 1)
       onCorrect()
-      setTimeout(advance, 900)
+      setTimeout(advance, 2000)
     } else {
       const isNearMiss =
         isNearMissText(normalizeKana(input), normalizeKana(currentWord.kana)) ||

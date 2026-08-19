@@ -98,7 +98,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
     if (isCorrect) {
       setCorrectCount((c) => c + 1)
       onCorrect()
-      setTimeout(advance, 1000)
+      setTimeout(advance, 2000)
     } else {
       onWrong(
         { id: currentWord.id, kana: currentWord.kana, romaji: currentWord.romaji },
