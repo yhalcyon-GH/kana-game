@@ -41,6 +41,10 @@ export function TracingPage() {
   const isSummary = !!ROWS_BY_ID[rowId ?? '']?.isSummary
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const isDrawingRef = useRef(false)
+  // Guards against a stale drawGuide() call's font-load promise resolving
+  // AFTER a newer round has already started (see drawGuide's comment) —
+  // only the call that's still current when its promise settles may paint.
+  const drawTokenRef = useRef(0)
 
   useEffect(() => {
     if (!rowId || !isScopeReady(rowId) || ROWS_BY_ID[rowId]?.categoryId !== categoryId || isSummary) {
@@ -91,33 +95,65 @@ export function TracingPage() {
   // after, or the guide silently renders in default black at the default
   // top-left anchor instead of the intended faint centered gray. Resizing
   // doubles as both "draw the guide for a new round" and "Clear".
+  //
+  // The guide text is painted onto <canvas>, which — unlike a DOM element
+  // styled with .font-kana — does NOT get a free repaint when the Klee One
+  // webfont finishes loading: fillText() rasterizes whatever font is
+  // resolved at the moment it's called and never revisits that pixel data.
+  // Tracing is often the very first page in a session to touch Klee One at
+  // all (StrokeOrderAnimation is pure SVG, no .font-kana element renders
+  // here), so on a cold load the font can still be in flight when drawGuide
+  // first runs, and the guide silently rasterizes in the sans-serif
+  // fallback forever — exactly the "sometimes, mostly right after loading"
+  // bug report. Waiting on document.fonts.load() before the fillText call
+  // fixes this: it resolves immediately if the font's already cached (the
+  // common case after the first draw) and only actually waits on a cold
+  // load. drawTokenRef discards a stale wait that resolves after a newer
+  // round has already started.
   const drawGuide = useCallback(() => {
     const canvas = canvasRef.current
     const ctx = canvas?.getContext('2d')
     if (!canvas || !ctx) return
     const dpr = window.devicePixelRatio || 1
+    const token = ++drawTokenRef.current
 
     if (phase === 'chars' && currentCharId) {
       canvas.width = CANVAS_SIZE * dpr
       canvas.height = CANVAS_SIZE * dpr
       ctx.scale(dpr, dpr)
-      ctx.font = `${CANVAS_SIZE * 0.75}px "Klee One", sans-serif`
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-      ctx.fillStyle = 'rgba(120, 120, 120, 0.3)'
-      ctx.fillText(CHARACTERS_BY_ID[currentCharId].kana, CANVAS_SIZE / 2, CANVAS_SIZE / 2 + CANVAS_SIZE * 0.05)
+      const paint = () => {
+        if (drawTokenRef.current !== token) return
+        ctx.font = `${CANVAS_SIZE * 0.75}px "Klee One", sans-serif`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillStyle = 'rgba(120, 120, 120, 0.3)'
+        ctx.fillText(CHARACTERS_BY_ID[currentCharId].kana, CANVAS_SIZE / 2, CANVAS_SIZE / 2 + CANVAS_SIZE * 0.05)
+      }
+      if (document.fonts?.load) {
+        document.fonts.load(`${CANVAS_SIZE * 0.75}px "Klee One"`).then(paint, paint)
+      } else {
+        paint()
+      }
     } else if (phase === 'words' && currentWord) {
       const chars = [...currentWord.kana]
       canvas.width = WORD_CHAR_SIZE * chars.length * dpr
       canvas.height = WORD_CHAR_SIZE * dpr
       ctx.scale(dpr, dpr)
-      ctx.font = `${WORD_CHAR_SIZE * 0.75}px "Klee One", sans-serif`
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-      ctx.fillStyle = 'rgba(120, 120, 120, 0.3)'
-      chars.forEach((ch, i) => {
-        ctx.fillText(ch, WORD_CHAR_SIZE * (i + 0.5), WORD_CHAR_SIZE / 2 + WORD_CHAR_SIZE * 0.05)
-      })
+      const paint = () => {
+        if (drawTokenRef.current !== token) return
+        ctx.font = `${WORD_CHAR_SIZE * 0.75}px "Klee One", sans-serif`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillStyle = 'rgba(120, 120, 120, 0.3)'
+        chars.forEach((ch, i) => {
+          ctx.fillText(ch, WORD_CHAR_SIZE * (i + 0.5), WORD_CHAR_SIZE / 2 + WORD_CHAR_SIZE * 0.05)
+        })
+      }
+      if (document.fonts?.load) {
+        document.fonts.load(`${WORD_CHAR_SIZE * 0.75}px "Klee One"`).then(paint, paint)
+      } else {
+        paint()
+      }
     }
   }, [phase, currentCharId, currentWord])
 
