@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { CHARACTERS_BY_ID } from '../data/characters'
 import { CATEGORIES_BY_ID, getCumulativeCharacterIds, ROWS, ROWS_BY_ID, SUMMARY_ROW_SOURCE_CATEGORY_IDS } from '../data/curriculum'
 import type { AnchorWord } from '../data/types'
-import { WORDS_BY_ROW } from '../data/words'
+import { ALL_WORDS, WORDS_BY_ROW } from '../data/words'
 import { isDue } from '../lib/srs'
 import { useProgressStore } from '../store/progressStore'
 import { GAME_SESSION_ROUNDS } from './useGameSession'
@@ -57,15 +57,55 @@ export function useCurriculum() {
   const taughtRowIds = useProgressStore((s) => s.taughtRowIds)
   const characters = useProgressStore((s) => s.characters)
 
-  const unlockedCharacterIds = useMemo(
-    () => ROWS.filter((r) => taughtRowIds.includes(r.id)).flatMap((r) => r.characterIds),
-    [taughtRowIds],
+  // Characters actually attempted at least once, regardless of whether
+  // Learn was ever formally completed for their row — rows are never
+  // access-gated (Learn AND Practice are both always available per-row),
+  // so jumping straight into Practice without doing Learn first is a
+  // normal path, not a mistake, and Review should reflect real practice
+  // history rather than only Learn completion.
+  const practicedCharacterIds = useMemo(
+    () => Object.keys(characters).filter((id) => (characters[id]?.totalSeen ?? 0) > 0),
+    [characters],
   )
 
-  const unlockedWords = useMemo<AnchorWord[]>(
-    () => taughtRowIds.flatMap((id) => WORDS_BY_ROW[id] ?? []),
-    [taughtRowIds],
+  // A row counts as unlocked for Review once it's been formally taught OR
+  // the learner has practiced at least one of its own characters directly.
+  // Chōon rows introduce no characters of their own (characterIds: []) so
+  // can only reach "unlocked" via the taught half of this union — but
+  // their words still surface through unlockedWords' second clause below
+  // once the hiragana/katakana characters they're actually spelled from
+  // have been practiced (which, as a side effect, also marks THOSE
+  // characters' own rows practiced here, so this isn't a real gap).
+  const practicedRowIds = useMemo(
+    () => ROWS.filter((r) => r.characterIds.some((id) => practicedCharacterIds.includes(id))).map((r) => r.id),
+    [practicedCharacterIds],
   )
+
+  const reviewUnlockedRowIds = useMemo(
+    () => [...new Set([...taughtRowIds, ...practicedRowIds])],
+    [taughtRowIds, practicedRowIds],
+  )
+
+  const unlockedCharacterIds = useMemo(
+    () => reviewUnlockedRowIds.flatMap((id) => ROWS_BY_ID[id]?.characterIds ?? []),
+    [reviewUnlockedRowIds],
+  )
+
+  // Every word from an unlocked row, PLUS any word whose characters are
+  // ALL individually practiced even if its own row isn't in
+  // reviewUnlockedRowIds — the second clause is what actually picks up a
+  // practiced chōon/sokuon/yōon row's own words (see practicedRowIds'
+  // comment), not just the plain hiragana/katakana ones.
+  const unlockedWords = useMemo<AnchorWord[]>(() => {
+    const byRow = reviewUnlockedRowIds.flatMap((id) => WORDS_BY_ROW[id] ?? [])
+    const byPractice = ALL_WORDS.filter((w) => w.characterIds.every((c) => practicedCharacterIds.includes(c)))
+    const seen = new Set<string>()
+    return [...byRow, ...byPractice].filter((w) => {
+      if (seen.has(w.id)) return false
+      seen.add(w.id)
+      return true
+    })
+  }, [reviewUnlockedRowIds, practicedCharacterIds])
 
   // Characters "due" for review right now (see lib/srs.ts isDue): drives
   // both the Review scope's word selection below and the due-count badge
@@ -126,11 +166,11 @@ export function useCurriculum() {
 
   // Learn and Practice are both always available for any real row — taught
   // status only drives the "learn"/"practice" badge on the home screen, not
-  // access. The review scope is the one exception: it needs at least one
-  // taught row to have anything to mix together.
+  // access. The review scope is the one exception: it needs SOMETHING —
+  // taught or practiced — to have anything to mix together.
   const isScopeReady = (rowId: string | undefined): boolean => {
     if (!rowId) return false
-    if (rowId === REVIEW_SCOPE_ID) return taughtRowIds.length > 0
+    if (rowId === REVIEW_SCOPE_ID) return unlockedCharacterIds.length > 0
     return !!ROWS_BY_ID[rowId]
   }
 
