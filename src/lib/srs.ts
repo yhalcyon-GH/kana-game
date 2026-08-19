@@ -41,12 +41,16 @@ export function isDue(stats: { box: number; lastSeen: number }, now: number = Da
   return now - stats.lastSeen >= interval
 }
 
-// "Weak" (mistake-prone) rather than merely due: box 0 or 1 AND actually
-// attempted at least once — a never-seen character also sits at box 0, but
-// that means "not learned yet," not "got it wrong," so it's excluded here.
-// Drives the Review scope's mistake-review lists — see useCurriculum.ts.
-export function isWeak(stats: { box: number; totalSeen: number }): boolean {
-  return stats.totalSeen > 0 && stats.box <= 1
+// "Weak" means "got it wrong the last time it was tested" — NOT box <= 1.
+// The gentle Leitner design (nextBox) only drops box by one per miss, so a
+// character sitting at box 2+ that gets missed once lands at box 1+ and
+// would never cross a box-based threshold at all: a real, recent mistake
+// on an otherwise-progressing character would silently never show up as
+// weak. lastCorrect is the direct, unambiguous signal instead, and it
+// self-corrects the moment the learner gets it right again. A never-seen
+// character has totalSeen 0 (not a miss, just not learned yet).
+export function isWeak(stats: { totalSeen: number; lastCorrect?: boolean }): boolean {
+  return stats.totalSeen > 0 && stats.lastCorrect === false
 }
 
 // A character is "advanced enough" to help gate the next row's unlock once

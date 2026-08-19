@@ -83,7 +83,7 @@ export function useCurriculum() {
   // characters — there's no separate per-word progress to check directly
   // (progressStore only tracks characters).
   const weakCharacterIds = useMemo(
-    () => unlockedCharacterIds.filter((id) => isWeak(characters[id] ?? { box: 0, totalSeen: 0 })),
+    () => unlockedCharacterIds.filter((id) => isWeak(characters[id] ?? { totalSeen: 0 })),
     [unlockedCharacterIds, characters],
   )
   const weakWords = useMemo(

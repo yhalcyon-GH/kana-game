@@ -8,6 +8,13 @@ export type CharacterProgress = {
   totalSeen: number
   totalCorrect: number
   lastSeen: number
+  // Whether the most recent attempt was correct — drives lib/srs.ts's
+  // isWeak (Review's "weak items" lists), which is deliberately NOT box-
+  // based (see that function's comment). Optional so pre-existing
+  // persisted progress (recorded before this field existed) reads as
+  // undefined rather than false, so it doesn't retroactively flood the
+  // weak list — isWeak only treats an explicit `false` as a miss.
+  lastCorrect?: boolean
 }
 
 const FIRST_ROW_ID = 'a-row'
@@ -64,6 +71,7 @@ export const useProgressStore = create<ProgressState>()(
             totalSeen: prev.totalSeen + 1,
             totalCorrect: prev.totalCorrect + (correct ? 1 : 0),
             lastSeen: Date.now(),
+            lastCorrect: correct,
           }
           return { characters: { ...state.characters, [charId]: updated } }
         })
