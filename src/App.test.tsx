@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it } from 'vitest'
 import App from './App'
@@ -30,7 +30,7 @@ describe('routing', () => {
 
   it('/practice/hiragana/a-row renders that row\'s Practice Hub', () => {
     renderAt('/practice/hiragana/a-row')
-    expect(screen.getByRole('heading', { name: 'あ~お' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'あ〜お' })).toBeInTheDocument()
   })
 
   it('/learn/hiragana/a-row renders the Learn flow for that row', () => {
@@ -55,7 +55,7 @@ describe('routing', () => {
 
   it('/practice/katakana/katakana-a-row renders that row\'s Practice Hub', () => {
     renderAt('/practice/katakana/katakana-a-row')
-    expect(screen.getByRole('heading', { name: 'ア~オ・カ~ゴ・ン・ー' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'ア〜オ・カ〜ゴ・ン・ー' })).toBeInTheDocument()
   })
 
   it('/learn/katakana/katakana-a-row renders the Learn flow for that row', () => {
@@ -95,7 +95,7 @@ describe('routing', () => {
     // No route pattern matches a single-segment /practice/:x anymore, so
     // React Router renders nothing inside <Routes> — just confirm this
     // doesn't crash and doesn't accidentally render the Practice Hub.
-    expect(screen.queryByRole('heading', { name: 'あ~お' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'あ〜お' })).not.toBeInTheDocument()
   })
 })
 
@@ -106,15 +106,15 @@ describe('script chooser pages', () => {
   it('/hiragana shows only hiragana rows', () => {
     renderAt('/hiragana')
     expect(screen.getByRole('heading', { name: 'ひらがな' })).toBeInTheDocument()
-    expect(screen.getByText('あ~お')).toBeInTheDocument()
-    expect(screen.queryByText('ア~オ・カ~ゴ・ン・ー')).not.toBeInTheDocument()
+    expect(screen.getByText('あ〜お')).toBeInTheDocument()
+    expect(screen.queryByText('ア〜オ・カ〜ゴ・ン・ー')).not.toBeInTheDocument()
   })
 
   it('/katakana shows only katakana rows', () => {
     renderAt('/katakana')
     expect(screen.getByRole('heading', { name: 'カタカナ' })).toBeInTheDocument()
-    expect(screen.getByText('ア~オ・カ~ゴ・ン・ー')).toBeInTheDocument()
-    expect(screen.queryByText('あ~お')).not.toBeInTheDocument()
+    expect(screen.getByText('ア〜オ・カ〜ゴ・ン・ー')).toBeInTheDocument()
+    expect(screen.queryByText('あ〜お')).not.toBeInTheDocument()
   })
 
   // 拗音 now has its own page (see App.tsx's /youon route), separate from
@@ -138,7 +138,7 @@ describe('script chooser pages', () => {
   // it bundles more than one.
   it('/other shows rows from 促音 and 長音, each under its own subheading, but not 拗音', () => {
     renderAt('/other')
-    expect(screen.getByRole('heading', { name: 'そのほか +' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'っ＆ー' })).toBeInTheDocument()
     expect(screen.queryByText('まだ利用できるレッスンがありません。')).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '○+っ' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '○+ー' })).toBeInTheDocument()
@@ -146,8 +146,8 @@ describe('script chooser pages', () => {
     expect(screen.getByText('あー')).toBeInTheDocument()
     expect(screen.getByText('ー')).toBeInTheDocument()
     expect(screen.queryByText('きゃ・きゅ・きょ・ぎゃ・ぎゅ・ぎょ')).not.toBeInTheDocument()
-    expect(screen.queryByText('あ~お')).not.toBeInTheDocument()
-    expect(screen.queryByText('ア~オ・カ~ゴ・ン・ー')).not.toBeInTheDocument()
+    expect(screen.queryByText('あ〜お')).not.toBeInTheDocument()
+    expect(screen.queryByText('ア〜オ・カ〜ゴ・ン・ー')).not.toBeInTheDocument()
   })
 
   it('home page links to all four script pages, each paired with an English label', () => {
@@ -155,27 +155,17 @@ describe('script chooser pages', () => {
     expect(screen.getByRole('link', { name: /ひらがな.*Hiragana/s })).toHaveAttribute('href', '/hiragana')
     expect(screen.getByRole('link', { name: /カタカナ.*Katakana/s })).toHaveAttribute('href', '/katakana')
     expect(screen.getByRole('link', { name: /○\+ゃゅょ.*Yōon/s })).toHaveAttribute('href', '/youon')
-    expect(screen.getByRole('link', { name: /そのほか \+.*Other/s })).toHaveAttribute('href', '/other')
+    expect(screen.getByRole('link', { name: /っ＆ー.*Stop & Long Sound/s })).toHaveAttribute('href', '/other')
   })
 })
 
-// HubBreadcrumb (see components/HubBreadcrumb.tsx) — added because the
-// Practice Hub used to be a dead end: after finishing a row, the only ways
-// out were "back to this exact row" or all the way Home, with no way back
-// to the row's parent category page (the user's own complaint, verbatim:
-// "カキクケコ練習したあとに、カ行に戻るかホームに戻るかしかなくて、カタカナ
-// 全体に戻れない"). This also exercises `GojuonRow.englishLabel`, the short
-// romaji "session name" shown here for a learner who can't yet read a row's
-// kana `label`.
-describe('Practice Hub breadcrumb / cross-session navigation', () => {
-  it('shows Home -> category page -> this row, using the row\'s englishLabel', () => {
-    renderAt('/practice/katakana/katakana-sa-row')
-    const breadcrumb = within(screen.getByRole('navigation', { name: 'Breadcrumb' }))
-    expect(breadcrumb.getByRole('link', { name: /Home/ })).toHaveAttribute('href', '/')
-    expect(breadcrumb.getByRole('link', { name: /カタカナ/ })).toHaveAttribute('href', '/katakana')
-    expect(screen.getByText('Sa Row')).toBeInTheDocument()
-  })
-
+// HubBreadcrumb (see components/HubBreadcrumb.tsx) — prev/next-row quick
+// links between rows in the same category, using `GojuonRow.englishLabel`
+// (a short romaji "session name") for a learner who can't yet read a row's
+// kana `label`. Used to also show a Home/category/row breadcrumb trail;
+// dropped once NavBar's script-jump row made section-level navigation
+// redundant here (the user's explicit request).
+describe('Practice Hub cross-session navigation', () => {
   it('a middle row shows both prev/next quick links to adjacent rows in the same category', () => {
     renderAt('/practice/katakana/katakana-sa-row')
     expect(screen.getByRole('link', { name: /A Row/ })).toHaveAttribute('href', '/practice/katakana/katakana-a-row')
@@ -204,16 +194,6 @@ describe('Practice Hub breadcrumb / cross-session navigation', () => {
     expect(screen.queryByRole('link', { name: /Row/ })).not.toBeInTheDocument()
   })
 
-  it('links back to a bundled category (促音, shown kanji-free as ○+っ) go to /other, not a dedicated page', () => {
-    renderAt('/practice/sokuon/sokuon-row')
-    const breadcrumb = within(screen.getByRole('navigation', { name: 'Breadcrumb' }))
-    expect(breadcrumb.getByRole('link', { name: /○\+っ/ })).toHaveAttribute('href', '/other')
-  })
-
-  it('the Review hub does not show a category breadcrumb (it has no single category)', () => {
-    renderAt('/practice/review')
-    expect(screen.queryByRole('navigation', { name: 'Breadcrumb' })).not.toBeInTheDocument()
-  })
 })
 
 // Learn's step-A jump-ahead links (see LearnPage.tsx) — added because

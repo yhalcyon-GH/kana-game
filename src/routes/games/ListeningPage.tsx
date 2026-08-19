@@ -154,7 +154,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
               type="button"
               onClick={() => handleChoice(choice)}
               disabled={answered}
-              className={`font-kana rounded-xl border-2 px-6 py-4 text-2xl font-bold transition ${
+              className={`rounded-xl border-2 px-6 py-4 text-2xl font-bold transition ${
                 showResult
                   ? isTarget
                     ? 'border-green-500 bg-green-50 dark:bg-green-950'
@@ -162,7 +162,12 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
                   : 'border-neutral-300 bg-white hover:border-blue-400 dark:border-neutral-600 dark:bg-neutral-800'
               }`}
             >
-              {choice.kana}
+              <span className="font-kana block">{choice.kana}</span>
+              {answered && (
+                <span className="block text-sm font-normal text-neutral-500 dark:text-neutral-400">
+                  {choice.romaji}
+                </span>
+              )}
             </button>
           )
         })}

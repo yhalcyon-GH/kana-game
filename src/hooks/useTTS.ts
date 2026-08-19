@@ -25,6 +25,8 @@ export function useTTS() {
   const audioEnabled = useProgressStore((s) => s.audioEnabled)
   const audioVolume = useProgressStore((s) => s.audioVolume)
   const audioSpeed = useProgressStore((s) => s.audioSpeed)
+  const mascotVoiceEnabled = useProgressStore((s) => s.mascotVoiceEnabled)
+  const mascotVoiceVolume = useProgressStore((s) => s.mascotVoiceVolume)
 
   const [staticProvider] = useState(() => new StaticFileProvider())
   const [webSpeechProvider] = useState(() => new WebSpeechProvider())
@@ -45,13 +47,15 @@ export function useTTS() {
   const speak = useCallback(
     (audioKey: string, fallbackText: string) => {
       if (!audioEnabled) return
+      const isFeedback = audioKey.startsWith('feedback/')
+      if (isFeedback && !mascotVoiceEnabled) return
       const request = { key: audioKey, text: fallbackText }
-      const options = { volume: audioVolume, rate: audioSpeed }
+      const options = { volume: isFeedback ? mascotVoiceVolume : audioVolume, rate: audioSpeed }
       staticProvider.speak(request, options).catch(() => {
         webSpeechProvider.speak(request, options).catch(() => {})
       })
     },
-    [audioEnabled, audioVolume, audioSpeed, staticProvider, webSpeechProvider],
+    [audioEnabled, audioVolume, audioSpeed, mascotVoiceEnabled, mascotVoiceVolume, staticProvider, webSpeechProvider],
   )
 
   return { speak, supported: true }

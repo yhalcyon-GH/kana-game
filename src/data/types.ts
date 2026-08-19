@@ -13,6 +13,11 @@ export type KanaChar = {
   // see characters.ts's comment on katakana-chouon). Leave unset for any
   // character whose `romaji` is already meaningful on its own.
   displayLabel?: string
+  // A short red advisory shown under the character the first time it's
+  // taught (LearnPage's step A only, not the recap grid or other games) —
+  // e.g. ぢ/づ's "rarely used, except in special cases" note. Leave unset
+  // for any character with nothing special to flag.
+  note?: string
 }
 
 // A top-level script/sound-type grouping (hiragana, katakana, sokuon, ...) —

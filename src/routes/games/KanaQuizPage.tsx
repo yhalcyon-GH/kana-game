@@ -30,7 +30,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
   const params = useParams<{ categoryId?: string; rowId?: string }>()
   const rowId = rowIdOverride ?? params.rowId
   const navigate = useNavigate()
-  const { isScopeReady, getScopeCharacterIds, getScopeQuizCharacterIds, getScopeRounds } = useCurriculum()
+  const { isScopeReady, getScopeCharacterIds, getScopeQuizCharacterIds, isQuizzableCharacterId, getScopeRounds } = useCurriculum()
   const recordResult = useProgressStore((s) => s.recordResult)
   const characters = useProgressStore((s) => s.characters)
   const { speak, supported } = useTTS()
@@ -64,7 +64,10 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
   }, [rowId, isReview, categoryId, isContrastPairs, isScopeReady, navigate])
 
   const quizCharacterIds = useMemo(() => getScopeQuizCharacterIds(rowId), [rowId, getScopeQuizCharacterIds])
-  const distractorPool = useMemo(() => getScopeCharacterIds(rowId), [rowId, getScopeCharacterIds])
+  const distractorPool = useMemo(
+    () => getScopeCharacterIds(rowId).filter(isQuizzableCharacterId),
+    [rowId, getScopeCharacterIds, isQuizzableCharacterId],
+  )
   const getBox = useCallback((id: string) => characters[id]?.box ?? 0, [characters])
 
   const { queue, roundIndex, correctCount, setCorrectCount, finished, startSession, startMistakeReview, advance } =

@@ -14,7 +14,8 @@ export class WebSpeechProvider implements SpeechProvider {
     window.speechSynthesis.cancel()
     const utterance = new SpeechSynthesisUtterance(request.text)
     utterance.lang = 'ja-JP'
-    utterance.volume = options.volume
+    // Web Speech's volume caps natively at 1.0 (no gain-boost equivalent).
+    utterance.volume = Math.min(1, options.volume)
     utterance.rate = options.rate
     if (this.voice) utterance.voice = this.voice
     window.speechSynthesis.speak(utterance)

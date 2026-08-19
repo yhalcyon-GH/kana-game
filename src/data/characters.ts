@@ -49,8 +49,8 @@ export const CHARACTERS: KanaChar[] = [
   // in modern Hepburn, so ids are disambiguated ('dji'/'dzu') while the
   // displayed romaji stays 'ji'/'zu'.
   { id: 'da', kana: 'だ', romaji: 'da', rowId: 'ta-row', type: 'dakuten' },
-  { id: 'dji', kana: 'ぢ', romaji: 'ji', rowId: 'ta-row', type: 'dakuten' },
-  { id: 'dzu', kana: 'づ', romaji: 'zu', rowId: 'ta-row', type: 'dakuten' },
+  { id: 'dji', kana: 'ぢ', romaji: 'ji', rowId: 'ta-row', type: 'dakuten', note: '「ぢ」is rarely used, except in special cases.' },
+  { id: 'dzu', kana: 'づ', romaji: 'zu', rowId: 'ta-row', type: 'dakuten', note: '「づ」is rarely used, except in special cases.' },
   { id: 'de', kana: 'で', romaji: 'de', rowId: 'ta-row', type: 'dakuten' },
   { id: 'do', kana: 'ど', romaji: 'do', rowId: 'ta-row', type: 'dakuten' },
 
@@ -62,10 +62,10 @@ export const CHARACTERS: KanaChar[] = [
   { id: 'no', kana: 'の', romaji: 'no', rowId: 'na-row', type: 'base' },
 
   // は行
-  { id: 'ha', kana: 'は', romaji: 'ha', rowId: 'ha-row', type: 'base' },
+  { id: 'ha', kana: 'は', romaji: 'ha', rowId: 'ha-row', type: 'base', note: 'は → "wa" when used as a particle.' },
   { id: 'hi', kana: 'ひ', romaji: 'hi', rowId: 'ha-row', type: 'base' },
   { id: 'fu', kana: 'ふ', romaji: 'fu', rowId: 'ha-row', type: 'base' },
-  { id: 'he', kana: 'へ', romaji: 'he', rowId: 'ha-row', type: 'base' },
+  { id: 'he', kana: 'へ', romaji: 'he', rowId: 'ha-row', type: 'base', note: 'へ → "e" when used as a particle.' },
   { id: 'ho', kana: 'ほ', romaji: 'ho', rowId: 'ha-row', type: 'base' },
   // ば行 + ぱ行 (both taught together with は行)
   { id: 'ba', kana: 'ば', romaji: 'ba', rowId: 'ha-row', type: 'dakuten' },
@@ -100,7 +100,7 @@ export const CHARACTERS: KanaChar[] = [
 
   // わ行 + ん (final row, no dakuten)
   { id: 'wa', kana: 'わ', romaji: 'wa', rowId: 'wa-row', type: 'base' },
-  { id: 'wo', kana: 'を', romaji: 'wo', rowId: 'wa-row', type: 'base' },
+  { id: 'wo', kana: 'を', romaji: 'wo', rowId: 'wa-row', type: 'base', note: 'を → Usually pronounced "o" and used as a particle.' },
   { id: 'n', kana: 'ん', romaji: 'n', rowId: 'wa-row', type: 'base' },
 
   // ===== カタカナ (katakana) =====
@@ -160,8 +160,8 @@ export const CHARACTERS: KanaChar[] = [
   // ダ行 (taught together with タ行). ヂ/ヅ mirror hiragana's ぢ/づ id
   // disambiguation ('dji'/'dzu') — see characters.ts's hiragana section.
   { id: 'katakana-da', kana: 'ダ', romaji: 'da', rowId: 'katakana-ta-row', type: 'dakuten' },
-  { id: 'katakana-dji', kana: 'ヂ', romaji: 'ji', rowId: 'katakana-ta-row', type: 'dakuten' },
-  { id: 'katakana-dzu', kana: 'ヅ', romaji: 'zu', rowId: 'katakana-ta-row', type: 'dakuten' },
+  { id: 'katakana-dji', kana: 'ヂ', romaji: 'ji', rowId: 'katakana-ta-row', type: 'dakuten', note: '「ヂ」is rarely used, except in special cases.' },
+  { id: 'katakana-dzu', kana: 'ヅ', romaji: 'zu', rowId: 'katakana-ta-row', type: 'dakuten', note: '「ヅ」is rarely used, except in special cases.' },
   { id: 'katakana-de', kana: 'デ', romaji: 'de', rowId: 'katakana-ta-row', type: 'dakuten' },
   { id: 'katakana-do', kana: 'ド', romaji: 'do', rowId: 'katakana-ta-row', type: 'dakuten' },
 
@@ -216,7 +216,7 @@ export const CHARACTERS: KanaChar[] = [
   // completeness (see words.ts's katakana-ra-row comment for why, unlike
   // hiragana's を, it gets no vocabulary/phrase reinforcement).
   { id: 'katakana-wa', kana: 'ワ', romaji: 'wa', rowId: 'katakana-ra-row', type: 'base' },
-  { id: 'katakana-wo', kana: 'ヲ', romaji: 'wo', rowId: 'katakana-ra-row', type: 'base' },
+  { id: 'katakana-wo', kana: 'ヲ', romaji: 'wo', rowId: 'katakana-ra-row', type: 'base', note: 'ヲ → Rarely used.' },
 
   // ===== 促音 (sokuon) =====
   // っ/ッ mark gemination — a held/doubled consonant, e.g. おと "oto" vs.
@@ -363,7 +363,9 @@ export function getCharacterAudioId(id: string): string {
 // Kunrei-shiki (and other common) romanizations accepted alongside each
 // character's Hepburn-based canonical romaji in CHARACTERS above — e.g. つ
 // is typed as either "tsu" (Hepburn) or "tu" (Kunrei-shiki). Only characters
-// where the two systems actually diverge need an entry here.
+// where the two systems actually diverge need an entry here. ぢ/づ are
+// exceptional/rare characters (see EXCLUDED_FROM_KANA_QUIZ below) but
+// "di"/"du" are still accepted as correct for Kana Typing.
 export const ROMAJI_ALTERNATES: Record<string, string[]> = {
   shi: ['si'],
   chi: ['ti'],
@@ -403,3 +405,17 @@ export const ROMAJI_ALTERNATES: Record<string, string[]> = {
   'katakana-ju': ['zyu'],
   'katakana-jo': ['zyo'],
 }
+
+// ぢ/づ (and their katakana counterparts ヂ/ヅ) display the same romaji as
+// じ/ず, so Kana Quiz's multiple-choice format would show a duplicate-
+// looking option for one of them — excluded entirely (as the prompt or a
+// distractor). Kana Typing has no such problem and still accepts typing
+// them ("ji"/"zu" or "di"/"du").
+export const EXCLUDED_FROM_KANA_QUIZ = new Set(['dji', 'dzu', 'katakana-dji', 'katakana-dzu'])
+
+// Characters CharacterCard/PracticeSummary wrap their kana glyph in （）
+// wherever shown, as a visual "this one's an exception" cue: ぢ/づ/ヂ/ヅ
+// (rarely-used in modern Japanese — see EXCLUDED_FROM_KANA_QUIZ above) plus
+// ヲ (also rare — katakana rarely spells を/ヲ's sound at all, since it's
+// almost always a hiragana particle, see the 'wo'/'katakana-wo' notes above).
+export const PARENTHESIZED_CHARACTER_IDS = new Set(['dji', 'dzu', 'katakana-dji', 'katakana-dzu', 'katakana-wo'])

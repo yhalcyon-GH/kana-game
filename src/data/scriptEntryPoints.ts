@@ -10,19 +10,20 @@ export type ScriptEntryPoint = { to: string; label: string; english: string; ico
 // who may not read hiragana OR katakana yet, so a bare Japanese label alone
 // (even kana-only) isn't necessarily readable. Every entry therefore pairs
 // its native label with a short English word (2026-08-15, at the user's
-// explicit request). 拗音 and そのほか additionally avoid spelling out a
-// Japanese TERM at all (拗音/その他 are kanji; even ようおん/そのほか are
-// kana a beginner may not read yet) — 拗音 uses a structural symbol instead
-// (○+ゃゅょ: "a base kana plus a small ゃゅょ"), and そのほか keeps its kana
-// but appends "+" to signal "and other things bundled in here". Icons match
-// each destination's ScriptCategory.icon (curriculum.ts) where there's a
-// 1:1 category, so the same visual anchor carries through into the
-// breadcrumb on PracticeHubPage (see HubBreadcrumb.tsx) — そのほか bundles
+// explicit request). 拗音 and the そのほか-bundle entry additionally avoid
+// spelling out a Japanese TERM at all (拗音/その他 are kanji; even
+// ようおん/そのほか are kana a beginner may not read yet) — both instead use
+// a structural symbol naming what's actually inside: 拗音 is ○+ゃゅょ ("a
+// base kana plus a small ゃゅょ"), and the bundle entry is っ＆ー (its two
+// bundled categories' own marks: 促音's っ, 長音's ー). Icons match each
+// destination's ScriptCategory.icon (curriculum.ts) where there's a 1:1
+// category, so the same visual anchor carries through into the breadcrumb
+// on PracticeHubPage (see HubBreadcrumb.tsx) — the bundle entry covers
 // multiple categories, so it gets its own generic icon rather than
 // borrowing one category's.
 export const SCRIPT_ENTRY_POINTS: ScriptEntryPoint[] = [
   { to: '/hiragana', label: 'ひらがな', english: 'Hiragana', icon: 'category-icons/hiragana.webp' },
   { to: '/katakana', label: 'カタカナ', english: 'Katakana', icon: 'category-icons/katakana.webp' },
   { to: '/youon', label: '○+ゃゅょ', english: 'Yōon', icon: 'category-icons/youon.webp' },
-  { to: '/other', label: 'そのほか +', english: 'Other', icon: 'category-icons/other.webp' },
+  { to: '/other', label: 'っ＆ー', english: 'Stop & Long Sound', icon: 'category-icons/other.webp' },
 ]

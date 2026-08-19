@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AnswerFeedbackRow } from '../../components/AnswerFeedbackRow'
+import { AnswerReveal } from '../../components/AnswerReveal'
 import { GameRoundHeader } from '../../components/GameRoundHeader'
 import { PracticeSummary } from '../../components/PracticeSummary'
 import { WordImage } from '../../components/WordImage'
@@ -189,21 +190,20 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
         )}
       </form>
 
-      <AnswerFeedbackRow feedback={feedback} mood={mood} />
+      <AnswerFeedbackRow
+        feedback={feedback}
+        mood={mood}
+        left={answered && !wasCorrect && <AnswerReveal characterIds={currentWord.characterIds} />}
+      />
 
       {answered && !wasCorrect && (
-        <>
-          <p className="font-semibold text-neutral-500 dark:text-neutral-400">
-            Answer: <span className="font-kana">{currentWord.kana}</span> ({currentWord.romaji})
-          </p>
-          <button
-            type="button"
-            onClick={advance}
-            className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
-          >
-            Next
-          </button>
-        </>
+        <button
+          type="button"
+          onClick={advance}
+          className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
+        >
+          Next
+        </button>
       )}
     </div>
   )

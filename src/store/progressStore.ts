@@ -27,6 +27,13 @@ type ProgressState = {
   audioVolume: number
   audioSpeed: number
   showRomaji: boolean
+  // Tamamizu's per-answer/result-screen reaction voice (public/audio/
+  // feedback/*.wav) — separate from `audioEnabled`, which gates
+  // pronunciation audio (characters/words). See useTTS.ts's speak().
+  mascotVoiceEnabled: boolean
+  // Adjusted independently from `audioVolume` — same 0-2 gain-boost scale
+  // (see audioVolume's comment), applied only to feedback/* clips.
+  mascotVoiceVolume: number
 
   ensureCharacterInitialized: (charId: string) => void
   recordResult: (charId: string, correct: boolean) => void
@@ -38,6 +45,8 @@ type ProgressState = {
   setAudioVolume: (volume: number) => void
   setAudioSpeed: (speed: number) => void
   setShowRomaji: (show: boolean) => void
+  setMascotVoiceEnabled: (enabled: boolean) => void
+  setMascotVoiceVolume: (volume: number) => void
   resetProgress: () => void
 }
 
@@ -55,6 +64,8 @@ export const useProgressStore = create<ProgressState>()(
       audioVolume: 1,
       audioSpeed: 1,
       showRomaji: true,
+      mascotVoiceEnabled: true,
+      mascotVoiceVolume: 1,
 
       ensureCharacterInitialized: (charId) => {
         if (get().characters[charId]) return
@@ -115,6 +126,8 @@ export const useProgressStore = create<ProgressState>()(
       setAudioVolume: (volume) => set({ audioVolume: volume }),
       setAudioSpeed: (speed) => set({ audioSpeed: speed }),
       setShowRomaji: (show) => set({ showRomaji: show }),
+      setMascotVoiceEnabled: (enabled) => set({ mascotVoiceEnabled: enabled }),
+      setMascotVoiceVolume: (volume) => set({ mascotVoiceVolume: volume }),
 
       resetProgress: () =>
         set({
@@ -125,6 +138,8 @@ export const useProgressStore = create<ProgressState>()(
           audioVolume: 1,
           audioSpeed: 1,
           showRomaji: true,
+          mascotVoiceEnabled: true,
+          mascotVoiceVolume: 1,
         }),
     }),
     {

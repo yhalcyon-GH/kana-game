@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { CHARACTERS_BY_ID } from '../data/characters'
+import { CHARACTERS_BY_ID, EXCLUDED_FROM_KANA_QUIZ } from '../data/characters'
 import { CATEGORIES_BY_ID, getCumulativeCharacterIds, ROWS, ROWS_BY_ID, SUMMARY_ROW_SOURCE_CATEGORY_IDS } from '../data/curriculum'
 import type { AnchorWord } from '../data/types'
 import { ALL_WORDS, WORDS_BY_ROW } from '../data/words'
@@ -35,8 +35,10 @@ function getSummaryWords(rowId: string): AnchorWord[] {
 // mixes every taught row together regardless of category, so it needs its
 // own filter to keep contrast-pairs characters out of ITS Kana Quiz pool
 // without excluding them from other games (they're still fine as Word
-// Builder distractor tiles, for instance).
+// Builder distractor tiles, for instance). ぢ/づ/ヂ/ヅ are excluded for a
+// different reason — see EXCLUDED_FROM_KANA_QUIZ.
 function isQuizzableCharacterId(id: string): boolean {
+  if (EXCLUDED_FROM_KANA_QUIZ.has(id)) return false
   const rowId = CHARACTERS_BY_ID[id]?.rowId
   const categoryId = rowId ? ROWS_BY_ID[rowId]?.categoryId : undefined
   return CATEGORIES_BY_ID[categoryId ?? '']?.learnStyle !== 'contrast-pairs'
@@ -179,7 +181,7 @@ export function useCurriculum() {
       if (due.length > 0) return due
       return unlockedCharacterIds.filter(isQuizzableCharacterId)
     }
-    return ROWS_BY_ID[rowId]?.characterIds ?? []
+    return (ROWS_BY_ID[rowId]?.characterIds ?? []).filter(isQuizzableCharacterId)
   }
 
   // Learn and Practice are both always available for any real row — taught
@@ -213,6 +215,7 @@ export function useCurriculum() {
     getScopeWords,
     getScopeCharacterIds,
     getScopeQuizCharacterIds,
+    isQuizzableCharacterId,
     isScopeReady,
     getScopeRounds,
     isSummaryRow,

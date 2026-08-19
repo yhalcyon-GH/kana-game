@@ -100,11 +100,11 @@ export const CATEGORIES_BY_ID: Record<string, ScriptCategory> = Object.fromEntri
 // (see getCumulativeCharacterIds etc. below) — a second category starts
 // its own ordering from 0, independent of this one.
 const REAL_ROWS: GojuonRow[] = [
-  { id: 'a-row', categoryId: DEFAULT_CATEGORY_ID, label: 'あ~お', order: 0, characterIds: ['a', 'i', 'u', 'e', 'o'], englishLabel: 'A Row' },
+  { id: 'a-row', categoryId: DEFAULT_CATEGORY_ID, label: 'あ〜お', order: 0, characterIds: ['a', 'i', 'u', 'e', 'o'], englishLabel: 'A Row' },
   {
     id: 'ka-row',
     categoryId: DEFAULT_CATEGORY_ID,
-    label: 'か~こ・が~ご',
+    label: 'か〜こ・が〜ご',
     order: 1,
     characterIds: ['ka', 'ki', 'ku', 'ke', 'ko', 'ga', 'gi', 'gu', 'ge', 'go'],
     englishLabel: 'Ka Row',
@@ -112,7 +112,7 @@ const REAL_ROWS: GojuonRow[] = [
   {
     id: 'sa-row',
     categoryId: DEFAULT_CATEGORY_ID,
-    label: 'さ~そ・ざ~ぞ',
+    label: 'さ〜そ・ざ〜ぞ',
     order: 2,
     characterIds: ['sa', 'shi', 'su', 'se', 'so', 'za', 'ji', 'zu', 'ze', 'zo'],
     englishLabel: 'Sa Row',
@@ -120,16 +120,16 @@ const REAL_ROWS: GojuonRow[] = [
   {
     id: 'ta-row',
     categoryId: DEFAULT_CATEGORY_ID,
-    label: 'た~と・だ~ど',
+    label: 'た〜と・だ〜ど',
     order: 3,
     characterIds: ['ta', 'chi', 'tsu', 'te', 'to', 'da', 'dji', 'dzu', 'de', 'do'],
     englishLabel: 'Ta Row',
   },
-  { id: 'na-row', categoryId: DEFAULT_CATEGORY_ID, label: 'な~の', order: 4, characterIds: ['na', 'ni', 'nu', 'ne', 'no'], englishLabel: 'Na Row' },
+  { id: 'na-row', categoryId: DEFAULT_CATEGORY_ID, label: 'な〜の', order: 4, characterIds: ['na', 'ni', 'nu', 'ne', 'no'], englishLabel: 'Na Row' },
   {
     id: 'ha-row',
     categoryId: DEFAULT_CATEGORY_ID,
-    label: 'は~ほ・ば~ぼ・ぱ~ぽ',
+    label: 'は〜ほ・ば〜ぼ・ぱ〜ぽ',
     order: 5,
     characterIds: [
       'ha', 'hi', 'fu', 'he', 'ho',
@@ -138,10 +138,10 @@ const REAL_ROWS: GojuonRow[] = [
     ],
     englishLabel: 'Ha Row',
   },
-  { id: 'ma-row', categoryId: DEFAULT_CATEGORY_ID, label: 'ま~も', order: 6, characterIds: ['ma', 'mi', 'mu', 'me', 'mo'], englishLabel: 'Ma Row' },
+  { id: 'ma-row', categoryId: DEFAULT_CATEGORY_ID, label: 'ま〜も', order: 6, characterIds: ['ma', 'mi', 'mu', 'me', 'mo'], englishLabel: 'Ma Row' },
   { id: 'ya-row', categoryId: DEFAULT_CATEGORY_ID, label: 'や・ゆ・よ', order: 7, characterIds: ['ya', 'yu', 'yo'], englishLabel: 'Ya Row' },
-  { id: 'ra-row', categoryId: DEFAULT_CATEGORY_ID, label: 'ら~ろ', order: 8, characterIds: ['ra', 'ri', 'ru', 're', 'ro'], englishLabel: 'Ra Row' },
-  { id: 'wa-row', categoryId: DEFAULT_CATEGORY_ID, label: 'わ~ん', order: 9, characterIds: ['wa', 'wo', 'n'], englishLabel: 'Wa Row' },
+  { id: 'ra-row', categoryId: DEFAULT_CATEGORY_ID, label: 'ら〜ろ', order: 8, characterIds: ['ra', 'ri', 'ru', 're', 'ro'], englishLabel: 'Ra Row' },
+  { id: 'wa-row', categoryId: DEFAULT_CATEGORY_ID, label: 'わ〜ん', order: 9, characterIds: ['wa', 'wo', 'n'], englishLabel: 'Wa Row' },
 
   // ===== カタカナ (katakana) — own order sequence, starting at 0 again =====
   // ア~オ・カ~ゴ・ー・ン are all one combined first lesson, at the user's
@@ -153,7 +153,7 @@ const REAL_ROWS: GojuonRow[] = [
   {
     id: 'katakana-a-row',
     categoryId: KATAKANA_CATEGORY_ID,
-    label: 'ア~オ・カ~ゴ・ン・ー',
+    label: 'ア〜オ・カ〜ゴ・ン・ー',
     order: 0,
     characterIds: [
       'katakana-a', 'katakana-i', 'katakana-u', 'katakana-e', 'katakana-o',
@@ -166,7 +166,7 @@ const REAL_ROWS: GojuonRow[] = [
   {
     id: 'katakana-sa-row',
     categoryId: KATAKANA_CATEGORY_ID,
-    label: 'サ~ソ・ザ~ゾ',
+    label: 'サ〜ソ・ザ〜ゾ',
     order: 1,
     characterIds: [
       'katakana-sa', 'katakana-shi', 'katakana-su', 'katakana-se', 'katakana-so',
@@ -177,7 +177,7 @@ const REAL_ROWS: GojuonRow[] = [
   {
     id: 'katakana-ta-row',
     categoryId: KATAKANA_CATEGORY_ID,
-    label: 'タ~ト・ダ~ド',
+    label: 'タ〜ト・ダ〜ド',
     order: 2,
     characterIds: [
       'katakana-ta', 'katakana-chi', 'katakana-tsu', 'katakana-te', 'katakana-to',
@@ -188,7 +188,7 @@ const REAL_ROWS: GojuonRow[] = [
   {
     id: 'katakana-na-row',
     categoryId: KATAKANA_CATEGORY_ID,
-    label: 'ナ~ノ',
+    label: 'ナ〜ノ',
     order: 3,
     characterIds: ['katakana-na', 'katakana-ni', 'katakana-nu', 'katakana-ne', 'katakana-no'],
     englishLabel: 'Na Row',
@@ -196,7 +196,7 @@ const REAL_ROWS: GojuonRow[] = [
   {
     id: 'katakana-ha-row',
     categoryId: KATAKANA_CATEGORY_ID,
-    label: 'ハ~ホ・バ~ボ・パ~ポ',
+    label: 'ハ〜ホ・バ〜ボ・パ〜ポ',
     order: 4,
     characterIds: [
       'katakana-ha', 'katakana-hi', 'katakana-fu', 'katakana-he', 'katakana-ho',
@@ -208,7 +208,7 @@ const REAL_ROWS: GojuonRow[] = [
   {
     id: 'katakana-ma-row',
     categoryId: KATAKANA_CATEGORY_ID,
-    label: 'マ~モ',
+    label: 'マ〜モ',
     order: 5,
     characterIds: ['katakana-ma', 'katakana-mi', 'katakana-mu', 'katakana-me', 'katakana-mo'],
     englishLabel: 'Ma Row',
@@ -228,7 +228,7 @@ const REAL_ROWS: GojuonRow[] = [
   {
     id: 'katakana-ra-row',
     categoryId: KATAKANA_CATEGORY_ID,
-    label: 'ラ~ロ・ワ・ヲ',
+    label: 'ラ〜ロ・ワ・ヲ',
     order: 7,
     characterIds: ['katakana-ra', 'katakana-ri', 'katakana-ru', 'katakana-re', 'katakana-ro', 'katakana-wa', 'katakana-wo'],
     englishLabel: 'Ra Row',
@@ -510,17 +510,6 @@ export const ROWS_BY_ID: Record<string, GojuonRow> = Object.fromEntries(
 
 export function getRowOrder(rowId: string): number {
   return ROWS_BY_ID[rowId]?.order ?? -1
-}
-
-// Which top-level script page (App.tsx's routes) a category's rows live on
-// — hiragana/katakana/yōon each get their own page at `/<categoryId>` (true
-// by construction: those three route paths were chosen to match their
-// category id exactly), everything else (促音/長音, and any future small
-// category) is bundled onto '/other'. Used for the "back to category page"
-// breadcrumb link on PracticeHubPage — see HubBreadcrumb.tsx.
-const DEDICATED_CATEGORY_PAGES = new Set([DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID, YOUON_CATEGORY_ID])
-export function getCategoryPagePath(categoryId: string): string {
-  return DEDICATED_CATEGORY_PAGES.has(categoryId) ? `/${categoryId}` : '/other'
 }
 
 // getPreviousRowId/getNextRowId both scope their search to the SAME category

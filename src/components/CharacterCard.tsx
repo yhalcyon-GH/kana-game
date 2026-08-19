@@ -1,9 +1,15 @@
-import { getCharacterAudioId } from '../data/characters'
+import { getCharacterAudioId, PARENTHESIZED_CHARACTER_IDS } from '../data/characters'
 import type { KanaChar } from '../data/types'
 import { useTTS } from '../hooks/useTTS'
 
 type Props = {
   char: KanaChar
+}
+
+// ぢ/づ/ヂ/ヅ display wrapped in （） as a visual "this one's an exception"
+// cue — see PARENTHESIZED_CHARACTER_IDS.
+function displayKana(char: KanaChar): string {
+  return PARENTHESIZED_CHARACTER_IDS.has(char.id) ? `（${char.kana}）` : char.kana
 }
 
 // The whole card is the tap target for audio (not just the speaker icon,
@@ -24,7 +30,7 @@ export function CharacterCard({ char }: Props) {
   if (!hasSound) {
     return (
       <div className="flex flex-col items-center gap-2 rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-700 dark:bg-neutral-800">
-        <span className={`font-kana ${kanaSizeClass} font-bold whitespace-nowrap`}>{char.kana}</span>
+        <span className={`font-kana ${kanaSizeClass} font-bold whitespace-nowrap`}>{displayKana(char)}</span>
         <span className="text-lg text-neutral-500 dark:text-neutral-400">{char.displayLabel ?? char.romaji}</span>
       </div>
     )

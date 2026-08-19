@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { PARENTHESIZED_CHARACTER_IDS } from '../data/characters'
 import { Mascot, type MascotMood } from './Mascot'
 import { ProgressBadge } from './ProgressBadge'
 
@@ -50,7 +51,9 @@ export function PracticeSummary({
           <ul className="mt-2 flex flex-col gap-1">
             {mistakes.map((m) => (
               <li key={m.id} className="flex justify-between gap-3 text-neutral-600 dark:text-neutral-400">
-                <span className="font-kana font-semibold text-neutral-800 dark:text-neutral-200">{m.kana}</span>
+                <span className="font-kana font-semibold text-neutral-800 dark:text-neutral-200">
+                  {PARENTHESIZED_CHARACTER_IDS.has(m.id) ? `（${m.kana}）` : m.kana}
+                </span>
                 <span>{m.romaji}</span>
               </li>
             ))}

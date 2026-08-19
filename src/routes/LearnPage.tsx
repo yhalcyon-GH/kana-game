@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { CharacterCard } from '../components/CharacterCard'
+import { CharacterGrid } from '../components/CharacterGrid'
 import { WordCard } from '../components/WordCard'
 import { CHARACTERS_BY_ID, getCharacterAudioId } from '../data/characters'
 import { CATEGORIES_BY_ID, ROWS_BY_ID } from '../data/curriculum'
@@ -64,11 +65,7 @@ export function LearnPage() {
       return (
         <div className="flex flex-col items-center gap-6">
           <h1 className="text-2xl font-bold">⭐ {row.label} — every character</h1>
-          <div className="grid grid-cols-3 gap-4 sm:grid-cols-5">
-            {characters.map((char) => (
-              <CharacterCard key={char.id} char={char} />
-            ))}
-          </div>
+          <CharacterGrid characters={characters} />
           <div className="flex gap-3">
             <button
               type="button"
@@ -148,6 +145,7 @@ export function LearnPage() {
           {charIndex + 1} / {characters.length}
         </p>
         <CharacterCard char={char} />
+        {char.note && <p className="max-w-xs text-center text-sm font-semibold text-red-500">{char.note}</p>}
         <div className="flex gap-3">
           <button
             type="button"
@@ -186,11 +184,7 @@ export function LearnPage() {
       <div className="flex flex-col items-center gap-6">
         <h1 className="text-2xl font-bold">{row.label} — all together</h1>
         <p className="text-sm text-neutral-500 dark:text-neutral-400">Tap any character to hear it again</p>
-        <div className="grid grid-cols-3 gap-4 sm:grid-cols-5">
-          {characters.map((char) => (
-            <CharacterCard key={char.id} char={char} />
-          ))}
-        </div>
+        <CharacterGrid characters={characters} />
         <div className="flex gap-3">
           <button
             type="button"

@@ -72,7 +72,7 @@ function App() {
             path="/other"
             element={
               <CategoryRowsPage
-                title="そのほか +"
+                title="っ＆ー"
                 description="Other sounds beyond the basic hiragana/katakana rows."
                 categoryIds={OTHER_CATEGORY_IDS}
               />

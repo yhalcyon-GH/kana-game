@@ -79,4 +79,14 @@ describe('useCurriculum', () => {
     const charIds = result.current.getScopeCharacterIds(REVIEW_SCOPE_ID)
     expect(charIds).toEqual(expect.arrayContaining(['sokuon', 'katakana-sokuon']))
   })
+
+  // ぢ/づ display the same romaji as じ/ず, so Kana Quiz (unlike Kana Typing,
+  // which still accepts typing them) excludes them entirely to avoid a
+  // duplicate-looking multiple-choice option.
+  it('getScopeQuizCharacterIds excludes ぢ/づ from a real row too', () => {
+    const { result } = renderHook(() => useCurriculum())
+    const ids = result.current.getScopeQuizCharacterIds('ta-row')
+    expect(ids).not.toEqual(expect.arrayContaining(['dji', 'dzu']))
+    expect(ids).toEqual(expect.arrayContaining(['ta', 'chi', 'tsu', 'te', 'to']))
+  })
 })

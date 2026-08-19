@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AnswerFeedbackRow } from '../../components/AnswerFeedbackRow'
+import { AnswerReveal } from '../../components/AnswerReveal'
 import { GameRoundHeader } from '../../components/GameRoundHeader'
 import { KanaTile } from '../../components/KanaTile'
 import { PracticeSummary } from '../../components/PracticeSummary'
@@ -16,6 +17,7 @@ import { useEnterAdvance } from '../../hooks/useEnterAdvance'
 import { useGameSession } from '../../hooks/useGameSession'
 import { useTTS } from '../../hooks/useTTS'
 import { pickDistractorCharIds } from '../../lib/distractorPicker'
+import { kanaToRomaji } from '../../lib/kanaToRomaji'
 import { shuffle } from '../../lib/shuffle'
 import { useProgressStore } from '../../store/progressStore'
 
@@ -244,29 +246,33 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
               key={i}
               type="button"
               onClick={() => handleSlotClick(i)}
-              className="font-kana flex h-14 w-14 items-center justify-center rounded-xl border-2 border-dashed border-neutral-300 text-2xl font-bold dark:border-neutral-600"
+              className="flex h-14 w-14 flex-col items-center justify-center rounded-xl border-2 border-dashed border-neutral-300 dark:border-neutral-600"
             >
-              {tile ? tile.glyph : ''}
+              <span className="font-kana text-2xl font-bold">{tile ? tile.glyph : ''}</span>
+              {status !== 'playing' && tile && (
+                <span className="text-xs font-normal text-neutral-500 dark:text-neutral-400">
+                  {kanaToRomaji(tile.glyph)}
+                </span>
+              )}
             </button>
           )
         })}
       </div>
 
-      <AnswerFeedbackRow feedback={feedback} mood={mood} />
+      <AnswerFeedbackRow
+        feedback={feedback}
+        mood={mood}
+        left={status === 'wrong' && <AnswerReveal characterIds={currentWord.characterIds} />}
+      />
 
       {status === 'wrong' && (
-        <>
-          <p className="font-semibold text-neutral-500 dark:text-neutral-400">
-            Answer: <span className="font-kana">{currentWord.kana}</span> ({currentWord.romaji})
-          </p>
-          <button
-            type="button"
-            onClick={advance}
-            className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
-          >
-            Next
-          </button>
-        </>
+        <button
+          type="button"
+          onClick={advance}
+          className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
+        >
+          Next
+        </button>
       )}
 
       <div className="flex flex-wrap justify-center gap-2">
