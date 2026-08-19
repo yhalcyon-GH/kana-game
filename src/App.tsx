@@ -12,6 +12,7 @@ import { CategoryRowsPage } from './routes/CategoryRowsPage'
 import { HomePage } from './routes/HomePage'
 import { LearnPage } from './routes/LearnPage'
 import { PracticeHubPage } from './routes/PracticeHubPage'
+import { ReviewMistakesPage } from './routes/ReviewMistakesPage'
 import { ReviewPage } from './routes/ReviewPage'
 import { SettingsPage } from './routes/SettingsPage'
 
@@ -88,6 +89,8 @@ function App() {
               gets REVIEW_SCOPE_ID via a rowIdOverride prop instead of a
               route param here. */}
           <Route path="/practice/review" element={<PracticeHubPage rowIdOverride={REVIEW_SCOPE_ID} />} />
+          <Route path="/practice/review/learn-chars" element={<ReviewMistakesPage kind="chars" />} />
+          <Route path="/practice/review/learn-words" element={<ReviewMistakesPage kind="words" />} />
           <Route path="/practice/review/word-builder" element={<WordBuilderPage rowIdOverride={REVIEW_SCOPE_ID} />} />
           <Route path="/practice/review/listening" element={<ListeningPage rowIdOverride={REVIEW_SCOPE_ID} />} />
           <Route path="/practice/review/kana-quiz" element={<KanaQuizPage rowIdOverride={REVIEW_SCOPE_ID} />} />

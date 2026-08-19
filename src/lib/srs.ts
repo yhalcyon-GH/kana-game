@@ -41,6 +41,14 @@ export function isDue(stats: { box: number; lastSeen: number }, now: number = Da
   return now - stats.lastSeen >= interval
 }
 
+// "Weak" (mistake-prone) rather than merely due: box 0 or 1 AND actually
+// attempted at least once — a never-seen character also sits at box 0, but
+// that means "not learned yet," not "got it wrong," so it's excluded here.
+// Drives the Review scope's mistake-review lists — see useCurriculum.ts.
+export function isWeak(stats: { box: number; totalSeen: number }): boolean {
+  return stats.totalSeen > 0 && stats.box <= 1
+}
+
 // A character is "advanced enough" to help gate the next row's unlock once
 // it's been attempted a few times, reached at least box 2, and answered
 // correctly at least 70% of the time. Not full mastery (box 4) — later
