@@ -4,9 +4,11 @@ A snapshot of every vocabulary-word pronunciation clip as of 2026-08-17.
 The user has decided to keep using this AI-generated narrator voice for
 word audio going forward (2026-08-19) — only トースト
 (`katakana-ta-toosuto`) has been replaced with a real recording so far,
-see `../toosuto.mp3`. This archive is the reference copy of that
-decision: what's actually live in `public/audio/words/` today, kept here
-as a snapshot/backup rather than relying on git history alone.
+see `words/katakana-ta-toosuto.mp3` (the AI-generated take is kept
+alongside it as `words/katakana-ta-toosuto.wav`, distinguished by
+extension). This archive is the reference copy of that decision: what's
+actually live in `public/audio/words/` today, kept here as a
+snapshot/backup rather than relying on git history alone.
 
 **Not included:** the matching character-audio snapshot (single-kana
 clips) — those were fully superseded by real recordings for every
