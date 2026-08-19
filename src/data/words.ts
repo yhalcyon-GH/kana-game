@@ -38,6 +38,8 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'ka-kiku', kana: 'きく', romaji: 'kiku', meaning: 'to listen', image: 'word-icons/ka-kiku.webp', characterIds: ['ki', 'ku'], audioText: '聞く。' },
     { id: 'ka-eki', kana: 'えき', romaji: 'eki', meaning: 'station', image: 'word-icons/ka-eki.webp', characterIds: ['e', 'ki'], audioText: '駅' },
     { id: 'ka-gaikoku', kana: 'がいこく', romaji: 'gaikoku', meaning: 'foreign country', image: 'word-icons/ka-gaikoku.webp', characterIds: ['ga', 'i', 'ko', 'ku'], audioText: '外国' },
+    { id: 'ka-kaku', kana: 'かく', romaji: 'kaku', meaning: 'to write', image: 'word-icons/ka-kaku.webp', characterIds: ['ka', 'ku'], audioText: '書く。' },
+    { id: 'ka-koe', kana: 'こえ', romaji: 'koe', meaning: 'voice', image: 'word-icons/ka-koe.webp', characterIds: ['ko', 'e'], audioText: '声' },
   ],
   'sa-row': [
     { id: 'sa-asa', kana: 'あさ', romaji: 'asa', meaning: 'morning', image: 'word-icons/sa-asa.webp', characterIds: ['a', 'sa'], audioText: '朝' },
@@ -45,15 +47,15 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'sa-kasa', kana: 'かさ', romaji: 'kasa', meaning: 'umbrella', image: 'word-icons/sa-kasa.webp', characterIds: ['ka', 'sa'], audioText: '傘' },
     { id: 'sa-suki', kana: 'すき', romaji: 'suki', meaning: 'to like', image: 'word-icons/sa-suki.webp', characterIds: ['su', 'ki'], audioText: '好き' },
     { id: 'sa-sekai', kana: 'せかい', romaji: 'sekai', meaning: 'world', image: 'word-icons/sa-sekai.webp', characterIds: ['se', 'ka', 'i'], audioText: '世界。' },
-    { id: 'sa-kazu', kana: 'かず', romaji: 'kazu', meaning: 'number', image: 'word-icons/sa-kazu.webp', characterIds: ['ka', 'zu'] },
     { id: 'sa-okashi', kana: 'おかし', romaji: 'okashi', meaning: 'snack', image: 'word-icons/sa-okashi.webp', characterIds: ['o', 'ka', 'shi'], audioText: 'お菓子' },
     { id: 'sa-sake', kana: 'さけ', romaji: 'sake', meaning: 'sake (alcohol)', image: 'word-icons/sa-sake.webp', characterIds: ['sa', 'ke'] },
     { id: 'sa-sushi', kana: 'すし', romaji: 'sushi', meaning: 'sushi', image: 'word-icons/sa-sushi.webp', characterIds: ['su', 'shi'], audioText: '寿司。' },
+    { id: 'sa-gakusei', kana: 'がくせい', romaji: 'gakusei', meaning: 'student', image: 'word-icons/sa-gakusei.webp', characterIds: ['ga', 'ku', 'se', 'i'], audioText: '学生' },
+    { id: 'sa-kazoku', kana: 'かぞく', romaji: 'kazoku', meaning: 'family', image: 'word-icons/sa-kazoku.webp', characterIds: ['ka', 'zo', 'ku'], audioText: '家族' },
   ],
   'ta-row': [
     { id: 'ta-te', kana: 'て', romaji: 'te', meaning: 'hand', image: 'word-icons/ta-te.webp', characterIds: ['te'], audioText: '手。' },
     { id: 'ta-kutsu', kana: 'くつ', romaji: 'kutsu', meaning: 'shoes', image: 'word-icons/ta-kutsu.webp', characterIds: ['ku', 'tsu'], audioText: '靴' },
-    { id: 'ta-ito', kana: 'いと', romaji: 'ito', meaning: 'thread', image: 'word-icons/ta-ito.webp', characterIds: ['i', 'to'], audioText: '糸。' },
     { id: 'ta-chizu', kana: 'ちず', romaji: 'chizu', meaning: 'map', image: 'word-icons/ta-chizu.webp', characterIds: ['chi', 'zu'], audioText: '地図。' },
     { id: 'ta-tako', kana: 'たこ', romaji: 'tako', meaning: 'octopus', image: 'word-icons/ta-tako.webp', characterIds: ['ta', 'ko'] },
     { id: 'ta-tsuki', kana: 'つき', romaji: 'tsuki', meaning: 'moon', image: 'word-icons/ta-tsuki.webp', characterIds: ['tsu', 'ki'], audioText: '月。' },
@@ -61,6 +63,7 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'ta-uta', kana: 'うた', romaji: 'uta', meaning: 'song', image: 'word-icons/ta-uta.webp', characterIds: ['u', 'ta'], audioText: '歌' },
     { id: 'ta-shigoto', kana: 'しごと', romaji: 'shigoto', meaning: 'job / work', image: 'word-icons/ta-shigoto.webp', characterIds: ['shi', 'go', 'to'], audioText: '仕事' },
     { id: 'ta-chikatetsu', kana: 'ちかてつ', romaji: 'chikatetsu', meaning: 'subway', image: 'word-icons/ta-chikatetsu.webp', characterIds: ['chi', 'ka', 'te', 'tsu'], audioText: '地下鉄。' },
+    { id: 'ta-tokei', kana: 'とけい', romaji: 'tokei', meaning: 'clock / watch', image: 'word-icons/ta-tokei.webp', characterIds: ['to', 'ke', 'i'], audioText: '時計' },
   ],
   'na-row': [
     { id: 'na-neko', kana: 'ねこ', romaji: 'neko', meaning: 'cat', image: 'word-icons/na-neko.webp', characterIds: ['ne', 'ko'], audioText: '猫。' },
@@ -79,9 +82,10 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'ha-kutsushita', kana: 'くつした', romaji: 'kutsushita', meaning: 'socks', image: 'word-icons/ha-kutsushita.webp', characterIds: ['ku', 'tsu', 'shi', 'ta'], audioText: '靴下' },
     { id: 'ha-fune', kana: 'ふね', romaji: 'fune', meaning: 'boat', image: 'word-icons/ha-fune.webp', characterIds: ['fu', 'ne'], audioText: '船。' },
     { id: 'ha-buta', kana: 'ぶた', romaji: 'buta', meaning: 'pig', image: 'word-icons/ha-buta.webp', characterIds: ['bu', 'ta'], audioText: '豚' },
-    { id: 'ha-haha', kana: 'はは', romaji: 'haha', meaning: 'mother', image: 'word-icons/ha-haha.webp', characterIds: ['ha', 'ha'], audioText: '母。' },
     { id: 'ha-hebi', kana: 'へび', romaji: 'hebi', meaning: 'snake', image: 'word-icons/ha-hebi.webp', characterIds: ['he', 'bi'], audioText: '蛇。' },
     { id: 'ha-soba', kana: 'そば', romaji: 'soba', meaning: 'soba noodles', image: 'word-icons/ha-soba.webp', characterIds: ['so', 'ba'], audioText: '蕎麦' },
+    { id: 'ha-hako', kana: 'はこ', romaji: 'hako', meaning: 'box', image: 'word-icons/ha-hako.webp', characterIds: ['ha', 'ko'], audioText: '箱' },
+    { id: 'ha-fuku', kana: 'ふく', romaji: 'fuku', meaning: 'clothes', image: 'word-icons/ha-fuku.webp', characterIds: ['fu', 'ku'], audioText: '服' },
   ],
   'ma-row': [
     { id: 'ma-mizu', kana: 'みず', romaji: 'mizu', meaning: 'water', image: 'word-icons/ma-mizu.webp', characterIds: ['mi', 'zu'], audioText: '水' },
@@ -96,6 +100,8 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'ma-megane', kana: 'めがね', romaji: 'megane', meaning: 'glasses', image: 'word-icons/ma-megane.webp', characterIds: ['me', 'ga', 'ne'], audioText: '眼鏡。' },
     { id: 'ma-tomodachi', kana: 'ともだち', romaji: 'tomodachi', meaning: 'friend', image: 'word-icons/ma-tomodachi.webp', characterIds: ['to', 'mo', 'da', 'chi'], audioText: '友達' },
     { id: 'ma-sashimi', kana: 'さしみ', romaji: 'sashimi', meaning: 'sashimi', image: 'word-icons/ma-sashimi.webp', characterIds: ['sa', 'shi', 'mi'], audioText: '刺身。' },
+    { id: 'ma-mise', kana: 'みせ', romaji: 'mise', meaning: 'shop / store', image: 'word-icons/ma-mise.webp', characterIds: ['mi', 'se'], audioText: '店' },
+    { id: 'ma-imouto', kana: 'いもうと', romaji: 'imouto', meaning: 'younger sister', image: 'word-icons/ma-imouto.webp', characterIds: ['i', 'mo', 'u', 'to'], audioText: '妹' },
   ],
   'ya-row': [
     { id: 'ya-yama', kana: 'やま', romaji: 'yama', meaning: 'mountain', image: 'word-icons/ya-yama.webp', characterIds: ['ya', 'ma'], audioText: '山。' },
@@ -137,6 +143,9 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'wa-kanpai', kana: 'かんぱい', romaji: 'kanpai', meaning: 'cheers', image: 'word-icons/wa-kanpai.webp', characterIds: ['ka', 'n', 'pa', 'i'], audioText: '乾杯。' },
     { id: 'wa-tenpura', kana: 'てんぷら', romaji: 'tenpura', meaning: 'tempura', image: 'word-icons/wa-tenpura.webp', characterIds: ['te', 'n', 'pu', 'ra'], audioText: '天ぷら' },
     { id: 'wa-tonkatsu', kana: 'とんかつ', romaji: 'tonkatsu', meaning: 'pork cutlet', image: 'word-icons/wa-tonkatsu.webp', characterIds: ['to', 'n', 'ka', 'tsu'], audioText: '豚カツ。' },
+    { id: 'wa-sensei', kana: 'せんせい', romaji: 'sensei', meaning: 'teacher', image: 'word-icons/wa-sensei.webp', characterIds: ['se', 'n', 'se', 'i'], audioText: '先生' },
+    { id: 'wa-nihongo', kana: 'にほんご', romaji: 'nihongo', meaning: 'Japanese (language)', image: 'word-icons/wa-nihongo.webp', characterIds: ['ni', 'ho', 'n', 'go'], audioText: '日本語' },
+    { id: 'wa-denwa', kana: 'でんわ', romaji: 'denwa', meaning: 'telephone', image: 'word-icons/wa-denwa.webp', characterIds: ['de', 'n', 'wa'], audioText: '電話' },
   ],
 
   // ===== カタカナ (katakana) vocabulary =====
@@ -246,6 +255,7 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'katakana-ha-papa', kana: 'パパ', romaji: 'papa', meaning: 'dad', image: 'word-icons/katakana-ha-papa.webp', characterIds: ['katakana-pa', 'katakana-pa'] },
     { id: 'katakana-ha-piano', kana: 'ピアノ', romaji: 'piano', meaning: 'piano', image: 'word-icons/katakana-ha-piano.webp', characterIds: ['katakana-pi', 'katakana-a', 'katakana-no'] },
     { id: 'katakana-ha-pinku', kana: 'ピンク', romaji: 'pinku', meaning: 'pink', image: 'word-icons/katakana-ha-pinku.webp', characterIds: ['katakana-pi', 'katakana-n', 'katakana-ku'] },
+    { id: 'katakana-ha-konbini', kana: 'コンビニ', romaji: 'konbini', meaning: 'convenience store', image: 'word-icons/katakana-ha-konbini.webp', characterIds: ['katakana-ko', 'katakana-n', 'katakana-bi', 'katakana-ni'] },
   ],
   'katakana-ma-row': [
     { id: 'katakana-ma-mama', kana: 'ママ', romaji: 'mama', meaning: 'mom', image: 'word-icons/katakana-ma-mama.webp', characterIds: ['katakana-ma', 'katakana-ma'] },
@@ -257,6 +267,7 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'katakana-ma-misu', kana: 'ミス', romaji: 'misu', meaning: 'mistake', image: 'word-icons/katakana-ma-misu.webp', characterIds: ['katakana-mi', 'katakana-su'] },
     { id: 'katakana-ma-geemu', kana: 'ゲーム', romaji: 'geemu', meaning: 'game', image: 'word-icons/katakana-ma-geemu.webp', characterIds: ['katakana-ge', 'katakana-chouon', 'katakana-mu'] },
     { id: 'katakana-ma-masuku', kana: 'マスク', romaji: 'masuku', meaning: 'mask', image: 'word-icons/katakana-ma-masuku.webp', characterIds: ['katakana-ma', 'katakana-su', 'katakana-ku'] },
+    { id: 'katakana-ma-sumaho', kana: 'スマホ', romaji: 'sumaho', meaning: 'smartphone', image: 'word-icons/katakana-ma-sumaho.webp', characterIds: ['katakana-su', 'katakana-ma', 'katakana-ho'] },
   ],
   // ハヤブサ (falcon/spacecraft) and ユニコーン (unicorn, fictional) were
   // removed at the user's request as weak everyday vocabulary for a foreign
@@ -279,6 +290,8 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'katakana-ra-sarada', kana: 'サラダ', romaji: 'sarada', meaning: 'salad', image: 'word-icons/katakana-ra-sarada.webp', characterIds: ['katakana-sa', 'katakana-ra', 'katakana-da'] },
     { id: 'katakana-ra-rajio', kana: 'ラジオ', romaji: 'rajio', meaning: 'radio', image: 'word-icons/katakana-ra-rajio.webp', characterIds: ['katakana-ra', 'katakana-ji', 'katakana-o'] },
     { id: 'katakana-ra-booru', kana: 'ボール', romaji: 'booru', meaning: 'ball', image: 'word-icons/katakana-ra-booru.webp', characterIds: ['katakana-bo', 'katakana-chouon', 'katakana-ru'] },
+    { id: 'katakana-ra-toire', kana: 'トイレ', romaji: 'toire', meaning: 'toilet / restroom', image: 'word-icons/katakana-ra-toire.webp', characterIds: ['katakana-to', 'katakana-i', 'katakana-re'] },
+    { id: 'katakana-ra-resutoran', kana: 'レストラン', romaji: 'resutoran', meaning: 'restaurant', image: 'word-icons/katakana-ra-resutoran.webp', characterIds: ['katakana-re', 'katakana-su', 'katakana-to', 'katakana-ra', 'katakana-n'] },
   ],
 
   // ===== 促音 (sokuon) vocabulary =====

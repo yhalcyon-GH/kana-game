@@ -15,13 +15,13 @@ export const CHOUON_CATEGORY_ID = 'chouon'
 export const YOUON_CATEGORY_ID = 'youon'
 
 export const CATEGORIES: ScriptCategory[] = [
-  { id: DEFAULT_CATEGORY_ID, label: 'ひらがな', learnStyle: 'character-set', icon: '🍣' },
+  { id: DEFAULT_CATEGORY_ID, label: 'ひらがな', learnStyle: 'character-set', icon: 'category-icons/hiragana.webp' },
   // カタカナ単音 (single-kana katakana) — same 'character-set' Learn/Practice
   // shape as hiragana (flashcard -> recap -> words, all four mini-games).
   // Chosen to go first of the five planned new categories specifically
   // because it needs none of the contrast-pairs/zero-new-character
   // machinery that 促音/長音 will — see docs/curriculum-extensibility.md.
-  { id: KATAKANA_CATEGORY_ID, label: 'カタカナ', learnStyle: 'character-set', icon: '🍔' },
+  { id: KATAKANA_CATEGORY_ID, label: 'カタカナ', learnStyle: 'character-set', icon: 'category-icons/katakana.webp' },
   // 促音 (sokuon, the small-tsu gemination mark) — the first 'contrast-pairs'
   // category: Learn listens through minimal-pair WORDS (おと vs おっと)
   // instead of flashcarding っ/ッ in isolation, Tracing is word-level only,
@@ -86,7 +86,7 @@ export const CATEGORIES: ScriptCategory[] = [
     dependsOnCategoryIds: [DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID],
     explanation:
       'Yōon are contracted sounds made from a consonant + い kana (き/し/ち/に/ひ/み/り, or their voiced forms) followed by a small ゃ/ゅ/ょ. Two characters, but only ONE syllable — きゃ isn\'t "ki-ya", it\'s one quick "kya".',
-    icon: '🥛',
+    icon: 'category-icons/youon.webp',
     displayLabel: '○+ゃゅょ',
   },
 ]

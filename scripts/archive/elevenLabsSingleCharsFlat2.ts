@@ -4,8 +4,8 @@
 // was making the nasal hum drag on).
 import { copyFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { CHARACTERS } from '../src/data/characters'
-import { MODEL_ID, OUT_DIR, pcmToWav, requireApiKey, SAMPLE_RATE } from './elevenLabsClient'
+import { CHARACTERS } from '../../src/data/characters'
+import { MODEL_ID, OUT_DIR, pcmToWav, requireApiKey, SAMPLE_RATE } from '../elevenLabsClient'
 
 const VOICE_ID = 'XlX7zKbP19omFrVWQ8CU'
 const TARGET_ROMAJI = ['a', 'ze', 'de', 'ne', 'ho', 'bo', 'po', 'mu', 'me', 'ra', 'ru', 'ro', 'n']

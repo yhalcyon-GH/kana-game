@@ -1,7 +1,7 @@
 import path from 'node:path'
-import { WORDS_BY_ROW } from '../src/data/words'
-import { assessPronunciation, requireAzureCredentials } from './azurePronunciation'
-import { OUT_DIR } from './elevenLabsClient'
+import { WORDS_BY_ROW } from '../../src/data/words'
+import { assessPronunciation, requireAzureCredentials } from '../azurePronunciation'
+import { OUT_DIR } from '../elevenLabsClient'
 
 async function main() {
   const rows = process.argv.slice(2)

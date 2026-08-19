@@ -21,8 +21,8 @@ export type ScriptEntryPoint = { to: string; label: string; english: string; ico
 // multiple categories, so it gets its own generic icon rather than
 // borrowing one category's.
 export const SCRIPT_ENTRY_POINTS: ScriptEntryPoint[] = [
-  { to: '/hiragana', label: 'ひらがな', english: 'Hiragana', icon: '🍣' },
-  { to: '/katakana', label: 'カタカナ', english: 'Katakana', icon: '🍔' },
-  { to: '/youon', label: '○+ゃゅょ', english: 'Yōon', icon: '🥛' },
-  { to: '/other', label: 'そのほか +', english: 'Other', icon: '☕' },
+  { to: '/hiragana', label: 'ひらがな', english: 'Hiragana', icon: 'category-icons/hiragana.webp' },
+  { to: '/katakana', label: 'カタカナ', english: 'Katakana', icon: 'category-icons/katakana.webp' },
+  { to: '/youon', label: '○+ゃゅょ', english: 'Yōon', icon: 'category-icons/youon.webp' },
+  { to: '/other', label: 'そのほか +', english: 'Other', icon: 'category-icons/other.webp' },
 ]

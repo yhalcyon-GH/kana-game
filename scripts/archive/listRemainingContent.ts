@@ -1,7 +1,7 @@
-import { CHARACTERS } from '../src/data/characters'
-import { WORDS_BY_ROW } from '../src/data/words'
-import { ACCENT_PATTERNS } from '../src/data/accents'
-import { ROWS } from '../src/data/curriculum'
+import { CHARACTERS } from '../../src/data/characters'
+import { WORDS_BY_ROW } from '../../src/data/words'
+import { ACCENT_PATTERNS } from '../../src/data/accents'
+import { ROWS } from '../../src/data/curriculum'
 
 const HIRAGANA_ROWS = new Set(['a-row', 'ka-row', 'sa-row', 'ta-row', 'na-row', 'ha-row', 'ma-row', 'ya-row', 'ra-row', 'wa-row'])
 const remainingRows = ROWS.filter((r) => !HIRAGANA_ROWS.has(r.id))

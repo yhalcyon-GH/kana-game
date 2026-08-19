@@ -7,7 +7,7 @@ import path from 'node:path'
 import * as sdk from 'microsoft-cognitiveservices-speech-sdk'
 
 const VOICE = 'ja-JP-Nanami:DragonHDLatestNeural'
-const OUT_DIR = path.resolve(import.meta.dirname, '../public/audio')
+const OUT_DIR = path.resolve(import.meta.dirname, '../../public/audio')
 
 function synthesizeSSML(ssml: string, key: string, region: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {

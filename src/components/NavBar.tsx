@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import { CategoryIcon } from './CategoryIcon'
 import { SCRIPT_ENTRY_POINTS } from '../data/scriptEntryPoints'
 import { useCurriculum } from '../hooks/useCurriculum'
 
@@ -50,7 +51,7 @@ export function NavBar() {
               }`
             }
           >
-            <span aria-hidden="true">{link.icon}</span> {link.label}
+            <CategoryIcon icon={link.icon} className="h-4 w-4 text-sm" /> {link.label}
           </NavLink>
         ))}
       </nav>

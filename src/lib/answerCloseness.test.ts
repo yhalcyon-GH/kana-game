@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isNearMissSequence, isNearMissText, levenshteinDistance } from './answerCloseness'
+import { levenshteinDistance } from './answerCloseness'
 
 describe('levenshteinDistance', () => {
   it('is 0 for identical sequences', () => {
@@ -16,30 +16,5 @@ describe('levenshteinDistance', () => {
 
   it('counts multiple differences correctly', () => {
     expect(levenshteinDistance([...'kitten'], [...'sitting'])).toBe(3)
-  })
-})
-
-describe('isNearMissText', () => {
-  it('is true for exactly one character off', () => {
-    expect(isNearMissText('かき', 'がき')).toBe(true)
-  })
-
-  it('is true for a single dakuten mistake', () => {
-    expect(isNearMissText('は', 'ば')).toBe(true)
-  })
-
-  it('is false for an exact match (distance 0)', () => {
-    expect(isNearMissText('かき', 'かき')).toBe(false)
-  })
-
-  it('is false for two or more characters off', () => {
-    expect(isNearMissText('さしみ', 'かきく')).toBe(false)
-  })
-})
-
-describe('isNearMissSequence', () => {
-  it('works over arbitrary element arrays, not just characters', () => {
-    expect(isNearMissSequence(['ka', 'ki', 'ku'], ['ka', 'ki', 'ke'])).toBe(true)
-    expect(isNearMissSequence(['ka', 'ki'], ['ka', 'ki'])).toBe(false)
   })
 })

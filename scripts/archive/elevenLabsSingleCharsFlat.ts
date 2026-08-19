@@ -8,8 +8,8 @@
 //   ELEVENLABS_API_KEY=sk_... npx tsx scripts/elevenLabsSingleCharsFlat.ts
 import { copyFile } from 'node:fs/promises'
 import path from 'node:path'
-import { CHARACTERS } from '../src/data/characters'
-import { OUT_DIR, pcmToWav, requireApiKey, MODEL_ID, SAMPLE_RATE } from './elevenLabsClient'
+import { CHARACTERS } from '../../src/data/characters'
+import { OUT_DIR, pcmToWav, requireApiKey, MODEL_ID, SAMPLE_RATE } from '../elevenLabsClient'
 import { writeFile } from 'node:fs/promises'
 
 const VOICE_ID = 'XlX7zKbP19omFrVWQ8CU'

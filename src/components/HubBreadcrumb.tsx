@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { CATEGORIES_BY_ID, getCategoryPagePath, getNextRowId, getPreviousRowId, ROWS_BY_ID } from '../data/curriculum'
+import { CategoryIcon } from './CategoryIcon'
 
 type Props = {
   rowId: string
@@ -33,8 +34,11 @@ export function HubBreadcrumb({ rowId, categoryId }: Props) {
           🏠 Home
         </Link>
         <span aria-hidden="true">›</span>
-        <Link to={getCategoryPagePath(categoryId)} className="hover:text-blue-600 dark:hover:text-blue-400">
-          {category.icon} {category.displayLabel ?? category.label}
+        <Link
+          to={getCategoryPagePath(categoryId)}
+          className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-blue-400"
+        >
+          <CategoryIcon icon={category.icon} className="h-4 w-4 text-sm" /> {category.displayLabel ?? category.label}
         </Link>
         <span aria-hidden="true">›</span>
         <span className="font-semibold text-neutral-700 dark:text-neutral-200">{row.englishLabel ?? row.label}</span>

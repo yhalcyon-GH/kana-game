@@ -1,52 +1,55 @@
 import {
-  DONMAI,
+  CORRECT_SONOCHOUSHI,
+  EVAL_FAITO,
   type FeedbackLine,
-  IINE,
   INCORRECT_LINES,
-  KAKKOII,
-  KAKKOII_CHANCE,
   KANPEKI,
-  NEAR_MISS_ONLY_ID,
-  OSHII,
-  SAIKOU,
-  SEIKAI,
+  NORMAL_CORRECT_LINES,
+  type QuestionMode,
+  STREAK_MILESTONES,
   SUGOI,
+  WRONG_GANBARE,
 } from '../data/feedback'
 
 export type FeedbackClip = { id: string; text: string }
-
-function pickOne<T>(options: T[]): T {
-  return options[Math.floor(Math.random() * options.length)]
-}
 
 function clipFor(line: FeedbackLine): FeedbackClip {
   return { id: line.id, text: line.text }
 }
 
+// Picks randomly from `pool`, excluding whatever was picked last time (from
+// this same pool) so the same line never plays twice in a row.
+function pickWithoutImmediateRepeat(pool: readonly FeedbackLine[], lastId: string | null): FeedbackLine {
+  const options = lastId ? pool.filter((l) => l.id !== lastId) : pool
+  return options[Math.floor(Math.random() * options.length)]
+}
+
 // Picks the line for a correct answer at the given (1-indexed) consecutive-
-// correct streak count: 5-in-a-row says さいこう, with a rare かっこいい
-// alternate; 3-in-a-row says すごい; every other correct answer says せいかい.
-export function pickCorrectFeedback(streak: number): FeedbackClip {
-  if (streak === 5) return clipFor(Math.random() < KAKKOII_CHANCE ? KAKKOII : SAIKOU)
-  if (streak === 3) return clipFor(SUGOI)
-  return clipFor(SEIKAI)
+// correct streak count. A streak milestone (mode-specific, see
+// STREAK_MILESTONES) replaces the normal correct pool entirely — only one
+// voice ever plays per answer. Any other streak count picks randomly from
+// the normal pool, never repeating the immediately-previous pick.
+export function pickCorrectFeedback(streak: number, mode: QuestionMode, lastCorrectId: string | null): FeedbackClip {
+  const milestone = STREAK_MILESTONES[mode][streak]
+  if (milestone) return clipFor(milestone)
+  return clipFor(pickWithoutImmediateRepeat(NORMAL_CORRECT_LINES, lastCorrectId))
 }
 
-// `isNearMiss` gates おしい — it's only fair to say "so close!" when the
-// wrong answer really was one character/dakuten off (see
-// lib/answerCloseness.ts). Every other incorrect line is always eligible.
-export function pickIncorrectFeedback(isNearMiss: boolean): FeedbackClip {
-  const pool = isNearMiss ? INCORRECT_LINES : INCORRECT_LINES.filter((l) => l.id !== NEAR_MISS_ONLY_ID)
-  return clipFor(pickOne(pool))
+// Picks a random wrong-answer line, never repeating the immediately-
+// previous pick.
+export function pickIncorrectFeedback(lastWrongId: string | null): FeedbackClip {
+  return clipFor(pickWithoutImmediateRepeat(INCORRECT_LINES, lastWrongId))
 }
 
-// Played once at session end: かんぺき for a flawless run, おしい for
-// exactly 1 missed, いいね for exactly 2 missed, ドンマイ for 3 or more.
-// The first three are the "bright" tiers (see Mascot's mood mapping in
-// useAnswerFeedback.ts); ドンマイ alone gets the gentler, comforting tone.
-export function pickEvaluationFeedback(mistakeCount: number): FeedbackClip {
-  if (mistakeCount === 0) return clipFor(KANPEKI)
-  if (mistakeCount === 1) return clipFor(OSHII)
-  if (mistakeCount === 2) return clipFor(IINE)
-  return clipFor(DONMAI)
+// Played once at session end, judged by accuracy (not rounded) rather than
+// raw mistake count — identical thresholds for 8- and 15-question sessions.
+// Checked from the highest bar down, so a flawless run always gets かんぺき
+// rather than falling through to すごい.
+export function pickResultFeedback(correctCount: number, questionCount: number): FeedbackClip {
+  const accuracy = correctCount / questionCount
+  if (accuracy === 1) return clipFor(KANPEKI)
+  if (accuracy >= 0.8) return clipFor(SUGOI)
+  if (accuracy >= 0.6) return clipFor(CORRECT_SONOCHOUSHI)
+  if (accuracy >= 0.4) return clipFor(WRONG_GANBARE)
+  return clipFor(EVAL_FAITO)
 }

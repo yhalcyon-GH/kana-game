@@ -8,13 +8,13 @@ import { RomajiToggle } from '../../components/RomajiToggle'
 import { WordImage } from '../../components/WordImage'
 import { CHARACTERS_BY_ID } from '../../data/characters'
 import { ROWS_BY_ID } from '../../data/curriculum'
+import type { QuestionMode } from '../../data/feedback'
 import type { AnchorWord } from '../../data/types'
 import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
 import { useEnterAdvance } from '../../hooks/useEnterAdvance'
 import { useGameSession } from '../../hooks/useGameSession'
 import { useTTS } from '../../hooks/useTTS'
-import { isNearMissSequence } from '../../lib/answerCloseness'
 import { pickDistractorCharIds } from '../../lib/distractorPicker'
 import { shuffle } from '../../lib/shuffle'
 import { useProgressStore } from '../../store/progressStore'
@@ -43,6 +43,7 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
   const showRomaji = useProgressStore((s) => s.showRomaji)
   const { speak, supported } = useTTS()
   const isReview = rowId === REVIEW_SCOPE_ID
+  const rounds = getScopeRounds(rowId)
   const {
     feedback,
     mood,
@@ -55,7 +56,7 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
     finishMood,
     clear,
     resetSession,
-  } = useAnswerFeedback()
+  } = useAnswerFeedback(rounds as QuestionMode)
   const row = rowId && !isReview ? ROWS_BY_ID[rowId] : undefined
   const categoryId = isReview ? undefined : (params.categoryId ?? row?.categoryId)
   const scopeCharacterIds = useMemo(() => getScopeCharacterIds(rowId), [rowId, getScopeCharacterIds])
@@ -80,7 +81,7 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
   )
 
   const { queue, roundIndex, correctCount, setCorrectCount, finished, startSession, startMistakeReview, advance } =
-    useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession, rounds: getScopeRounds(rowId) })
+    useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession, rounds })
 
   const [slots, setSlots] = useState<(string | null)[]>([])
   const [tray, setTray] = useState<TrayTile[]>([])
@@ -161,10 +162,7 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
     // learner to move on manually (see the "Next" button below), matching
     // how the other three games handle a wrong answer.
     setStatus('wrong')
-    onWrong(
-      { id: currentWord.id, kana: currentWord.kana, romaji: currentWord.romaji },
-      isNearMissSequence(placedGlyphs, targetGlyphs),
-    )
+    onWrong({ id: currentWord.id, kana: currentWord.kana, romaji: currentWord.romaji })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slots])
 

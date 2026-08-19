@@ -5,13 +5,13 @@ import { GameRoundHeader } from '../../components/GameRoundHeader'
 import { PracticeSummary } from '../../components/PracticeSummary'
 import { WordImage } from '../../components/WordImage'
 import { ROWS_BY_ID } from '../../data/curriculum'
+import type { QuestionMode } from '../../data/feedback'
 import type { AnchorWord } from '../../data/types'
 import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
 import { useEnterAdvance } from '../../hooks/useEnterAdvance'
 import { useGameSession } from '../../hooks/useGameSession'
 import { useTTS } from '../../hooks/useTTS'
-import { isNearMissText } from '../../lib/answerCloseness'
 import { pickDistractorWords } from '../../lib/distractorPicker'
 import { shuffle } from '../../lib/shuffle'
 import { useProgressStore } from '../../store/progressStore'
@@ -32,6 +32,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
   const row = rowId && !isReview ? ROWS_BY_ID[rowId] : undefined
   const categoryId = isReview ? undefined : (params.categoryId ?? row?.categoryId)
   const { speak, supported } = useTTS()
+  const rounds = getScopeRounds(rowId)
   const {
     feedback,
     mood,
@@ -44,7 +45,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
     finishMood,
     clear,
     resetSession,
-  } = useAnswerFeedback()
+  } = useAnswerFeedback(rounds as QuestionMode)
 
   useEffect(() => {
     if (!rowId || !isScopeReady(rowId) || (!isReview && row?.categoryId !== categoryId)) {
@@ -65,7 +66,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
   )
 
   const { queue, roundIndex, correctCount, setCorrectCount, finished, startSession, startMistakeReview, advance } =
-    useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession, rounds: getScopeRounds(rowId) })
+    useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession, rounds })
 
   const [choices, setChoices] = useState<AnchorWord[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -100,10 +101,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
       onCorrect()
       setTimeout(advance, 2000)
     } else {
-      onWrong(
-        { id: currentWord.id, kana: currentWord.kana, romaji: currentWord.romaji },
-        isNearMissText(choice.kana, currentWord.kana),
-      )
+      onWrong({ id: currentWord.id, kana: currentWord.kana, romaji: currentWord.romaji })
     }
   }
 

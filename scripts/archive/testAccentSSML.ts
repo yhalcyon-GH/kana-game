@@ -15,8 +15,8 @@
 import path from 'node:path'
 import { mkdir, writeFile } from 'node:fs/promises'
 import * as sdk from 'microsoft-cognitiveservices-speech-sdk'
-import { ACCENT_PATTERNS } from '../src/data/accents'
-import { WORDS_BY_ROW } from '../src/data/words'
+import { ACCENT_PATTERNS } from '../../src/data/accents'
+import { WORDS_BY_ROW } from '../../src/data/words'
 
 const OUT_DIR = 'C:/Users/halcy/AppData/Local/Temp/azure-test'
 const VOICE = 'ja-JP-NanamiNeural'

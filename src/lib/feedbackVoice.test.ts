@@ -1,62 +1,85 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { NEAR_MISS_ONLY_ID } from '../data/feedback'
-import { pickCorrectFeedback, pickEvaluationFeedback, pickIncorrectFeedback } from './feedbackVoice'
+import { pickCorrectFeedback, pickIncorrectFeedback, pickResultFeedback } from './feedbackVoice'
 
 afterEach(() => {
   vi.restoreAllMocks()
 })
 
 describe('pickCorrectFeedback', () => {
-  it('says せいかい on a plain streak (not 3 or 5)', () => {
-    expect(pickCorrectFeedback(1).id).toBe('seikai')
-    expect(pickCorrectFeedback(2).id).toBe('seikai')
-    expect(pickCorrectFeedback(4).id).toBe('seikai')
-    expect(pickCorrectFeedback(6).id).toBe('seikai')
+  it('picks from the normal correct pool on a non-milestone streak', () => {
+    for (let i = 0; i < 50; i++) {
+      expect(['correct_iine', 'correct_seikai', 'correct_sonochoushi']).toContain(pickCorrectFeedback(1, 8, null).id)
+      expect(['correct_iine', 'correct_seikai', 'correct_sonochoushi']).toContain(pickCorrectFeedback(6, 15, null).id)
+    }
   })
 
-  it('says すごい exactly at streak 3', () => {
-    expect(pickCorrectFeedback(3).id).toBe('sugoi')
+  it('never repeats the immediately-previous normal-correct pick', () => {
+    for (let i = 0; i < 50; i++) {
+      expect(pickCorrectFeedback(1, 8, 'correct_iine').id).not.toBe('correct_iine')
+    }
   })
 
-  it('says さいこう at streak 5 in the common case', () => {
-    vi.spyOn(Math, 'random').mockReturnValue(0.5) // well above the rare-line chance
-    expect(pickCorrectFeedback(5).id).toBe('saikou')
+  it('plays the streak-5 milestone, replacing the normal pool, in both modes', () => {
+    expect(pickCorrectFeedback(5, 8, null).id).toBe('streak_5_sugoi')
+    expect(pickCorrectFeedback(5, 15, null).id).toBe('streak_5_sugoi')
   })
 
-  it('can say かっこいい at streak 5 on the rare roll', () => {
-    vi.spyOn(Math, 'random').mockReturnValue(0) // below any positive chance threshold
-    expect(pickCorrectFeedback(5).id).toBe('kakkoii')
+  it('plays the streak-8 milestone in both modes', () => {
+    expect(pickCorrectFeedback(8, 8, null).id).toBe('streak_8_kanpeki')
+    expect(pickCorrectFeedback(8, 15, null).id).toBe('streak_8_kanpeki')
+  })
+
+  it('plays streak-10/15 milestones only in 15-question mode', () => {
+    expect(pickCorrectFeedback(10, 15, null).id).toBe('streak_10_saikou')
+    expect(pickCorrectFeedback(15, 15, null).id).toBe('streak_15_perfect')
+    expect(pickCorrectFeedback(10, 8, null).id).not.toBe('streak_10_saikou')
+    expect(pickCorrectFeedback(15, 8, null).id).not.toBe('streak_15_perfect')
   })
 })
 
 describe('pickIncorrectFeedback', () => {
-  it('never picks おしい when the answer was not a near miss', () => {
+  it('picks from the wrong-answer pool', () => {
     for (let i = 0; i < 50; i++) {
-      expect(pickIncorrectFeedback(false).id).not.toBe(NEAR_MISS_ONLY_ID)
+      expect(['wrong_oshii', 'wrong_ganbare', 'wrong_daijoubu']).toContain(pickIncorrectFeedback(null).id)
     }
   })
 
-  it('can pick おしい when the answer was a near miss', () => {
-    const ids = new Set(Array.from({ length: 50 }, () => pickIncorrectFeedback(true).id))
-    expect(ids.has(NEAR_MISS_ONLY_ID)).toBe(true)
+  it('never repeats the immediately-previous pick', () => {
+    for (let i = 0; i < 50; i++) {
+      expect(pickIncorrectFeedback('wrong_oshii').id).not.toBe('wrong_oshii')
+    }
   })
 })
 
-describe('pickEvaluationFeedback', () => {
-  it('says かんぺき for a flawless session', () => {
-    expect(pickEvaluationFeedback(0).id).toBe('kanpeki')
+describe('pickResultFeedback', () => {
+  it('always says かんぺき for a flawless session, in both modes (reusing the existing line)', () => {
+    expect(pickResultFeedback(8, 8).id).toBe('kanpeki')
+    expect(pickResultFeedback(15, 15).id).toBe('kanpeki')
   })
 
-  it('says おしい for exactly 1 mistake', () => {
-    expect(pickEvaluationFeedback(1).id).toBe('oshii')
+  it('says すごい at 80% or above (but below 100%), reusing the existing line', () => {
+    expect(pickResultFeedback(7, 8).id).toBe('sugoi') // 87.5%
+    expect(pickResultFeedback(12, 15).id).toBe('sugoi') // 80%
   })
 
-  it('says いいね for exactly 2 mistakes', () => {
-    expect(pickEvaluationFeedback(2).id).toBe('iine')
+  it('says その調子 at 60% up to (but excluding) 80%, reusing the per-answer-correct line', () => {
+    expect(pickResultFeedback(6, 8).id).toBe('correct_sonochoushi') // 75%
+    expect(pickResultFeedback(5, 8).id).toBe('correct_sonochoushi') // 62.5%
+    expect(pickResultFeedback(9, 15).id).toBe('correct_sonochoushi') // 60%
   })
 
-  it('says ドンマイ for 3 or more mistakes', () => {
-    expect(pickEvaluationFeedback(3).id).toBe('donmai')
-    expect(pickEvaluationFeedback(10).id).toBe('donmai')
+  it('says 頑張れ at 40% up to (but excluding) 60%, reusing the wrong-answer line', () => {
+    expect(pickResultFeedback(4, 8).id).toBe('wrong_ganbare') // 50%
+    expect(pickResultFeedback(6, 15).id).toBe('wrong_ganbare') // 40%
+  })
+
+  it('says ファイト below 40%', () => {
+    expect(pickResultFeedback(3, 8).id).toBe('eval_faito') // 37.5%
+    expect(pickResultFeedback(0, 15).id).toBe('eval_faito')
+  })
+
+  it('never rounds the accuracy before comparing', () => {
+    // 6/8 = 75%, which must land in その調子 (60-80%), not すごい (80%+).
+    expect(pickResultFeedback(6, 8).id).toBe('correct_sonochoushi')
   })
 })

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { CategoryIcon } from '../components/CategoryIcon'
 import { SCRIPT_ENTRY_POINTS } from '../data/scriptEntryPoints'
 
 // Top-level chooser — four script groups, each its own page
@@ -21,7 +22,7 @@ export function HomePage() {
             to={card.to}
             className="flex flex-col items-center gap-2 rounded-xl border border-neutral-300 bg-white p-6 text-center hover:border-blue-400 dark:border-neutral-600 dark:bg-neutral-800"
           >
-            <span className="text-2xl" aria-hidden="true">{card.icon}</span>
+            <CategoryIcon icon={card.icon} className="h-10 w-10 text-2xl" />
             <span className="font-kana text-2xl font-bold">{card.label}</span>
             <span className="text-sm font-semibold text-neutral-500 dark:text-neutral-400">{card.english}</span>
           </Link>

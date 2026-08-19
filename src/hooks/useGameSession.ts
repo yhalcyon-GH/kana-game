@@ -9,7 +9,7 @@ type Options = {
   // startSession-on-mount call.
   ids: string[]
   weight: (id: string) => number
-  onFinish: (mistakeCount: number) => void
+  onFinish: (correctCount: number, questionCount: number) => void
   resetSession: () => void
   // Overrides GAME_SESSION_ROUNDS — used by the summary rows' fixed
   // 15-question sessions (see useCurriculum's getScopeRounds).
@@ -20,9 +20,9 @@ type Options = {
 // (Kana Quiz, Kana Typing, Listening, Word Builder): builds a weighted
 // practice queue from `ids`, tracks progress and correct-count through it,
 // and fires onFinish once every session ends, with how many of its rounds
-// were missed. Each page still owns its own per-round setup (choices, tray
-// tiles, etc.) via currentId/roundIndex — this hook only owns the queue
-// itself.
+// were answered correctly out of the total. Each page still owns its own
+// per-round setup (choices, tray tiles, etc.) via currentId/roundIndex —
+// this hook only owns the queue itself.
 export function useGameSession({ ids, weight, onFinish, resetSession, rounds = GAME_SESSION_ROUNDS }: Options) {
   const [queue, setQueue] = useState<string[]>([])
   const [roundIndex, setRoundIndex] = useState(0)
@@ -64,7 +64,7 @@ export function useGameSession({ ids, weight, onFinish, resetSession, rounds = G
   }, [queue.length])
 
   useEffect(() => {
-    if (finished && queue.length > 0) onFinish(queue.length - correctCount)
+    if (finished && queue.length > 0) onFinish(correctCount, queue.length)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finished])
 

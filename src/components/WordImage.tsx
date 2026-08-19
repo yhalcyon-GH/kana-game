@@ -19,5 +19,5 @@ export function WordImage({ word, className }: Props) {
       </div>
     )
   }
-  return <img src={`${import.meta.env.BASE_URL}${word.image}`} alt="" className={className} />
+  return <img src={`${import.meta.env.BASE_URL}${word.image}`} alt="" className={`object-contain ${className}`} />
 }

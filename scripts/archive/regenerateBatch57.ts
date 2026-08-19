@@ -2,8 +2,8 @@
 // Whisper/Azure, now that a trailing "。" has been added to each audioText
 // to fix the word-final-mora clipping issue (see wa-nihon's ん investigation).
 import path from 'node:path'
-import { WORDS_BY_ROW } from '../src/data/words'
-import { OUT_DIR, requireApiKey, synthesizeToFile } from './elevenLabsClient'
+import { WORDS_BY_ROW } from '../../src/data/words'
+import { OUT_DIR, requireApiKey, synthesizeToFile } from '../elevenLabsClient'
 
 const VOICE_ID = 'fWZkPh6JTVXYK2vuJIbv'
 

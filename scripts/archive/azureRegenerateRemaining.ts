@@ -17,13 +17,13 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import * as sdk from 'microsoft-cognitiveservices-speech-sdk'
-import { CHARACTERS } from '../src/data/characters'
-import { ACCENT_PATTERNS } from '../src/data/accents'
-import { ROWS } from '../src/data/curriculum'
-import { WORDS_BY_ROW } from '../src/data/words'
+import { CHARACTERS } from '../../src/data/characters'
+import { ACCENT_PATTERNS } from '../../src/data/accents'
+import { ROWS } from '../../src/data/curriculum'
+import { WORDS_BY_ROW } from '../../src/data/words'
 
 const VOICE = 'ja-JP-NanamiNeural'
-const OUT_DIR = path.resolve(import.meta.dirname, '../public/audio')
+const OUT_DIR = path.resolve(import.meta.dirname, '../../public/audio')
 const HIRAGANA_ROWS = new Set(['a-row', 'ka-row', 'sa-row', 'ta-row', 'na-row', 'ha-row', 'ma-row', 'ya-row', 'ra-row', 'wa-row'])
 const REMAINING_ROW_IDS = ROWS.filter((r) => !HIRAGANA_ROWS.has(r.id)).map((r) => r.id)
 

@@ -5,11 +5,11 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import * as sdk from 'microsoft-cognitiveservices-speech-sdk'
-import { ACCENT_PATTERNS } from '../src/data/accents'
-import { WORDS_BY_ROW } from '../src/data/words'
+import { ACCENT_PATTERNS } from '../../src/data/accents'
+import { WORDS_BY_ROW } from '../../src/data/words'
 
 const VOICE = 'ja-JP-Nanami:DragonHDLatestNeural'
-const OUT_DIR = path.resolve(import.meta.dirname, '../public/audio')
+const OUT_DIR = path.resolve(import.meta.dirname, '../../public/audio')
 
 function toKatakana(text: string): string {
   return text.replace(/[ぁ-ゖ]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) + 0x60))

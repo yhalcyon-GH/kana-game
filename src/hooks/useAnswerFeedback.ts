@@ -1,30 +1,36 @@
 import { useMemo, useRef, useState } from 'react'
 import type { MascotMood } from '../components/Mascot'
-import { pickCorrectFeedback, pickEvaluationFeedback, pickIncorrectFeedback } from '../lib/feedbackVoice'
+import type { QuestionMode } from '../data/feedback'
+import { pickCorrectFeedback, pickIncorrectFeedback, pickResultFeedback } from '../lib/feedbackVoice'
 import { useTTS } from './useTTS'
 
 export type AnswerFeedback = { ok: boolean; text: string }
 
-// Same milestone the すごい/さいこう voice lines use (see lib/feedbackVoice) —
-// reusing it keeps the mascot's excited face in sync with the praise line.
-const STREAK_MOOD_THRESHOLD = 3
+// Same milestone the すごい voice line uses (see data/feedback.ts's
+// STREAK_MILESTONES) — reusing it keeps the mascot's excited face in sync
+// with the first praise milestone, in both 8- and 15-question modes.
+const STREAK_MOOD_THRESHOLD = 5
 
 // A missed character/word: `id` is the character or word id (used to
 // rebuild a review-only queue), `kana`/`romaji` are what to show for it.
 export type Mistake = { id: string; kana: string; romaji: string }
 
 // Shared "how'd I do" voice + on-screen comment for the graded mini-games
-// (Kana Quiz, Listening, Kana Typing, Word Builder). Tracks a
-// consecutive-correct streak (for the すごい/さいこう milestone lines, see
-// lib/feedbackVoice.ts, and for the mascot's excited face below) in both a
-// ref (for the synchronous read pickCorrectFeedback needs) and state (so
-// `mood` can react to it). Also tracks every mistake made this session, so
-// the finish screen can list them all and offer an immediate
+// (Kana Quiz, Listening, Kana Typing, Word Builder). `mode` is the session's
+// question count (8 or 15, see useGameSession/useCurriculum) — it decides
+// which streak counts get a dedicated milestone voice line, see
+// lib/feedbackVoice.ts. Tracks a consecutive-correct streak in both a ref
+// (for the synchronous read pickCorrectFeedback needs) and state (so `mood`
+// can react to it), plus the last-picked line id per pool (so the same line
+// never plays twice in a row). Also tracks every mistake made this session,
+// so the finish screen can list them all and offer an immediate
 // review-just-the-mistakes replay (see PracticeSummary).
-export function useAnswerFeedback() {
+export function useAnswerFeedback(mode: QuestionMode) {
   const { speak } = useTTS()
   const streakRef = useRef(0)
   const [streak, setStreak] = useState(0)
+  const lastCorrectIdRef = useRef<string | null>(null)
+  const lastWrongIdRef = useRef<string | null>(null)
   const [feedback, setFeedback] = useState<AnswerFeedback | null>(null)
   const [mistakes, setMistakes] = useState<Mistake[]>([])
   const [finishFeedback, setFinishFeedback] = useState<AnswerFeedback | null>(null)
@@ -33,34 +39,35 @@ export function useAnswerFeedback() {
   const onCorrect = () => {
     streakRef.current += 1
     setStreak(streakRef.current)
-    const { id, text } = pickCorrectFeedback(streakRef.current)
+    const { id, text } = pickCorrectFeedback(streakRef.current, mode, lastCorrectIdRef.current)
+    lastCorrectIdRef.current = id
     speak(`feedback/${id}`, text)
     setFeedback({ ok: true, text })
   }
 
-  // Pass isNearMiss when the wrong answer was one character/dakuten off
-  // from correct (see lib/answerCloseness.ts) — it gates whether おしい is
-  // eligible to be picked.
-  const onWrong = (mistake: Mistake, isNearMiss = false) => {
+  const onWrong = (mistake: Mistake) => {
     streakRef.current = 0
     setStreak(0)
-    const { id, text } = pickIncorrectFeedback(isNearMiss)
+    const { id, text } = pickIncorrectFeedback(lastWrongIdRef.current)
+    lastWrongIdRef.current = id
     speak(`feedback/${id}`, text)
     setFeedback({ ok: false, text })
     setMistakes((m) => [...m, mistake])
   }
 
-  // Call once when a session finishes, with the number of items missed —
-  // picks and speaks the matching evaluation-screen line (かんぺき/おしい/
-  // いいね/ドンマイ, see lib/feedbackVoice.ts) and derives a matching mascot
-  // mood for PracticeSummary. 0/1/2 mistakes all get a "bright" mood
-  // (streak's excited face for a flawless run, correct's happy face for 1
-  // or 2 missed); 3+ switches to incorrect's gentler, comforting face.
-  const onFinish = (mistakeCount: number) => {
-    const { id, text } = pickEvaluationFeedback(mistakeCount)
+  // Call once when a session finishes, with how many of its questions were
+  // answered correctly out of the total — picks and speaks the matching
+  // evaluation-screen line (かんぺき/すごい/その調子/がんばれ/ファイト, judged
+  // by accuracy, see lib/feedbackVoice.ts's pickResultFeedback) and derives
+  // a matching mascot mood for PracticeSummary. かんぺき/すごい (80%+) get the
+  // excited "streak" face, その調子 (60-80%) gets the happy "correct" face,
+  // がんばれ/ファイト (below 60%) get incorrect's gentler, comforting face.
+  const onFinish = (correctCount: number, questionCount: number) => {
+    const { id, text } = pickResultFeedback(correctCount, questionCount)
     speak(`feedback/${id}`, text)
-    setFinishFeedback({ ok: mistakeCount === 0, text })
-    setFinishMood(mistakeCount === 0 ? 'streak' : mistakeCount <= 2 ? 'correct' : 'incorrect')
+    const accuracy = correctCount / questionCount
+    setFinishFeedback({ ok: accuracy >= 0.8, text })
+    setFinishMood(accuracy >= 0.8 ? 'streak' : accuracy >= 0.6 ? 'correct' : 'incorrect')
   }
 
   // Call when moving to a new round, so the previous round's comment
@@ -71,6 +78,8 @@ export function useAnswerFeedback() {
   const resetSession = () => {
     streakRef.current = 0
     setStreak(0)
+    lastCorrectIdRef.current = null
+    lastWrongIdRef.current = null
     setFeedback(null)
     setMistakes([])
     setFinishFeedback(null)

@@ -14,10 +14,10 @@
 // needs a human listen; see docs/2026-08-15-voice-quality-check-design.md's
 // phase-1 scope.)
 import path from 'node:path'
-import { CHARACTERS } from '../src/data/characters'
-import { ROWS_BY_ID } from '../src/data/curriculum'
-import { WORDS_BY_ROW } from '../src/data/words'
-import { OUT_DIR, requireApiKey, synthesizeToFile, VOICE_ID } from './elevenLabsClient'
+import { CHARACTERS } from '../../src/data/characters'
+import { ROWS_BY_ID } from '../../src/data/curriculum'
+import { WORDS_BY_ROW } from '../../src/data/words'
+import { OUT_DIR, requireApiKey, synthesizeToFile, VOICE_ID } from '../elevenLabsClient'
 
 function parseArgs(argv: string[]) {
   const rowIndex = argv.indexOf('--row')

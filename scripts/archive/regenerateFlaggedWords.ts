@@ -4,8 +4,8 @@
 // mispronunciations, e.g. sa-kazu's '数' -> すう instead of かず).
 //   ELEVENLABS_API_KEY=sk_... npx tsx scripts/regenerateFlaggedWords.ts
 import path from 'node:path'
-import { WORDS_BY_ROW } from '../src/data/words'
-import { OUT_DIR, requireApiKey, synthesizeToFile } from './elevenLabsClient'
+import { WORDS_BY_ROW } from '../../src/data/words'
+import { OUT_DIR, requireApiKey, synthesizeToFile } from '../elevenLabsClient'
 
 const VOICE_ID = 'fWZkPh6JTVXYK2vuJIbv'
 

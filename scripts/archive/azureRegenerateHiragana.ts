@@ -17,12 +17,12 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import * as sdk from 'microsoft-cognitiveservices-speech-sdk'
-import { CHARACTERS } from '../src/data/characters'
-import { ACCENT_PATTERNS } from '../src/data/accents'
-import { WORDS_BY_ROW } from '../src/data/words'
+import { CHARACTERS } from '../../src/data/characters'
+import { ACCENT_PATTERNS } from '../../src/data/accents'
+import { WORDS_BY_ROW } from '../../src/data/words'
 
 const VOICE = 'ja-JP-NanamiNeural'
-const OUT_DIR = path.resolve(import.meta.dirname, '../public/audio')
+const OUT_DIR = path.resolve(import.meta.dirname, '../../public/audio')
 const ROWS = ['a-row', 'ka-row', 'sa-row', 'ta-row', 'na-row', 'ha-row', 'ma-row', 'ya-row', 'ra-row', 'wa-row']
 
 function toKatakana(text: string): string {

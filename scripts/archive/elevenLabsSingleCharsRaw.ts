@@ -4,8 +4,8 @@
 // extra processing tried in earlier attempts.
 import { copyFile } from 'node:fs/promises'
 import path from 'node:path'
-import { CHARACTERS } from '../src/data/characters'
-import { OUT_DIR, requireApiKey, synthesizeToFile } from './elevenLabsClient'
+import { CHARACTERS } from '../../src/data/characters'
+import { OUT_DIR, requireApiKey, synthesizeToFile } from '../elevenLabsClient'
 
 const VOICE_ID = 'XlX7zKbP19omFrVWQ8CU'
 const TARGET_ROMAJI = ['ne','zo','bo','mu','me','ro']

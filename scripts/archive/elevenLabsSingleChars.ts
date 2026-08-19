@@ -7,8 +7,8 @@
 //   ELEVENLABS_API_KEY=sk_... npx tsx scripts/elevenLabsSingleChars.ts
 import { copyFile } from 'node:fs/promises'
 import path from 'node:path'
-import { CHARACTERS } from '../src/data/characters'
-import { OUT_DIR, requireApiKey, synthesizeToFile } from './elevenLabsClient'
+import { CHARACTERS } from '../../src/data/characters'
+import { OUT_DIR, requireApiKey, synthesizeToFile } from '../elevenLabsClient'
 
 const VOICE_ID = 'XlX7zKbP19omFrVWQ8CU'
 const HIRA_ROWS = new Set(['a-row', 'ka-row', 'sa-row', 'ta-row', 'na-row', 'ha-row', 'ma-row', 'ya-row', 'ra-row', 'wa-row'])

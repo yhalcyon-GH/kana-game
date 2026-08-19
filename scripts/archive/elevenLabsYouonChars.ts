@@ -4,8 +4,8 @@
 // pronunciation, same convention as the base 46 characters).
 import { copyFile } from 'node:fs/promises'
 import path from 'node:path'
-import { CHARACTERS } from '../src/data/characters'
-import { OUT_DIR, requireApiKey, synthesizeToFile } from './elevenLabsClient'
+import { CHARACTERS } from '../../src/data/characters'
+import { OUT_DIR, requireApiKey, synthesizeToFile } from '../elevenLabsClient'
 
 const VOICE_ID = 'XlX7zKbP19omFrVWQ8CU'
 const TARGET = ['nya','nyu','pya','pyo','mya']

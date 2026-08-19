@@ -5,12 +5,12 @@ import { GameRoundHeader } from '../../components/GameRoundHeader'
 import { PracticeSummary } from '../../components/PracticeSummary'
 import { CHARACTERS_BY_ID, getCharacterAudioId } from '../../data/characters'
 import { CATEGORIES_BY_ID, ROWS_BY_ID } from '../../data/curriculum'
+import type { QuestionMode } from '../../data/feedback'
 import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
 import { useEnterAdvance } from '../../hooks/useEnterAdvance'
 import { useGameSession } from '../../hooks/useGameSession'
 import { useTTS } from '../../hooks/useTTS'
-import { isNearMissText } from '../../lib/answerCloseness'
 import { pickDistractorCharIds } from '../../lib/distractorPicker'
 import { shuffle } from '../../lib/shuffle'
 import { useProgressStore } from '../../store/progressStore'
@@ -36,6 +36,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
   const { speak, supported } = useTTS()
   const isReview = rowId === REVIEW_SCOPE_ID
   const categoryId = isReview ? undefined : (params.categoryId ?? ROWS_BY_ID[rowId ?? '']?.categoryId)
+  const rounds = getScopeRounds(rowId)
   const {
     feedback,
     mood,
@@ -48,7 +49,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
     finishMood,
     clear,
     resetSession,
-  } = useAnswerFeedback()
+  } = useAnswerFeedback(rounds as QuestionMode)
 
   // Kana Quiz doesn't fit 'contrast-pairs' categories (促音/長音) — see
   // PracticeHubPage's comment, which hides this card from the hub. This
@@ -67,7 +68,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
   const getBox = useCallback((id: string) => characters[id]?.box ?? 0, [characters])
 
   const { queue, roundIndex, correctCount, setCorrectCount, finished, startSession, startMistakeReview, advance } =
-    useGameSession({ ids: quizCharacterIds, weight: getBox, onFinish, resetSession, rounds: getScopeRounds(rowId) })
+    useGameSession({ ids: quizCharacterIds, weight: getBox, onFinish, resetSession, rounds })
 
   const [choices, setChoices] = useState<string[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -99,10 +100,11 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
       onCorrect()
       setTimeout(advance, 2000)
     } else {
-      onWrong(
-        { id: currentCharId, kana: CHARACTERS_BY_ID[currentCharId].kana, romaji: CHARACTERS_BY_ID[currentCharId].romaji },
-        isNearMissText(CHARACTERS_BY_ID[choiceId].kana, CHARACTERS_BY_ID[currentCharId].kana),
-      )
+      onWrong({
+        id: currentCharId,
+        kana: CHARACTERS_BY_ID[currentCharId].kana,
+        romaji: CHARACTERS_BY_ID[currentCharId].romaji,
+      })
     }
   }
 

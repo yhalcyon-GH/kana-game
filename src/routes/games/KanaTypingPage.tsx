@@ -5,13 +5,13 @@ import { GameRoundHeader } from '../../components/GameRoundHeader'
 import { PracticeSummary } from '../../components/PracticeSummary'
 import { WordImage } from '../../components/WordImage'
 import { ROWS_BY_ID } from '../../data/curriculum'
+import type { QuestionMode } from '../../data/feedback'
 import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
 import { useEnterAdvance } from '../../hooks/useEnterAdvance'
 import { useGameSession } from '../../hooks/useGameSession'
 import { useTTS } from '../../hooks/useTTS'
-import { isAnswerCorrect, normalizeKana, normalizeRomaji } from '../../lib/answerChecking'
-import { isNearMissText } from '../../lib/answerCloseness'
+import { isAnswerCorrect } from '../../lib/answerChecking'
 import { useProgressStore } from '../../store/progressStore'
 
 // Types a whole word — in hiragana, katakana, OR romaji, any of the three
@@ -35,6 +35,7 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
   const { speak, supported } = useTTS()
   const isReview = rowId === REVIEW_SCOPE_ID
   const categoryId = isReview ? undefined : (params.categoryId ?? ROWS_BY_ID[rowId ?? '']?.categoryId)
+  const rounds = getScopeRounds(rowId)
   const {
     feedback,
     mood,
@@ -47,7 +48,7 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
     finishMood,
     clear,
     resetSession,
-  } = useAnswerFeedback()
+  } = useAnswerFeedback(rounds as QuestionMode)
   const inputRef = useRef<HTMLInputElement>(null)
   const isComposingRef = useRef(false)
 
@@ -70,7 +71,7 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
   )
 
   const { queue, roundIndex, correctCount, setCorrectCount, finished, startSession, startMistakeReview, advance } =
-    useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession, rounds: getScopeRounds(rowId) })
+    useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession, rounds })
 
   const [input, setInput] = useState('')
   const [answered, setAnswered] = useState(false)
@@ -102,10 +103,7 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
       onCorrect()
       setTimeout(advance, 2000)
     } else {
-      const isNearMiss =
-        isNearMissText(normalizeKana(input), normalizeKana(currentWord.kana)) ||
-        isNearMissText(normalizeRomaji(input), normalizeRomaji(currentWord.romaji))
-      onWrong({ id: currentWord.id, kana: currentWord.kana, romaji: currentWord.romaji }, isNearMiss)
+      onWrong({ id: currentWord.id, kana: currentWord.kana, romaji: currentWord.romaji })
     }
   }
 

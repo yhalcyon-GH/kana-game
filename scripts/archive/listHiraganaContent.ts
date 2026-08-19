@@ -1,6 +1,6 @@
-import { CHARACTERS } from '../src/data/characters'
-import { WORDS_BY_ROW } from '../src/data/words'
-import { ACCENT_PATTERNS } from '../src/data/accents'
+import { CHARACTERS } from '../../src/data/characters'
+import { WORDS_BY_ROW } from '../../src/data/words'
+import { ACCENT_PATTERNS } from '../../src/data/accents'
 
 const ROWS = ['a-row', 'ka-row', 'sa-row', 'ta-row', 'na-row', 'ha-row', 'ma-row', 'ya-row', 'ra-row', 'wa-row']
 
