@@ -8,6 +8,13 @@ export type CharacterProgress = {
   totalSeen: number
   totalCorrect: number
   lastSeen: number
+  // Whether the most recent attempt was correct — drives lib/srs.ts's
+  // isWeak (Review's "weak items" lists), which is deliberately NOT box-
+  // based (see that function's comment). Optional so pre-existing
+  // persisted progress (recorded before this field existed) reads as
+  // undefined rather than false, so it doesn't retroactively flood the
+  // weak list — isWeak only treats an explicit `false` as a miss.
+  lastCorrect?: boolean
 }
 
 const FIRST_ROW_ID = 'a-row'
@@ -46,7 +53,7 @@ export const useProgressStore = create<ProgressState>()(
       taughtRowIds: [],
       audioEnabled: true,
       audioVolume: 1,
-      audioSpeed: 0.75,
+      audioSpeed: 1,
       showRomaji: true,
 
       ensureCharacterInitialized: (charId) => {
@@ -64,6 +71,7 @@ export const useProgressStore = create<ProgressState>()(
             totalSeen: prev.totalSeen + 1,
             totalCorrect: prev.totalCorrect + (correct ? 1 : 0),
             lastSeen: Date.now(),
+            lastCorrect: correct,
           }
           return { characters: { ...state.characters, [charId]: updated } }
         })
@@ -115,13 +123,13 @@ export const useProgressStore = create<ProgressState>()(
           taughtRowIds: [],
           audioEnabled: true,
           audioVolume: 1,
-          audioSpeed: 0.75,
+          audioSpeed: 1,
           showRomaji: true,
         }),
     }),
     {
       name: 'kana-game-progress',
-      version: 3,
+      version: 4,
       // v1 -> v2: the default pronunciation speed changed from 1x to 0.5x;
       // carry that new default into browsers that already persisted a v1
       // state (which would otherwise keep the old 1x forever).
@@ -129,6 +137,8 @@ export const useProgressStore = create<ProgressState>()(
       // 0.75x-1.5x (the extremes made played-back audio hard to recognize —
       // slowed clips lost consonants, sped-up clips turned shrill). Clamp
       // any already-persisted value into the new range.
+      // v3 -> v4: default pronunciation speed changed again, this time to
+      // 1x — same "carry the new default forward" treatment as v1 -> v2.
       migrate: (persistedState, version) => {
         const state = persistedState as ProgressState
         if (version < 2) {
@@ -136,6 +146,9 @@ export const useProgressStore = create<ProgressState>()(
         }
         if (version < 3) {
           state.audioSpeed = Math.min(1.5, Math.max(0.75, state.audioSpeed))
+        }
+        if (version < 4) {
+          state.audioSpeed = 1
         }
         return state
       },

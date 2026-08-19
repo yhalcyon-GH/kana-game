@@ -41,6 +41,18 @@ export function isDue(stats: { box: number; lastSeen: number }, now: number = Da
   return now - stats.lastSeen >= interval
 }
 
+// "Weak" means "got it wrong the last time it was tested" — NOT box <= 1.
+// The gentle Leitner design (nextBox) only drops box by one per miss, so a
+// character sitting at box 2+ that gets missed once lands at box 1+ and
+// would never cross a box-based threshold at all: a real, recent mistake
+// on an otherwise-progressing character would silently never show up as
+// weak. lastCorrect is the direct, unambiguous signal instead, and it
+// self-corrects the moment the learner gets it right again. A never-seen
+// character has totalSeen 0 (not a miss, just not learned yet).
+export function isWeak(stats: { totalSeen: number; lastCorrect?: boolean }): boolean {
+  return stats.totalSeen > 0 && stats.lastCorrect === false
+}
+
 // A character is "advanced enough" to help gate the next row's unlock once
 // it's been attempted a few times, reached at least box 2, and answered
 // correctly at least 70% of the time. Not full mastery (box 4) — later

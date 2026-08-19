@@ -3,7 +3,7 @@ import { CHARACTERS_BY_ID } from '../data/characters'
 import { CATEGORIES_BY_ID, getCumulativeCharacterIds, ROWS, ROWS_BY_ID, SUMMARY_ROW_SOURCE_CATEGORY_IDS } from '../data/curriculum'
 import type { AnchorWord } from '../data/types'
 import { ALL_WORDS, WORDS_BY_ROW } from '../data/words'
-import { isDue } from '../lib/srs'
+import { isDue, isWeak } from '../lib/srs'
 import { useProgressStore } from '../store/progressStore'
 import { GAME_SESSION_ROUNDS } from './useGameSession'
 
@@ -115,6 +115,24 @@ export function useCurriculum() {
     [unlockedCharacterIds, characters],
   )
 
+  // Mistake-prone characters/words for Review's "weak items" browse lists
+  // (ReviewMistakesPage) — unlike dueCharacterIds above, this isn't about
+  // review timing, it's specifically "have actually gotten this wrong
+  // recently" (see lib/srs.ts's isWeak). Scoped to unlockedCharacterIds/
+  // unlockedWords (taught OR practiced), so a character only reachable via
+  // Practice-without-Learn still shows up here once it's been missed. A
+  // word counts as weak if ANY of its characters is, same inclusion rule
+  // getScopeWords uses for due characters — there's no separate per-word
+  // progress to check directly (progressStore only tracks characters).
+  const weakCharacterIds = useMemo(
+    () => unlockedCharacterIds.filter((id) => isWeak(characters[id] ?? { totalSeen: 0 })),
+    [unlockedCharacterIds, characters],
+  )
+  const weakWords = useMemo(
+    () => unlockedWords.filter((w) => w.characterIds.some((c) => weakCharacterIds.includes(c))),
+    [unlockedWords, weakCharacterIds],
+  )
+
   const isRowTaught = (rowId: string) => taughtRowIds.includes(rowId)
 
   // Word pool for a given practice scope: a real row's own word list, or —
@@ -184,6 +202,8 @@ export function useCurriculum() {
     taughtRowIds,
     unlockedCharacterIds,
     unlockedWords,
+    weakCharacterIds,
+    weakWords,
     dueReviewCount: dueCharacterIds.length,
     // Rows are never gated — the learner can freely jump to any row,
     // regardless of SRS-based unlock progress (which is still tracked in
