@@ -1,27 +1,5 @@
 import { Link } from 'react-router-dom'
-
-type ScriptCard = { to: string; label: string; english: string; icon: string }
-
-// This is the very first screen a total-beginner foreigner sees — someone
-// who may not read hiragana OR katakana yet, so a bare Japanese label alone
-// (even kana-only) isn't necessarily readable. Every card therefore pairs
-// its native label with a short English word (2026-08-15, at the user's
-// explicit request). 拗音 and そのほか additionally avoid spelling out a
-// Japanese TERM at all (拗音/その他 are kanji; even ようおん/そのほか are
-// kana a beginner may not read yet) — 拗音 uses a structural symbol instead
-// (○+ゃゅょ: "a base kana plus a small ゃゅょ"), and そのほか keeps its kana
-// but appends "+" to signal "and other things bundled in here". Icons match
-// each destination's ScriptCategory.icon (curriculum.ts) where there's a
-// 1:1 category, so the same visual anchor carries through into the
-// breadcrumb on PracticeHubPage (see HubBreadcrumb.tsx) — そのほか bundles
-// multiple categories, so it gets its own generic "miscellaneous" icon
-// rather than borrowing one category's.
-const SCRIPT_CARDS: ScriptCard[] = [
-  { to: '/hiragana', label: 'ひらがな', english: 'Hiragana', icon: '🎴' },
-  { to: '/katakana', label: 'カタカナ', english: 'Katakana', icon: '🔤' },
-  { to: '/youon', label: '○+ゃゅょ', english: 'Yōon', icon: '🔗' },
-  { to: '/other', label: 'そのほか +', english: 'Other', icon: '📦' },
-]
+import { SCRIPT_ENTRY_POINTS } from '../data/scriptEntryPoints'
 
 // Top-level chooser — four script groups, each its own page
 // (CategoryRowsPage), rather than one long page stacking every category's
@@ -37,7 +15,7 @@ export function HomePage() {
         Learn hiragana and katakana one row at a time, paired with real everyday words.
       </p>
       <div className="grid w-full max-w-2xl grid-cols-2 gap-4 sm:grid-cols-4">
-        {SCRIPT_CARDS.map((card) => (
+        {SCRIPT_ENTRY_POINTS.map((card) => (
           <Link
             key={card.to}
             to={card.to}
