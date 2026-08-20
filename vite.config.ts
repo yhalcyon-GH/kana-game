@@ -34,7 +34,28 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,woff2,svg}'],
         runtimeCaching: [
           {
-            urlPattern: ({ url }) => /\/(audio|word-icons|mascot|icons)\//.test(url.pathname),
+            // Audio gets its OWN cache, separate from word-icons/mascot/icons
+            // below — audio content gets re-recorded/replaced under the SAME
+            // filenames from time to time (unlike the image assets), and
+            // CacheFirst has no way to notice a same-URL file changed. A
+            // dedicated cache name means bumping it (kana-game-audio-v2 ->
+            // v3, ...) makes every learner fetch the new clips immediately
+            // on next play, instead of some fraction of them keeping the old
+            // recording for up to maxAgeSeconds. The old cache's entries
+            // simply stop being referenced once this route ships (nothing
+            // routes audio requests to it anymore) and age out on their own
+            // via its own expiration policy — no explicit cache deletion
+            // needed, and the image cache below is untouched either way.
+            urlPattern: ({ url }) => /\/audio\//.test(url.pathname),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'kana-game-audio-v2',
+              expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 * 180 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            urlPattern: ({ url }) => /\/(word-icons|mascot|icons)\//.test(url.pathname),
             handler: 'CacheFirst',
             options: {
               cacheName: 'kana-game-media',
