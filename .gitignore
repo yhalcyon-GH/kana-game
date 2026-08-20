@@ -14,6 +14,11 @@ dist-ssr
 .tmp-icons
 design/images/word-illustrations/pending-review
 
+# Claude Code's per-machine settings (personal permission grants, local
+# paths) — .claude/settings.json is the shared/team file and IS meant to be
+# committed when it holds project-wide settings worth sharing.
+.claude/settings.local.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
