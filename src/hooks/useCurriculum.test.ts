@@ -54,6 +54,18 @@ describe('useCurriculum', () => {
     expect(reviewWords.length).toBe(aWords.length + kaWords.length)
   })
 
+  // Regression: a summary row's characterIds hold the FULL aggregated
+  // character list for its category, so a naive "does any of this row's
+  // characters appear in practicedCharacterIds" check makes the whole
+  // summary row (and therefore the whole category) count as practiced the
+  // moment a single real character in that category is practiced.
+  it('practicing a single character does not unlock the rest of its category through the summary row', () => {
+    useProgressStore.getState().recordResult('a', true)
+    const { result } = renderHook(() => useCurriculum())
+    expect(result.current.unlockedCharacterIds).toContain('a')
+    expect(result.current.unlockedCharacterIds).not.toContain('ka')
+  })
+
   it('unknown/undefined scope ids return empty results rather than throwing', () => {
     const { result } = renderHook(() => useCurriculum())
     expect(result.current.getScopeWords(undefined)).toEqual([])
@@ -88,5 +100,60 @@ describe('useCurriculum', () => {
     const ids = result.current.getScopeQuizCharacterIds('ta-row')
     expect(ids).not.toEqual(expect.arrayContaining(['dji', 'dzu']))
     expect(ids).toEqual(expect.arrayContaining(['ta', 'chi', 'tsu', 'te', 'to']))
+  })
+
+  // katakana-chouon (ー) has a placeholder romaji ('-', see characters.ts) —
+  // it has no isolated pronunciation, so Kana Quiz shouldn't ask "what does
+  // ー say" any more than it would for っ/ッ.
+  it('getScopeQuizCharacterIds excludes katakana-chouon (ー), which has no real isolated reading', () => {
+    const { result } = renderHook(() => useCurriculum())
+    const ids = result.current.getScopeQuizCharacterIds('katakana-a-row')
+    expect(ids).not.toContain('katakana-chouon')
+  })
+
+  // Review inclusion is mistake-driven (reviewScore, see lib/srs.ts), not
+  // time-driven — a character only shows up as weak once its own score
+  // crosses the threshold, regardless of box or how recently it was seen.
+  describe('mistake-driven Review (reviewScore)', () => {
+    it('a taught character with reviewScore below the threshold is not weak', () => {
+      useProgressStore.getState().markRowTaught('a-row')
+      useProgressStore.getState().adjustCharacterReviewScore('a', 4)
+      const { result } = renderHook(() => useCurriculum())
+      expect(result.current.weakCharacterIds).not.toContain('a')
+      expect(result.current.reviewCount).toBe(0)
+    })
+
+    it('a character becomes weak once its reviewScore reaches the threshold (5)', () => {
+      useProgressStore.getState().markRowTaught('a-row')
+      useProgressStore.getState().adjustCharacterReviewScore('a', 5)
+      const { result } = renderHook(() => useCurriculum())
+      expect(result.current.weakCharacterIds).toContain('a')
+      expect(result.current.reviewCount).toBe(1)
+    })
+
+    it('a word becomes weak from its OWN score, independent of its characters', () => {
+      useProgressStore.getState().markRowTaught('a-row')
+      useProgressStore.getState().adjustWordReviewScore('a-ai', 10)
+      const { result } = renderHook(() => useCurriculum())
+      expect(result.current.weakWords.map((w) => w.id)).toContain('a-ai')
+      // Neither of a-ai's own characters was marked weak directly.
+      expect(result.current.weakCharacterIds).not.toContain('a')
+      expect(result.current.weakCharacterIds).not.toContain('i')
+    })
+
+    it("getScopeWords(REVIEW_SCOPE_ID) pulls in a word containing a weak character even if the word's own score is fine", () => {
+      useProgressStore.getState().markRowTaught('a-row')
+      useProgressStore.getState().adjustCharacterReviewScore('a', 5)
+      const { result } = renderHook(() => useCurriculum())
+      const reviewWords = result.current.getScopeWords(REVIEW_SCOPE_ID)
+      expect(reviewWords.some((w) => w.characterIds.includes('a'))).toBe(true)
+    })
+
+    it('falls back to every unlocked word when nothing is weak yet, so Review is never empty', () => {
+      useProgressStore.getState().markRowTaught('a-row')
+      const { result } = renderHook(() => useCurriculum())
+      const reviewWords = result.current.getScopeWords(REVIEW_SCOPE_ID)
+      expect(reviewWords.length).toBeGreaterThan(0)
+    })
   })
 })

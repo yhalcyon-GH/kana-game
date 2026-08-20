@@ -14,11 +14,13 @@ import type { AnchorWord } from '../../data/types'
 import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
 import { useEnterAdvance } from '../../hooks/useEnterAdvance'
+import { useFrozenWordPool } from '../../hooks/useFrozenWordPool'
 import { useGameSession } from '../../hooks/useGameSession'
 import { useTTS } from '../../hooks/useTTS'
 import { pickDistractorCharIds } from '../../lib/distractorPicker'
 import { kanaToRomaji } from '../../lib/kanaToRomaji'
 import { shuffle } from '../../lib/shuffle'
+import { REVIEW_SCORE_HIT_PRECISE, REVIEW_SCORE_HIT_WORD, REVIEW_SCORE_MISS_PRECISE, REVIEW_SCORE_MISS_WORD } from '../../lib/srs'
 import { useProgressStore } from '../../store/progressStore'
 
 const DISTRACTOR_COUNT = 3
@@ -41,6 +43,8 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
   const navigate = useNavigate()
   const { isScopeReady, getScopeCharacterIds, getScopeWords, getScopeRounds } = useCurriculum()
   const recordResult = useProgressStore((s) => s.recordResult)
+  const adjustCharacterReviewScore = useProgressStore((s) => s.adjustCharacterReviewScore)
+  const adjustWordReviewScore = useProgressStore((s) => s.adjustWordReviewScore)
   const characters = useProgressStore((s) => s.characters)
   const showRomaji = useProgressStore((s) => s.showRomaji)
   const { speak, supported } = useTTS()
@@ -70,8 +74,7 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
   }, [rowId, isReview, row, categoryId, isScopeReady, navigate])
 
   const scopeWords = useMemo(() => getScopeWords(rowId), [rowId, getScopeWords])
-  const wordIds = useMemo(() => scopeWords.map((w) => w.id), [scopeWords])
-  const wordsById = useMemo(() => Object.fromEntries(scopeWords.map((w) => [w.id, w])), [scopeWords])
+  const { wordIds, wordsById } = useFrozenWordPool(rowId, scopeWords)
 
   const wordWeight = useCallback(
     (wordId: string) => {
@@ -83,7 +86,7 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
   )
 
   const { queue, roundIndex, correctCount, setCorrectCount, finished, startSession, startMistakeReview, advance } =
-    useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession, rounds })
+    useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession, rounds, sessionKey: rowId })
 
   const [slots, setSlots] = useState<(string | null)[]>([])
   const [tray, setTray] = useState<TrayTile[]>([])
@@ -121,8 +124,11 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
   useEffect(() => {
     if (!currentWord) return
     speak(`words/${currentWord.id}`, currentWord.audioText ?? currentWord.kana)
+    // Keyed on roundIndex too, not just currentWord.id — a small pool can
+    // put the same word in consecutive rounds, and it should still
+    // announce itself each round.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentWord?.id])
+  }, [currentWord?.id, roundIndex])
 
   useEffect(() => {
     if (!currentWord || status !== 'playing') return
@@ -136,11 +142,13 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
     // wrong glyph anywhere used to mark EVERY character in the word wrong,
     // including ones the learner placed correctly. That was harmless back
     // when it only fed the SRS box, but now directly drives Review's Weak
-    // Kana list (see lib/srs.ts's isWeak), so a misattributed character
-    // would show up there as "kept missing" when it wasn't the problem.
-    // Walk characterIds consuming each one's own glyph span (most are 1
-    // glyph; yōon like きゃ is 2) rather than assuming a 1:1 index with
-    // targetGlyphs.
+    // Kana list (see lib/srs.ts's needsReview), so a misattributed
+    // character would show up there as "kept missing" when it wasn't the
+    // problem. Walk characterIds consuming each one's own glyph span (most
+    // are 1 glyph; yōon like きゃ is 2) rather than assuming a 1:1 index
+    // with targetGlyphs. Word Builder has real per-character precision (we
+    // just computed charCorrect for each one), so this is the "precise"
+    // review-score path — see lib/srs.ts's REVIEW_SCORE_*_PRECISE.
     let glyphOffset = 0
     for (const charId of currentWord.characterIds) {
       const glyphSpan = CHARACTERS_BY_ID[charId]?.kana.length ?? 1
@@ -149,8 +157,10 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
         if (placedGlyphs[glyphOffset + i] !== targetGlyphs[glyphOffset + i]) charCorrect = false
       }
       recordResult(charId, charCorrect)
+      adjustCharacterReviewScore(charId, charCorrect ? REVIEW_SCORE_HIT_PRECISE : REVIEW_SCORE_MISS_PRECISE)
       glyphOffset += glyphSpan
     }
+    adjustWordReviewScore(currentWord.id, isCorrect ? REVIEW_SCORE_HIT_WORD : REVIEW_SCORE_MISS_WORD)
 
     if (isCorrect) {
       setStatus('correct')

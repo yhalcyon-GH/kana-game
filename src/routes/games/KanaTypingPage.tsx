@@ -10,9 +10,11 @@ import type { QuestionMode } from '../../data/feedback'
 import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
 import { useEnterAdvance } from '../../hooks/useEnterAdvance'
+import { useFrozenWordPool } from '../../hooks/useFrozenWordPool'
 import { useGameSession } from '../../hooks/useGameSession'
 import { useTTS } from '../../hooks/useTTS'
 import { isAnswerCorrect } from '../../lib/answerChecking'
+import { REVIEW_SCORE_HIT_IMPRECISE, REVIEW_SCORE_HIT_WORD, REVIEW_SCORE_MISS_IMPRECISE, REVIEW_SCORE_MISS_WORD } from '../../lib/srs'
 import { useProgressStore } from '../../store/progressStore'
 
 // Types a whole word — in hiragana, katakana, OR romaji, any of the three
@@ -32,6 +34,8 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
   const navigate = useNavigate()
   const { isScopeReady, getScopeWords, getScopeRounds } = useCurriculum()
   const recordResult = useProgressStore((s) => s.recordResult)
+  const adjustCharacterReviewScore = useProgressStore((s) => s.adjustCharacterReviewScore)
+  const adjustWordReviewScore = useProgressStore((s) => s.adjustWordReviewScore)
   const characters = useProgressStore((s) => s.characters)
   const { speak, supported } = useTTS()
   const isReview = rowId === REVIEW_SCOPE_ID
@@ -60,8 +64,7 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
   }, [rowId, isReview, categoryId, isScopeReady, navigate])
 
   const scopeWords = useMemo(() => getScopeWords(rowId), [rowId, getScopeWords])
-  const wordIds = useMemo(() => scopeWords.map((w) => w.id), [scopeWords])
-  const wordsById = useMemo(() => Object.fromEntries(scopeWords.map((w) => [w.id, w])), [scopeWords])
+  const { wordIds, wordsById } = useFrozenWordPool(rowId, scopeWords)
   const wordWeight = useCallback(
     (wordId: string) => {
       const word = wordsById[wordId]
@@ -72,7 +75,7 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
   )
 
   const { queue, roundIndex, correctCount, setCorrectCount, finished, startSession, startMistakeReview, advance } =
-    useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession, rounds })
+    useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession, rounds, sessionKey: rowId })
 
   const [input, setInput] = useState('')
   const [answered, setAnswered] = useState(false)
@@ -88,8 +91,13 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
     clear()
     speak(`words/${currentWord.id}`, currentWord.audioText ?? currentWord.kana)
     inputRef.current?.focus()
+    // Keyed on roundIndex too, not just currentWord.id — a small pool (e.g.
+    // Review with only 1-2 weak words) can put the same word in
+    // consecutive rounds, and this effect must still reset per-round state
+    // even when the id doesn't change, or the next round renders already
+    // "answered" from the previous one.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentWord?.id])
+  }, [currentWord?.id, roundIndex])
 
   useEnterAdvance(answered && !wasCorrect, advance)
 
@@ -98,7 +106,14 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
     const isCorrect = isAnswerCorrect(input, currentWord)
     setAnswered(true)
     setWasCorrect(isCorrect)
-    for (const charId of currentWord.characterIds) recordResult(charId, isCorrect)
+    // Kana Typing only knows the WHOLE word was right or wrong, not which
+    // glyph was the actual mistake — every character in the word gets the
+    // same smaller "imprecise" review-score step (see lib/srs.ts).
+    for (const charId of currentWord.characterIds) {
+      recordResult(charId, isCorrect)
+      adjustCharacterReviewScore(charId, isCorrect ? REVIEW_SCORE_HIT_IMPRECISE : REVIEW_SCORE_MISS_IMPRECISE)
+    }
+    adjustWordReviewScore(currentWord.id, isCorrect ? REVIEW_SCORE_HIT_WORD : REVIEW_SCORE_MISS_WORD)
     if (isCorrect) {
       setCorrectCount((c) => c + 1)
       onCorrect()

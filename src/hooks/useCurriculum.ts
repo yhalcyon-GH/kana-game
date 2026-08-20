@@ -3,7 +3,7 @@ import { CHARACTERS_BY_ID, EXCLUDED_FROM_KANA_QUIZ } from '../data/characters'
 import { CATEGORIES_BY_ID, getCumulativeCharacterIds, ROWS, ROWS_BY_ID, SUMMARY_ROW_SOURCE_CATEGORY_IDS } from '../data/curriculum'
 import type { AnchorWord } from '../data/types'
 import { ALL_WORDS, WORDS_BY_ROW } from '../data/words'
-import { isDue, isWeak } from '../lib/srs'
+import { needsReview } from '../lib/srs'
 import { useProgressStore } from '../store/progressStore'
 import { GAME_SESSION_ROUNDS } from './useGameSession'
 
@@ -58,6 +58,7 @@ export function useCurriculum() {
   const unlockedRowIds = useProgressStore((s) => s.unlockedRowIds)
   const taughtRowIds = useProgressStore((s) => s.taughtRowIds)
   const characters = useProgressStore((s) => s.characters)
+  const words = useProgressStore((s) => s.words)
 
   // Characters actually attempted at least once, regardless of whether
   // Learn was ever formally completed for their row — rows are never
@@ -78,8 +79,15 @@ export function useCurriculum() {
   // once the hiragana/katakana characters they're actually spelled from
   // have been practiced (which, as a side effect, also marks THOSE
   // characters' own rows practiced here, so this isn't a real gap).
+  // Summary rows are excluded here: their characterIds are the FULL
+  // aggregated list for their category (see curriculum.ts's
+  // summaryCharacterIds), so checking them against practicedCharacterIds
+  // with .some(...) would make practicing a single real character count the
+  // entire summary row — and therefore its whole category — as practiced.
+  // A summary row can still reach reviewUnlockedRowIds via taughtRowIds
+  // (finishing its own Learn/Practice legitimately unlocks everything).
   const practicedRowIds = useMemo(
-    () => ROWS.filter((r) => r.characterIds.some((id) => practicedCharacterIds.includes(id))).map((r) => r.id),
+    () => ROWS.filter((r) => !r.isSummary && r.characterIds.some((id) => practicedCharacterIds.includes(id))).map((r) => r.id),
     [practicedCharacterIds],
   )
 
@@ -109,44 +117,40 @@ export function useCurriculum() {
     })
   }, [reviewUnlockedRowIds, practicedCharacterIds])
 
-  // Characters "due" for review right now (see lib/srs.ts isDue): drives
-  // both the Review scope's word selection below and the due-count badge
-  // shown near the Review entry points.
-  const dueCharacterIds = useMemo(
-    () => unlockedCharacterIds.filter((id) => isDue(characters[id] ?? { box: 0, lastSeen: 0 })),
-    [unlockedCharacterIds, characters],
-  )
-
-  // Mistake-prone characters/words for Review's "weak items" browse lists
-  // (ReviewMistakesPage) — unlike dueCharacterIds above, this isn't about
-  // review timing, it's specifically "have actually gotten this wrong
-  // recently" (see lib/srs.ts's isWeak). Scoped to unlockedCharacterIds/
-  // unlockedWords (taught OR practiced), so a character only reachable via
-  // Practice-without-Learn still shows up here once it's been missed. A
-  // word counts as weak if ANY of its characters is, same inclusion rule
-  // getScopeWords uses for due characters — there's no separate per-word
-  // progress to check directly (progressStore only tracks characters).
+  // Mistake-driven Review inclusion (see lib/srs.ts's needsReview) — a
+  // character/word is "weak" once its own reviewScore (adjusted by every
+  // game's answers, see the 4 game pages' adjustCharacterReviewScore/
+  // adjustWordReviewScore calls) reaches the threshold. Scoped to
+  // unlockedCharacterIds/unlockedWords (taught OR practiced), so a
+  // character only reachable via Practice-without-Learn still shows up
+  // here once it's been missed. Words get their OWN score now (tracked
+  // directly in progressStore's `words`), not derived from their
+  // characters — but a word can also be pulled into Review by containing a
+  // weak character even if its own score hasn't crossed the threshold
+  // (getScopeWords below), so practicing it helps clear that character too.
   const weakCharacterIds = useMemo(
-    () => unlockedCharacterIds.filter((id) => isWeak(characters[id] ?? { totalSeen: 0 })),
+    () => unlockedCharacterIds.filter((id) => needsReview(characters[id]?.reviewScore ?? 0)),
     [unlockedCharacterIds, characters],
   )
   const weakWords = useMemo(
-    () => unlockedWords.filter((w) => w.characterIds.some((c) => weakCharacterIds.includes(c))),
-    [unlockedWords, weakCharacterIds],
+    () => unlockedWords.filter((w) => needsReview(words[w.id]?.reviewScore ?? 0)),
+    [unlockedWords, words],
   )
 
   const isRowTaught = (rowId: string) => taughtRowIds.includes(rowId)
 
   // Word pool for a given practice scope: a real row's own word list, or —
-  // for the review scope — every taught word that touches a due character,
-  // so review sessions surface what actually needs practice instead of
-  // mixing everything uniformly. Falls back to the full taught pool if
-  // nothing happens to be due yet, so Review is never empty.
+  // for the review scope — every taught word that's itself weak OR touches
+  // a weak character, so review sessions surface what actually needs
+  // practice instead of mixing everything uniformly. Falls back to the
+  // full taught pool if nothing's weak yet, so Review is never empty.
   const getScopeWords = (rowId: string | undefined): AnchorWord[] => {
     if (!rowId) return []
     if (rowId === REVIEW_SCOPE_ID) {
-      const due = unlockedWords.filter((w) => w.characterIds.some((c) => dueCharacterIds.includes(c)))
-      return due.length > 0 ? due : unlockedWords
+      const weak = unlockedWords.filter(
+        (w) => needsReview(words[w.id]?.reviewScore ?? 0) || w.characterIds.some((c) => weakCharacterIds.includes(c)),
+      )
+      return weak.length > 0 ? weak : unlockedWords
     }
     if (isSummaryRow(rowId)) return getSummaryWords(rowId)
     return WORDS_BY_ROW[rowId] ?? []
@@ -172,13 +176,13 @@ export function useCurriculum() {
   // getScopeCharacterIds above, which also supplies distractors and so is
   // deliberately cumulative): for a real row, just that row's own new
   // characters — mirrors getScopeWords using WORDS_BY_ROW rather than the
-  // cumulative pool. For the review scope, due characters take priority
-  // (same fallback as getScopeWords: everything taught, if nothing's due).
+  // cumulative pool. For the review scope, weak characters take priority
+  // (same fallback as getScopeWords: everything taught, if nothing's weak).
   const getScopeQuizCharacterIds = (rowId: string | undefined): string[] => {
     if (!rowId) return []
     if (rowId === REVIEW_SCOPE_ID) {
-      const due = dueCharacterIds.filter(isQuizzableCharacterId)
-      if (due.length > 0) return due
+      const weak = weakCharacterIds.filter(isQuizzableCharacterId)
+      if (weak.length > 0) return weak
       return unlockedCharacterIds.filter(isQuizzableCharacterId)
     }
     return (ROWS_BY_ID[rowId]?.characterIds ?? []).filter(isQuizzableCharacterId)
@@ -206,7 +210,9 @@ export function useCurriculum() {
     unlockedWords,
     weakCharacterIds,
     weakWords,
-    dueReviewCount: dueCharacterIds.length,
+    // Badge count near the Review entry points — how many characters
+    // currently need review (mistake-driven, see weakCharacterIds above).
+    reviewCount: weakCharacterIds.length,
     // Rows are never gated — the learner can freely jump to any row,
     // regardless of SRS-based unlock progress (which is still tracked in
     // unlockedRowIds for informational purposes elsewhere).

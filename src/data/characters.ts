@@ -411,7 +411,11 @@ export const ROMAJI_ALTERNATES: Record<string, string[]> = {
 // looking option for one of them — excluded entirely (as the prompt or a
 // distractor). Kana Typing has no such problem and still accepts typing
 // them ("ji"/"zu" or "di"/"du").
-export const EXCLUDED_FROM_KANA_QUIZ = new Set(['dji', 'dzu', 'katakana-dji', 'katakana-dzu'])
+// katakana-chouon (ー) is also excluded — like っ/ッ (kept out via the
+// contrast-pairs learnStyle check in useCurriculum's isQuizzableCharacterId
+// instead), it has a placeholder romaji ('-', see its CHARACTERS entry
+// above) and no real isolated pronunciation to quiz on.
+export const EXCLUDED_FROM_KANA_QUIZ = new Set(['dji', 'dzu', 'katakana-dji', 'katakana-dzu', 'katakana-chouon'])
 
 // Characters CharacterCard/PracticeSummary wrap their kana glyph in （）
 // wherever shown, as a visual "this one's an exception" cue: ぢ/づ/ヂ/ヅ
