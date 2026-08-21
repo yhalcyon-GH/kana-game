@@ -1,26 +1,32 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { getNextRowId, ROWS, ROWS_BY_ID } from '../data/curriculum'
-import { meetsAdvanceThreshold, nextBox } from '../lib/srs'
+import { clampReviewScore, meetsAdvanceThreshold, nextBox } from '../lib/srs'
 
 export type CharacterProgress = {
   box: number
   totalSeen: number
   totalCorrect: number
   lastSeen: number
-  // Whether the most recent attempt was correct — drives lib/srs.ts's
-  // isWeak (Review's "weak items" lists), which is deliberately NOT box-
-  // based (see that function's comment). Optional so pre-existing
-  // persisted progress (recorded before this field existed) reads as
-  // undefined rather than false, so it doesn't retroactively flood the
-  // weak list — isWeak only treats an explicit `false` as a miss.
-  lastCorrect?: boolean
+  // 0-10, clamped — see lib/srs.ts's needsReview/REVIEW_SCORE_* for how
+  // each game adjusts this. Drives Review inclusion; independent of `box`,
+  // which only drives row-unlock timing and practice-queue weighting.
+  reviewScore: number
+}
+
+export type WordProgress = {
+  // Same 0-10 scale as CharacterProgress.reviewScore, but tracked per word
+  // rather than derived from its characters — a word gets its own score
+  // directly from the word-based games (Kana Typing/Listening/Word
+  // Builder; Kana Quiz has no word involved). See lib/srs.ts.
+  reviewScore: number
 }
 
 const FIRST_ROW_ID = 'a-row'
 
 type ProgressState = {
   characters: Record<string, CharacterProgress>
+  words: Record<string, WordProgress>
   unlockedRowIds: string[]
   taughtRowIds: string[]
   audioEnabled: boolean
@@ -37,6 +43,8 @@ type ProgressState = {
 
   ensureCharacterInitialized: (charId: string) => void
   recordResult: (charId: string, correct: boolean) => void
+  adjustCharacterReviewScore: (charId: string, delta: number) => void
+  adjustWordReviewScore: (wordId: string, delta: number) => void
   markRowTaught: (rowId: string) => void
   isRowUnlocked: (rowId: string) => boolean
   isRowTaught: (rowId: string) => boolean
@@ -51,13 +59,14 @@ type ProgressState = {
 }
 
 function blankCharacterProgress(): CharacterProgress {
-  return { box: 0, totalSeen: 0, totalCorrect: 0, lastSeen: 0 }
+  return { box: 0, totalSeen: 0, totalCorrect: 0, lastSeen: 0, reviewScore: 0 }
 }
 
 export const useProgressStore = create<ProgressState>()(
   persist(
     (set, get) => ({
       characters: {},
+      words: {},
       unlockedRowIds: [FIRST_ROW_ID],
       taughtRowIds: [],
       audioEnabled: true,
@@ -78,11 +87,11 @@ export const useProgressStore = create<ProgressState>()(
         set((state) => {
           const prev = state.characters[charId] ?? blankCharacterProgress()
           const updated: CharacterProgress = {
+            ...prev,
             box: nextBox(prev.box, correct),
             totalSeen: prev.totalSeen + 1,
             totalCorrect: prev.totalCorrect + (correct ? 1 : 0),
             lastSeen: Date.now(),
-            lastCorrect: correct,
           }
           return { characters: { ...state.characters, [charId]: updated } }
         })
@@ -103,6 +112,25 @@ export const useProgressStore = create<ProgressState>()(
         }
       },
 
+      adjustCharacterReviewScore: (charId, delta) => {
+        set((state) => {
+          const prev = state.characters[charId] ?? blankCharacterProgress()
+          return {
+            characters: {
+              ...state.characters,
+              [charId]: { ...prev, reviewScore: clampReviewScore(prev.reviewScore + delta) },
+            },
+          }
+        })
+      },
+
+      adjustWordReviewScore: (wordId, delta) => {
+        set((state) => {
+          const prev = state.words[wordId] ?? { reviewScore: 0 }
+          return { words: { ...state.words, [wordId]: { reviewScore: clampReviewScore(prev.reviewScore + delta) } } }
+        })
+      },
+
       markRowTaught: (rowId) => {
         const row = ROWS_BY_ID[rowId]
         if (!row) return
@@ -118,7 +146,11 @@ export const useProgressStore = create<ProgressState>()(
       isRowTaught: (rowId) => get().taughtRowIds.includes(rowId),
       isRowMastered: (rowId) => {
         const row = ROWS_BY_ID[rowId]
-        if (!row) return false
+        // A row with no characterIds of its own (chōon — see curriculum.ts's
+        // comment on why those rows are `characterIds: []`) has nothing to
+        // gate mastery on; `[].every(...)` is vacuously true, which used to
+        // make every chōon row show "mastered" from the moment it unlocked.
+        if (!row || row.characterIds.length === 0) return false
         return row.characterIds.every((id) => (get().characters[id]?.box ?? 0) >= 4)
       },
 
@@ -132,6 +164,7 @@ export const useProgressStore = create<ProgressState>()(
       resetProgress: () =>
         set({
           characters: {},
+          words: {},
           unlockedRowIds: [FIRST_ROW_ID],
           taughtRowIds: [],
           audioEnabled: true,
@@ -144,7 +177,7 @@ export const useProgressStore = create<ProgressState>()(
     }),
     {
       name: 'kana-game-progress',
-      version: 4,
+      version: 5,
       // v1 -> v2: the default pronunciation speed changed from 1x to 0.5x;
       // carry that new default into browsers that already persisted a v1
       // state (which would otherwise keep the old 1x forever).
@@ -154,6 +187,10 @@ export const useProgressStore = create<ProgressState>()(
       // any already-persisted value into the new range.
       // v3 -> v4: default pronunciation speed changed again, this time to
       // 1x — same "carry the new default forward" treatment as v1 -> v2.
+      // v4 -> v5: replaces the old due-date/lastCorrect-based Review logic
+      // with per-character/per-word reviewScore (see lib/srs.ts) — backfill
+      // every existing character with reviewScore 0 (dropping the now-
+      // unused lastCorrect field) and add the new `words` map.
       migrate: (persistedState, version) => {
         const state = persistedState as ProgressState
         if (version < 2) {
@@ -164,6 +201,14 @@ export const useProgressStore = create<ProgressState>()(
         }
         if (version < 4) {
           state.audioSpeed = 1
+        }
+        if (version < 5) {
+          for (const id of Object.keys(state.characters ?? {})) {
+            const c = state.characters[id] as CharacterProgress & { lastCorrect?: boolean }
+            c.reviewScore = 0
+            delete c.lastCorrect
+          }
+          state.words = {}
         }
         return state
       },

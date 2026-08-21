@@ -36,6 +36,15 @@ describe('progressStore', () => {
     expect(stats2.totalCorrect).toBe(1)
   })
 
+  // Regression: chōon rows have `characterIds: []` (they introduce no new
+  // characters of their own — see curriculum.ts's comment). `[].every(...)`
+  // is vacuously true, which used to make isRowMastered report every chōon
+  // row as mastered from the moment it unlocked, before anything was ever
+  // practiced.
+  it('a row with no characterIds of its own (chōon) is never reported as mastered', () => {
+    expect(useProgressStore.getState().isRowMastered('chouon-a-row')).toBe(false)
+  })
+
   it('unlocks ka-row only once every a-row character clears the advance threshold', () => {
     const { recordResult } = useProgressStore.getState()
     const aRowChars = ['a', 'i', 'u', 'e', 'o']
@@ -64,5 +73,36 @@ describe('progressStore', () => {
     expect(state.characters).toEqual({})
     expect(state.unlockedRowIds).toEqual(['a-row'])
     expect(state.taughtRowIds).toEqual([])
+  })
+
+  describe('adjustCharacterReviewScore', () => {
+    it('accumulates and clamps to [0, 10]', () => {
+      const { adjustCharacterReviewScore } = useProgressStore.getState()
+      adjustCharacterReviewScore('a', 5)
+      expect(useProgressStore.getState().characters['a'].reviewScore).toBe(5)
+      adjustCharacterReviewScore('a', 5)
+      expect(useProgressStore.getState().characters['a'].reviewScore).toBe(10)
+      adjustCharacterReviewScore('a', 5) // would be 15, clamped to 10
+      expect(useProgressStore.getState().characters['a'].reviewScore).toBe(10)
+      adjustCharacterReviewScore('a', -100) // would be negative, clamped to 0
+      expect(useProgressStore.getState().characters['a'].reviewScore).toBe(0)
+    })
+
+    it('initializes a not-yet-seen character rather than throwing', () => {
+      useProgressStore.getState().adjustCharacterReviewScore('unseen-char', 3)
+      expect(useProgressStore.getState().characters['unseen-char'].reviewScore).toBe(3)
+    })
+  })
+
+  describe('adjustWordReviewScore', () => {
+    it('accumulates and clamps to [0, 10], initializing a not-yet-seen word', () => {
+      const { adjustWordReviewScore } = useProgressStore.getState()
+      adjustWordReviewScore('a-ai', 10)
+      expect(useProgressStore.getState().words['a-ai'].reviewScore).toBe(10)
+      adjustWordReviewScore('a-ai', -5)
+      expect(useProgressStore.getState().words['a-ai'].reviewScore).toBe(5)
+      adjustWordReviewScore('a-ai', -100)
+      expect(useProgressStore.getState().words['a-ai'].reviewScore).toBe(0)
+    })
   })
 })

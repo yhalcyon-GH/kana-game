@@ -1,7 +1,10 @@
 // Simplified 5-box Leitner spaced-repetition logic. Deliberately gentler
 // than classic Leitner (drop by one box on a miss, not straight to 0) since
 // the audience is absolute beginners — one mistake shouldn't erase several
-// rounds of progress and discourage continued play.
+// rounds of progress and discourage continued play. Drives row-unlock
+// timing (meetsAdvanceThreshold) and practice-queue weighting
+// (weightForBox) ONLY — Review inclusion is a separate mechanism, see
+// REVIEW_SCORE_MAX/needsReview below.
 export const MIN_BOX = 0
 export const MAX_BOX = 4
 
@@ -22,37 +25,6 @@ export function weightForBox(box: number): number {
   return BOX_WEIGHT[box] ?? BOX_WEIGHT[MAX_BOX]
 }
 
-// Classic Leitner review spacing: higher boxes go longer between reviews.
-// Box 0 has a 0ms interval, so a never-practiced or recently-missed
-// character is always "due" regardless of lastSeen.
-const BOX_REVIEW_INTERVAL_MS: Record<number, number> = {
-  0: 0,
-  1: 1 * 24 * 60 * 60 * 1000,
-  2: 3 * 24 * 60 * 60 * 1000,
-  3: 7 * 24 * 60 * 60 * 1000,
-  4: 14 * 24 * 60 * 60 * 1000,
-}
-
-// Whether a character is due for review right now, based on its box and how
-// long it's been since it was last seen. Drives the Review scope's word
-// selection — see useCurriculum.ts.
-export function isDue(stats: { box: number; lastSeen: number }, now: number = Date.now()): boolean {
-  const interval = BOX_REVIEW_INTERVAL_MS[stats.box] ?? BOX_REVIEW_INTERVAL_MS[MAX_BOX]
-  return now - stats.lastSeen >= interval
-}
-
-// "Weak" means "got it wrong the last time it was tested" — NOT box <= 1.
-// The gentle Leitner design (nextBox) only drops box by one per miss, so a
-// character sitting at box 2+ that gets missed once lands at box 1+ and
-// would never cross a box-based threshold at all: a real, recent mistake
-// on an otherwise-progressing character would silently never show up as
-// weak. lastCorrect is the direct, unambiguous signal instead, and it
-// self-corrects the moment the learner gets it right again. A never-seen
-// character has totalSeen 0 (not a miss, just not learned yet).
-export function isWeak(stats: { totalSeen: number; lastCorrect?: boolean }): boolean {
-  return stats.totalSeen > 0 && stats.lastCorrect === false
-}
-
 // A character is "advanced enough" to help gate the next row's unlock once
 // it's been attempted a few times, reached at least box 2, and answered
 // correctly at least 70% of the time. Not full mastery (box 4) — later
@@ -66,4 +38,41 @@ export function meetsAdvanceThreshold(stats: {
   if (stats.totalSeen < 3) return false
   if (stats.box < 2) return false
   return stats.totalCorrect / stats.totalSeen >= 0.7
+}
+
+// Review inclusion is mistake-driven, not time-driven: every character and
+// word carries its own 0-10 reviewScore (see progressStore.ts's
+// CharacterProgress/WordProgress), independent of box. A game adjusts it on
+// every answer — a precise per-item test (Kana Quiz, Word Builder, which
+// know exactly which character was wrong) moves it by a full step
+// (±REVIEW_SCORE_MISS_PRECISE/±REVIEW_SCORE_HIT_PRECISE); an imprecise
+// whole-word test (Kana Typing, Listening, which can only say the whole
+// word was right or wrong) moves every character in that word by a smaller
+// step (±REVIEW_SCORE_MISS_IMPRECISE/±REVIEW_SCORE_HIT_IMPRECISE), so a
+// single ambiguous slip doesn't have the same weight as a confirmed miss.
+// Words get their own score the same way, always ±WORD versions, from
+// whichever word-based game was played (Kana Quiz has no word to score).
+// This applies regardless of whether the game was played inside a Review
+// session or normal practice — see useAnswerFeedback callers.
+export const REVIEW_SCORE_MIN = 0
+export const REVIEW_SCORE_MAX = 10
+export const REVIEW_THRESHOLD = 5
+
+export const REVIEW_SCORE_MISS_PRECISE = 5
+export const REVIEW_SCORE_HIT_PRECISE = -2
+export const REVIEW_SCORE_MISS_IMPRECISE = 1
+export const REVIEW_SCORE_HIT_IMPRECISE = -1
+export const REVIEW_SCORE_MISS_WORD = 10
+export const REVIEW_SCORE_HIT_WORD = -5
+
+export function clampReviewScore(score: number): number {
+  return Math.min(REVIEW_SCORE_MAX, Math.max(REVIEW_SCORE_MIN, score))
+}
+
+// Re-evaluated from the current score every time (never "did it just cross
+// 5" as a one-off event) — a score can jump straight past the threshold in
+// either direction (e.g. 5 -> 3 in one hit), so only a live >= check is
+// reliable for both entering and leaving Review.
+export function needsReview(score: number): boolean {
+  return score >= REVIEW_THRESHOLD
 }

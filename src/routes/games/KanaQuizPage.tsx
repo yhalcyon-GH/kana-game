@@ -13,6 +13,7 @@ import { useGameSession } from '../../hooks/useGameSession'
 import { useTTS } from '../../hooks/useTTS'
 import { pickDistractorCharIds } from '../../lib/distractorPicker'
 import { shuffle } from '../../lib/shuffle'
+import { REVIEW_SCORE_HIT_PRECISE, REVIEW_SCORE_MISS_PRECISE } from '../../lib/srs'
 import { useProgressStore } from '../../store/progressStore'
 
 const DISTRACTOR_COUNT = 3
@@ -32,6 +33,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
   const navigate = useNavigate()
   const { isScopeReady, getScopeCharacterIds, getScopeQuizCharacterIds, isQuizzableCharacterId, getScopeRounds } = useCurriculum()
   const recordResult = useProgressStore((s) => s.recordResult)
+  const adjustCharacterReviewScore = useProgressStore((s) => s.adjustCharacterReviewScore)
   const characters = useProgressStore((s) => s.characters)
   const { speak, supported } = useTTS()
   const isReview = rowId === REVIEW_SCOPE_ID
@@ -71,7 +73,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
   const getBox = useCallback((id: string) => characters[id]?.box ?? 0, [characters])
 
   const { queue, roundIndex, correctCount, setCorrectCount, finished, startSession, startMistakeReview, advance } =
-    useGameSession({ ids: quizCharacterIds, weight: getBox, onFinish, resetSession, rounds })
+    useGameSession({ ids: quizCharacterIds, weight: getBox, onFinish, resetSession, rounds, sessionKey: rowId })
 
   const [choices, setChoices] = useState<string[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -87,8 +89,13 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
     setAnswered(false)
     clear()
     speak(`characters/${getCharacterAudioId(currentCharId)}`, CHARACTERS_BY_ID[currentCharId].kana)
+    // Keyed on roundIndex too, not just currentCharId — a small pool (e.g.
+    // Review with only 1-2 weak characters) can put the same character in
+    // consecutive rounds, and this effect must still reset per-round state
+    // (answered/selectedId/etc.) even when the id doesn't change, or the
+    // next round renders already "answered" from the previous one.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentCharId])
+  }, [currentCharId, roundIndex])
 
   useEnterAdvance(answered && selectedId !== currentCharId, advance)
 
@@ -98,6 +105,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
     setAnswered(true)
     const isCorrect = choiceId === currentCharId
     recordResult(currentCharId, isCorrect)
+    adjustCharacterReviewScore(currentCharId, isCorrect ? REVIEW_SCORE_HIT_PRECISE : REVIEW_SCORE_MISS_PRECISE)
     if (isCorrect) {
       setCorrectCount((c) => c + 1)
       onCorrect()

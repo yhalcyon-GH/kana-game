@@ -11,7 +11,7 @@ const LINKS = [
 ]
 
 export function NavBar() {
-  const { dueReviewCount } = useCurriculum()
+  const { reviewCount } = useCurriculum()
 
   return (
     <div className="border-b border-neutral-200 dark:border-neutral-700">
@@ -30,9 +30,9 @@ export function NavBar() {
             }
           >
             {link.icon} {link.label}
-            {link.to === '/review' && dueReviewCount > 0 && (
+            {link.to === '/review' && reviewCount > 0 && (
               <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-semibold text-white">
-                {dueReviewCount}
+                {reviewCount}
               </span>
             )}
           </NavLink>

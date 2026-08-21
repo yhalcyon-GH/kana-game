@@ -50,7 +50,7 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   const params = useParams<{ categoryId?: string; rowId?: string }>()
   const rowId = rowIdOverride ?? params.rowId
   const navigate = useNavigate()
-  const { isScopeReady, dueReviewCount } = useCurriculum()
+  const { isScopeReady, reviewCount } = useCurriculum()
   const isReview = rowId === REVIEW_SCOPE_ID
   const row = rowId && !isReview ? ROWS_BY_ID[rowId] : undefined
   const categoryId = isReview ? undefined : (params.categoryId ?? row?.categoryId)
@@ -126,9 +126,9 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
       <h1 className="text-2xl font-bold">{isReview ? 'Review — all learned rows' : `${isSummary ? '⭐ ' : ''}${row!.label}`}</h1>
       {isReview && (
         <p className="text-sm text-neutral-500 dark:text-neutral-400">
-          {dueReviewCount > 0
-            ? `${dueReviewCount} character${dueReviewCount === 1 ? '' : 's'} due for review`
-            : 'Nothing due right now — mixing in everything you know'}
+          {reviewCount > 0
+            ? `${reviewCount} character${reviewCount === 1 ? '' : 's'} need review`
+            : 'Nothing needs review right now — mixing in everything you know'}
         </p>
       )}
 

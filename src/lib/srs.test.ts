@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MAX_BOX, MIN_BOX, isDue, meetsAdvanceThreshold, nextBox, weightForBox } from './srs'
+import { MAX_BOX, MIN_BOX, clampReviewScore, meetsAdvanceThreshold, needsReview, nextBox, weightForBox } from './srs'
 
 describe('nextBox', () => {
   it('increments on correct, clamped at MAX_BOX', () => {
@@ -41,28 +41,29 @@ describe('meetsAdvanceThreshold', () => {
   })
 })
 
-describe('isDue', () => {
-  const DAY = 24 * 60 * 60 * 1000
+describe('clampReviewScore', () => {
+  it('clamps to [0, 10]', () => {
+    expect(clampReviewScore(-3)).toBe(0)
+    expect(clampReviewScore(0)).toBe(0)
+    expect(clampReviewScore(7)).toBe(7)
+    expect(clampReviewScore(10)).toBe(10)
+    expect(clampReviewScore(15)).toBe(10)
+  })
+})
 
-  it('box 0 is always due, regardless of how recently it was seen', () => {
-    const now = Date.now()
-    expect(isDue({ box: 0, lastSeen: now }, now)).toBe(true)
+describe('needsReview', () => {
+  it('is false below the threshold (5) and true at or above it', () => {
+    expect(needsReview(0)).toBe(false)
+    expect(needsReview(4)).toBe(false)
+    expect(needsReview(5)).toBe(true)
+    expect(needsReview(10)).toBe(true)
   })
 
-  it('is not due before its box interval has elapsed', () => {
-    const now = Date.now()
-    expect(isDue({ box: 2, lastSeen: now - 1 * DAY }, now)).toBe(false)
-  })
-
-  it('is due once its box interval has elapsed', () => {
-    const now = Date.now()
-    expect(isDue({ box: 2, lastSeen: now - 3 * DAY }, now)).toBe(true)
-  })
-
-  it('gives higher boxes longer intervals than lower boxes', () => {
-    const now = Date.now()
-    const lastSeen = now - 5 * DAY
-    expect(isDue({ box: 1, lastSeen }, now)).toBe(true)
-    expect(isDue({ box: 4, lastSeen }, now)).toBe(false)
+  // Regression: a score can jump straight past the threshold in one step
+  // (e.g. a precise hit takes 5 -> 3), so this must be a live comparison
+  // against the current value, never a one-off "did it just hit exactly 4"
+  // event check.
+  it('re-evaluates from the current score rather than watching for one exact value', () => {
+    expect(needsReview(3)).toBe(false) // 5 - 2 = 3, straight past 4
   })
 })
