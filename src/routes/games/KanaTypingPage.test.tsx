@@ -17,6 +17,23 @@ function renderReviewTyping() {
   )
 }
 
+function finishVisibleTypingSessionKeepingHouseWeak(container: HTMLElement) {
+  for (let round = 0; round < 6; round++) {
+    const meaning = container.querySelector('.text-lg.font-semibold')!.textContent!.trim()
+    const input = container.querySelector('input') as HTMLInputElement
+    act(() => {
+      fireEvent.change(input, { target: { value: meaning === 'love' ? 'ai' : 'wrong' } })
+      fireEvent.submit(container.querySelector('form')!)
+    })
+    if (meaning === 'love') {
+      act(() => vi.advanceTimersByTime(2000))
+    } else {
+      const next = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('Next'))!
+      act(() => fireEvent.click(next))
+    }
+  }
+}
+
 describe('KanaTypingPage Review session', () => {
   beforeEach(() => {
     useProgressStore.getState().resetProgress()
@@ -75,5 +92,19 @@ describe('KanaTypingPage Review session', () => {
     expect(container.querySelector('input')).not.toBeNull()
     const secondMeaning = meaningText()
     expect(secondMeaning).not.toBe('')
+  })
+
+  it('Play Again captures the Review pool that is current after the completed attempt', () => {
+    vi.useFakeTimers()
+    const { container, getByRole } = renderReviewTyping()
+
+    finishVisibleTypingSessionKeepingHouseWeak(container)
+    expect(getByRole('button', { name: /play again/i })).toBeInTheDocument()
+
+    act(() => {
+      fireEvent.click(getByRole('button', { name: /play again/i }))
+    })
+
+    expect(container.querySelector('p.text-sm')?.textContent).toMatch('Round 1 / 3')
   })
 })

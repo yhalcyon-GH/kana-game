@@ -17,6 +17,18 @@ function renderReviewListening() {
   )
 }
 
+function finishVisibleListeningSession(container: HTMLElement) {
+  for (let round = 0; round < 6; round++) {
+    const meaning = container.querySelector('span.text-sm.text-neutral-500')!.textContent!.trim()
+    const targetKana = MEANING_TO_KANA[meaning]
+    const choices = Array.from(container.querySelectorAll('button'))
+    const choice = choices.find((button) => button.querySelector('.font-kana')?.textContent === targetKana)!
+
+    act(() => fireEvent.click(choice))
+    act(() => vi.advanceTimersByTime(2000))
+  }
+}
+
 describe('ListeningPage Review session', () => {
   beforeEach(() => {
     useProgressStore.getState().resetProgress()
@@ -66,5 +78,23 @@ describe('ListeningPage Review session', () => {
     // Exactly one round advanced — not skipped an extra, unanswered round.
     expect(roundText()).toMatch('Round 2 / 6')
     expect(container.querySelector('.grid.grid-cols-2')).not.toBeNull()
+  })
+
+  it('Play Again captures the Review pool that is current after the completed attempt', () => {
+    vi.useFakeTimers()
+    const { container, getByRole } = renderReviewListening()
+
+    finishVisibleListeningSession(container)
+    // With one live Review word, Listening has no distractor button to
+    // answer it incorrectly. Establish the post-attempt weak-word state
+    // directly so this regression stays focused on the replay boundary.
+    useProgressStore.getState().adjustWordReviewScore('a-ie', 5)
+    expect(getByRole('button', { name: /play again/i })).toBeInTheDocument()
+
+    act(() => {
+      fireEvent.click(getByRole('button', { name: /play again/i }))
+    })
+
+    expect(container.querySelector('p.text-sm')?.textContent).toMatch('Round 1 / 3')
   })
 })

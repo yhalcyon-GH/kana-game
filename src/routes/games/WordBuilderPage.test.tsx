@@ -62,6 +62,29 @@ describe('WordBuilderPage per-character attribution', () => {
 
 const MEANING_TO_GLYPHS: Record<string, [string, string]> = { love: ['あ', 'い'], house: ['い', 'え'] }
 
+function finishVisibleWordBuilderSessionKeepingHouseWeak(container: HTMLElement) {
+  const trayButtons = () => Array.from(container.querySelectorAll('button.font-kana:not(.border-dashed)')) as HTMLButtonElement[]
+
+  for (let round = 0; round < 6; round++) {
+    const meaning = container.querySelector('.text-lg.font-semibold')!.textContent!.trim()
+    const [firstGlyph, secondGlyph] = MEANING_TO_GLYPHS[meaning]
+    const firstTile =
+      meaning === 'love'
+        ? trayButtons().find((button) => button.textContent === firstGlyph)!
+        : trayButtons().find((button) => button.textContent !== firstGlyph && button.textContent !== secondGlyph)!
+    const secondTile = trayButtons().find((button) => button.textContent === secondGlyph)!
+
+    act(() => fireEvent.click(firstTile))
+    act(() => fireEvent.click(secondTile))
+    if (meaning === 'love') {
+      act(() => vi.advanceTimersByTime(2000))
+    } else {
+      const next = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('Next'))!
+      act(() => fireEvent.click(next))
+    }
+  }
+}
+
 describe('WordBuilderPage Review session', () => {
   beforeEach(() => {
     useProgressStore.getState().resetProgress()
@@ -119,5 +142,31 @@ describe('WordBuilderPage Review session', () => {
     expect(roundText()).toMatch('Round 2 / 6')
     expect(meaningText()).not.toBe('')
     expect(trayButtons().length).toBeGreaterThan(0)
+  })
+
+  it('Play Again captures the Review pool that is current after the completed attempt', () => {
+    vi.useFakeTimers()
+    const { container, getByRole } = render(
+      <MemoryRouter initialEntries={['/practice/review/word-builder']}>
+        <Routes>
+          <Route path="/practice/review/word-builder" element={<WordBuilderPage rowIdOverride={REVIEW_SCOPE_ID} />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    finishVisibleWordBuilderSessionKeepingHouseWeak(container)
+    // Word Builder records precise character misses. Clear those scores so
+    // this test isolates the one weak house word that replay must capture.
+    for (const charId of ['a', 'i', 'e']) {
+      const score = useProgressStore.getState().characters[charId]?.reviewScore ?? 0
+      useProgressStore.getState().adjustCharacterReviewScore(charId, -score)
+    }
+    expect(getByRole('button', { name: /play again/i })).toBeInTheDocument()
+
+    act(() => {
+      fireEvent.click(getByRole('button', { name: /play again/i }))
+    })
+
+    expect(container.querySelector('p.text-sm')?.textContent).toMatch('Round 1 / 3')
   })
 })

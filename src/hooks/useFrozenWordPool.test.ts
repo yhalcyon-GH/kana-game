@@ -46,4 +46,19 @@ describe('useFrozenWordPool', () => {
     expect(result.current.wordIds).toEqual(['ka-aka'])
     expect(result.current.wordsById['a-ai']).toBeUndefined()
   })
+
+  it('captures the current live Review words when a new attempt starts for the same row', () => {
+    const { result, rerender } = renderHook(
+      ({ attempt, words }: { attempt: number; words: AnchorWord[] }) =>
+        useFrozenWordPool(`review:${attempt}`, words),
+      { initialProps: { attempt: 0, words: [word('a-ai'), word('a-ie')] } },
+    )
+
+    rerender({ attempt: 0, words: [word('a-ie')] })
+    expect(result.current.wordIds).toEqual(['a-ai', 'a-ie'])
+
+    rerender({ attempt: 1, words: [word('a-ie')] })
+    expect(result.current.wordIds).toEqual(['a-ie'])
+    expect(result.current.wordsById['a-ai']).toBeUndefined()
+  })
 })

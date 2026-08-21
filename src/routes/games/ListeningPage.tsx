@@ -58,7 +58,9 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
   }, [rowId, isReview, row, categoryId, isScopeReady, navigate])
 
   const scopeWords = useMemo(() => getScopeWords(rowId), [rowId, getScopeWords])
-  const { wordIds, wordsById } = useFrozenWordPool(rowId, scopeWords)
+  const [sessionAttempt, setSessionAttempt] = useState(0)
+  const sessionKey = `${rowId ?? ''}:${sessionAttempt}`
+  const { wordIds, wordsById } = useFrozenWordPool(sessionKey, scopeWords)
   const wordWeight = useCallback(
     (wordId: string) => {
       const word = wordsById[wordId]
@@ -68,8 +70,8 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
     [wordsById, characters],
   )
 
-  const { queue, roundIndex, correctCount, setCorrectCount, finished, startSession, startMistakeReview, advance } =
-    useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession, rounds, sessionKey: rowId })
+  const { queue, roundIndex, correctCount, setCorrectCount, finished, startMistakeReview, advance } =
+    useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession, rounds, sessionKey })
 
   const [choices, setChoices] = useState<AnchorWord[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -127,7 +129,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
         title="Listening complete!"
         stats={[{ label: 'Accuracy', value: `${Math.round((correctCount / queue.length) * 100)}%` }]}
         backHref={isReview ? '/practice/review' : `/practice/${categoryId}/${rowId}`}
-        onRetry={startSession}
+        onRetry={() => setSessionAttempt((attempt) => attempt + 1)}
         mistakes={mistakes}
         onReviewMistakes={() => startMistakeReview(mistakeIds)}
         mood={finishMood ?? undefined}
