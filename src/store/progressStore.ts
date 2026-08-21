@@ -267,22 +267,25 @@ export const useProgressStore = create<ProgressState>()(
       // every existing character with reviewScore 0 (dropping the now-
       // unused lastCorrect field) and add the new `words` map.
       migrate: (persistedState, version) => {
-        const state = persistedState as ProgressState
+        const state = (isRecord(persistedState) ? persistedState : {}) as Partial<ProgressState>
         if (version < 2) {
           state.audioSpeed = 0.5
         }
         if (version < 3) {
-          state.audioSpeed = Math.min(1.5, Math.max(0.75, state.audioSpeed))
+          state.audioSpeed = Math.min(1.5, Math.max(0.75, finiteOr(state.audioSpeed, 1)))
         }
         if (version < 4) {
           state.audioSpeed = 1
         }
         if (version < 5) {
-          for (const id of Object.keys(state.characters ?? {})) {
-            const c = state.characters[id] as CharacterProgress & { lastCorrect?: boolean }
-            c.reviewScore = 0
-            delete c.lastCorrect
+          const characters = isRecord(state.characters) ? state.characters : {}
+          for (const id of Object.keys(characters)) {
+            const candidate: unknown = characters[id]
+            if (!isRecord(candidate)) continue
+            candidate.reviewScore = 0
+            delete candidate.lastCorrect
           }
+          state.characters = characters as Record<string, CharacterProgress>
           state.words = {}
         }
         return state

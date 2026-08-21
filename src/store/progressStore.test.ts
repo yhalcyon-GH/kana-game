@@ -111,6 +111,18 @@ describe('progressStore', () => {
     expect(typeof state.recordResult).toBe('function')
   })
 
+  it('finishes hydration with defaults when a legacy storage envelope has null state', async () => {
+    localStorage.setItem('kana-game-progress', JSON.stringify({ version: 0, state: null }))
+
+    await useProgressStore.persist.rehydrate()
+
+    const state = useProgressStore.getState()
+    expect(state.characters).toEqual({})
+    expect(state.unlockedRowIds).toEqual(['a-row'])
+    expect(typeof state.recordResult).toBe('function')
+    expect(useProgressStore.persist.hasHydrated()).toBe(true)
+  })
+
   it('starts with only a-row unlocked and no rows taught', () => {
     const state = useProgressStore.getState()
     expect(state.unlockedRowIds).toEqual(['a-row'])
