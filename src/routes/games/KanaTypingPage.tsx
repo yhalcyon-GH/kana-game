@@ -9,6 +9,7 @@ import { ROWS_BY_ID } from '../../data/curriculum'
 import type { QuestionMode } from '../../data/feedback'
 import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
+import { useDelayedAction } from '../../hooks/useDelayedAction'
 import { useEnterAdvance } from '../../hooks/useEnterAdvance'
 import { useFrozenWordPool } from '../../hooks/useFrozenWordPool'
 import { useGameSession } from '../../hooks/useGameSession'
@@ -78,6 +79,7 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
 
   const { queue, roundIndex, correctCount, setCorrectCount, finished, startMistakeReview, advance } =
     useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession, rounds, sessionKey })
+  const { schedule: scheduleAdvance } = useDelayedAction()
 
   const [input, setInput] = useState('')
   const [answered, setAnswered] = useState(false)
@@ -119,7 +121,7 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
     if (isCorrect) {
       setCorrectCount((c) => c + 1)
       onCorrect()
-      setTimeout(advance, 2000)
+      scheduleAdvance(advance, 2000)
     } else {
       onWrong({ id: currentWord.id, kana: currentWord.kana, romaji: currentWord.romaji })
     }

@@ -8,6 +8,7 @@ import { CATEGORIES_BY_ID, ROWS_BY_ID } from '../../data/curriculum'
 import type { QuestionMode } from '../../data/feedback'
 import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
+import { useDelayedAction } from '../../hooks/useDelayedAction'
 import { useEnterAdvance } from '../../hooks/useEnterAdvance'
 import { useGameSession } from '../../hooks/useGameSession'
 import { useTTS } from '../../hooks/useTTS'
@@ -74,6 +75,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
 
   const { queue, roundIndex, correctCount, setCorrectCount, finished, startSession, startMistakeReview, advance } =
     useGameSession({ ids: quizCharacterIds, weight: getBox, onFinish, resetSession, rounds, sessionKey: rowId })
+  const { schedule: scheduleAdvance } = useDelayedAction()
 
   const [choices, setChoices] = useState<string[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -109,7 +111,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
     if (isCorrect) {
       setCorrectCount((c) => c + 1)
       onCorrect()
-      setTimeout(advance, 2000)
+      scheduleAdvance(advance, 2000)
     } else {
       onWrong({
         id: currentCharId,

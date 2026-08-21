@@ -9,6 +9,7 @@ import type { QuestionMode } from '../../data/feedback'
 import type { AnchorWord } from '../../data/types'
 import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
+import { useDelayedAction } from '../../hooks/useDelayedAction'
 import { useEnterAdvance } from '../../hooks/useEnterAdvance'
 import { useFrozenWordPool } from '../../hooks/useFrozenWordPool'
 import { useGameSession } from '../../hooks/useGameSession'
@@ -72,6 +73,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
 
   const { queue, roundIndex, correctCount, setCorrectCount, finished, startMistakeReview, advance } =
     useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession, rounds, sessionKey })
+  const { schedule: scheduleAdvance } = useDelayedAction()
 
   const [choices, setChoices] = useState<AnchorWord[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -114,7 +116,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
     if (isCorrect) {
       setCorrectCount((c) => c + 1)
       onCorrect()
-      setTimeout(advance, 2000)
+      scheduleAdvance(advance, 2000)
     } else {
       onWrong({ id: currentWord.id, kana: currentWord.kana, romaji: currentWord.romaji })
     }

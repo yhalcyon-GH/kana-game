@@ -45,6 +45,7 @@ export function TracingPage() {
   // AFTER a newer round has already started (see drawGuide's comment) —
   // only the call that's still current when its promise settles may paint.
   const drawTokenRef = useRef(0)
+  const advanceLockedRef = useRef(false)
 
   useEffect(() => {
     if (!rowId || !isScopeReady(rowId) || ROWS_BY_ID[rowId]?.categoryId !== categoryId || isSummary) {
@@ -69,6 +70,7 @@ export function TracingPage() {
   // categories start directly in the 'words' phase (see file header) and
   // never populate a 'chars' queue at all.
   const startSession = useCallback(() => {
+    advanceLockedRef.current = false
     if (isContrastPairs) {
       setPhase('words')
       setQueue(wordIds)
@@ -85,6 +87,10 @@ export function TracingPage() {
     if (isContrastPairs ? wordIds.length > 0 : charPool.length > 0) startSession()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [charPool.length, wordIds.length, isContrastPairs])
+
+  useEffect(() => {
+    advanceLockedRef.current = false
+  }, [phase, roundIndex])
 
   const currentCharId = phase === 'chars' && queue.length > 0 ? queue[roundIndex] : undefined
   const currentWord = phase === 'words' && queue.length > 0 ? wordsById[queue[roundIndex]] : undefined
@@ -203,6 +209,8 @@ export function TracingPage() {
   }
 
   const advance = useCallback(() => {
+    if (advanceLockedRef.current) return
+    advanceLockedRef.current = true
     if (roundIndex + 1 < queue.length) {
       setRoundIndex((i) => i + 1)
       return
