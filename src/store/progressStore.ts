@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { getNextRowId, ROWS, ROWS_BY_ID } from '../data/curriculum'
-import { clampReviewScore, meetsAdvanceThreshold, nextBox } from '../lib/srs'
+import { clampReviewScore, MAX_BOX, meetsAdvanceThreshold, MIN_BOX, nextBox } from '../lib/srs'
 
 export type CharacterProgress = {
   box: number
@@ -23,6 +23,10 @@ export type WordProgress = {
 }
 
 const FIRST_ROW_ID = 'a-row'
+const MIN_AUDIO_SPEED = 0.75
+const MAX_AUDIO_SPEED = 1.5
+const MIN_VOLUME = 0
+const MAX_VOLUME = 2
 
 type ProgressState = {
   characters: Record<string, CharacterProgress>
@@ -70,6 +74,18 @@ function finiteOr(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback
 }
 
+function clampFiniteOr(value: unknown, minimum: number, maximum: number, fallback: number): number {
+  return Math.min(maximum, Math.max(minimum, finiteOr(value, fallback)))
+}
+
+function nonNegativeIntegerOr(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : fallback
+}
+
+function srsBoxOr(value: unknown): number {
+  return typeof value === 'number' && Number.isInteger(value) ? Math.min(MAX_BOX, Math.max(MIN_BOX, value)) : MIN_BOX
+}
+
 function stringArrayOr(value: unknown, fallback: string[]): string[] {
   return Array.isArray(value) && value.every((item) => typeof item === 'string') ? value : fallback
 }
@@ -86,13 +102,14 @@ export function mergePersistedProgress(persistedState: unknown, currentState: Pr
   const characters = Object.fromEntries(
     Object.entries(rawCharacters).map(([id, value]) => {
       const candidate = isRecord(value) ? value : {}
+      const totalSeen = nonNegativeIntegerOr(candidate.totalSeen, 0)
       return [
         id,
         {
-          box: finiteOr(candidate.box, 0),
-          totalSeen: finiteOr(candidate.totalSeen, 0),
-          totalCorrect: finiteOr(candidate.totalCorrect, 0),
-          lastSeen: finiteOr(candidate.lastSeen, 0),
+          box: srsBoxOr(candidate.box),
+          totalSeen,
+          totalCorrect: Math.min(nonNegativeIntegerOr(candidate.totalCorrect, 0), totalSeen),
+          lastSeen: nonNegativeIntegerOr(candidate.lastSeen, 0),
           reviewScore: clampReviewScore(finiteOr(candidate.reviewScore, 0)),
         },
       ]
@@ -112,11 +129,11 @@ export function mergePersistedProgress(persistedState: unknown, currentState: Pr
     unlockedRowIds: stringArrayOr(persisted.unlockedRowIds, currentState.unlockedRowIds),
     taughtRowIds: stringArrayOr(persisted.taughtRowIds, currentState.taughtRowIds),
     audioEnabled: booleanOr(persisted.audioEnabled, currentState.audioEnabled),
-    audioVolume: finiteOr(persisted.audioVolume, currentState.audioVolume),
-    audioSpeed: finiteOr(persisted.audioSpeed, currentState.audioSpeed),
+    audioVolume: clampFiniteOr(persisted.audioVolume, MIN_VOLUME, MAX_VOLUME, currentState.audioVolume),
+    audioSpeed: clampFiniteOr(persisted.audioSpeed, MIN_AUDIO_SPEED, MAX_AUDIO_SPEED, currentState.audioSpeed),
     showRomaji: booleanOr(persisted.showRomaji, currentState.showRomaji),
     mascotVoiceEnabled: booleanOr(persisted.mascotVoiceEnabled, currentState.mascotVoiceEnabled),
-    mascotVoiceVolume: finiteOr(persisted.mascotVoiceVolume, currentState.mascotVoiceVolume),
+    mascotVoiceVolume: clampFiniteOr(persisted.mascotVoiceVolume, MIN_VOLUME, MAX_VOLUME, currentState.mascotVoiceVolume),
   }
 }
 

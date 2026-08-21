@@ -34,6 +34,69 @@ describe('progressStore', () => {
     expect(merged.characters.a.reviewScore).toBe(0)
   })
 
+  it('clamps finite persisted audio settings to their supported UI ranges', () => {
+    const current = useProgressStore.getState()
+    const merged = mergePersistedProgress(
+      { audioVolume: 3, audioSpeed: -1, mascotVoiceVolume: -0.5 },
+      current,
+    )
+
+    expect(merged.audioVolume).toBe(2)
+    expect(merged.audioSpeed).toBe(0.75)
+    expect(merged.mascotVoiceVolume).toBe(0)
+  })
+
+  it('normalizes finite character progress to valid SRS values', () => {
+    const current = useProgressStore.getState()
+    const merged = mergePersistedProgress(
+      {
+        characters: {
+          a: { box: -1, totalSeen: -2, totalCorrect: -3, lastSeen: -1, reviewScore: 20 },
+          i: { box: 1.5, totalSeen: 2.5, totalCorrect: 3, lastSeen: 1.5, reviewScore: -1 },
+          u: { box: 2, totalSeen: 2, totalCorrect: 3, lastSeen: 123, reviewScore: 1 },
+        },
+      },
+      current,
+    )
+
+    expect(merged.characters.a).toEqual({ box: 0, totalSeen: 0, totalCorrect: 0, lastSeen: 0, reviewScore: 10 })
+    expect(merged.characters.i).toEqual({ box: 0, totalSeen: 0, totalCorrect: 0, lastSeen: 0, reviewScore: 0 })
+    expect(merged.characters.u).toEqual({ box: 2, totalSeen: 2, totalCorrect: 2, lastSeen: 123, reviewScore: 1 })
+  })
+
+  it('falls back to defaults for malformed maps and row arrays', () => {
+    const current = useProgressStore.getState()
+    const merged = mergePersistedProgress(
+      { characters: null, words: null, unlockedRowIds: ['a-row', 1], taughtRowIds: 'a-row' },
+      current,
+    )
+
+    expect(merged.characters).toEqual({})
+    expect(merged.words).toEqual({})
+    expect(merged.unlockedRowIds).toEqual(['a-row'])
+    expect(merged.taughtRowIds).toEqual([])
+  })
+
+  it('retains valid persisted progress and settings values', () => {
+    const current = useProgressStore.getState()
+    const merged = mergePersistedProgress(
+      {
+        characters: {
+          a: { box: 3, totalSeen: 5, totalCorrect: 4, lastSeen: 123, reviewScore: 6 },
+        },
+        audioVolume: 1.5,
+        audioSpeed: 1.25,
+        mascotVoiceVolume: 0.5,
+      },
+      current,
+    )
+
+    expect(merged.characters.a).toEqual({ box: 3, totalSeen: 5, totalCorrect: 4, lastSeen: 123, reviewScore: 6 })
+    expect(merged.audioVolume).toBe(1.5)
+    expect(merged.audioSpeed).toBe(1.25)
+    expect(merged.mascotVoiceVolume).toBe(0.5)
+  })
+
   it('hydrates a current-version partial storage envelope with default maps and actions intact', async () => {
     localStorage.setItem(
       'kana-game-progress',
