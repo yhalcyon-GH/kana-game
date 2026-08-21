@@ -8,6 +8,16 @@ import { StaticFileProvider } from './staticFileProvider'
 describe('StaticFileProvider', () => {
   let playSpy: ReturnType<typeof vi.spyOn>
 
+  function deferred<T>() {
+    let resolve!: (value: T | PromiseLike<T>) => void
+    let reject!: (reason?: unknown) => void
+    const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+      resolve = resolvePromise
+      reject = rejectPromise
+    })
+    return { promise, resolve, reject }
+  }
+
   beforeEach(() => {
     playSpy = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined)
   })
@@ -42,5 +52,26 @@ describe('StaticFileProvider', () => {
     playSpy.mockRejectedValue(new Error('NotAllowedError'))
     const provider = new StaticFileProvider()
     await expect(provider.speak({ key: 'characters/ka', text: 'か' }, { volume: 1, rate: 1 })).rejects.toBeTruthy()
+  })
+
+  it('quietly resolves an old play rejection after a newer request supersedes it', async () => {
+    const first = deferred<void>()
+    const second = deferred<void>()
+    playSpy.mockImplementationOnce(() => first.promise).mockImplementationOnce(() => second.promise)
+    const provider = new StaticFileProvider()
+
+    const oldRequest = provider.speak({ key: 'characters/a', text: 'あ' }, { volume: 1, rate: 1 })
+    const currentRequest = provider.speak({ key: 'characters/i', text: 'い' }, { volume: 1, rate: 1 })
+    first.reject(new DOMException('superseded', 'AbortError'))
+
+    await expect(oldRequest).resolves.toBeUndefined()
+    second.resolve()
+    await expect(currentRequest).resolves.toBeUndefined()
+  })
+
+  it('still rejects when the current request fails', async () => {
+    playSpy.mockRejectedValueOnce(new Error('decode failed'))
+    const provider = new StaticFileProvider()
+    await expect(provider.speak({ key: 'characters/a', text: 'あ' }, { volume: 1, rate: 1 })).rejects.toThrow('decode failed')
   })
 })
