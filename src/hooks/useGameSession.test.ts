@@ -70,4 +70,27 @@ describe('useGameSession', () => {
     act(() => result.current.startSession())
     expect(result.current.queue).toEqual(['u', 'u'])
   })
+
+  it('uses current SRS weights when replaying stable ids', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.75)
+    const ids = ['a', 'i']
+    const callbacks = { onFinish: vi.fn(), resetSession: vi.fn() }
+    const { result, rerender } = renderHook(
+      ({ boxes }: { boxes: Record<string, number> }) =>
+        useGameSession({
+          ids,
+          weight: (id) => boxes[id],
+          ...callbacks,
+          rounds: 3,
+          sessionKey: 'a-row',
+        }),
+      { initialProps: { boxes: { a: 0, i: 4 } } },
+    )
+    expect(result.current.queue.filter((id) => id === 'a')).toHaveLength(2)
+
+    rerender({ boxes: { a: 4, i: 0 } })
+    act(() => result.current.startSession())
+
+    expect(result.current.queue.filter((id) => id === 'i')).toHaveLength(2)
+  })
 })

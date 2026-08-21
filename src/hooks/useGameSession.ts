@@ -47,8 +47,7 @@ export function useGameSession({ ids, weight, onFinish, resetSession, rounds = G
     setCorrectCount(0)
     setFinished(false)
     resetSession()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ids])
+  }, [ids, weight, rounds, resetSession])
 
   useEffect(() => {
     if (ids.length > 0) startSession()
