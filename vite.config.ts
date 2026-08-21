@@ -85,6 +85,6 @@ export default defineConfig({
     // (see docs/2026-08-14-review-session.md) gets its own checked-out copy
     // of every *.test.ts file picked up and run a second time, silently
     // inflating the reported pass count with duplicates of old test code.
-    exclude: ['**/node_modules/**', '**/dist/**', '.claude/**'],
+    exclude: ['**/node_modules/**', '**/dist/**', '.claude/**', '.worktrees/**'],
   },
 })
