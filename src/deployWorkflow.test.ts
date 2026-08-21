@@ -3,16 +3,51 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
+const REQUIRED_BUILD_TAIL = [
+  'run: npm ci',
+  'run: npm run lint',
+  'run: npm test',
+  'run: npm run build',
+  'uses: actions/upload-pages-artifact@v3',
+]
+
+function buildStepEntries(workflow: string): string[] {
+  workflow = workflow.replace(/\r\n/g, '\n')
+  const buildStart = workflow.indexOf('\n  build:\n')
+  const deployStart = workflow.indexOf('\n  deploy:', buildStart)
+  if (buildStart < 0 || deployStart < 0) return []
+
+  const buildJob = workflow.slice(buildStart, deployStart)
+  return [...buildJob.matchAll(/^\s+- (run: .+|uses: .+)$/gm)].map((match) => match[1].trim())
+}
+
+function hasRequiredBuildGateTail(workflow: string): boolean {
+  const steps = buildStepEntries(workflow)
+  return steps.slice(-REQUIRED_BUILD_TAIL.length).join('\n') === REQUIRED_BUILD_TAIL.join('\n')
+}
+
 describe('GitHub Pages deployment workflow', () => {
-  it('runs lint, tests, and the TypeScript production build before upload', () => {
+  it('runs the exact quality-gate tail in the build job before upload', () => {
     const workflow = readFileSync(join(process.cwd(), '.github/workflows/deploy.yml'), 'utf8')
-    const lint = workflow.indexOf('- run: npm run lint')
-    const test = workflow.indexOf('- run: npm test')
-    const build = workflow.indexOf('- run: npm run build')
-    const upload = workflow.indexOf('actions/upload-pages-artifact@')
-    expect(lint).toBeGreaterThan(-1)
-    expect(test).toBeGreaterThan(lint)
-    expect(build).toBeGreaterThan(test)
-    expect(upload).toBeGreaterThan(build)
+
+    expect(hasRequiredBuildGateTail(workflow)).toBe(true)
+  })
+
+  it('rejects gates that appear only in comments or another job', () => {
+    const misleadingWorkflow = `
+jobs:
+  build:
+    steps:
+      - run: npm ci
+      # - run: npm run lint
+      - run: npm run build
+      - uses: actions/upload-pages-artifact@v3
+  deploy:
+    steps:
+      - run: npm run lint
+      - run: npm test
+`
+
+    expect(hasRequiredBuildGateTail(misleadingWorkflow)).toBe(false)
   })
 })
