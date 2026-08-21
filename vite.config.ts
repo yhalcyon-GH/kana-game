@@ -34,22 +34,30 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,woff2,svg}'],
         runtimeCaching: [
           {
-            // Audio gets its OWN cache, separate from word-icons/mascot/icons
-            // below — audio content gets re-recorded/replaced under the SAME
-            // filenames from time to time (unlike the image assets), and
-            // CacheFirst has no way to notice a same-URL file changed. A
-            // dedicated cache name means bumping it (kana-game-audio-v2 ->
-            // v3, ...) makes every learner fetch the new clips immediately
-            // on next play, instead of some fraction of them keeping the old
-            // recording for up to maxAgeSeconds. The old cache's entries
-            // simply stop being referenced once this route ships (nothing
-            // routes audio requests to it anymore) and age out on their own
-            // via its own expiration policy — no explicit cache deletion
-            // needed, and the image cache below is untouched either way.
+            // Audio uses NetworkFirst, not CacheFirst — clips get
+            // re-recorded/replaced under the SAME filenames from time to
+            // time (unlike the image assets below), and CacheFirst has no
+            // way to notice a same-URL file's content changed. NetworkFirst
+            // always tries the network first (so a learner who's online
+            // gets the newest recording on next play, no cache-name
+            // versioning needed) and only falls back to whatever's already
+            // cached when the network fails — which is also exactly what
+            // makes upgrading safe: this targets the SAME 'kana-game-media'
+            // cache name the image rule below uses (and that audio itself
+            // used before it was briefly split into its own cache), so a
+            // learner who already has clips cached there from an earlier
+            // visit can still play them offline immediately after this
+            // update, instead of hitting an empty new cache. See
+            // workbox-expiration's CacheTimestampsModel: expiration
+            // bookkeeping is keyed purely by cacheName, so sharing it here
+            // with the image rule's identical maxEntries/maxAgeSeconds is
+            // safe — it just means the entry budget below is shared across
+            // audio+images, same as before audio ever had its own cache.
             urlPattern: ({ url }) => /\/audio\//.test(url.pathname),
-            handler: 'CacheFirst',
+            handler: 'NetworkFirst',
             options: {
-              cacheName: 'kana-game-audio-v2',
+              cacheName: 'kana-game-media',
+              networkTimeoutSeconds: 4,
               expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 * 180 },
               cacheableResponse: { statuses: [0, 200] },
             },
