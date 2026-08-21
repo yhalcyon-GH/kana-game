@@ -63,7 +63,7 @@ function App() {
                 // may not read any kana yet, let alone kanji, see
                 // ScriptCategory.displayLabel's comment.
                 title={CATEGORIES_BY_ID[YOUON_CATEGORY_ID].displayLabel!}
-                description="Contracted sounds like きゃ/kya (Yōon) — one row per consonant group, hiragana then katakana."
+                description="Contracted sounds like きゃ/kya — one row per consonant group, hiragana then katakana."
                 categoryIds={[YOUON_CATEGORY_ID]}
               />
             }
@@ -73,7 +73,7 @@ function App() {
             element={
               <CategoryRowsPage
                 title="っ＆ー"
-                description="Other sounds beyond the basic hiragana/katakana rows."
+                description="Two special marks: っ/ッ (a short pause) and ー (a long vowel)."
                 categoryIds={OTHER_CATEGORY_IDS}
               />
             }

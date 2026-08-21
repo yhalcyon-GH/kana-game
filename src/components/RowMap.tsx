@@ -19,7 +19,7 @@ export function RowMap({ rows, isUnlocked, isTaught, isMastered }: Props) {
         return (
           <div
             key={row.id}
-            className={`flex flex-col items-center gap-2 rounded-xl border p-4 text-center ${
+            className={`flex flex-col items-center gap-2 rounded-xl p-4 text-center ${row.isSummary ? 'border-2' : 'border'} ${
               unlocked
                 ? 'border-neutral-300 bg-white dark:border-neutral-600 dark:bg-neutral-800'
                 : 'border-neutral-200 bg-neutral-50 opacity-50 dark:border-neutral-800 dark:bg-neutral-900'
@@ -30,14 +30,16 @@ export function RowMap({ rows, isUnlocked, isTaught, isMastered }: Props) {
               {row.label}
             </span>
             <span className="text-xs text-neutral-500 dark:text-neutral-400">
-              {row.isSummary ? '⭐ summary' : !unlocked ? '🔒 locked' : mastered ? '🌟 mastered' : taught ? '📗 taught' : '📘 new'}
+              {row.isSummary ? 'summary' : !unlocked ? '🔒 locked' : mastered ? '🌟 mastered' : taught ? '📗 learned' : '📘 new'}
             </span>
             {/* Learn and both mini-games all live together on the row's hub
                 page — taught status is informational only, not a gate. */}
             {unlocked && (
               <Link
                 to={`/practice/${row.categoryId}/${row.id}`}
-                className="rounded-full bg-blue-600 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-700"
+                className={`rounded-full px-3 py-1 text-xs font-semibold text-white ${
+                  row.isSummary ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'
+                }`}
               >
                 Open
               </Link>

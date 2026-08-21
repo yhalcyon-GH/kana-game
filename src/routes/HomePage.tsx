@@ -13,7 +13,7 @@ export function HomePage() {
     <div className="flex flex-col items-center gap-6">
       <h1 className="text-3xl font-bold">Kana Game</h1>
       <p className="max-w-md text-center text-neutral-500 dark:text-neutral-400">
-        Learn hiragana and katakana one row at a time, paired with real everyday words.
+        Learn one row at a time, paired with real everyday words.
       </p>
       <div className="grid w-full max-w-2xl grid-cols-2 gap-4 sm:grid-cols-4">
         {SCRIPT_ENTRY_POINTS.map((card) => (

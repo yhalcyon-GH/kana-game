@@ -10,7 +10,7 @@ import { REVIEW_SCOPE_ID, useCurriculum } from '../hooks/useCurriculum'
 // mastery check like the games are, so it belongs to the "learning" step of
 // the flow, positioned right after Learn.
 const PRACTICE_GAMES = [
-  { path: 'listening', label: 'Listening', emoji: '🎧', description: 'Pick the kana you hear' },
+  { path: 'listening', label: 'Listening', emoji: '🎧', description: 'Pick the word you hear' },
   { path: 'word-builder', label: 'Word Builder', emoji: '🧩', description: 'Spell the word from tiles' },
   { path: 'kana-quiz', label: 'Kana Quiz', emoji: '❓', description: 'Read a kana, pick its sound' },
   { path: 'kana-typing', label: 'Kana Typing', emoji: '⌨️', description: 'Type the word — kana or romaji' },
