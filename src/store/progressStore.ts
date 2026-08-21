@@ -62,6 +62,64 @@ function blankCharacterProgress(): CharacterProgress {
   return { box: 0, totalSeen: 0, totalCorrect: 0, lastSeen: 0, reviewScore: 0 }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function finiteOr(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function stringArrayOr(value: unknown, fallback: string[]): string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string') ? value : fallback
+}
+
+function booleanOr(value: unknown, fallback: boolean): boolean {
+  return typeof value === 'boolean' ? value : fallback
+}
+
+export function mergePersistedProgress(persistedState: unknown, currentState: ProgressState): ProgressState {
+  const persisted = isRecord(persistedState) ? persistedState : {}
+  const rawCharacters = isRecord(persisted.characters) ? persisted.characters : {}
+  const rawWords = isRecord(persisted.words) ? persisted.words : {}
+
+  const characters = Object.fromEntries(
+    Object.entries(rawCharacters).map(([id, value]) => {
+      const candidate = isRecord(value) ? value : {}
+      return [
+        id,
+        {
+          box: finiteOr(candidate.box, 0),
+          totalSeen: finiteOr(candidate.totalSeen, 0),
+          totalCorrect: finiteOr(candidate.totalCorrect, 0),
+          lastSeen: finiteOr(candidate.lastSeen, 0),
+          reviewScore: clampReviewScore(finiteOr(candidate.reviewScore, 0)),
+        },
+      ]
+    }),
+  )
+  const words = Object.fromEntries(
+    Object.entries(rawWords).map(([id, value]) => [
+      id,
+      { reviewScore: clampReviewScore(finiteOr(isRecord(value) ? value.reviewScore : 0, 0)) },
+    ]),
+  )
+
+  return {
+    ...currentState,
+    characters,
+    words,
+    unlockedRowIds: stringArrayOr(persisted.unlockedRowIds, currentState.unlockedRowIds),
+    taughtRowIds: stringArrayOr(persisted.taughtRowIds, currentState.taughtRowIds),
+    audioEnabled: booleanOr(persisted.audioEnabled, currentState.audioEnabled),
+    audioVolume: finiteOr(persisted.audioVolume, currentState.audioVolume),
+    audioSpeed: finiteOr(persisted.audioSpeed, currentState.audioSpeed),
+    showRomaji: booleanOr(persisted.showRomaji, currentState.showRomaji),
+    mascotVoiceEnabled: booleanOr(persisted.mascotVoiceEnabled, currentState.mascotVoiceEnabled),
+    mascotVoiceVolume: finiteOr(persisted.mascotVoiceVolume, currentState.mascotVoiceVolume),
+  }
+}
+
 export const useProgressStore = create<ProgressState>()(
   persist(
     (set, get) => ({
@@ -212,6 +270,7 @@ export const useProgressStore = create<ProgressState>()(
         }
         return state
       },
+      merge: mergePersistedProgress,
     },
   ),
 )

@@ -1,11 +1,53 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { useProgressStore } from './progressStore'
+import { mergePersistedProgress, useProgressStore } from './progressStore'
 
 beforeEach(() => {
   useProgressStore.getState().resetProgress()
 })
 
 describe('progressStore', () => {
+  it('backfills missing v5 maps and reviewScore values during hydration', () => {
+    const current = useProgressStore.getState()
+    const merged = mergePersistedProgress(
+      {
+        characters: {
+          a: { box: 1, totalSeen: 2, totalCorrect: 1, lastSeen: 123 },
+        },
+        taughtRowIds: ['a-row'],
+      },
+      current,
+    )
+
+    expect(merged.characters.a.reviewScore).toBe(0)
+    expect(merged.words).toEqual({})
+    expect(merged.unlockedRowIds).toEqual(['a-row'])
+    expect(typeof merged.recordResult).toBe('function')
+  })
+
+  it('normalizes invalid review scores before future arithmetic', () => {
+    const current = useProgressStore.getState()
+    const merged = mergePersistedProgress(
+      { characters: { a: { box: 0, totalSeen: 0, totalCorrect: 0, lastSeen: 0, reviewScore: Number.NaN } } },
+      current,
+    )
+
+    expect(merged.characters.a.reviewScore).toBe(0)
+  })
+
+  it('hydrates a current-version partial storage envelope with default maps and actions intact', async () => {
+    localStorage.setItem(
+      'kana-game-progress',
+      JSON.stringify({ version: 5, state: { characters: {}, taughtRowIds: ['a-row'] } }),
+    )
+
+    await useProgressStore.persist.rehydrate()
+
+    const state = useProgressStore.getState()
+    expect(state.words).toEqual({})
+    expect(state.taughtRowIds).toEqual(['a-row'])
+    expect(typeof state.recordResult).toBe('function')
+  })
+
   it('starts with only a-row unlocked and no rows taught', () => {
     const state = useProgressStore.getState()
     expect(state.unlockedRowIds).toEqual(['a-row'])
