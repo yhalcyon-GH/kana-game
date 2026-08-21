@@ -94,6 +94,32 @@ describe('isAnswerCorrect', () => {
     expect(isAnswerCorrect('tsuki', tsuki)).toBe(true)
     expect(isAnswerCorrect('tuki', tsuki)).toBe(false)
   })
+
+  it('does not accept placeholder or deleted gemination for sokuon words', () => {
+    const otto = { kana: 'おっと', romaji: 'otto', characterIds: ['o', 'sokuon', 'to'] }
+    expect(isAnswerCorrect('otto', otto)).toBe(true)
+    expect(isAnswerCorrect('o-to', otto)).toBe(false)
+    expect(isAnswerCorrect('oto', otto)).toBe(false)
+
+    const macchi = {
+      kana: 'マッチ',
+      romaji: 'macchi',
+      characterIds: ['katakana-ma', 'katakana-sokuon', 'katakana-chi'],
+    }
+    expect(isAnswerCorrect('matti', macchi)).toBe(true)
+    expect(isAnswerCorrect('mati', macchi)).toBe(false)
+  })
+
+  it('does not accept placeholder or deleted vowel length for chōon words', () => {
+    const keeki = {
+      kana: 'ケーキ',
+      romaji: 'keeki',
+      characterIds: ['katakana-ke', 'katakana-chouon', 'katakana-ki'],
+    }
+    expect(isAnswerCorrect('keeki', keeki)).toBe(true)
+    expect(isAnswerCorrect('ke-ki', keeki)).toBe(false)
+    expect(isAnswerCorrect('keki', keeki)).toBe(false)
+  })
 })
 
 describe('normalizeRomaji', () => {

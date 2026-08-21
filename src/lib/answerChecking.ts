@@ -41,29 +41,101 @@ function shiftKanaScript(text: string, from: [number, number], offset: number): 
 const toKatakana = (text: string) => shiftKanaScript(text, [0x3041, 0x3096], 0x60)
 export const toHiragana = (text: string) => shiftKanaScript(text, [0x30a1, 0x30f6], -0x60)
 
-// Alternate acceptable spellings of word.romaji, built by walking
-// characterIds in step with word.romaji's space-separated tokens (a word can
-// romanize as multiple space-separated tokens, e.g. a particle phrase) and
-// substituting each character's Kunrei-shiki/other alternate spelling (see
-// ROMAJI_ALTERNATES) in place of its Hepburn-based canonical one. Only
-// characters that actually have an alternate branch, so most words produce
-// just their single canonical spelling back.
+type RomajiSegment = {
+  canonical: string
+  id: string
+  placeholder: boolean
+}
+
+// Align every character ID to the exact substring it contributes to the
+// canonical word spelling. Context-dependent っ/ッ/ー IDs use '-' only as a
+// catalog placeholder, so they must consume a real, non-empty substring here.
+// Searching the small input exhaustively also lets us reject an ambiguous
+// alignment rather than manufacturing alternate answers from a guess.
+function alignCanonicalRomaji(tokens: string[], characterIds: string[]): RomajiSegment[][] | null {
+  const matches: RomajiSegment[][][] = []
+  const segments = tokens.map(() => [] as RomajiSegment[])
+
+  function search(tokenIndex: number, consumedLength: number, characterIndex: number): void {
+    if (matches.length > 1) return
+    if (tokenIndex === tokens.length) {
+      if (characterIndex === characterIds.length) matches.push(segments.map((tokenSegments) => [...tokenSegments]))
+      return
+    }
+
+    const token = tokens[tokenIndex]
+    if (consumedLength === token.length) {
+      search(tokenIndex + 1, 0, characterIndex)
+      return
+    }
+    if (characterIndex === characterIds.length) return
+
+    const id = characterIds[characterIndex]
+    const base = CHARACTERS_BY_ID[id]?.romaji
+    if (!base) return
+
+    if (base === '-') {
+      for (let boundary = consumedLength + 1; boundary <= token.length; boundary++) {
+        segments[tokenIndex].push({
+          canonical: token.slice(consumedLength, boundary),
+          id,
+          placeholder: true,
+        })
+        search(tokenIndex, boundary, characterIndex + 1)
+        segments[tokenIndex].pop()
+      }
+      return
+    }
+
+    if (!token.startsWith(base, consumedLength)) return
+    segments[tokenIndex].push({ canonical: base, id, placeholder: false })
+    search(tokenIndex, consumedLength + base.length, characterIndex + 1)
+    segments[tokenIndex].pop()
+  }
+
+  search(0, 0, 0)
+  return matches.length === 1 ? matches[0] : null
+}
+
+function expandTokenVariants(segments: RomajiSegment[]): string[] {
+  const choices = segments.map((segment) =>
+    segment.placeholder ? [segment.canonical] : [segment.canonical, ...(ROMAJI_ALTERNATES[segment.id] ?? [])],
+  )
+
+  const selectedVariants = choices.reduce<string[][]>(
+    (combinations, options) => combinations.flatMap((combination) => options.map((option) => [...combination, option])),
+    [[]],
+  )
+
+  return selectedVariants.map((selected) =>
+    segments
+      .map((segment, index) => {
+        if (!segment.placeholder) return selected[index]
+
+        const nextSegment = segments[index + 1]
+        const nextVariant = selected[index + 1]
+        const doublesNextCanonical =
+          segment.canonical.length === 1 &&
+          nextSegment !== undefined &&
+          !nextSegment.placeholder &&
+          segment.canonical === nextSegment.canonical[0]
+        return doublesNextCanonical ? nextVariant[0] : segment.canonical
+      })
+      .join(''),
+  )
+}
+
+// Alternate acceptable spellings of word.romaji, built by aligning
+// characterIds with word.romaji's space-separated tokens (a word can romanize
+// as multiple tokens, e.g. a particle phrase), then substituting each real
+// character's Kunrei-shiki/other alternate spelling. Placeholder segments are
+// never emitted as '-' or deleted.
 function romajiVariants(word: Pick<AnchorWord, 'romaji' | 'characterIds'>): string[] {
   const tokens = word.romaji.split(' ')
-  let charIndex = 0
-  const tokenVariantLists = tokens.map((token) => {
-    let combos = ['']
-    let consumedLength = 0
-    while (consumedLength < token.length && charIndex < word.characterIds.length) {
-      const id = word.characterIds[charIndex]
-      const base = CHARACTERS_BY_ID[id]?.romaji ?? ''
-      const options = [base, ...(ROMAJI_ALTERNATES[id] ?? [])]
-      combos = combos.flatMap((c) => options.map((o) => c + o))
-      consumedLength += base.length
-      charIndex++
-    }
-    return combos
-  })
+  const alignedTokens = alignCanonicalRomaji(tokens, word.characterIds)
+  if (!alignedTokens) return []
+
+  const tokenVariantLists = alignedTokens.map(expandTokenVariants)
   return tokenVariantLists.reduce((acc, variants) => acc.flatMap((a) => variants.map((v) => (a ? `${a} ${v}` : v))), [
     '',
   ])
