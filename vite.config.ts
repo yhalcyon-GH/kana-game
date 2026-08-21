@@ -4,6 +4,47 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
+export const PWA_RUNTIME_CACHING = [
+  {
+    // Audio uses NetworkFirst, not CacheFirst — clips get
+    // re-recorded/replaced under the SAME filenames from time to
+    // time (unlike the image assets below), and CacheFirst has no
+    // way to notice a same-URL file's content changed. NetworkFirst
+    // always tries the network first (so a learner who's online
+    // gets the newest recording on next play, no cache-name
+    // versioning needed) and only falls back to whatever's already
+    // cached when the network fails — which is also exactly what
+    // makes upgrading safe: this targets the SAME 'kana-game-media'
+    // cache name the image rule below uses (and that audio itself
+    // used before it was briefly split into its own cache), so a
+    // learner who already has clips cached there from an earlier
+    // visit can still play them offline immediately after this
+    // update, instead of hitting an empty new cache. See
+    // workbox-expiration's CacheTimestampsModel: expiration
+    // bookkeeping is keyed purely by cacheName, so sharing it here
+    // with the image rule's identical maxEntries/maxAgeSeconds is
+    // safe — it just means the entry budget below is shared across
+    // audio+images, same as before audio ever had its own cache.
+    urlPattern: ({ url }: { url: URL }) => /\/audio\//.test(url.pathname),
+    handler: 'NetworkFirst' as const,
+    options: {
+      cacheName: 'kana-game-media',
+      networkTimeoutSeconds: 4,
+      expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 * 180 },
+      cacheableResponse: { statuses: [0, 200] },
+    },
+  },
+  {
+    urlPattern: ({ url }: { url: URL }) => /\/(word-icons|mascot|icons)\//.test(url.pathname),
+    handler: 'CacheFirst' as const,
+    options: {
+      cacheName: 'kana-game-media',
+      expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 * 180 },
+      cacheableResponse: { statuses: [0, 200] },
+    },
+  },
+]
+
 // https://vite.dev/config/
 export default defineConfig({
   base: '/kana-game/',
@@ -32,46 +73,7 @@ export default defineConfig({
         // Those are runtime-cached below instead, building up offline
         // coverage as the learner actually visits rows/plays words.
         globPatterns: ['**/*.{js,css,html,woff2,svg}'],
-        runtimeCaching: [
-          {
-            // Audio uses NetworkFirst, not CacheFirst — clips get
-            // re-recorded/replaced under the SAME filenames from time to
-            // time (unlike the image assets below), and CacheFirst has no
-            // way to notice a same-URL file's content changed. NetworkFirst
-            // always tries the network first (so a learner who's online
-            // gets the newest recording on next play, no cache-name
-            // versioning needed) and only falls back to whatever's already
-            // cached when the network fails — which is also exactly what
-            // makes upgrading safe: this targets the SAME 'kana-game-media'
-            // cache name the image rule below uses (and that audio itself
-            // used before it was briefly split into its own cache), so a
-            // learner who already has clips cached there from an earlier
-            // visit can still play them offline immediately after this
-            // update, instead of hitting an empty new cache. See
-            // workbox-expiration's CacheTimestampsModel: expiration
-            // bookkeeping is keyed purely by cacheName, so sharing it here
-            // with the image rule's identical maxEntries/maxAgeSeconds is
-            // safe — it just means the entry budget below is shared across
-            // audio+images, same as before audio ever had its own cache.
-            urlPattern: ({ url }) => /\/audio\//.test(url.pathname),
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'kana-game-media',
-              networkTimeoutSeconds: 4,
-              expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 * 180 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-          {
-            urlPattern: ({ url }) => /\/(word-icons|mascot|icons)\//.test(url.pathname),
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'kana-game-media',
-              expiration: { maxEntries: 500, maxAgeSeconds: 60 * 60 * 24 * 180 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-        ],
+        runtimeCaching: PWA_RUNTIME_CACHING,
       },
     }),
   ],
