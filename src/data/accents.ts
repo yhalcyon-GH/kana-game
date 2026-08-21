@@ -26,7 +26,7 @@ export const ACCENT_PATTERNS: Record<string, string> = {
   'chouon-a-obaasan': 'LHLLL', // おばあさん (obaasan)
   'chouon-a-obasan': 'LHHH', // おばさん (obasan)
   'chouon-a-okaasan': 'LHLLL', // おかあさん (okaasan)
-  'chouon-e-eiga': 'LHH', // えいが (eiga)
+  'chouon-e-eiga': 'HLL', // えいが (eiga)
   'chouon-e-oneesan': 'LHLLL', // おねえさん (oneesan)
   'chouon-e-teinei': 'HLLL', // ていねい (teinei)
   'chouon-e-yuumei': 'LHHH', // ゆうめい (yuumei)

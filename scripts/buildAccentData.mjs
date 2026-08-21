@@ -315,6 +315,7 @@ const MANUAL_OVERRIDES = {
   'sokuon-mote': 'HL', // もて (mote)
   'youon-katakana-ka-kyuuri': 'HLL', // キュウリ (kyuuri) — 3 morae: kyu-u-ri
   'youon-katakana-ha-hyou': 'HL', // ヒョウ (hyou) — 2 morae: hyo-u
+  'chouon-e-eiga': 'HLL', // えいが (eiga) — user-supplied, per their own pronunciation
 }
 
 const results = []
