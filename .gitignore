@@ -43,3 +43,6 @@ public/audio/**/*.wav16k.wav
 # Promoting an approved batch into public/audio/ is a separate manual step.
 /input/
 /output/
+
+# Local isolated Git worktrees used for release/debug sessions
+/.worktrees/
