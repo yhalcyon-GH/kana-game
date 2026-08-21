@@ -127,7 +127,7 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
       {isReview && (
         <p className="text-sm text-neutral-500 dark:text-neutral-400">
           {reviewCount > 0
-            ? `${reviewCount} character${reviewCount === 1 ? '' : 's'} need review`
+            ? `${reviewCount} item${reviewCount === 1 ? '' : 's'} need review`
             : 'Nothing needs review right now — mixing in everything you know'}
         </p>
       )}

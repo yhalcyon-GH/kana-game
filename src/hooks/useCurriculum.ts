@@ -136,6 +136,9 @@ export function useCurriculum() {
     () => unlockedWords.filter((w) => needsReview(words[w.id]?.reviewScore ?? 0)),
     [unlockedWords, words],
   )
+  const reviewCharacterCount = weakCharacterIds.length
+  const reviewWordCount = weakWords.length
+  const reviewCount = reviewCharacterCount + reviewWordCount
 
   const isRowTaught = (rowId: string) => taughtRowIds.includes(rowId)
 
@@ -210,9 +213,11 @@ export function useCurriculum() {
     unlockedWords,
     weakCharacterIds,
     weakWords,
-    // Badge count near the Review entry points — how many characters
-    // currently need review (mistake-driven, see weakCharacterIds above).
-    reviewCount: weakCharacterIds.length,
+    // Badge count near the Review entry points — how many characters and
+    // independently weak words currently need review.
+    reviewCharacterCount,
+    reviewWordCount,
+    reviewCount,
     // Rows are never gated — the learner can freely jump to any row,
     // regardless of SRS-based unlock progress (which is still tracked in
     // unlockedRowIds for informational purposes elsewhere).

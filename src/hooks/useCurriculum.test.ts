@@ -139,6 +139,19 @@ describe('useCurriculum', () => {
       // Neither of a-ai's own characters was marked weak directly.
       expect(result.current.weakCharacterIds).not.toContain('a')
       expect(result.current.weakCharacterIds).not.toContain('i')
+      expect(result.current.reviewCharacterCount).toBe(0)
+      expect(result.current.reviewWordCount).toBe(1)
+      expect(result.current.reviewCount).toBe(1)
+    })
+
+    it('counts weak characters and independently weak words as separate Review items', () => {
+      useProgressStore.getState().markRowTaught('a-row')
+      useProgressStore.getState().adjustCharacterReviewScore('a', 5)
+      useProgressStore.getState().adjustWordReviewScore('a-ie', 5)
+      const { result } = renderHook(() => useCurriculum())
+      expect(result.current.reviewCharacterCount).toBe(1)
+      expect(result.current.reviewWordCount).toBe(1)
+      expect(result.current.reviewCount).toBe(2)
     })
 
     it("getScopeWords(REVIEW_SCOPE_ID) pulls in a word containing a weak character even if the word's own score is fine", () => {
