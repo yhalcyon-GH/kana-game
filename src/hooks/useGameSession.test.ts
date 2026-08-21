@@ -25,8 +25,10 @@ describe('useGameSession', () => {
     )
 
     act(() => result.current.setCorrectCount(1))
-    act(() => result.current.advance())
-    act(() => result.current.advance())
+    act(() => {
+      result.current.advance()
+      result.current.advance()
+    })
 
     expect(onFinish).toHaveBeenCalledTimes(1)
     expect(onFinish).toHaveBeenCalledWith(1, 2)
@@ -49,6 +51,7 @@ describe('useGameSession', () => {
     act(() => result.current.setCorrectCount(1))
     act(() => result.current.advance())
 
+    expect(onFinish).toHaveBeenCalledTimes(1)
     expect(onFinish).toHaveBeenLastCalledWith(1, 1)
   })
 
