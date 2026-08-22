@@ -250,7 +250,7 @@ const MEANING_TO_KANJI = {
   'ra-shiro': '白',
   'ra-yoru': '夜',
   'wa-nihon': '日本',
-  'wa-sensei': '先生',
+  'chouon-e-sensei': '先生',
   'chouon-suuji': '数字',
   'chouon-sensei': '先生',
 }

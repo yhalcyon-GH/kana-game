@@ -364,3 +364,29 @@ describe('learnBatches (micro-batch Learn presentation)', () => {
     }
   })
 })
+
+// Issue #13: がくせい/せんせい/いもうと were moved from plain hiragana rows
+// to chōon rows, since their readings are actually long-vowel (chōon)
+// patterns rather than "just" characters already taught by that row. The id
+// prefix encodes the row, so the move changed their ids too (see
+// progressStore.ts's v7 -> v8 migration for preserving existing Review
+// state under the old ids).
+describe('がくせい/せんせい/いもうと moved to chōon (Issue #13)', () => {
+  it('are no longer present in their old hiragana rows', () => {
+    expect(WORDS_BY_ROW['sa-row']?.some((w) => w.id === 'sa-gakusei')).toBe(false)
+    expect(WORDS_BY_ROW['wa-row']?.some((w) => w.id === 'wa-sensei')).toBe(false)
+    expect(WORDS_BY_ROW['ma-row']?.some((w) => w.id === 'ma-imouto')).toBe(false)
+    expect(WORDS_BY_ID['sa-gakusei']).toBeUndefined()
+    expect(WORDS_BY_ID['wa-sensei']).toBeUndefined()
+    expect(WORDS_BY_ID['ma-imouto']).toBeUndefined()
+  })
+
+  it('all 3 words exist under their new ids in the chōon rows, with meaning/kana preserved', () => {
+    expect(WORDS_BY_ID['chouon-e-gakusei']).toMatchObject({ kana: 'がくせい', meaning: 'student' })
+    expect(WORDS_BY_ID['chouon-e-sensei']).toMatchObject({ kana: 'せんせい', meaning: 'teacher' })
+    expect(WORDS_BY_ID['chouon-o-imouto']).toMatchObject({ kana: 'いもうと', meaning: 'younger sister' })
+    expect(WORDS_BY_ROW['chouon-e-row']?.some((w) => w.id === 'chouon-e-gakusei')).toBe(true)
+    expect(WORDS_BY_ROW['chouon-e-row']?.some((w) => w.id === 'chouon-e-sensei')).toBe(true)
+    expect(WORDS_BY_ROW['chouon-o-row']?.some((w) => w.id === 'chouon-o-imouto')).toBe(true)
+  })
+})

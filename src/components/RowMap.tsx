@@ -30,7 +30,7 @@ export function RowMap({ rows, isUnlocked, isTaught, isMastered }: Props) {
               {row.label}
             </span>
             <span className="text-xs text-neutral-500 dark:text-neutral-400">
-              {row.isSummary ? 'summary' : !unlocked ? '🔒 locked' : mastered ? '🌟 mastered' : taught ? '📗 learned' : '📘 new'}
+              {row.isSummary ? 'summary' : !unlocked ? '🔒 locked' : mastered ? '👍' : taught ? '📗 learned' : '📘 new'}
             </span>
             {/* Learn and both mini-games all live together on the row's hub
                 page — taught status is informational only, not a gate. */}

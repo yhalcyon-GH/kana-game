@@ -308,6 +308,53 @@ describe('progressStore', () => {
     })
   })
 
+  // Issue #13: がくせい/せんせい/いもうと moved from hiragana rows to chōon
+  // rows, changing their word ids. Existing per-word Review state must
+  // survive under the new id, not be silently dropped.
+  describe('v7 -> v8 word-id rename migration (Issue #13)', () => {
+    it('remaps existing Review state for the 3 renamed words to their new ids', async () => {
+      localStorage.setItem(
+        'kana-game-progress',
+        JSON.stringify({
+          version: 7,
+          state: {
+            words: {
+              'sa-gakusei': { reviewActive: true, reviewStreak: 1 },
+              'wa-sensei': { reviewActive: false, reviewStreak: 2 },
+              'ma-imouto': { reviewActive: true, reviewStreak: 0 },
+              'a-ai': { reviewActive: false, reviewStreak: 0 },
+            },
+          },
+        }),
+      )
+
+      await useProgressStore.persist.rehydrate()
+
+      const state = useProgressStore.getState()
+      expect(state.words['chouon-e-gakusei']).toMatchObject({ reviewActive: true, reviewStreak: 1 })
+      expect(state.words['chouon-e-sensei']).toMatchObject({ reviewActive: false, reviewStreak: 0 })
+      expect(state.words['chouon-o-imouto']).toMatchObject({ reviewActive: true, reviewStreak: 0 })
+      expect(state.words['sa-gakusei']).toBeUndefined()
+      expect(state.words['wa-sensei']).toBeUndefined()
+      expect(state.words['ma-imouto']).toBeUndefined()
+      // Unrelated word state is untouched.
+      expect(state.words['a-ai']).toMatchObject({ reviewActive: false, reviewStreak: 0 })
+    })
+
+    it('is a no-op when none of the renamed words have any persisted state', async () => {
+      localStorage.setItem(
+        'kana-game-progress',
+        JSON.stringify({ version: 7, state: { words: { 'a-ai': { reviewActive: true, reviewStreak: 1 } } } }),
+      )
+
+      await useProgressStore.persist.rehydrate()
+
+      const state = useProgressStore.getState()
+      expect(state.words['a-ai']).toMatchObject({ reviewActive: true, reviewStreak: 1 })
+      expect(Object.keys(state.words)).toEqual(['a-ai'])
+    })
+  })
+
   describe('Recommended Path completion (rowActivityCompletion)', () => {
     it('markRowActivityCompleted sets exactly the one flag for that row, leaving others false', () => {
       useProgressStore.getState().markRowActivityCompleted('ka-row', 'kanaQuiz')
