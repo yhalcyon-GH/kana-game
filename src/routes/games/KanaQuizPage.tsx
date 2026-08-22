@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { AnswerFeedbackRow } from '../../components/AnswerFeedbackRow'
 import { GameRoundHeader } from '../../components/GameRoundHeader'
 import { PracticeSummary } from '../../components/PracticeSummary'
@@ -14,21 +14,19 @@ import { useEnterAdvance } from '../../hooks/useEnterAdvance'
 import { useGameSession } from '../../hooks/useGameSession'
 import { useTTS } from '../../hooks/useTTS'
 import { pickDistractorCharIds } from '../../lib/distractorPicker'
+import { buildQuizModePlan } from '../../lib/quizModePlan'
 import { shuffle } from '../../lib/shuffle'
 import { useProgressStore } from '../../store/progressStore'
 
 const DISTRACTOR_COUNT = 3
-
-// Kana Quiz's two prompt directions (see the mode selector below) — chosen
-// fresh every time the game is opened, never persisted globally.
-type Mode = 'read' | 'recall'
 
 // Tests bare kana recall without a word wrapping it: see (and optionally
 // hear) a single character, pick its reading from a few choices. Word
 // Builder and Listening only ever exercise characters bundled into words —
 // this is the one place raw character knowledge gets checked directly.
 //
-// Two modes test the two directions of character recall:
+// Every session mixes both directions of character recall, one question
+// mode per round (see roundModes below) — there is no upfront mode choice:
 // - Read: kana -> romaji ("see か, choose ka"). No pronunciation audio at
 //   all, before or after answering, and no replay button — a pure visual
 //   kana-reading retrieval check (the mascot's existing correct/incorrect
@@ -92,23 +90,24 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
     useGameSession({ ids: quizCharacterIds, weight: getBox, onFinish, resetSession, rounds, sessionKey: rowId })
   const { schedule: scheduleAdvance } = useDelayedAction()
 
-  // Chosen fresh every time this page mounts — see Mode's comment. Picking
-  // a mode doesn't rebuild the queue (see the mode-selector guard below,
-  // which renders before any round's choices are shown), so "Play again"
-  // naturally keeps the same mode, while "Switch mode" (from the summary)
-  // explicitly restarts the session AND clears this back to the selector.
-  const [mode, setMode] = useState<Mode | null>(null)
+  // One Read/Recall mode per queue slot, built fresh every time `queue`
+  // itself gets a new identity (a brand-new session from startSession, a
+  // mistake-only replay from startMistakeReview) — see buildQuizModePlan
+  // for why this is a guaranteed-even shuffle rather than a per-round coin
+  // flip. useMemo (not a separate effect+state pair) keeps this in sync
+  // with `queue` in the SAME render, so roundModes is never stale/out of
+  // range for the round currently being set up below.
+  const roundModes = useMemo(() => buildQuizModePlan(queue.length), [queue])
 
   const [choices, setChoices] = useState<string[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [answered, setAnswered] = useState(false)
 
   const currentCharId = queue.length > 0 ? queue[roundIndex] : undefined
+  const currentMode = roundModes[roundIndex]
 
   useEffect(() => {
-    // Nothing to set up yet if no mode has been chosen — the selector is
-    // showing instead, and this effect re-runs once `mode` changes.
-    if (!currentCharId || !mode) return
+    if (!currentCharId || !currentMode) return
     const distractors = pickDistractorCharIds([currentCharId], distractorPool, DISTRACTOR_COUNT)
     setChoices(shuffle([currentCharId, ...distractors]))
     setSelectedId(null)
@@ -116,16 +115,17 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
     clear()
     // Recall's prompt IS the audio — it must autoplay at round start. Read
     // never plays audio at all (see handleChoice).
-    if (mode === 'recall') {
+    if (currentMode === 'recall') {
       speak(`characters/${getCharacterAudioId(currentCharId)}`, CHARACTERS_BY_ID[currentCharId].kana)
     }
-    // Keyed on roundIndex too, not just currentCharId — a small pool (e.g.
-    // Review with only 1-2 weak characters) can put the same character in
-    // consecutive rounds, and this effect must still reset per-round state
-    // (answered/selectedId/etc.) even when the id doesn't change, or the
-    // next round renders already "answered" from the previous one.
+    // Keyed on roundIndex/roundModes too, not just currentCharId — a small
+    // pool (e.g. Review with only 1-2 weak characters) can put the same
+    // character in consecutive rounds, and this effect must still reset
+    // per-round state (answered/selectedId/etc.) even when the id doesn't
+    // change, or the next round renders already "answered" from the
+    // previous one.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentCharId, roundIndex, mode])
+  }, [currentCharId, roundIndex, currentMode])
 
   useEnterAdvance(answered && selectedId !== currentCharId, advance)
 
@@ -161,42 +161,6 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
   // in-progress round to show — see ListeningPage's identical comment.
   if (quizCharacterIds.length === 0 && queue.length === 0) return isReview ? <ReviewEmptyState /> : null
 
-  // Mode selector — shown before every session starts (see Mode's comment;
-  // the choice is never persisted). Sits after the empty-Review check above
-  // (no point choosing a mode for a session that can't start) and before
-  // the finished/game-round checks below.
-  if (!mode) {
-    return (
-      <div className="flex flex-col items-center gap-6">
-        <h1 className="text-2xl font-bold">Kana Quiz</h1>
-        <div className="flex w-full max-w-sm flex-col gap-3">
-          <button
-            type="button"
-            onClick={() => setMode('read')}
-            className="flex flex-col items-start gap-1 rounded-xl border border-neutral-300 bg-white p-4 text-left hover:border-blue-400 dark:border-neutral-600 dark:bg-neutral-800"
-          >
-            <span className="font-semibold">Read</span>
-            <span className="text-sm text-neutral-500 dark:text-neutral-400">See a kana, choose its sound</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode('recall')}
-            className="flex flex-col items-start gap-1 rounded-xl border border-neutral-300 bg-white p-4 text-left hover:border-blue-400 dark:border-neutral-600 dark:bg-neutral-800"
-          >
-            <span className="font-semibold">Recall</span>
-            <span className="text-sm text-neutral-500 dark:text-neutral-400">Hear a sound, choose the kana</span>
-          </button>
-        </div>
-        <Link
-          to={hubHref}
-          className="rounded-full border border-neutral-300 px-6 py-2 font-semibold hover:border-blue-400 dark:border-neutral-600"
-        >
-          Back to hub
-        </Link>
-      </div>
-    )
-  }
-
   if (finished) {
     return (
       <PracticeSummary
@@ -208,18 +172,11 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
         onReviewMistakes={() => startMistakeReview(mistakeIds)}
         mood={finishMood ?? undefined}
         comment={finishFeedback?.text}
-        secondaryAction={{
-          label: 'Switch mode',
-          onClick: () => {
-            startSession()
-            setMode(null)
-          },
-        }}
       />
     )
   }
 
-  if (!currentCharId) return null
+  if (!currentCharId || !currentMode) return null
   const currentChar = CHARACTERS_BY_ID[currentCharId]
   // Read shows the target kana as the prompt and never plays or offers its
   // pronunciation at all — it's a pure visual kana-reading check. Recall's
@@ -233,17 +190,17 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
     <div className="flex flex-col items-center gap-6">
       <GameRoundHeader rowId={rowId} categoryId={categoryId} roundIndex={roundIndex} total={queue.length} />
       <div className="flex flex-col items-center gap-2">
-        {mode === 'read' ? (
+        {currentMode === 'read' ? (
           <span className="font-kana text-7xl font-bold">{currentChar.kana}</span>
         ) : (
           <span className="text-6xl" aria-hidden="true">
             🔊
           </span>
         )}
-        {mode === 'recall' && answered && (
+        {currentMode === 'recall' && answered && (
           <span className="text-2xl font-semibold">{currentChar.displayLabel ?? currentChar.romaji}</span>
         )}
-        {supported && mode === 'recall' && (
+        {supported && currentMode === 'recall' && (
           <button
             type="button"
             onClick={() => speak(`characters/${getCharacterAudioId(currentCharId)}`, currentChar.kana)}
@@ -275,7 +232,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
                   : 'border-neutral-300 bg-white hover:border-blue-400 dark:border-neutral-600 dark:bg-neutral-800'
               }`}
             >
-              {mode === 'recall' ? <span className="font-kana">{choice.kana}</span> : (choice.displayLabel ?? choice.romaji)}
+              {currentMode === 'recall' ? <span className="font-kana">{choice.kana}</span> : (choice.displayLabel ?? choice.romaji)}
             </button>
           )
         })}

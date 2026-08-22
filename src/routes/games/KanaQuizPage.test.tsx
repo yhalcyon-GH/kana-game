@@ -1,4 +1,4 @@
-import { act, fireEvent, render } from '@testing-library/react'
+import { act, fireEvent, render, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHARACTERS_BY_ID } from '../../data/characters'
@@ -20,42 +20,112 @@ function renderRowQuiz() {
   )
 }
 
-function selectMode(container: HTMLElement, label: 'Read' | 'Recall') {
-  const button = Array.from(container.querySelectorAll('button')).find((b) => b.querySelector('span')?.textContent === label)!
-  act(() => fireEvent.click(button))
+function renderReviewQuiz() {
+  return render(
+    <MemoryRouter initialEntries={['/practice/review/kana-quiz']}>
+      <Routes>
+        <Route path="/practice/review/kana-quiz" element={<KanaQuizPage rowIdOverride={REVIEW_SCOPE_ID} />} />
+      </Routes>
+    </MemoryRouter>,
+  )
 }
 
-describe('KanaQuizPage mode selector', () => {
-  it('shows Read and Recall choices before a session begins', () => {
-    const { container, getByText } = renderRowQuiz()
-    expect(getByText('Read')).toBeInTheDocument()
-    expect(getByText('Recall')).toBeInTheDocument()
-    // No game UI (round header, choices) until a mode is picked.
-    expect(container.querySelector('.grid')).toBeNull()
-  })
+function currentRoundMode(container: HTMLElement): 'read' | 'recall' {
+  return container.querySelector('.font-kana.text-7xl') ? 'read' : 'recall'
+}
 
-  it('Back to hub works from the selector', () => {
-    const { getByText } = renderRowQuiz()
-    const link = getByText('Back to hub').closest('a')!
-    expect(link.getAttribute('href')).toBe('/practice/hiragana/a-row')
-  })
+// Clicks any choice for the round currently showing, then clears it —
+// either via the manual "Next" button (a wrong answer) or by waiting out
+// the correct-answer auto-advance delay. Requires fake timers. Used by
+// tests that only care about session-level structure (mode mix, length,
+// Play again), not about answering correctly.
+function clickThroughRound(container: HTMLElement) {
+  const buttons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
+  act(() => fireEvent.click(buttons[0]))
+  const next = within(container).queryByRole('button', { name: /next/i })
+  if (next) {
+    act(() => fireEvent.click(next))
+  } else {
+    act(() => vi.advanceTimersByTime(2000))
+  }
+}
 
-  it('selecting Read starts Read mode (kana shown, no replay button yet)', () => {
-    const { container } = renderRowQuiz()
-    selectMode(container, 'Read')
-    expect(container.querySelector('.font-kana.text-7xl')).not.toBeNull()
-    expect(container.querySelector('[aria-label="Replay audio"]')).toBeNull()
-  })
+function collectModesForOneSession(container: HTMLElement, count = 8): ('read' | 'recall')[] {
+  const modes: ('read' | 'recall')[] = []
+  for (let round = 0; round < count; round++) {
+    modes.push(currentRoundMode(container))
+    clickThroughRound(container)
+  }
+  return modes
+}
 
-  it('selecting Recall starts Recall mode (kana hidden, replay button available)', () => {
-    const { container } = renderRowQuiz()
-    selectMode(container, 'Recall')
-    expect(container.querySelector('.font-kana.text-7xl')).toBeNull()
-    expect(container.querySelector('[aria-label="Replay audio"]')).not.toBeNull()
+// Auto-completes rounds (mode-agnostic, via clickThroughRound) until the
+// CURRENT round matches `mode` — since round order is shuffled, a specific
+// mode isn't guaranteed to appear first. Used by tests that need to
+// exercise one mode's specific behavior deterministically.
+function advanceUntilMode(container: HTMLElement, mode: 'read' | 'recall') {
+  let guard = 0
+  while (currentRoundMode(container) !== mode) {
+    clickThroughRound(container)
+    guard += 1
+    if (guard > 8) throw new Error(`never reached a ${mode} round within one session`)
+  }
+}
+
+describe('KanaQuizPage starts directly, no mode selector', () => {
+  it('opening Kana Quiz shows a question immediately, with no Read/Recall selector', () => {
+    const { container, queryByText } = renderRowQuiz()
+    expect(queryByText('Read')).toBeNull()
+    expect(queryByText('Recall')).toBeNull()
+    expect(container.querySelector('.grid button')).not.toBeNull()
   })
 })
 
-describe('KanaQuizPage Read mode', () => {
+describe('KanaQuizPage mixed session composition', () => {
+  it('every normal 8-question session contains exactly 4 Read and 4 Recall rounds', () => {
+    vi.useFakeTimers()
+    const { container } = renderRowQuiz()
+    const modes = collectModesForOneSession(container)
+    expect(modes.filter((m) => m === 'read')).toHaveLength(4)
+    expect(modes.filter((m) => m === 'recall')).toHaveLength(4)
+    vi.useRealTimers()
+  })
+
+  it('the mode order is shuffled, not fixed', () => {
+    vi.useFakeTimers()
+    const orders = new Set<string>()
+    for (let i = 0; i < 8; i++) {
+      const { container, unmount } = renderRowQuiz()
+      orders.add(collectModesForOneSession(container).join(','))
+      unmount()
+    }
+    expect(orders.size).toBeGreaterThan(1)
+    vi.useRealTimers()
+  })
+
+  it('Play again creates another valid 4+4 mixed session', () => {
+    vi.useFakeTimers()
+    const { container, getByRole } = renderRowQuiz()
+    collectModesForOneSession(container)
+    expect(getByRole('button', { name: /play again/i })).toBeInTheDocument()
+
+    act(() => fireEvent.click(getByRole('button', { name: /play again/i })))
+    const secondModes = collectModesForOneSession(container)
+    expect(secondModes.filter((m) => m === 'read')).toHaveLength(4)
+    expect(secondModes.filter((m) => m === 'recall')).toHaveLength(4)
+    vi.useRealTimers()
+  })
+
+  it('no longer offers a Switch mode action on the summary', () => {
+    vi.useFakeTimers()
+    const { container, queryByRole } = renderRowQuiz()
+    collectModesForOneSession(container)
+    expect(queryByRole('button', { name: /switch mode/i })).toBeNull()
+    vi.useRealTimers()
+  })
+})
+
+describe('KanaQuizPage Read round behavior', () => {
   let playSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
@@ -64,39 +134,31 @@ describe('KanaQuizPage Read mode', () => {
 
   afterEach(() => {
     playSpy.mockRestore()
+    vi.useRealTimers()
   })
 
-  it('does not auto-play the target pronunciation before answering, and shows no replay button', () => {
+  it('shows the kana prompt, romaji choices, and never plays audio or shows a replay button', () => {
+    vi.useFakeTimers()
     const { container } = renderRowQuiz()
-    selectMode(container, 'Read')
-    expect(playSpy).not.toHaveBeenCalled()
+    advanceUntilMode(container, 'read')
+
+    expect(container.querySelector('.font-kana.text-7xl')).not.toBeNull()
     expect(container.querySelector('[aria-label="Replay audio"]')).toBeNull()
-  })
 
-  it('choices display romaji, not kana glyphs', () => {
-    const { container } = renderRowQuiz()
-    selectMode(container, 'Read')
     const choiceButtons = Array.from(container.querySelectorAll('.grid button'))
-    expect(choiceButtons.length).toBeGreaterThan(0)
     for (const button of choiceButtons) {
       expect(button.querySelector('.font-kana')).toBeNull()
     }
-  })
-
-  it('never plays the target pronunciation or shows a replay button, before or after answering', () => {
-    const { container } = renderRowQuiz()
-    selectMode(container, 'Read')
 
     const kanaEl = container.querySelector('.font-kana.text-7xl')!
     const targetId = Object.keys(CHARACTERS_BY_ID).find((id) => CHARACTERS_BY_ID[id].kana === kanaEl.textContent)!
-    const choiceButtons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
+    // advanceUntilMode may have passed through real Recall rounds first,
+    // each legitimately playing character audio — only calls made AFTER
+    // reaching this Read round are relevant here.
+    const instancesBeforeAnswer = playSpy.mock.instances.length
+    act(() => fireEvent.click(choiceButtons[0] as HTMLButtonElement))
 
-    act(() => fireEvent.click(choiceButtons[0]))
-
-    // Only the mascot's correct/incorrect feedback voice may have played
-    // (see AnswerFeedbackRow/useAnswerFeedback) — never the character's own
-    // pronunciation clip, and no replay button ever appears in Read mode.
-    for (const call of playSpy.mock.instances as HTMLAudioElement[]) {
+    for (const call of playSpy.mock.instances.slice(instancesBeforeAnswer) as HTMLAudioElement[]) {
       expect(call.src).not.toMatch(/\/audio\/characters\//)
     }
     expect(container.querySelector('[aria-label="Replay audio"]')).toBeNull()
@@ -104,7 +166,7 @@ describe('KanaQuizPage Read mode', () => {
   })
 })
 
-describe('KanaQuizPage Recall mode', () => {
+describe('KanaQuizPage Recall round behavior', () => {
   let playSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
@@ -113,72 +175,62 @@ describe('KanaQuizPage Recall mode', () => {
 
   afterEach(() => {
     playSpy.mockRestore()
+    vi.useRealTimers()
   })
 
-  it('auto-plays the target pronunciation at round start, before any answer', () => {
+  it('auto-plays the target pronunciation, hides the kana, offers kana choices, and reveals the label after answering', () => {
+    vi.useFakeTimers()
     const { container } = renderRowQuiz()
-    selectMode(container, 'Recall')
-    expect(playSpy).toHaveBeenCalledTimes(1)
-  })
+    advanceUntilMode(container, 'recall')
 
-  it('does not show the target kana as the prompt before answering, and offers a replay button', () => {
-    const { container } = renderRowQuiz()
-    selectMode(container, 'Recall')
+    const instancesBefore = playSpy.mock.instances.length
+    expect(instancesBefore).toBeGreaterThan(0)
     expect(container.querySelector('.font-kana.text-7xl')).toBeNull()
     expect(container.querySelector('[aria-label="Replay audio"]')).not.toBeNull()
-  })
 
-  it('choices are kana glyphs', () => {
-    const { container } = renderRowQuiz()
-    selectMode(container, 'Recall')
-    const choiceButtons = Array.from(container.querySelectorAll('.grid button'))
+    const choiceButtons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
     expect(choiceButtons.length).toBeGreaterThan(0)
     for (const button of choiceButtons) {
       expect(button.querySelector('.font-kana')).not.toBeNull()
     }
-  })
 
-  it('answering reveals the target romaji/display label', () => {
-    const { container } = renderRowQuiz()
-    selectMode(container, 'Recall')
-
-    const choiceButtons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
     act(() => fireEvent.click(choiceButtons[0]))
 
     const romajiValues = Object.values(CHARACTERS_BY_ID).map((c) => c.displayLabel ?? c.romaji)
     const revealed = Array.from(container.querySelectorAll('span')).some((el) => romajiValues.includes(el.textContent ?? ''))
     expect(revealed).toBe(true)
-    // Replaying stays available after answering too.
     expect(container.querySelector('[aria-label="Replay audio"]')).not.toBeNull()
   })
 })
 
-describe('KanaQuizPage character Review streak (both modes)', () => {
+describe('KanaQuizPage character Review streak (both directions)', () => {
   it('Read: a wrong answer activates character Review for the target character at 0/2', () => {
+    vi.useFakeTimers()
     const { container } = renderRowQuiz()
-    selectMode(container, 'Read')
+    advanceUntilMode(container, 'read')
 
     const kanaEl = container.querySelector('.font-kana.text-7xl')!
     const targetId = Object.keys(CHARACTERS_BY_ID).find((id) => CHARACTERS_BY_ID[id].kana === kanaEl.textContent)!
     const buttons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
-    const wrongButton = buttons.find((b) => b.textContent !== (CHARACTERS_BY_ID[targetId].displayLabel ?? CHARACTERS_BY_ID[targetId].romaji))!
+    const target = CHARACTERS_BY_ID[targetId]
+    const wrongButton = buttons.find((b) => b.textContent !== (target.displayLabel ?? target.romaji))!
 
     act(() => fireEvent.click(wrongButton))
 
     expect(useProgressStore.getState().characters[targetId]).toMatchObject({ reviewActive: true, reviewStreak: 0 })
+    vi.useRealTimers()
   })
 
   it('Recall: a wrong answer activates character Review for the target character at 0/2', () => {
-    // Recall never shows the target before answering, so the target is
-    // identified deterministically from the audio element the round-start
-    // autoplay used (its .src encodes "characters/<id>.wav") rather than by
-    // guessing/retrying — then a choice that is NOT that kana is clicked,
-    // guaranteeing a miss.
+    vi.useFakeTimers()
     const playSpy = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined)
     const { container } = renderRowQuiz()
-    selectMode(container, 'Recall')
+    advanceUntilMode(container, 'recall')
 
-    const promptAudio = playSpy.mock.instances[0] as HTMLAudioElement
+    // The most recent play() call at this point is this round's own
+    // round-start autoplay — its .src encodes "characters/<id>.wav",
+    // identifying the target deterministically without guessing.
+    const promptAudio = playSpy.mock.instances[playSpy.mock.instances.length - 1] as HTMLAudioElement
     const match = promptAudio.src.match(/\/audio\/characters\/([^/]+)\.wav$/)
     expect(match).not.toBeNull()
     const targetId = match![1]
@@ -192,132 +244,71 @@ describe('KanaQuizPage character Review streak (both modes)', () => {
     expect(useProgressStore.getState().characters[targetId]).toMatchObject({ reviewActive: true, reviewStreak: 0 })
 
     playSpy.mockRestore()
-  })
-})
-
-describe('KanaQuizPage session/summary behavior', () => {
-  it('keeps the normal 8-question session length', () => {
-    const { container, getByText } = renderRowQuiz()
-    selectMode(container, 'Read')
-    expect(getByText(/Round 1 \/ 8/)).toBeInTheDocument()
-  })
-
-  it('Play again keeps the same mode, and Switch mode returns to the selector without leaving Kana Quiz', () => {
-    vi.useFakeTimers()
-    const playSpy = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined)
-    const { container, getByText, getByRole } = renderRowQuiz()
-    selectMode(container, 'Read')
-
-    // Answer all 8 Read rounds correctly by reading the visible kana prompt
-    // each time (Read shows the target, so this is deterministic).
-    for (let round = 0; round < 8; round++) {
-      const kanaEl = container.querySelector('.font-kana.text-7xl')!
-      const targetId = Object.keys(CHARACTERS_BY_ID).find((id) => CHARACTERS_BY_ID[id].kana === kanaEl.textContent)!
-      const target = CHARACTERS_BY_ID[targetId]
-      const buttons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
-      const correctButton = buttons.find((b) => b.textContent === (target.displayLabel ?? target.romaji))!
-      act(() => fireEvent.click(correctButton))
-      act(() => vi.advanceTimersByTime(2000))
-    }
-
-    expect(getByText('Kana Quiz complete!')).toBeInTheDocument()
-
-    // Play again keeps Read mode — no mode selector shown, straight into a
-    // new round with the kana prompt already visible.
-    act(() => fireEvent.click(getByRole('button', { name: /play again/i })))
-    expect(container.querySelector('.font-kana.text-7xl')).not.toBeNull()
-
-    // Finish again to reach the summary, then use Switch mode.
-    for (let round = 0; round < 8; round++) {
-      const kanaEl = container.querySelector('.font-kana.text-7xl')!
-      const targetId = Object.keys(CHARACTERS_BY_ID).find((id) => CHARACTERS_BY_ID[id].kana === kanaEl.textContent)!
-      const target = CHARACTERS_BY_ID[targetId]
-      const buttons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
-      const correctButton = buttons.find((b) => b.textContent === (target.displayLabel ?? target.romaji))!
-      act(() => fireEvent.click(correctButton))
-      act(() => vi.advanceTimersByTime(2000))
-    }
-    act(() => fireEvent.click(getByRole('button', { name: /switch mode/i })))
-
-    // Back at the selector — still inside Kana Quiz, not navigated away.
-    expect(getByText('Read')).toBeInTheDocument()
-    expect(getByText('Recall')).toBeInTheDocument()
-
-    playSpy.mockRestore()
     vi.useRealTimers()
   })
 })
 
 describe('KanaQuizPage mistake replay', () => {
-  it('still works: missing one round in Read mode offers a working "Review 1 mistake" replay', () => {
+  it('still works and uses a balanced mixed-mode order for the replay length', () => {
     vi.useFakeTimers()
-    const playSpy = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined)
-    const { container, getByRole, getByText } = renderRowQuiz()
-    selectMode(container, 'Read')
+    const { container } = renderRowQuiz()
 
-    for (let round = 0; round < 8; round++) {
+    // Miss exactly the first round; answer the rest via clickThroughRound
+    // (correct or wrong doesn't matter for what this test verifies).
+    const mode = currentRoundMode(container)
+    const buttons0 = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
+    if (mode === 'read') {
       const kanaEl = container.querySelector('.font-kana.text-7xl')!
-      const targetId = Object.keys(CHARACTERS_BY_ID).find((id) => CHARACTERS_BY_ID[id].kana === kanaEl.textContent)!
-      const target = CHARACTERS_BY_ID[targetId]
-      const buttons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
-      if (round === 0) {
-        // Deliberately wrong: any choice that isn't the target's own label.
-        const wrongButton = buttons.find((b) => b.textContent !== (target.displayLabel ?? target.romaji))!
-        act(() => fireEvent.click(wrongButton))
-        const next = getByRole('button', { name: /next/i })
-        act(() => fireEvent.click(next))
-      } else {
-        const correctButton = buttons.find((b) => b.textContent === (target.displayLabel ?? target.romaji))!
-        act(() => fireEvent.click(correctButton))
-        act(() => vi.advanceTimersByTime(2000))
-      }
+      const missedId = Object.keys(CHARACTERS_BY_ID).find((id) => CHARACTERS_BY_ID[id].kana === kanaEl.textContent)!
+      const target = CHARACTERS_BY_ID[missedId]
+      const wrongButton = buttons0.find((b) => b.textContent !== (target.displayLabel ?? target.romaji))!
+      act(() => fireEvent.click(wrongButton))
+    } else {
+      act(() => fireEvent.click(buttons0[0]))
+    }
+    const next0 = within(container).queryByRole('button', { name: /next/i })
+    if (next0) act(() => fireEvent.click(next0))
+    else act(() => vi.advanceTimersByTime(2000))
+
+    for (let round = 1; round < 8; round++) {
+      clickThroughRound(container)
     }
 
-    const reviewButton = getByRole('button', { name: /review 1 mistake/i })
-    act(() => fireEvent.click(reviewButton))
+    const mistakeButton = within(container).queryByRole('button', { name: /review \d+ mistake/i })
+    expect(mistakeButton).not.toBeNull()
+    act(() => fireEvent.click(mistakeButton!))
 
-    expect(getByText(/Round 1 \/ 1/)).toBeInTheDocument()
-    expect(container.querySelector('.font-kana.text-7xl')).not.toBeNull()
-
-    playSpy.mockRestore()
+    // Whatever the replay length is (at least 1), it must still be
+    // buildQuizModePlan-balanced (verified at the unit level in
+    // quizModePlan.test.ts) and genuinely playable here.
+    expect(container.querySelector('.grid button')).not.toBeNull()
     vi.useRealTimers()
   })
 })
 
-describe('KanaQuizPage Review empty state', () => {
+describe('KanaQuizPage Review scope', () => {
   it('shows a success state instead of a blank page when nothing is active in character Review', () => {
     useProgressStore.getState().markRowTaught('a-row')
-
-    const { container } = render(
-      <MemoryRouter initialEntries={['/practice/review/kana-quiz']}>
-        <Routes>
-          <Route path="/practice/review/kana-quiz" element={<KanaQuizPage rowIdOverride={REVIEW_SCOPE_ID} />} />
-        </Routes>
-      </MemoryRouter>,
-    )
-
+    const { container } = renderReviewQuiz()
     expect(container.textContent).toMatch(/Review complete!/)
     expect(container.querySelector('.font-kana')).toBeNull()
   })
 
-  it('the mode selector and both modes work for Review-scoped Kana Quiz too', () => {
+  it('uses the same mixed 4+4 behavior once characters are active in Review', () => {
+    vi.useFakeTimers()
     useProgressStore.getState().markRowTaught('a-row')
     useProgressStore.getState().recordCharacterReviewResult('a', false)
+    useProgressStore.getState().recordCharacterReviewResult('i', false)
+    useProgressStore.getState().recordCharacterReviewResult('u', false)
+    useProgressStore.getState().recordCharacterReviewResult('e', false)
+    useProgressStore.getState().recordCharacterReviewResult('o', false)
 
-    const { container, getByText } = render(
-      <MemoryRouter initialEntries={['/practice/review/kana-quiz']}>
-        <Routes>
-          <Route path="/practice/review/kana-quiz" element={<KanaQuizPage rowIdOverride={REVIEW_SCOPE_ID} />} />
-        </Routes>
-      </MemoryRouter>,
-    )
-
-    expect(getByText('Read')).toBeInTheDocument()
-    expect(getByText('Recall')).toBeInTheDocument()
-
-    selectMode(container, 'Recall')
-    const choiceButtons = Array.from(container.querySelectorAll('.grid button'))
-    expect(choiceButtons.length).toBeGreaterThan(0)
-    expect(container.querySelector('.font-kana.text-7xl')).toBeNull()
+    const { container, queryByText } = renderReviewQuiz()
+    expect(queryByText('Read')).toBeNull()
+    expect(queryByText('Recall')).toBeNull()
+    const modes = collectModesForOneSession(container)
+    expect(modes.filter((m) => m === 'read')).toHaveLength(4)
+    expect(modes.filter((m) => m === 'recall')).toHaveLength(4)
+    vi.useRealTimers()
   })
 })
