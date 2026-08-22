@@ -8,9 +8,9 @@ import type { AnchorWord } from '../data/types'
 // that session.
 //
 // Review's word pool is recalculated live from mistake-driven weak-word
-// selection (see useCurriculum) — a single correct answer can drop a word's
-// reviewScore below the weak threshold and remove it from that live pool
-// mid-session, while its id is still queued for a later round. Without
+// selection (see useCurriculum) — a single correct answer can graduate a
+// word out of Review and remove it from that live pool mid-session, while
+// its id is still queued for a later round. Without
 // freezing the resolver alongside the queue, that word became unresolvable
 // (wordsById[id] undefined) even though the session itself hadn't ended,
 // leaving the game rendering nothing for that round.

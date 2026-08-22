@@ -78,14 +78,22 @@ describe('routing', () => {
     expect(screen.getByRole('heading', { name: 'Nothing to review yet' })).toBeInTheDocument()
   })
 
-  it('/practice/review renders once a row has been taught, without a category segment', () => {
+  it('/practice/review shows a Review-complete success state once a row is taught but nothing is active in Review', () => {
     useProgressStore.getState().markRowTaught('a-row')
+    renderAt('/practice/review')
+    expect(screen.getByRole('heading', { name: 'Review complete!' })).toBeInTheDocument()
+  })
+
+  it('/practice/review renders the normal hub once something is active in Review', () => {
+    useProgressStore.getState().markRowTaught('a-row')
+    useProgressStore.getState().recordCharacterReviewResult('a', false)
     renderAt('/practice/review')
     expect(screen.getByRole('heading', { name: 'Review — all learned rows' })).toBeInTheDocument()
   })
 
-  it('/practice/review/kana-quiz renders the review-scoped Kana Quiz once a row is taught', () => {
+  it('/practice/review/kana-quiz renders the review-scoped Kana Quiz once a character is active in Review', () => {
     useProgressStore.getState().markRowTaught('a-row')
+    useProgressStore.getState().recordCharacterReviewResult('a', false)
     renderAt('/practice/review/kana-quiz')
     expect(screen.getByText(/Round 1/)).toBeInTheDocument()
   })

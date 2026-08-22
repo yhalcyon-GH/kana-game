@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { MAX_BOX, MIN_BOX, clampReviewScore, meetsAdvanceThreshold, needsReview, nextBox, weightForBox } from './srs'
+import { applyReviewResult, MAX_BOX, meetsAdvanceThreshold, MIN_BOX, nextBox, REVIEW_STREAK_TARGET, weightForBox } from './srs'
 
 describe('nextBox', () => {
   it('increments on correct, clamped at MAX_BOX', () => {
@@ -41,29 +41,48 @@ describe('meetsAdvanceThreshold', () => {
   })
 })
 
-describe('clampReviewScore', () => {
-  it('clamps to [0, 10]', () => {
-    expect(clampReviewScore(-3)).toBe(0)
-    expect(clampReviewScore(0)).toBe(0)
-    expect(clampReviewScore(7)).toBe(7)
-    expect(clampReviewScore(10)).toBe(10)
-    expect(clampReviewScore(15)).toBe(10)
-  })
-})
-
-describe('needsReview', () => {
-  it('is false below the threshold (5) and true at or above it', () => {
-    expect(needsReview(0)).toBe(false)
-    expect(needsReview(4)).toBe(false)
-    expect(needsReview(5)).toBe(true)
-    expect(needsReview(10)).toBe(true)
+describe('applyReviewResult', () => {
+  it('a miss activates Review and resets the streak to 0, regardless of prior state', () => {
+    expect(applyReviewResult({ reviewActive: false, reviewStreak: 0 }, false)).toEqual({
+      reviewActive: true,
+      reviewStreak: 0,
+    })
+    expect(applyReviewResult({ reviewActive: true, reviewStreak: 1 }, false)).toEqual({
+      reviewActive: true,
+      reviewStreak: 0,
+    })
   })
 
-  // Regression: a score can jump straight past the threshold in one step
-  // (e.g. a precise hit takes 5 -> 3), so this must be a live comparison
-  // against the current value, never a one-off "did it just hit exactly 4"
-  // event check.
-  it('re-evaluates from the current score rather than watching for one exact value', () => {
-    expect(needsReview(3)).toBe(false) // 5 - 2 = 3, straight past 4
+  it('a correct answer while inactive is a no-op', () => {
+    const inactive = { reviewActive: false, reviewStreak: 0 }
+    expect(applyReviewResult(inactive, true)).toEqual(inactive)
+  })
+
+  it('a correct answer while active increments the streak', () => {
+    expect(applyReviewResult({ reviewActive: true, reviewStreak: 0 }, true)).toEqual({
+      reviewActive: true,
+      reviewStreak: 1,
+    })
+  })
+
+  it('graduates (leaves Review, streak resets) once the streak reaches REVIEW_STREAK_TARGET', () => {
+    expect(REVIEW_STREAK_TARGET).toBe(2)
+    expect(applyReviewResult({ reviewActive: true, reviewStreak: 1 }, true)).toEqual({
+      reviewActive: false,
+      reviewStreak: 0,
+    })
+  })
+
+  it('two consecutive correct answers from a fresh miss graduate the item', () => {
+    let state = applyReviewResult({ reviewActive: false, reviewStreak: 0 }, false)
+    state = applyReviewResult(state, true)
+    expect(state).toEqual({ reviewActive: true, reviewStreak: 1 })
+    state = applyReviewResult(state, true)
+    expect(state).toEqual({ reviewActive: false, reviewStreak: 0 })
+  })
+
+  it('a miss at 1/2 resets to 0/2 instead of graduating or compounding', () => {
+    const oneOfTwo = { reviewActive: true, reviewStreak: 1 }
+    expect(applyReviewResult(oneOfTwo, false)).toEqual({ reviewActive: true, reviewStreak: 0 })
   })
 })

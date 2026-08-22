@@ -4,7 +4,7 @@
 // rounds of progress and discourage continued play. Drives row-unlock
 // timing (meetsAdvanceThreshold) and practice-queue weighting
 // (weightForBox) ONLY — Review inclusion is a separate mechanism, see
-// REVIEW_SCORE_MAX/needsReview below.
+// REVIEW_STREAK_TARGET/applyReviewResult below.
 export const MIN_BOX = 0
 export const MAX_BOX = 4
 
@@ -41,38 +41,37 @@ export function meetsAdvanceThreshold(stats: {
 }
 
 // Review inclusion is mistake-driven, not time-driven: every character and
-// word carries its own 0-10 reviewScore (see progressStore.ts's
-// CharacterProgress/WordProgress), independent of box. A game adjusts it on
-// every answer — a precise per-item test (Kana Quiz, Word Builder, which
-// know exactly which character was wrong) moves it by a full step
-// (±REVIEW_SCORE_MISS_PRECISE/±REVIEW_SCORE_HIT_PRECISE); an imprecise
-// whole-word test (Kana Typing, Listening, which can only say the whole
-// word was right or wrong) moves every character in that word by a smaller
-// step (±REVIEW_SCORE_MISS_IMPRECISE/±REVIEW_SCORE_HIT_IMPRECISE), so a
-// single ambiguous slip doesn't have the same weight as a confirmed miss.
-// Words get their own score the same way, always ±WORD versions, from
-// whichever word-based game was played (Kana Quiz has no word to score).
-// This applies regardless of whether the game was played inside a Review
-// session or normal practice — see useAnswerFeedback callers.
-export const REVIEW_SCORE_MIN = 0
-export const REVIEW_SCORE_MAX = 10
-export const REVIEW_THRESHOLD = 5
+// word carries its own active/streak pair (see progressStore.ts's
+// CharacterProgress/WordProgress), independent of box.
+//
+// Rule: a miss puts an item into Review (active, streak reset to 0);
+// REVIEW_STREAK_TARGET consecutive correct answers while active graduate it
+// back out. A miss at any point resets the streak to 0 without leaving
+// Review. This applies regardless of whether the item was answered inside a
+// Review session or normal row Practice - see the 4 game pages' callers of
+// progressStore's recordCharacterReviewResult/recordWordReviewResult.
+//
+// Character vs word Review are independent pools (see useCurriculum's
+// weakCharacterIds/weakWords) - which game touches which is a per-game
+// decision (e.g. Kana Quiz only ever touches character Review; Listening/
+// Kana Typing only ever touch word Review; Word Builder touches both, using
+// its real per-character precision).
+export const REVIEW_STREAK_TARGET = 2
 
-export const REVIEW_SCORE_MISS_PRECISE = 5
-export const REVIEW_SCORE_HIT_PRECISE = -2
-export const REVIEW_SCORE_MISS_IMPRECISE = 1
-export const REVIEW_SCORE_HIT_IMPRECISE = -1
-export const REVIEW_SCORE_MISS_WORD = 10
-export const REVIEW_SCORE_HIT_WORD = -5
-
-export function clampReviewScore(score: number): number {
-  return Math.min(REVIEW_SCORE_MAX, Math.max(REVIEW_SCORE_MIN, score))
+export type ReviewProgress = {
+  reviewActive: boolean
+  reviewStreak: number
 }
 
-// Re-evaluated from the current score every time (never "did it just cross
-// 5" as a one-off event) — a score can jump straight past the threshold in
-// either direction (e.g. 5 -> 3 in one hit), so only a live >= check is
-// reliable for both entering and leaving Review.
-export function needsReview(score: number): boolean {
-  return score >= REVIEW_THRESHOLD
+// Single reducer covering both the "enters/stays in Review" and
+// "progresses/graduates" paths - a wrong answer always resets to active/0
+// regardless of prior state; a correct answer only does anything if the
+// item is currently active (a correct answer on an inactive item is a
+// no-op, so calling this unconditionally on every answer is safe).
+export function applyReviewResult(current: ReviewProgress, correct: boolean): ReviewProgress {
+  if (!correct) return { reviewActive: true, reviewStreak: 0 }
+  if (!current.reviewActive) return current
+  const streak = current.reviewStreak + 1
+  if (streak >= REVIEW_STREAK_TARGET) return { reviewActive: false, reviewStreak: 0 }
+  return { reviewActive: true, reviewStreak: streak }
 }

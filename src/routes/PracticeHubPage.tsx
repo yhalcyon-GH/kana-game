@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { HubBreadcrumb } from '../components/HubBreadcrumb'
 import { Mascot } from '../components/Mascot'
+import { ReviewEmptyState } from '../components/ReviewEmptyState'
 import { CATEGORIES_BY_ID, ROWS_BY_ID } from '../data/curriculum'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../hooks/useCurriculum'
 
@@ -82,6 +83,15 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
     )
   }
 
+  // Review with something taught/practiced but nothing currently active in
+  // either pool (see useCurriculum's weakCharacterIds/weakWords) is a
+  // genuine success state, not "nothing to show" — there's no fallback to
+  // mixing in already-mastered material any more, so the game cards below
+  // would otherwise link to empty sessions.
+  if (isReview && reviewCount === 0) {
+    return <ReviewEmptyState />
+  }
+
   const hubBase = isReview ? '/practice/review' : `/practice/${categoryId}/${rowId}`
 
   // Tracing walks through "every word in this row" as its second phase (see
@@ -126,9 +136,7 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
       <h1 className="text-2xl font-bold">{isReview ? 'Review — all learned rows' : `${isSummary ? '⭐ ' : ''}${row!.label}`}</h1>
       {isReview && (
         <p className="text-sm text-neutral-500 dark:text-neutral-400">
-          {reviewCount > 0
-            ? `${reviewCount} item${reviewCount === 1 ? '' : 's'} need review`
-            : 'Nothing needs review right now — mixing in everything you know'}
+          {reviewCount} item{reviewCount === 1 ? '' : 's'} need review
         </p>
       )}
 

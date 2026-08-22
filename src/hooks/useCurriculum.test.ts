@@ -42,16 +42,12 @@ describe('useCurriculum', () => {
     expect(ids.every((id) => !['a', 'i', 'u', 'e', 'o'].includes(id))).toBe(true)
   })
 
-  it('the review scope mixes every taught row\'s words, falling back to all taught words when nothing is due', () => {
+  it('the review scope is empty across every taught row until something is actually missed', () => {
     useProgressStore.getState().markRowTaught('a-row')
     useProgressStore.getState().markRowTaught('ka-row')
     const { result } = renderHook(() => useCurriculum())
-    // Freshly taught characters start at box 0, which is always due, so
-    // every taught word should come back (nothing to fall back from yet).
-    const reviewWords = result.current.getScopeWords(REVIEW_SCOPE_ID)
-    const aWords = result.current.getScopeWords('a-row')
-    const kaWords = result.current.getScopeWords('ka-row')
-    expect(reviewWords.length).toBe(aWords.length + kaWords.length)
+    // No fallback to "everything taught" any more — Review starts empty.
+    expect(result.current.getScopeWords(REVIEW_SCOPE_ID)).toEqual([])
   })
 
   // Regression: a summary row's characterIds hold the FULL aggregated
@@ -80,6 +76,12 @@ describe('useCurriculum', () => {
   it('getScopeQuizCharacterIds excludes contrast-pairs characters from the review scope, but keeps them in getScopeCharacterIds', () => {
     useProgressStore.getState().markRowTaught('a-row')
     useProgressStore.getState().markRowTaught('sokuon-row')
+    // Active character Review has no fallback any more — mark an a-row
+    // character (and, for symmetry, a sokuon one) actually weak so this
+    // test can tell "excluded because contrast-pairs" apart from "excluded
+    // because nothing is active at all".
+    useProgressStore.getState().recordCharacterReviewResult('a', false)
+    useProgressStore.getState().recordCharacterReviewResult('sokuon', false)
     const { result } = renderHook(() => useCurriculum())
 
     const quizIds = result.current.getScopeQuizCharacterIds(REVIEW_SCOPE_ID)
@@ -111,29 +113,39 @@ describe('useCurriculum', () => {
     expect(ids).not.toContain('katakana-chouon')
   })
 
-  // Review inclusion is mistake-driven (reviewScore, see lib/srs.ts), not
-  // time-driven — a character only shows up as weak once its own score
-  // crosses the threshold, regardless of box or how recently it was seen.
-  describe('mistake-driven Review (reviewScore)', () => {
-    it('a taught character with reviewScore below the threshold is not weak', () => {
+  // Review inclusion is mistake-driven (active/streak, see lib/srs.ts), not
+  // time-driven — a character only shows up as weak once a miss activates
+  // it, regardless of box or how recently it was seen. Character Review and
+  // word Review are independent pools (Issue #2): a word never appears in
+  // word Review merely because it contains a weak character, and vice versa.
+  describe('mistake-driven Review (active/streak)', () => {
+    it('a taught character that has never been missed is not weak', () => {
       useProgressStore.getState().markRowTaught('a-row')
-      useProgressStore.getState().adjustCharacterReviewScore('a', 4)
       const { result } = renderHook(() => useCurriculum())
       expect(result.current.weakCharacterIds).not.toContain('a')
       expect(result.current.reviewCount).toBe(0)
     })
 
-    it('a character becomes weak once its reviewScore reaches the threshold (5)', () => {
+    it('a character becomes weak the moment it is missed', () => {
       useProgressStore.getState().markRowTaught('a-row')
-      useProgressStore.getState().adjustCharacterReviewScore('a', 5)
+      useProgressStore.getState().recordCharacterReviewResult('a', false)
       const { result } = renderHook(() => useCurriculum())
       expect(result.current.weakCharacterIds).toContain('a')
       expect(result.current.reviewCount).toBe(1)
     })
 
-    it('a word becomes weak from its OWN score, independent of its characters', () => {
+    it('a character graduates out of Review after two consecutive correct answers', () => {
       useProgressStore.getState().markRowTaught('a-row')
-      useProgressStore.getState().adjustWordReviewScore('a-ai', 10)
+      useProgressStore.getState().recordCharacterReviewResult('a', false)
+      useProgressStore.getState().recordCharacterReviewResult('a', true)
+      useProgressStore.getState().recordCharacterReviewResult('a', true)
+      const { result } = renderHook(() => useCurriculum())
+      expect(result.current.weakCharacterIds).not.toContain('a')
+    })
+
+    it('a word becomes weak from its OWN miss, independent of its characters', () => {
+      useProgressStore.getState().markRowTaught('a-row')
+      useProgressStore.getState().recordWordReviewResult('a-ai', false)
       const { result } = renderHook(() => useCurriculum())
       expect(result.current.weakWords.map((w) => w.id)).toContain('a-ai')
       // Neither of a-ai's own characters was marked weak directly.
@@ -146,27 +158,39 @@ describe('useCurriculum', () => {
 
     it('counts weak characters and independently weak words as separate Review items', () => {
       useProgressStore.getState().markRowTaught('a-row')
-      useProgressStore.getState().adjustCharacterReviewScore('a', 5)
-      useProgressStore.getState().adjustWordReviewScore('a-ie', 5)
+      useProgressStore.getState().recordCharacterReviewResult('a', false)
+      useProgressStore.getState().recordWordReviewResult('a-ie', false)
       const { result } = renderHook(() => useCurriculum())
       expect(result.current.reviewCharacterCount).toBe(1)
       expect(result.current.reviewWordCount).toBe(1)
       expect(result.current.reviewCount).toBe(2)
     })
 
-    it("getScopeWords(REVIEW_SCOPE_ID) pulls in a word containing a weak character even if the word's own score is fine", () => {
+    // Issue #2's core pool-separation rule: か being weak must not
+    // automatically pull かさ/さかな/いか (or any word containing か) into
+    // word Review — only a word's own miss does that.
+    it("getScopeWords(REVIEW_SCOPE_ID) does NOT include a word just because it contains a weak character", () => {
       useProgressStore.getState().markRowTaught('a-row')
-      useProgressStore.getState().adjustCharacterReviewScore('a', 5)
+      useProgressStore.getState().recordCharacterReviewResult('a', false)
       const { result } = renderHook(() => useCurriculum())
       const reviewWords = result.current.getScopeWords(REVIEW_SCOPE_ID)
-      expect(reviewWords.some((w) => w.characterIds.includes('a'))).toBe(true)
+      expect(reviewWords).toEqual([])
     })
 
-    it('falls back to every unlocked word when nothing is weak yet, so Review is never empty', () => {
+    it('getScopeQuizCharacterIds(REVIEW_SCOPE_ID) returns only active characters, with no fallback when empty', () => {
+      useProgressStore.getState().markRowTaught('a-row')
+      const { result: before } = renderHook(() => useCurriculum())
+      expect(before.current.getScopeQuizCharacterIds(REVIEW_SCOPE_ID)).toEqual([])
+
+      useProgressStore.getState().recordCharacterReviewResult('a', false)
+      const { result: after } = renderHook(() => useCurriculum())
+      expect(after.current.getScopeQuizCharacterIds(REVIEW_SCOPE_ID)).toEqual(['a'])
+    })
+
+    it('does not fall back to every unlocked word when nothing is weak — Review is genuinely empty', () => {
       useProgressStore.getState().markRowTaught('a-row')
       const { result } = renderHook(() => useCurriculum())
-      const reviewWords = result.current.getScopeWords(REVIEW_SCOPE_ID)
-      expect(reviewWords.length).toBeGreaterThan(0)
+      expect(result.current.getScopeWords(REVIEW_SCOPE_ID)).toEqual([])
     })
   })
 })

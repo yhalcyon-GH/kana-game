@@ -1,25 +1,27 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { getNextRowId, ROWS, ROWS_BY_ID } from '../data/curriculum'
-import { clampReviewScore, MAX_BOX, meetsAdvanceThreshold, MIN_BOX, nextBox } from '../lib/srs'
+import { applyReviewResult, MAX_BOX, meetsAdvanceThreshold, MIN_BOX, nextBox, REVIEW_STREAK_TARGET } from '../lib/srs'
 
 export type CharacterProgress = {
   box: number
   totalSeen: number
   totalCorrect: number
   lastSeen: number
-  // 0-10, clamped — see lib/srs.ts's needsReview/REVIEW_SCORE_* for how
-  // each game adjusts this. Drives Review inclusion; independent of `box`,
+  // Active/streak Review state — see lib/srs.ts's applyReviewResult for how
+  // each game updates this. Drives Review inclusion; independent of `box`,
   // which only drives row-unlock timing and practice-queue weighting.
-  reviewScore: number
+  reviewActive: boolean
+  reviewStreak: number
 }
 
 export type WordProgress = {
-  // Same 0-10 scale as CharacterProgress.reviewScore, but tracked per word
-  // rather than derived from its characters — a word gets its own score
+  // Same active/streak model as CharacterProgress, but tracked per word
+  // rather than derived from its characters — a word gets its own state
   // directly from the word-based games (Kana Typing/Listening/Word
   // Builder; Kana Quiz has no word involved). See lib/srs.ts.
-  reviewScore: number
+  reviewActive: boolean
+  reviewStreak: number
 }
 
 const FIRST_ROW_ID = 'a-row'
@@ -47,8 +49,8 @@ type ProgressState = {
 
   ensureCharacterInitialized: (charId: string) => void
   recordResult: (charId: string, correct: boolean) => void
-  adjustCharacterReviewScore: (charId: string, delta: number) => void
-  adjustWordReviewScore: (wordId: string, delta: number) => void
+  recordCharacterReviewResult: (charId: string, correct: boolean) => void
+  recordWordReviewResult: (wordId: string, correct: boolean) => void
   markRowTaught: (rowId: string) => void
   isRowUnlocked: (rowId: string) => boolean
   isRowTaught: (rowId: string) => boolean
@@ -63,7 +65,11 @@ type ProgressState = {
 }
 
 function blankCharacterProgress(): CharacterProgress {
-  return { box: 0, totalSeen: 0, totalCorrect: 0, lastSeen: 0, reviewScore: 0 }
+  return { box: 0, totalSeen: 0, totalCorrect: 0, lastSeen: 0, reviewActive: false, reviewStreak: 0 }
+}
+
+function blankWordProgress(): WordProgress {
+  return { reviewActive: false, reviewStreak: 0 }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -94,6 +100,19 @@ function booleanOr(value: unknown, fallback: boolean): boolean {
   return typeof value === 'boolean' ? value : fallback
 }
 
+// A streak is only ever meaningful while active (an inactive item's streak
+// is always 0, see applyReviewResult) and can never legitimately reach
+// REVIEW_STREAK_TARGET itself (that value graduates the item, resetting the
+// streak back to 0 in the same step) — so anything outside [0,
+// REVIEW_STREAK_TARGET) is corrupt/stale data, not a valid in-progress streak.
+function reviewProgressOr(candidate: Record<string, unknown>): { reviewActive: boolean; reviewStreak: number } {
+  const reviewActive = booleanOr(candidate.reviewActive, false)
+  if (!reviewActive) return { reviewActive: false, reviewStreak: 0 }
+  const streak = candidate.reviewStreak
+  const reviewStreak = typeof streak === 'number' && Number.isInteger(streak) && streak >= 0 && streak < REVIEW_STREAK_TARGET ? streak : 0
+  return { reviewActive: true, reviewStreak }
+}
+
 export function mergePersistedProgress(persistedState: unknown, currentState: ProgressState): ProgressState {
   const persisted = isRecord(persistedState) ? persistedState : {}
   const rawCharacters = isRecord(persisted.characters) ? persisted.characters : {}
@@ -110,16 +129,13 @@ export function mergePersistedProgress(persistedState: unknown, currentState: Pr
           totalSeen,
           totalCorrect: Math.min(nonNegativeIntegerOr(candidate.totalCorrect, 0), totalSeen),
           lastSeen: nonNegativeIntegerOr(candidate.lastSeen, 0),
-          reviewScore: clampReviewScore(finiteOr(candidate.reviewScore, 0)),
+          ...reviewProgressOr(candidate),
         },
       ]
     }),
   )
   const words = Object.fromEntries(
-    Object.entries(rawWords).map(([id, value]) => [
-      id,
-      { reviewScore: clampReviewScore(finiteOr(isRecord(value) ? value.reviewScore : 0, 0)) },
-    ]),
+    Object.entries(rawWords).map(([id, value]) => [id, reviewProgressOr(isRecord(value) ? value : {})]),
   )
 
   return {
@@ -187,22 +203,17 @@ export const useProgressStore = create<ProgressState>()(
         }
       },
 
-      adjustCharacterReviewScore: (charId, delta) => {
+      recordCharacterReviewResult: (charId, correct) => {
         set((state) => {
           const prev = state.characters[charId] ?? blankCharacterProgress()
-          return {
-            characters: {
-              ...state.characters,
-              [charId]: { ...prev, reviewScore: clampReviewScore(prev.reviewScore + delta) },
-            },
-          }
+          return { characters: { ...state.characters, [charId]: { ...prev, ...applyReviewResult(prev, correct) } } }
         })
       },
 
-      adjustWordReviewScore: (wordId, delta) => {
+      recordWordReviewResult: (wordId, correct) => {
         set((state) => {
-          const prev = state.words[wordId] ?? { reviewScore: 0 }
-          return { words: { ...state.words, [wordId]: { reviewScore: clampReviewScore(prev.reviewScore + delta) } } }
+          const prev = state.words[wordId] ?? blankWordProgress()
+          return { words: { ...state.words, [wordId]: applyReviewResult(prev, correct) } }
         })
       },
 
@@ -252,7 +263,7 @@ export const useProgressStore = create<ProgressState>()(
     }),
     {
       name: 'kana-game-progress',
-      version: 5,
+      version: 6,
       // v1 -> v2: the default pronunciation speed changed from 1x to 0.5x;
       // carry that new default into browsers that already persisted a v1
       // state (which would otherwise keep the old 1x forever).
@@ -266,6 +277,13 @@ export const useProgressStore = create<ProgressState>()(
       // with per-character/per-word reviewScore (see lib/srs.ts) — backfill
       // every existing character with reviewScore 0 (dropping the now-
       // unused lastCorrect field) and add the new `words` map.
+      // v5 -> v6: replaces the 0-10 reviewScore/threshold model with an
+      // explicit active/streak pair (see lib/srs.ts's applyReviewResult) —
+      // an old score at or above the old threshold (5) becomes an active
+      // Review item with streak 0 (mirroring "you were failing this, keep
+      // practicing it"); anything below becomes inactive. The streak always
+      // starts at 0 either way, since the old score carried no record of a
+      // partial correct-streak to resume.
       migrate: (persistedState, version) => {
         const state = (isRecord(persistedState) ? persistedState : {}) as Partial<ProgressState>
         if (version < 2) {
@@ -287,6 +305,28 @@ export const useProgressStore = create<ProgressState>()(
           }
           state.characters = characters as Record<string, CharacterProgress>
           state.words = {}
+        }
+        if (version < 6) {
+          const OLD_REVIEW_THRESHOLD = 5
+          const migrateReviewFields = (candidate: Record<string, unknown>) => {
+            const oldScore = finiteOr(candidate.reviewScore, 0)
+            candidate.reviewActive = oldScore >= OLD_REVIEW_THRESHOLD
+            candidate.reviewStreak = 0
+            delete candidate.reviewScore
+          }
+          const characters = isRecord(state.characters) ? state.characters : {}
+          for (const id of Object.keys(characters)) {
+            const candidate: unknown = characters[id]
+            if (isRecord(candidate)) migrateReviewFields(candidate)
+          }
+          state.characters = characters as Record<string, CharacterProgress>
+
+          const words = isRecord(state.words) ? state.words : {}
+          for (const id of Object.keys(words)) {
+            const candidate: unknown = words[id]
+            if (isRecord(candidate)) migrateReviewFields(candidate)
+          }
+          state.words = words as Record<string, WordProgress>
         }
         return state
       },

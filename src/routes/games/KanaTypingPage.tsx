@@ -4,6 +4,7 @@ import { AnswerFeedbackRow } from '../../components/AnswerFeedbackRow'
 import { AnswerReveal } from '../../components/AnswerReveal'
 import { GameRoundHeader } from '../../components/GameRoundHeader'
 import { PracticeSummary } from '../../components/PracticeSummary'
+import { ReviewEmptyState } from '../../components/ReviewEmptyState'
 import { WordImage } from '../../components/WordImage'
 import { ROWS_BY_ID } from '../../data/curriculum'
 import type { QuestionMode } from '../../data/feedback'
@@ -15,7 +16,6 @@ import { useFrozenWordPool } from '../../hooks/useFrozenWordPool'
 import { useGameSession } from '../../hooks/useGameSession'
 import { useTTS } from '../../hooks/useTTS'
 import { isAnswerCorrect } from '../../lib/answerChecking'
-import { REVIEW_SCORE_HIT_IMPRECISE, REVIEW_SCORE_HIT_WORD, REVIEW_SCORE_MISS_IMPRECISE, REVIEW_SCORE_MISS_WORD } from '../../lib/srs'
 import { useProgressStore } from '../../store/progressStore'
 
 // Types a whole word — in hiragana, katakana, OR romaji, any of the three
@@ -35,8 +35,7 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
   const navigate = useNavigate()
   const { isScopeReady, getScopeWords, getScopeRounds } = useCurriculum()
   const recordResult = useProgressStore((s) => s.recordResult)
-  const adjustCharacterReviewScore = useProgressStore((s) => s.adjustCharacterReviewScore)
-  const adjustWordReviewScore = useProgressStore((s) => s.adjustWordReviewScore)
+  const recordWordReviewResult = useProgressStore((s) => s.recordWordReviewResult)
   const characters = useProgressStore((s) => s.characters)
   const { speak, supported } = useTTS()
   const isReview = rowId === REVIEW_SCOPE_ID
@@ -111,13 +110,14 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
     setAnswered(true)
     setWasCorrect(isCorrect)
     // Kana Typing only knows the WHOLE word was right or wrong, not which
-    // glyph was the actual mistake — every character in the word gets the
-    // same smaller "imprecise" review-score step (see lib/srs.ts).
+    // glyph was the actual mistake, so it feeds the Leitner box per
+    // character (unlock/practice weighting only) without touching
+    // character Review at all — only the word itself enters/leaves word
+    // Review, per the issue's "Kana Typing: Character Review: NO".
     for (const charId of currentWord.characterIds) {
       recordResult(charId, isCorrect)
-      adjustCharacterReviewScore(charId, isCorrect ? REVIEW_SCORE_HIT_IMPRECISE : REVIEW_SCORE_MISS_IMPRECISE)
     }
-    adjustWordReviewScore(currentWord.id, isCorrect ? REVIEW_SCORE_HIT_WORD : REVIEW_SCORE_MISS_WORD)
+    recordWordReviewResult(currentWord.id, isCorrect)
     if (isCorrect) {
       setCorrectCount((c) => c + 1)
       onCorrect()
@@ -128,7 +128,11 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
   }
 
   if (!rowId || !isScopeReady(rowId)) return null
-  if (scopeWords.length === 0) return null
+  // Not a plain "scopeWords.length === 0 -> empty state": that pool is LIVE
+  // and can legitimately drop to 0 mid-session (every queued word graduates
+  // during play) while the frozen session queue still has an in-progress
+  // round to show — see ListeningPage's identical comment.
+  if (scopeWords.length === 0 && queue.length === 0) return isReview ? <ReviewEmptyState /> : null
 
   if (finished) {
     return (
