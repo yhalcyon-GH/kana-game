@@ -6,7 +6,7 @@ beforeEach(() => {
 })
 
 describe('progressStore', () => {
-  it('backfills missing v5 maps and reviewScore values during hydration', () => {
+  it('backfills missing v6 maps and review fields during hydration', () => {
     const current = useProgressStore.getState()
     const merged = mergePersistedProgress(
       {
@@ -18,20 +18,32 @@ describe('progressStore', () => {
       current,
     )
 
-    expect(merged.characters.a.reviewScore).toBe(0)
+    expect(merged.characters.a.reviewActive).toBe(false)
+    expect(merged.characters.a.reviewStreak).toBe(0)
     expect(merged.words).toEqual({})
     expect(merged.unlockedRowIds).toEqual(['a-row'])
     expect(typeof merged.recordResult).toBe('function')
   })
 
-  it('normalizes invalid review scores before future arithmetic', () => {
+  it('normalizes an invalid/out-of-range streak on an active item back to 0', () => {
     const current = useProgressStore.getState()
     const merged = mergePersistedProgress(
-      { characters: { a: { box: 0, totalSeen: 0, totalCorrect: 0, lastSeen: 0, reviewScore: Number.NaN } } },
+      { characters: { a: { box: 0, totalSeen: 0, totalCorrect: 0, lastSeen: 0, reviewActive: true, reviewStreak: Number.NaN } } },
       current,
     )
 
-    expect(merged.characters.a.reviewScore).toBe(0)
+    expect(merged.characters.a.reviewActive).toBe(true)
+    expect(merged.characters.a.reviewStreak).toBe(0)
+  })
+
+  it('forces an inactive item\'s streak to 0 regardless of what was persisted', () => {
+    const current = useProgressStore.getState()
+    const merged = mergePersistedProgress(
+      { characters: { a: { box: 0, totalSeen: 0, totalCorrect: 0, lastSeen: 0, reviewActive: false, reviewStreak: 1 } } },
+      current,
+    )
+
+    expect(merged.characters.a).toEqual({ box: 0, totalSeen: 0, totalCorrect: 0, lastSeen: 0, reviewActive: false, reviewStreak: 0 })
   })
 
   it('clamps finite persisted audio settings to their supported UI ranges', () => {
@@ -51,17 +63,17 @@ describe('progressStore', () => {
     const merged = mergePersistedProgress(
       {
         characters: {
-          a: { box: -1, totalSeen: -2, totalCorrect: -3, lastSeen: -1, reviewScore: 20 },
-          i: { box: 1.5, totalSeen: 2.5, totalCorrect: 3, lastSeen: 1.5, reviewScore: -1 },
-          u: { box: 2, totalSeen: 2, totalCorrect: 3, lastSeen: 123, reviewScore: 1 },
+          a: { box: -1, totalSeen: -2, totalCorrect: -3, lastSeen: -1, reviewActive: 'yes' },
+          i: { box: 1.5, totalSeen: 2.5, totalCorrect: 3, lastSeen: 1.5, reviewActive: false },
+          u: { box: 2, totalSeen: 2, totalCorrect: 3, lastSeen: 123, reviewActive: true, reviewStreak: 1 },
         },
       },
       current,
     )
 
-    expect(merged.characters.a).toEqual({ box: 0, totalSeen: 0, totalCorrect: 0, lastSeen: 0, reviewScore: 10 })
-    expect(merged.characters.i).toEqual({ box: 0, totalSeen: 0, totalCorrect: 0, lastSeen: 0, reviewScore: 0 })
-    expect(merged.characters.u).toEqual({ box: 2, totalSeen: 2, totalCorrect: 2, lastSeen: 123, reviewScore: 1 })
+    expect(merged.characters.a).toEqual({ box: 0, totalSeen: 0, totalCorrect: 0, lastSeen: 0, reviewActive: false, reviewStreak: 0 })
+    expect(merged.characters.i).toEqual({ box: 0, totalSeen: 0, totalCorrect: 0, lastSeen: 0, reviewActive: false, reviewStreak: 0 })
+    expect(merged.characters.u).toEqual({ box: 2, totalSeen: 2, totalCorrect: 2, lastSeen: 123, reviewActive: true, reviewStreak: 1 })
   })
 
   it('falls back to defaults for malformed maps and row arrays', () => {
@@ -82,7 +94,7 @@ describe('progressStore', () => {
     const merged = mergePersistedProgress(
       {
         characters: {
-          a: { box: 3, totalSeen: 5, totalCorrect: 4, lastSeen: 123, reviewScore: 6 },
+          a: { box: 3, totalSeen: 5, totalCorrect: 4, lastSeen: 123, reviewActive: true, reviewStreak: 1 },
         },
         audioVolume: 1.5,
         audioSpeed: 1.25,
@@ -91,7 +103,7 @@ describe('progressStore', () => {
       current,
     )
 
-    expect(merged.characters.a).toEqual({ box: 3, totalSeen: 5, totalCorrect: 4, lastSeen: 123, reviewScore: 6 })
+    expect(merged.characters.a).toEqual({ box: 3, totalSeen: 5, totalCorrect: 4, lastSeen: 123, reviewActive: true, reviewStreak: 1 })
     expect(merged.audioVolume).toBe(1.5)
     expect(merged.audioSpeed).toBe(1.25)
     expect(merged.mascotVoiceVolume).toBe(0.5)
@@ -100,7 +112,7 @@ describe('progressStore', () => {
   it('hydrates a current-version partial storage envelope with default maps and actions intact', async () => {
     localStorage.setItem(
       'kana-game-progress',
-      JSON.stringify({ version: 5, state: { characters: {}, taughtRowIds: ['a-row'] } }),
+      JSON.stringify({ version: 6, state: { characters: {}, taughtRowIds: ['a-row'] } }),
     )
 
     await useProgressStore.persist.rehydrate()
@@ -192,34 +204,90 @@ describe('progressStore', () => {
     expect(state.taughtRowIds).toEqual([])
   })
 
-  describe('adjustCharacterReviewScore', () => {
-    it('accumulates and clamps to [0, 10]', () => {
-      const { adjustCharacterReviewScore } = useProgressStore.getState()
-      adjustCharacterReviewScore('a', 5)
-      expect(useProgressStore.getState().characters['a'].reviewScore).toBe(5)
-      adjustCharacterReviewScore('a', 5)
-      expect(useProgressStore.getState().characters['a'].reviewScore).toBe(10)
-      adjustCharacterReviewScore('a', 5) // would be 15, clamped to 10
-      expect(useProgressStore.getState().characters['a'].reviewScore).toBe(10)
-      adjustCharacterReviewScore('a', -100) // would be negative, clamped to 0
-      expect(useProgressStore.getState().characters['a'].reviewScore).toBe(0)
+  describe('recordCharacterReviewResult', () => {
+    it('a miss activates Review and resets the streak; two consecutive hits graduate it', () => {
+      const { recordCharacterReviewResult } = useProgressStore.getState()
+      recordCharacterReviewResult('a', false)
+      expect(useProgressStore.getState().characters['a']).toMatchObject({ reviewActive: true, reviewStreak: 0 })
+
+      recordCharacterReviewResult('a', true)
+      expect(useProgressStore.getState().characters['a']).toMatchObject({ reviewActive: true, reviewStreak: 1 })
+
+      recordCharacterReviewResult('a', true)
+      expect(useProgressStore.getState().characters['a']).toMatchObject({ reviewActive: false, reviewStreak: 0 })
+    })
+
+    it('a miss at streak 1/2 resets to 0/2 instead of graduating', () => {
+      const { recordCharacterReviewResult } = useProgressStore.getState()
+      recordCharacterReviewResult('a', false)
+      recordCharacterReviewResult('a', true)
+      expect(useProgressStore.getState().characters['a']).toMatchObject({ reviewActive: true, reviewStreak: 1 })
+
+      recordCharacterReviewResult('a', false)
+      expect(useProgressStore.getState().characters['a']).toMatchObject({ reviewActive: true, reviewStreak: 0 })
     })
 
     it('initializes a not-yet-seen character rather than throwing', () => {
-      useProgressStore.getState().adjustCharacterReviewScore('unseen-char', 3)
-      expect(useProgressStore.getState().characters['unseen-char'].reviewScore).toBe(3)
+      useProgressStore.getState().recordCharacterReviewResult('unseen-char', false)
+      expect(useProgressStore.getState().characters['unseen-char']).toMatchObject({ reviewActive: true, reviewStreak: 0 })
+    })
+
+    it('a correct answer on an item never marked weak is a no-op', () => {
+      useProgressStore.getState().recordCharacterReviewResult('a', true)
+      expect(useProgressStore.getState().characters['a']).toMatchObject({ reviewActive: false, reviewStreak: 0 })
     })
   })
 
-  describe('adjustWordReviewScore', () => {
-    it('accumulates and clamps to [0, 10], initializing a not-yet-seen word', () => {
-      const { adjustWordReviewScore } = useProgressStore.getState()
-      adjustWordReviewScore('a-ai', 10)
-      expect(useProgressStore.getState().words['a-ai'].reviewScore).toBe(10)
-      adjustWordReviewScore('a-ai', -5)
-      expect(useProgressStore.getState().words['a-ai'].reviewScore).toBe(5)
-      adjustWordReviewScore('a-ai', -100)
-      expect(useProgressStore.getState().words['a-ai'].reviewScore).toBe(0)
+  describe('recordWordReviewResult', () => {
+    it('a miss activates Review and resets the streak; two consecutive hits graduate it, initializing a not-yet-seen word', () => {
+      const { recordWordReviewResult } = useProgressStore.getState()
+      recordWordReviewResult('a-ai', false)
+      expect(useProgressStore.getState().words['a-ai']).toEqual({ reviewActive: true, reviewStreak: 0 })
+
+      recordWordReviewResult('a-ai', true)
+      expect(useProgressStore.getState().words['a-ai']).toEqual({ reviewActive: true, reviewStreak: 1 })
+
+      recordWordReviewResult('a-ai', true)
+      expect(useProgressStore.getState().words['a-ai']).toEqual({ reviewActive: false, reviewStreak: 0 })
+    })
+  })
+
+  // v5 -> v6: the persisted store used to track a 0-10 reviewScore per
+  // character/word (threshold 5). See progressStore.ts's migrate() comment.
+  describe('v5 -> v6 review-field migration', () => {
+    it('converts an old score at/above the threshold to an active item with streak 0', async () => {
+      localStorage.setItem(
+        'kana-game-progress',
+        JSON.stringify({
+          version: 5,
+          state: {
+            characters: { a: { box: 1, totalSeen: 1, totalCorrect: 1, lastSeen: 1, reviewScore: 7 } },
+            words: { 'a-ai': { reviewScore: 5 } },
+          },
+        }),
+      )
+
+      await useProgressStore.persist.rehydrate()
+
+      const state = useProgressStore.getState()
+      expect(state.characters['a']).toMatchObject({ reviewActive: true, reviewStreak: 0 })
+      expect(state.words['a-ai']).toEqual({ reviewActive: true, reviewStreak: 0 })
+    })
+
+    it('converts an old score below the threshold to an inactive item', async () => {
+      localStorage.setItem(
+        'kana-game-progress',
+        JSON.stringify({
+          version: 5,
+          state: {
+            characters: { a: { box: 1, totalSeen: 1, totalCorrect: 1, lastSeen: 1, reviewScore: 4 } },
+          },
+        }),
+      )
+
+      await useProgressStore.persist.rehydrate()
+
+      expect(useProgressStore.getState().characters['a']).toMatchObject({ reviewActive: false, reviewStreak: 0 })
     })
   })
 })

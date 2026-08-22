@@ -38,11 +38,11 @@ describe('KanaTypingPage Review session', () => {
   beforeEach(() => {
     useProgressStore.getState().resetProgress()
     useProgressStore.getState().markRowTaught('a-row')
-    // Two weak words (a-ai "love", a-ie "house") so the live Review pool
-    // stays non-empty (no "nothing weak" fallback) after the first one drops
-    // out below.
-    useProgressStore.getState().adjustWordReviewScore('a-ai', 5)
-    useProgressStore.getState().adjustWordReviewScore('a-ie', 5)
+    // Two weak words (a-ai "love", a-ie "house"), each activated via a
+    // miss, so the live Review pool stays non-empty after the first one
+    // graduates out below.
+    useProgressStore.getState().recordWordReviewResult('a-ai', false)
+    useProgressStore.getState().recordWordReviewResult('a-ie', false)
   })
 
   afterEach(() => {
@@ -51,8 +51,8 @@ describe('KanaTypingPage Review session', () => {
 
   // Regression: Review's word pool is recalculated live from progress state
   // (see useCurriculum's mistake-driven weak-word selection). Answering the
-  // first weak word correctly drops its reviewScore below the threshold and
-  // removes it from that live pool immediately — while its id is still
+  // first weak word correctly can graduate it out of Review and remove it
+  // from that live pool immediately — while its id is still
   // queued for the round the learner is currently ON. The fix must resolve
   // every queued round against a snapshot taken at session start, so the
   // in-flight round finishes normally and the NEXT round is never skipped.
@@ -106,5 +106,33 @@ describe('KanaTypingPage Review session', () => {
     })
 
     expect(container.querySelector('p.text-sm')?.textContent).toMatch('Round 1 / 3')
+  })
+})
+
+describe('KanaTypingPage word-only Review (Issue #2)', () => {
+  beforeEach(() => {
+    useProgressStore.getState().resetProgress()
+    useProgressStore.getState().markRowTaught('a-row')
+  })
+
+  it('a wrong answer activates word Review but does NOT touch character Review', () => {
+    const { container } = render(
+      <MemoryRouter initialEntries={['/practice/hiragana/a-row/kana-typing']}>
+        <Routes>
+          <Route path="/practice/:categoryId/:rowId/kana-typing" element={<KanaTypingPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const input = container.querySelector('input') as HTMLInputElement
+    act(() => {
+      fireEvent.change(input, { target: { value: 'definitely-wrong' } })
+      fireEvent.submit(container.querySelector('form')!)
+    })
+
+    const words = useProgressStore.getState().words
+    const characters = useProgressStore.getState().characters
+    expect(Object.values(words).some((w) => w.reviewActive)).toBe(true)
+    expect(Object.values(characters).every((c) => !c.reviewActive)).toBe(true)
   })
 })

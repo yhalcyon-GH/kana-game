@@ -1,6 +1,7 @@
 import { act, fireEvent, render } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { WORDS_BY_ROW } from '../../data/words'
 import { REVIEW_SCOPE_ID } from '../../hooks/useCurriculum'
 import { useProgressStore } from '../../store/progressStore'
 import { ListeningPage } from './ListeningPage'
@@ -33,10 +34,10 @@ describe('ListeningPage Review session', () => {
   beforeEach(() => {
     useProgressStore.getState().resetProgress()
     useProgressStore.getState().markRowTaught('a-row')
-    // Two weak words so the live Review pool stays non-empty (no "nothing
-    // weak" fallback) after the first one drops out below.
-    useProgressStore.getState().adjustWordReviewScore('a-ai', 5)
-    useProgressStore.getState().adjustWordReviewScore('a-ie', 5)
+    // Two weak words, each activated via a miss, so the live Review pool
+    // stays non-empty after the first one graduates out below.
+    useProgressStore.getState().recordWordReviewResult('a-ai', false)
+    useProgressStore.getState().recordWordReviewResult('a-ie', false)
   })
 
   afterEach(() => {
@@ -85,10 +86,12 @@ describe('ListeningPage Review session', () => {
     const { container, getByRole } = renderReviewListening()
 
     finishVisibleListeningSession(container)
-    // With one live Review word, Listening has no distractor button to
-    // answer it incorrectly. Establish the post-attempt weak-word state
-    // directly so this regression stays focused on the replay boundary.
-    useProgressStore.getState().adjustWordReviewScore('a-ie', 5)
+    // finishVisibleListeningSession always answers correctly, so by the end
+    // of the session both words have graduated. Establish the post-attempt
+    // weak-word state directly so this regression stays focused on the
+    // replay boundary rather than on re-deriving a specific correct/wrong
+    // answer sequence.
+    useProgressStore.getState().recordWordReviewResult('a-ie', false)
     expect(getByRole('button', { name: /play again/i })).toBeInTheDocument()
 
     act(() => {
@@ -96,5 +99,38 @@ describe('ListeningPage Review session', () => {
     })
 
     expect(container.querySelector('p.text-sm')?.textContent).toMatch('Round 1 / 3')
+  })
+})
+
+describe('ListeningPage word-only Review (Issue #2)', () => {
+  beforeEach(() => {
+    useProgressStore.getState().resetProgress()
+    useProgressStore.getState().markRowTaught('a-row')
+  })
+
+  it('a wrong answer activates word Review but does NOT touch character Review', () => {
+    vi.useFakeTimers()
+    const { container } = render(
+      <MemoryRouter initialEntries={['/practice/hiragana/a-row/listening']}>
+        <Routes>
+          <Route path="/practice/:categoryId/:rowId/listening" element={<ListeningPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const meaning = container.querySelector('span.text-sm.text-neutral-500')!.textContent!.trim()
+    const targetWord = WORDS_BY_ROW['a-row'].find((w) => w.meaning === meaning)!
+    expect(targetWord).toBeDefined()
+
+    const choiceButtons = Array.from(container.querySelectorAll('button')).filter((b) => b.querySelector('.font-kana'))
+    const wrongChoice = choiceButtons.find((b) => b.querySelector('.font-kana')?.textContent !== targetWord.kana)!
+    expect(wrongChoice).toBeDefined()
+
+    act(() => fireEvent.click(wrongChoice))
+
+    const words = useProgressStore.getState().words
+    const characters = useProgressStore.getState().characters
+    expect(words[targetWord.id]).toMatchObject({ reviewActive: true, reviewStreak: 0 })
+    expect(Object.values(characters).every((c) => !c.reviewActive)).toBe(true)
   })
 })

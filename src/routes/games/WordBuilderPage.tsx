@@ -5,6 +5,7 @@ import { AnswerReveal } from '../../components/AnswerReveal'
 import { GameRoundHeader } from '../../components/GameRoundHeader'
 import { KanaTile } from '../../components/KanaTile'
 import { PracticeSummary } from '../../components/PracticeSummary'
+import { ReviewEmptyState } from '../../components/ReviewEmptyState'
 import { RomajiToggle } from '../../components/RomajiToggle'
 import { WordImage } from '../../components/WordImage'
 import { CHARACTERS_BY_ID } from '../../data/characters'
@@ -20,7 +21,6 @@ import { useTTS } from '../../hooks/useTTS'
 import { pickDistractorCharIds } from '../../lib/distractorPicker'
 import { kanaToRomaji } from '../../lib/kanaToRomaji'
 import { shuffle } from '../../lib/shuffle'
-import { REVIEW_SCORE_HIT_PRECISE, REVIEW_SCORE_HIT_WORD, REVIEW_SCORE_MISS_PRECISE, REVIEW_SCORE_MISS_WORD } from '../../lib/srs'
 import { useProgressStore } from '../../store/progressStore'
 
 const DISTRACTOR_COUNT = 3
@@ -43,8 +43,8 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
   const navigate = useNavigate()
   const { isScopeReady, getScopeCharacterIds, getScopeWords, getScopeRounds } = useCurriculum()
   const recordResult = useProgressStore((s) => s.recordResult)
-  const adjustCharacterReviewScore = useProgressStore((s) => s.adjustCharacterReviewScore)
-  const adjustWordReviewScore = useProgressStore((s) => s.adjustWordReviewScore)
+  const recordCharacterReviewResult = useProgressStore((s) => s.recordCharacterReviewResult)
+  const recordWordReviewResult = useProgressStore((s) => s.recordWordReviewResult)
   const characters = useProgressStore((s) => s.characters)
   const showRomaji = useProgressStore((s) => s.showRomaji)
   const { speak, supported } = useTTS()
@@ -143,14 +143,15 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
     // Record each character's OWN correctness, not the whole word's — a
     // wrong glyph anywhere used to mark EVERY character in the word wrong,
     // including ones the learner placed correctly. That was harmless back
-    // when it only fed the SRS box, but now directly drives Review's Weak
-    // Kana list (see lib/srs.ts's needsReview), so a misattributed
+    // when it only fed the SRS box, but now directly drives character
+    // Review (see lib/srs.ts's applyReviewResult), so a misattributed
     // character would show up there as "kept missing" when it wasn't the
     // problem. Walk characterIds consuming each one's own glyph span (most
     // are 1 glyph; yōon like きゃ is 2) rather than assuming a 1:1 index
-    // with targetGlyphs. Word Builder has real per-character precision (we
-    // just computed charCorrect for each one), so this is the "precise"
-    // review-score path — see lib/srs.ts's REVIEW_SCORE_*_PRECISE.
+    // with targetGlyphs. Word Builder has real per-character precision, so
+    // ONLY the actually-wrong character(s) enter Review here — a correctly
+    // placed character that wasn't already active stays untouched
+    // (recordCharacterReviewResult is a no-op for a correct, inactive item).
     let glyphOffset = 0
     for (const charId of currentWord.characterIds) {
       const glyphSpan = CHARACTERS_BY_ID[charId]?.kana.length ?? 1
@@ -159,10 +160,10 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
         if (placedGlyphs[glyphOffset + i] !== targetGlyphs[glyphOffset + i]) charCorrect = false
       }
       recordResult(charId, charCorrect)
-      adjustCharacterReviewScore(charId, charCorrect ? REVIEW_SCORE_HIT_PRECISE : REVIEW_SCORE_MISS_PRECISE)
+      recordCharacterReviewResult(charId, charCorrect)
       glyphOffset += glyphSpan
     }
-    adjustWordReviewScore(currentWord.id, isCorrect ? REVIEW_SCORE_HIT_WORD : REVIEW_SCORE_MISS_WORD)
+    recordWordReviewResult(currentWord.id, isCorrect)
 
     if (isCorrect) {
       setStatus('correct')
@@ -206,7 +207,11 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
   }
 
   if (!rowId || (!isReview && !row)) return null
-  if (scopeWords.length === 0) return null
+  // Not a plain "scopeWords.length === 0 -> empty state": that pool is LIVE
+  // and can legitimately drop to 0 mid-session (every queued word graduates
+  // during play) while the frozen session queue still has an in-progress
+  // round to show — see ListeningPage's identical comment.
+  if (scopeWords.length === 0 && queue.length === 0) return isReview ? <ReviewEmptyState /> : null
 
   if (finished) {
     return (

@@ -24,7 +24,7 @@ describe('WordBuilderPage per-character attribution', () => {
   // correctness for every character in it, so a single wrong glyph marked
   // every character in the word wrong — including ones placed correctly.
   // That was harmless while it only fed the SRS box, but now drives
-  // Review's Weak Kana list (lib/srs.ts's needsReview), so a misattributed
+  // character Review (lib/srs.ts's applyReviewResult), so a misattributed
   // character would show up there as "kept missing" when it wasn't.
   it('a wrong glyph in one slot does not mark a correctly-placed character as wrong too', () => {
     const { container } = render(
@@ -52,11 +52,11 @@ describe('WordBuilderPage per-character attribution', () => {
     fireEvent.click(correctTile)
 
     const chars = useProgressStore.getState().characters
-    // target1 was placed correctly and must be recorded correct, regardless
-    // of the whole word being wrong overall (slot 0 was wrong) — its
-    // reviewScore should have dropped (clamped at 0), not risen.
-    expect(chars[target1]?.reviewScore ?? 0).toBe(0)
-    expect(chars[target0]?.reviewScore).toBe(5)
+    // target1 was placed correctly and must NOT enter character Review,
+    // regardless of the whole word being wrong overall (slot 0 was wrong).
+    // target0 was actually wrong and must enter Review (active, streak 0).
+    expect(chars[target1]?.reviewActive ?? false).toBe(false)
+    expect(chars[target0]).toMatchObject({ reviewActive: true, reviewStreak: 0 })
   })
 })
 
@@ -89,10 +89,10 @@ describe('WordBuilderPage Review session', () => {
   beforeEach(() => {
     useProgressStore.getState().resetProgress()
     useProgressStore.getState().markRowTaught('a-row')
-    // Two weak words so the live Review pool stays non-empty (no "nothing
-    // weak" fallback) after the first one drops out below.
-    useProgressStore.getState().adjustWordReviewScore('a-ai', 5)
-    useProgressStore.getState().adjustWordReviewScore('a-ie', 5)
+    // Two weak words (via a miss each) so the live Review pool stays
+    // non-empty after the first one graduates out below.
+    useProgressStore.getState().recordWordReviewResult('a-ai', false)
+    useProgressStore.getState().recordWordReviewResult('a-ie', false)
   })
 
   afterEach(() => {
@@ -155,12 +155,11 @@ describe('WordBuilderPage Review session', () => {
     )
 
     finishVisibleWordBuilderSessionKeepingHouseWeak(container)
-    // Word Builder records precise character misses. Clear those scores so
-    // this test isolates the one weak house word that replay must capture.
-    for (const charId of ['a', 'i', 'e']) {
-      const score = useProgressStore.getState().characters[charId]?.reviewScore ?? 0
-      useProgressStore.getState().adjustCharacterReviewScore(charId, -score)
-    }
+    // "love" gets answered correctly on each of its 3 occurrences, so it
+    // graduates out of word Review after its first 2; "house" is answered
+    // wrong every time, so it stays active. Word Review is independent of
+    // character Review (Issue #2), so no character-level cleanup is needed
+    // to isolate the one remaining weak word.
     expect(getByRole('button', { name: /play again/i })).toBeInTheDocument()
 
     act(() => {
@@ -168,5 +167,22 @@ describe('WordBuilderPage Review session', () => {
     })
 
     expect(container.querySelector('p.text-sm')?.textContent).toMatch('Round 1 / 3')
+  })
+})
+
+describe('WordBuilderPage Review empty state', () => {
+  it('shows a success state instead of a blank page when nothing is active in word Review', () => {
+    useProgressStore.getState().resetProgress()
+    useProgressStore.getState().markRowTaught('a-row')
+
+    const { container } = render(
+      <MemoryRouter initialEntries={['/practice/review/word-builder']}>
+        <Routes>
+          <Route path="/practice/review/word-builder" element={<WordBuilderPage rowIdOverride={REVIEW_SCOPE_ID} />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(container.textContent).toMatch(/Review complete!/)
   })
 })

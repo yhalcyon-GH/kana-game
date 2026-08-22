@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { AnswerFeedbackRow } from '../../components/AnswerFeedbackRow'
 import { GameRoundHeader } from '../../components/GameRoundHeader'
 import { PracticeSummary } from '../../components/PracticeSummary'
+import { ReviewEmptyState } from '../../components/ReviewEmptyState'
 import { WordImage } from '../../components/WordImage'
 import { ROWS_BY_ID } from '../../data/curriculum'
 import type { QuestionMode } from '../../data/feedback'
@@ -16,7 +17,6 @@ import { useGameSession } from '../../hooks/useGameSession'
 import { useTTS } from '../../hooks/useTTS'
 import { pickDistractorWords } from '../../lib/distractorPicker'
 import { shuffle } from '../../lib/shuffle'
-import { REVIEW_SCORE_HIT_IMPRECISE, REVIEW_SCORE_HIT_WORD, REVIEW_SCORE_MISS_IMPRECISE, REVIEW_SCORE_MISS_WORD } from '../../lib/srs'
 import { useProgressStore } from '../../store/progressStore'
 
 type Props = {
@@ -30,8 +30,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
   const navigate = useNavigate()
   const { isScopeReady, getScopeWords, getScopeRounds } = useCurriculum()
   const recordResult = useProgressStore((s) => s.recordResult)
-  const adjustCharacterReviewScore = useProgressStore((s) => s.adjustCharacterReviewScore)
-  const adjustWordReviewScore = useProgressStore((s) => s.adjustWordReviewScore)
+  const recordWordReviewResult = useProgressStore((s) => s.recordWordReviewResult)
   const characters = useProgressStore((s) => s.characters)
   const isReview = rowId === REVIEW_SCOPE_ID
   const row = rowId && !isReview ? ROWS_BY_ID[rowId] : undefined
@@ -104,15 +103,17 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
     setSelectedId(choice.id)
     setAnswered(true)
     const isCorrect = choice.id === currentWord.id
-    // Simplification: distractor words may differ in length from the
-    // target, so failure is attributed to the whole target word rather
-    // than a single differing character — same "imprecise" review-score
-    // step every character in the word gets (see lib/srs.ts).
+    // Listening can only judge the whole word right/wrong, not which
+    // character was the actual mistake — so it feeds the Leitner box per
+    // character (still meaningful: distractor words may differ in length
+    // from the target, but this only drives unlock/practice weighting, not
+    // Review) without touching character Review at all. Only the word
+    // itself enters/leaves word Review — see the issue's "Listening:
+    // Character Review: NO" requirement.
     for (const charId of currentWord.characterIds) {
       recordResult(charId, isCorrect)
-      adjustCharacterReviewScore(charId, isCorrect ? REVIEW_SCORE_HIT_IMPRECISE : REVIEW_SCORE_MISS_IMPRECISE)
     }
-    adjustWordReviewScore(currentWord.id, isCorrect ? REVIEW_SCORE_HIT_WORD : REVIEW_SCORE_MISS_WORD)
+    recordWordReviewResult(currentWord.id, isCorrect)
     if (isCorrect) {
       setCorrectCount((c) => c + 1)
       onCorrect()
@@ -123,7 +124,13 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
   }
 
   if (!rowId || (!isReview && !row)) return null
-  if (scopeWords.length === 0) return null
+  // Not "scopeWords.length === 0 -> empty state" here: scopeWords is the
+  // LIVE Review pool and can legitimately drop to 0 mid-session (every
+  // queued word graduates during play) while the frozen session queue (see
+  // useFrozenWordPool) still has an in-progress round to show — that case
+  // must keep rendering the game, not bail out. The real "nothing to play"
+  // check is `!currentWord` below, after a session had the chance to start.
+  if (scopeWords.length === 0 && queue.length === 0) return isReview ? <ReviewEmptyState /> : null
 
   if (finished) {
     return (

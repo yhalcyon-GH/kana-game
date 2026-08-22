@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { AnswerFeedbackRow } from '../../components/AnswerFeedbackRow'
 import { GameRoundHeader } from '../../components/GameRoundHeader'
 import { PracticeSummary } from '../../components/PracticeSummary'
+import { ReviewEmptyState } from '../../components/ReviewEmptyState'
 import { CHARACTERS_BY_ID, getCharacterAudioId } from '../../data/characters'
 import { CATEGORIES_BY_ID, ROWS_BY_ID } from '../../data/curriculum'
 import type { QuestionMode } from '../../data/feedback'
@@ -14,7 +15,6 @@ import { useGameSession } from '../../hooks/useGameSession'
 import { useTTS } from '../../hooks/useTTS'
 import { pickDistractorCharIds } from '../../lib/distractorPicker'
 import { shuffle } from '../../lib/shuffle'
-import { REVIEW_SCORE_HIT_PRECISE, REVIEW_SCORE_MISS_PRECISE } from '../../lib/srs'
 import { useProgressStore } from '../../store/progressStore'
 
 const DISTRACTOR_COUNT = 3
@@ -34,7 +34,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
   const navigate = useNavigate()
   const { isScopeReady, getScopeCharacterIds, getScopeQuizCharacterIds, isQuizzableCharacterId, getScopeRounds } = useCurriculum()
   const recordResult = useProgressStore((s) => s.recordResult)
-  const adjustCharacterReviewScore = useProgressStore((s) => s.adjustCharacterReviewScore)
+  const recordCharacterReviewResult = useProgressStore((s) => s.recordCharacterReviewResult)
   const characters = useProgressStore((s) => s.characters)
   const { speak, supported } = useTTS()
   const isReview = rowId === REVIEW_SCOPE_ID
@@ -107,7 +107,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
     setAnswered(true)
     const isCorrect = choiceId === currentCharId
     recordResult(currentCharId, isCorrect)
-    adjustCharacterReviewScore(currentCharId, isCorrect ? REVIEW_SCORE_HIT_PRECISE : REVIEW_SCORE_MISS_PRECISE)
+    recordCharacterReviewResult(currentCharId, isCorrect)
     if (isCorrect) {
       setCorrectCount((c) => c + 1)
       onCorrect()
@@ -122,7 +122,11 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
   }
 
   if (!rowId || !isScopeReady(rowId)) return null
-  if (quizCharacterIds.length === 0) return null
+  // Not a plain "quizCharacterIds.length === 0 -> empty state": that pool is
+  // LIVE and can legitimately drop to 0 mid-session (every queued character
+  // graduates during play) while the already-built queue still has an
+  // in-progress round to show — see ListeningPage's identical comment.
+  if (quizCharacterIds.length === 0 && queue.length === 0) return isReview ? <ReviewEmptyState /> : null
 
   if (finished) {
     return (
