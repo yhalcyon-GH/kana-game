@@ -18,12 +18,14 @@ import { useTTS } from '../../hooks/useTTS'
 import { isAnswerCorrect } from '../../lib/answerChecking'
 import { useProgressStore } from '../../store/progressStore'
 
-// Types a whole word — in hiragana, katakana, OR romaji, any of the three
-// is accepted regardless of which script the word is actually printed in
-// (see isAnswerCorrect) — from its audio/emoji/meaning prompt, instead of
-// picking it out of multiple choice (see ListeningPage). Production recall
-// is a meaningfully different, harder skill than recognition, and it's the
-// single most-praised mechanic across competing kana apps.
+// Types a whole word's exact printed kana — via any Japanese input method
+// the learner has (flick, a JP romaji keyboard, a desktop IME, hardware kana
+// input, ...); only the FINAL TEXT in the field is judged, and raw Latin
+// romaji is never accepted (see isAnswerCorrect) — from its audio/image/
+// meaning prompt, instead of picking it out of multiple choice (see
+// ListeningPage). Production recall is a meaningfully different, harder
+// skill than recognition, and it's the single most-praised mechanic across
+// competing kana apps.
 type Props = {
   // Set only by the /practice/review/kana-typing route — see REVIEW_SCOPE_ID.
   rowIdOverride?: string
@@ -34,7 +36,6 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
   const rowId = rowIdOverride ?? params.rowId
   const navigate = useNavigate()
   const { isScopeReady, getScopeWords, getScopeRounds } = useCurriculum()
-  const recordResult = useProgressStore((s) => s.recordResult)
   const recordWordReviewResult = useProgressStore((s) => s.recordWordReviewResult)
   const characters = useProgressStore((s) => s.characters)
   const { speak, supported } = useTTS()
@@ -109,14 +110,10 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
     const isCorrect = isAnswerCorrect(input, currentWord)
     setAnswered(true)
     setWasCorrect(isCorrect)
-    // Kana Typing only knows the WHOLE word was right or wrong, not which
-    // glyph was the actual mistake, so it feeds the Leitner box per
-    // character (unlock/practice weighting only) without touching
-    // character Review at all — only the word itself enters/leaves word
-    // Review, per the issue's "Kana Typing: Character Review: NO".
-    for (const charId of currentWord.characterIds) {
-      recordResult(charId, isCorrect)
-    }
+    // Kana Typing deliberately does NOT touch character progress (box/SRS/
+    // Review/dynamic 👍 mastery) at all — an input/IME slip is not reliable
+    // evidence that a specific kana character wasn't recognized. Only the
+    // word itself enters/leaves word Review.
     recordWordReviewResult(currentWord.id, isCorrect)
     if (isCorrect) {
       setCorrectCount((c) => c + 1)
@@ -169,6 +166,12 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
         )}
       </div>
 
+      <p className="max-w-xs text-center text-xs text-neutral-500 dark:text-neutral-400">
+        <span className="font-semibold">Use a Japanese keyboard</span>
+        <br />
+        Mobile: flick or Japanese romaji keyboard · Computer: Japanese IME
+      </p>
+
       <form
         onSubmit={(e) => {
           e.preventDefault()
@@ -180,6 +183,7 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
         <input
           ref={inputRef}
           type="text"
+          lang="ja"
           autoFocus
           autoCapitalize="off"
           autoCorrect="off"
@@ -193,7 +197,7 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
           onCompositionEnd={() => {
             isComposingRef.current = false
           }}
-          placeholder="かな or romaji…"
+          placeholder="かな"
           className={`w-56 rounded-xl border-2 px-4 py-3 text-center text-2xl font-bold focus:outline-none ${
             answered
               ? wasCorrect
