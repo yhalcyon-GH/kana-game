@@ -1,7 +1,8 @@
 # docs/
 
-Reference material and design proposals — not everyday reading. See [CLAUDE.md](../CLAUDE.md) at the repo root for day-to-day development guidance.
+Reference material and design proposals — not everyday reading. See [CLAUDE.md](../CLAUDE.md) at the repo root for concise day-to-day development guidance.
 
+- **[claude-reference.md](./claude-reference.md)** — detailed repository reference moved out of always-on `CLAUDE.md`; read only the sections relevant to the current task.
 - **[audio-provider-interface.md](./audio-provider-interface.md)** — the `SpeechProvider` abstraction in `src/audio/` (implemented). How audio playback is decoupled from any specific TTS vendor.
 - **[curriculum-extensibility.md](./curriculum-extensibility.md)** — the curriculum data-model design (decided, implemented) for katakana, sokuon, chōon, yōon, and 特殊音, plus a "Progress" log of how each category actually landed.
 - **[ui-ux-review.md](./ui-ux-review.md)** — review notes on current UI/UX and forward-looking concerns for when new lesson categories land. Proposals only, no changes made.
