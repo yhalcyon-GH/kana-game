@@ -5,7 +5,17 @@ import { REVIEW_SCOPE_ID } from '../../hooks/useCurriculum'
 import { useProgressStore } from '../../store/progressStore'
 import { KanaTypingPage } from './KanaTypingPage'
 
-const MEANING_TO_ROMAJI: Record<string, string> = { love: 'ai', house: 'ie' }
+const MEANING_TO_KANA: Record<string, string> = { love: 'あい', house: 'いえ', 'up / above': 'うえ', blue: 'あお' }
+
+function renderRowTyping() {
+  return render(
+    <MemoryRouter initialEntries={['/practice/hiragana/a-row/kana-typing']}>
+      <Routes>
+        <Route path="/practice/:categoryId/:rowId/kana-typing" element={<KanaTypingPage />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
 
 function renderReviewTyping() {
   return render(
@@ -22,7 +32,7 @@ function finishVisibleTypingSessionKeepingHouseWeak(container: HTMLElement) {
     const meaning = container.querySelector('.text-lg.font-semibold')!.textContent!.trim()
     const input = container.querySelector('input') as HTMLInputElement
     act(() => {
-      fireEvent.change(input, { target: { value: meaning === 'love' ? 'ai' : 'wrong' } })
+      fireEvent.change(input, { target: { value: meaning === 'love' ? 'あい' : 'wrong' } })
       fireEvent.submit(container.querySelector('form')!)
     })
     if (meaning === 'love') {
@@ -33,6 +43,111 @@ function finishVisibleTypingSessionKeepingHouseWeak(container: HTMLElement) {
     }
   }
 }
+
+describe('KanaTypingPage script-strict, romaji-rejecting answers (Issue #17)', () => {
+  beforeEach(() => {
+    useProgressStore.getState().resetProgress()
+    useProgressStore.getState().markRowTaught('a-row')
+  })
+
+  it('accepts the exact target kana', () => {
+    const { container } = renderRowTyping()
+    const meaning = container.querySelector('.text-lg.font-semibold')!.textContent!.trim()
+    const kana = MEANING_TO_KANA[meaning]
+    expect(kana).toBeDefined()
+    const input = container.querySelector('input') as HTMLInputElement
+    act(() => {
+      fireEvent.change(input, { target: { value: kana } })
+      fireEvent.submit(container.querySelector('form')!)
+    })
+    expect(input).toHaveClass('border-green-500')
+  })
+
+  it('rejects raw Latin romaji for a hiragana target', () => {
+    const { container } = renderRowTyping()
+    const input = container.querySelector('input') as HTMLInputElement
+    act(() => {
+      fireEvent.change(input, { target: { value: 'ai' } })
+      fireEvent.submit(container.querySelector('form')!)
+    })
+    expect(input).toHaveClass('border-red-500')
+  })
+
+  it('does not show the target kana or romaji before answering', () => {
+    const { container } = renderRowTyping()
+    for (const kana of Object.values(MEANING_TO_KANA)) {
+      expect(container.textContent).not.toContain(kana)
+    }
+    expect(container.textContent).not.toMatch(/\bai\b|\bie\b|\bue\b|\bao\b/)
+  })
+
+  it('shows meaning and a Replay audio button as the available prompts', () => {
+    const { container, queryByText } = renderRowTyping()
+    expect(container.querySelector('.text-lg.font-semibold')?.textContent).toBeTruthy()
+    expect(queryByText(/Replay/)).not.toBeNull()
+  })
+
+  it('reveals the correct kana after a wrong answer', () => {
+    const { container } = renderRowTyping()
+    const meaning = container.querySelector('.text-lg.font-semibold')!.textContent!.trim()
+    const kana = MEANING_TO_KANA[meaning]
+    expect(kana).toBeDefined()
+    const input = container.querySelector('input') as HTMLInputElement
+    act(() => {
+      fireEvent.change(input, { target: { value: 'wrong' } })
+      fireEvent.submit(container.querySelector('form')!)
+    })
+    // AnswerReveal shows the correct kana per-character (see AnswerReveal.tsx).
+    const revealedKana = [...kana].map((ch) => container.textContent?.includes(ch))
+    expect(revealedKana.every(Boolean)).toBe(true)
+  })
+
+  it('does not evaluate/submit while an IME composition is in progress', () => {
+    const { container } = renderRowTyping()
+    const meaning = container.querySelector('.text-lg.font-semibold')!.textContent!.trim()
+    const kana = MEANING_TO_KANA[meaning]
+    expect(kana).toBeDefined()
+    const input = container.querySelector('input') as HTMLInputElement
+    act(() => {
+      fireEvent.compositionStart(input)
+      fireEvent.change(input, { target: { value: kana } })
+      fireEvent.submit(container.querySelector('form')!)
+    })
+    // Still unanswered — composition hasn't ended, so submit must be a no-op.
+    expect(input).not.toHaveClass('border-green-500')
+    expect(input).not.toHaveClass('border-red-500')
+    expect(input).not.toBeDisabled()
+
+    act(() => {
+      fireEvent.compositionEnd(input)
+      fireEvent.submit(container.querySelector('form')!)
+    })
+    expect(input).toHaveClass('border-green-500')
+  })
+
+  it('shows compact first-use guidance for entering Japanese', () => {
+    const { queryByText } = renderRowTyping()
+    expect(queryByText('Use a Japanese keyboard')).not.toBeNull()
+  })
+
+  it('does not update character box/SRS/Review or mastery on either a correct or wrong answer', () => {
+    const { container } = renderRowTyping()
+    const meaning = container.querySelector('.text-lg.font-semibold')!.textContent!.trim()
+    const kana = MEANING_TO_KANA[meaning]
+    expect(kana).toBeDefined()
+    const input = container.querySelector('input') as HTMLInputElement
+    act(() => {
+      fireEvent.change(input, { target: { value: kana } })
+      fireEvent.submit(container.querySelector('form')!)
+    })
+    // characters state was only initialized by markRowTaught above (via
+    // Learn), never touched by Kana Typing's own answer.
+    const characters = useProgressStore.getState().characters
+    expect(characters['a']?.totalSeen ?? 0).toBe(0)
+    expect(characters['a']?.box ?? 0).toBe(0)
+    expect(Object.values(characters).every((c) => !c.reviewActive)).toBe(true)
+  })
+})
 
 describe('KanaTypingPage Review session', () => {
   beforeEach(() => {
@@ -65,12 +180,12 @@ describe('KanaTypingPage Review session', () => {
 
     expect(roundText()).toMatch('Round 1 / 6')
     const firstMeaning = meaningText()
-    const firstRomaji = MEANING_TO_ROMAJI[firstMeaning]
-    expect(firstRomaji).toBeDefined()
+    const firstKana = MEANING_TO_KANA[firstMeaning]
+    expect(firstKana).toBeDefined()
 
     const input = container.querySelector('input') as HTMLInputElement
     act(() => {
-      fireEvent.change(input, { target: { value: firstRomaji } })
+      fireEvent.change(input, { target: { value: firstKana } })
     })
     act(() => {
       fireEvent.submit(container.querySelector('form')!)
@@ -106,6 +221,19 @@ describe('KanaTypingPage Review session', () => {
     })
 
     expect(container.querySelector('p.text-sm')?.textContent).toMatch('Round 1 / 3')
+  })
+
+  it('Review-scoped answers follow the same script-strict, romaji-rejecting rule', () => {
+    vi.useFakeTimers()
+    const { container } = renderReviewTyping()
+    const meaning = container.querySelector('.text-lg.font-semibold')!.textContent!.trim()
+    const romaji = meaning === 'love' ? 'ai' : 'ie'
+    const input = container.querySelector('input') as HTMLInputElement
+    act(() => {
+      fireEvent.change(input, { target: { value: romaji } })
+      fireEvent.submit(container.querySelector('form')!)
+    })
+    expect(input).toHaveClass('border-red-500')
   })
 })
 
