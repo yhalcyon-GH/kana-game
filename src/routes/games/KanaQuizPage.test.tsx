@@ -312,3 +312,54 @@ describe('KanaQuizPage Review scope', () => {
     vi.useRealTimers()
   })
 })
+
+describe('KanaQuizPage Recommended Path completion (Issue #11)', () => {
+  it('completing a normal session marks kanaQuiz completed for the row, and does not gate on accuracy', () => {
+    vi.useFakeTimers()
+    const { container } = renderRowQuiz()
+    expect(useProgressStore.getState().isRowActivityCompleted('a-row', 'kanaQuiz')).toBe(false)
+    collectModesForOneSession(container) // answers are whatever clickThroughRound resolves them to
+    expect(useProgressStore.getState().isRowActivityCompleted('a-row', 'kanaQuiz')).toBe(true)
+    vi.useRealTimers()
+  })
+
+  it('merely opening the game does not mark completion', () => {
+    renderRowQuiz()
+    expect(useProgressStore.getState().isRowActivityCompleted('a-row', 'kanaQuiz')).toBe(false)
+  })
+
+  it('answering only part of a session does not mark completion', () => {
+    vi.useFakeTimers()
+    const { container } = renderRowQuiz()
+    clickThroughRound(container)
+    clickThroughRound(container)
+    expect(useProgressStore.getState().isRowActivityCompleted('a-row', 'kanaQuiz')).toBe(false)
+    vi.useRealTimers()
+  })
+
+  it('a Review-scoped session completing does not mark normal-row completion', () => {
+    vi.useFakeTimers()
+    useProgressStore.getState().markRowTaught('a-row')
+    useProgressStore.getState().recordCharacterReviewResult('a', false)
+    const { container } = renderReviewQuiz()
+    // Only one weak character -> a short (non-8-question) session; drive it
+    // to its own real completion regardless of exact length.
+    let guard = 0
+    while (!container.textContent?.includes('complete!') && guard < 20) {
+      clickThroughRound(container)
+      guard += 1
+    }
+    expect(container.textContent).toMatch(/complete!/)
+    expect(useProgressStore.getState().isRowActivityCompleted('a-row', 'kanaQuiz')).toBe(false)
+    vi.useRealTimers()
+  })
+
+  it('the normal summary offers Continue to Listening', () => {
+    vi.useFakeTimers()
+    const { container, getByRole } = renderRowQuiz()
+    collectModesForOneSession(container)
+    const continueLink = getByRole('link', { name: /continue/i })
+    expect(continueLink).toHaveAttribute('href', '/practice/hiragana/a-row/listening')
+    vi.useRealTimers()
+  })
+})

@@ -46,3 +46,44 @@ describe('TracingPage', () => {
     expect(getByText(/Round 2 \/ 5/)).toBeInTheDocument()
   })
 })
+
+describe('TracingPage Recommended Path completion (Issue #11)', () => {
+  beforeEach(() => {
+    useProgressStore.getState().resetProgress()
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(canvasContext as unknown as CanvasRenderingContext2D)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  function finishTracingSession(container: HTMLElement, getByRole: () => HTMLElement) {
+    let guard = 0
+    while (!container.textContent?.includes('Tracing complete!') && guard < 20) {
+      act(() => fireEvent.click(getByRole()))
+      guard += 1
+    }
+  }
+
+  it('completing a full Tracing session counts as "character introduction completed", even without Learn', () => {
+    const { container, getByRole } = renderTracing()
+    expect(useProgressStore.getState().isRowActivityCompleted('a-row', 'tracing')).toBe(false)
+    finishTracingSession(container, () => getByRole('button', { name: 'Next' }))
+    expect(container.textContent).toMatch(/Tracing complete!/)
+    expect(useProgressStore.getState().isRowActivityCompleted('a-row', 'tracing')).toBe(true)
+    // markRowTaught (Learn) was never called — Tracing alone is enough.
+    expect(useProgressStore.getState().isRowTaught('a-row')).toBe(false)
+  })
+
+  it('merely opening Tracing does not mark completion', () => {
+    renderTracing()
+    expect(useProgressStore.getState().isRowActivityCompleted('a-row', 'tracing')).toBe(false)
+  })
+
+  it('the Tracing summary offers Continue to Kana Quiz', () => {
+    const { container, getByRole } = renderTracing()
+    finishTracingSession(container, () => getByRole('button', { name: 'Next' }))
+    const continueLink = getByRole('link', { name: /continue/i })
+    expect(continueLink).toHaveAttribute('href', '/practice/hiragana/a-row/kana-quiz')
+  })
+})

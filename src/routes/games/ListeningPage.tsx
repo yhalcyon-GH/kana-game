@@ -31,6 +31,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
   const { isScopeReady, getScopeWords, getScopeRounds } = useCurriculum()
   const recordResult = useProgressStore((s) => s.recordResult)
   const recordWordReviewResult = useProgressStore((s) => s.recordWordReviewResult)
+  const markRowActivityCompleted = useProgressStore((s) => s.markRowActivityCompleted)
   const characters = useProgressStore((s) => s.characters)
   const isReview = rowId === REVIEW_SCOPE_ID
   const row = rowId && !isReview ? ROWS_BY_ID[rowId] : undefined
@@ -98,6 +99,11 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
 
   useEnterAdvance(answered && selectedId !== currentWord?.id, advance)
 
+  // Recommended Path completion — see KanaQuizPage's identical comment.
+  useEffect(() => {
+    if (finished && !isReview && rowId) markRowActivityCompleted(rowId, 'listening')
+  }, [finished, isReview, rowId, markRowActivityCompleted])
+
   const handleChoice = (choice: AnchorWord) => {
     if (answered || !currentWord) return
     setSelectedId(choice.id)
@@ -143,6 +149,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
         onReviewMistakes={() => startMistakeReview(mistakeIds)}
         mood={finishMood ?? undefined}
         comment={finishFeedback?.text}
+        continueAction={!isReview ? { label: 'Continue', to: `/practice/${categoryId}/${rowId}/word-builder` } : undefined}
       />
     )
   }

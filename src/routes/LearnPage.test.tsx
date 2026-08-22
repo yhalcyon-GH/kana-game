@@ -69,7 +69,7 @@ describe('LearnPage micro-batches: a 10-character row (ka-row)', () => {
     expect(screen.getByText(/words you can already read/)).toBeInTheDocument()
   })
 
-  it('does not mark the row taught until the existing "Start practicing" step, regardless of batch navigation', () => {
+  it('does not mark the row taught until the final "Continue" step, regardless of batch navigation', () => {
     renderLearn('/learn/hiragana/ka-row')
     for (let i = 0; i < 4; i++) fireEvent.click(screen.getByText('Next'))
     fireEvent.click(screen.getByText('See this set'))
@@ -80,7 +80,7 @@ describe('LearnPage micro-batches: a 10-character row (ka-row)', () => {
     fireEvent.click(screen.getByText('See the words'))
 
     expect(useProgressStore.getState().taughtRowIds).not.toContain('ka-row')
-    fireEvent.click(screen.getByText('Start practicing'))
+    fireEvent.click(screen.getByText('Continue'))
     expect(useProgressStore.getState().taughtRowIds).toContain('ka-row')
   })
 

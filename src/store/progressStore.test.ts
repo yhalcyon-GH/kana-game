@@ -290,4 +290,95 @@ describe('progressStore', () => {
       expect(useProgressStore.getState().characters['a']).toMatchObject({ reviewActive: false, reviewStreak: 0 })
     })
   })
+
+  // v6 -> v7: adds rowActivityCompletion (Recommended Path). Existing users
+  // start with none completed for any row — the same as a fresh install.
+  describe('v6 -> v7 rowActivityCompletion migration', () => {
+    it('backfills an empty rowActivityCompletion map for a pre-v7 persisted state', async () => {
+      localStorage.setItem(
+        'kana-game-progress',
+        JSON.stringify({ version: 6, state: { taughtRowIds: ['a-row'] } }),
+      )
+
+      await useProgressStore.persist.rehydrate()
+
+      const state = useProgressStore.getState()
+      expect(state.rowActivityCompletion).toEqual({})
+      expect(state.taughtRowIds).toEqual(['a-row'])
+    })
+  })
+
+  describe('Recommended Path completion (rowActivityCompletion)', () => {
+    it('markRowActivityCompleted sets exactly the one flag for that row, leaving others false', () => {
+      useProgressStore.getState().markRowActivityCompleted('ka-row', 'kanaQuiz')
+      expect(useProgressStore.getState().isRowActivityCompleted('ka-row', 'kanaQuiz')).toBe(true)
+      expect(useProgressStore.getState().isRowActivityCompleted('ka-row', 'listening')).toBe(false)
+      expect(useProgressStore.getState().isRowActivityCompleted('ka-row', 'wordBuilder')).toBe(false)
+      expect(useProgressStore.getState().isRowActivityCompleted('ka-row', 'tracing')).toBe(false)
+    })
+
+    it('is independent per row', () => {
+      useProgressStore.getState().markRowActivityCompleted('ka-row', 'kanaQuiz')
+      expect(useProgressStore.getState().isRowActivityCompleted('sa-row', 'kanaQuiz')).toBe(false)
+    })
+
+    it('accumulates multiple activities for the same row without clobbering earlier ones', () => {
+      useProgressStore.getState().markRowActivityCompleted('ka-row', 'kanaQuiz')
+      useProgressStore.getState().markRowActivityCompleted('ka-row', 'listening')
+      expect(useProgressStore.getState().isRowActivityCompleted('ka-row', 'kanaQuiz')).toBe(true)
+      expect(useProgressStore.getState().isRowActivityCompleted('ka-row', 'listening')).toBe(true)
+    })
+
+    it('persists across store rehydration', async () => {
+      useProgressStore.getState().markRowActivityCompleted('ka-row', 'wordBuilder')
+      // Simulate a reload: rehydrate from whatever the persist middleware
+      // already wrote to localStorage on the set() above.
+      await useProgressStore.persist.rehydrate()
+      expect(useProgressStore.getState().isRowActivityCompleted('ka-row', 'wordBuilder')).toBe(true)
+    })
+
+    it('resetProgress clears all row activity completion', () => {
+      useProgressStore.getState().markRowActivityCompleted('ka-row', 'kanaQuiz')
+      useProgressStore.getState().resetProgress()
+      expect(useProgressStore.getState().rowActivityCompletion).toEqual({})
+    })
+  })
+
+  // Row mastery is a separate, already-existing dynamic concept (NOT this
+  // issue's completion tracking) — box-4-for-every-character, recomputed
+  // live rather than a stored flag. These lock in that it stays dynamic.
+  describe('isRowMastered stays dynamic (unrelated to Recommended Path completion)', () => {
+    it('is true once every character in the row reaches box 4', () => {
+      useProgressStore.getState().markRowTaught('a-row')
+      for (const id of ['a', 'i', 'u', 'e', 'o']) {
+        for (let i = 0; i < 4; i++) useProgressStore.getState().recordResult(id, true)
+      }
+      expect(useProgressStore.getState().characters['a'].box).toBe(4)
+      expect(useProgressStore.getState().isRowMastered('a-row')).toBe(true)
+    })
+
+    it('drops back to false the moment a single character falls below box 4', () => {
+      useProgressStore.getState().markRowTaught('a-row')
+      for (const id of ['a', 'i', 'u', 'e', 'o']) {
+        for (let i = 0; i < 4; i++) useProgressStore.getState().recordResult(id, true)
+      }
+      expect(useProgressStore.getState().isRowMastered('a-row')).toBe(true)
+
+      useProgressStore.getState().recordResult('a', false) // box 4 -> 3
+      expect(useProgressStore.getState().characters['a'].box).toBe(3)
+      expect(useProgressStore.getState().isRowMastered('a-row')).toBe(false)
+    })
+
+    it('becomes true again once every character is back at box 4', () => {
+      useProgressStore.getState().markRowTaught('a-row')
+      for (const id of ['a', 'i', 'u', 'e', 'o']) {
+        for (let i = 0; i < 4; i++) useProgressStore.getState().recordResult(id, true)
+      }
+      useProgressStore.getState().recordResult('a', false) // box 4 -> 3
+      expect(useProgressStore.getState().isRowMastered('a-row')).toBe(false)
+
+      useProgressStore.getState().recordResult('a', true) // box 3 -> 4
+      expect(useProgressStore.getState().isRowMastered('a-row')).toBe(true)
+    })
+  })
 })

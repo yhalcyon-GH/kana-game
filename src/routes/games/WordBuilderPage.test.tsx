@@ -1,6 +1,7 @@
 import { act, fireEvent, render } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { getNextRowId, ROWS } from '../../data/curriculum'
 import { REVIEW_SCOPE_ID } from '../../hooks/useCurriculum'
 import { useProgressStore } from '../../store/progressStore'
 import { WordBuilderPage } from './WordBuilderPage'
@@ -184,5 +185,116 @@ describe('WordBuilderPage Review empty state', () => {
     )
 
     expect(container.textContent).toMatch(/Review complete!/)
+  })
+})
+
+function renderRowWordBuilder() {
+  return render(
+    <MemoryRouter initialEntries={['/practice/hiragana/a-row/word-builder']}>
+      <Routes>
+        <Route path="/practice/:categoryId/:rowId/word-builder" element={<WordBuilderPage />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
+
+// Mode-agnostic round driver (doesn't care about correctness) — fills every
+// empty slot by clicking tray tiles one at a time (word length varies), then
+// clears the round via whichever path evaluation lands on.
+function clickThroughWordBuilderRound(container: HTMLElement) {
+  const availableTrayButtons = () =>
+    Array.from(container.querySelectorAll('button.font-kana:not(.border-dashed):not([disabled])')) as HTMLButtonElement[]
+  const emptySlotCount = () =>
+    Array.from(container.querySelectorAll('button.border-dashed span.font-kana')).filter((s) => !s.textContent).length
+
+  let guard = 0
+  while (emptySlotCount() > 0 && guard < 10) {
+    const next = availableTrayButtons()[0]
+    if (!next) break
+    act(() => fireEvent.click(next))
+    guard += 1
+  }
+
+  const next = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('Next'))
+  if (next) {
+    act(() => fireEvent.click(next))
+  } else {
+    act(() => vi.advanceTimersByTime(2000))
+  }
+}
+
+describe('WordBuilderPage Recommended Path completion (Issue #11)', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('completing a normal session marks wordBuilder completed, regardless of accuracy', () => {
+    vi.useFakeTimers()
+    const { container } = renderRowWordBuilder()
+    expect(useProgressStore.getState().isRowActivityCompleted('a-row', 'wordBuilder')).toBe(false)
+    for (let round = 0; round < 8; round++) clickThroughWordBuilderRound(container)
+    expect(useProgressStore.getState().isRowActivityCompleted('a-row', 'wordBuilder')).toBe(true)
+  })
+
+  it('merely opening the game does not mark completion', () => {
+    renderRowWordBuilder()
+    expect(useProgressStore.getState().isRowActivityCompleted('a-row', 'wordBuilder')).toBe(false)
+  })
+
+  it('answering only part of a session does not mark completion', () => {
+    vi.useFakeTimers()
+    const { container } = renderRowWordBuilder()
+    clickThroughWordBuilderRound(container)
+    expect(useProgressStore.getState().isRowActivityCompleted('a-row', 'wordBuilder')).toBe(false)
+  })
+
+  it('a Review-scoped session completing does not mark normal-row completion', () => {
+    vi.useFakeTimers()
+    useProgressStore.getState().markRowTaught('a-row')
+    useProgressStore.getState().recordWordReviewResult('a-ai', false)
+    const { container } = render(
+      <MemoryRouter initialEntries={['/practice/review/word-builder']}>
+        <Routes>
+          <Route path="/practice/review/word-builder" element={<WordBuilderPage rowIdOverride={REVIEW_SCOPE_ID} />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    let guard = 0
+    while (!container.textContent?.includes('complete!') && guard < 20) {
+      clickThroughWordBuilderRound(container)
+      guard += 1
+    }
+    expect(container.textContent).toMatch(/complete!/)
+    expect(useProgressStore.getState().isRowActivityCompleted('a-row', 'wordBuilder')).toBe(false)
+  })
+
+  it('the normal summary offers Continue to the next row\'s hub', () => {
+    vi.useFakeTimers()
+    const { container, getByRole } = renderRowWordBuilder()
+    for (let round = 0; round < 8; round++) clickThroughWordBuilderRound(container)
+    // a-row -> ka-row is the next row in the hiragana sequence.
+    const continueLink = getByRole('link', { name: /continue/i })
+    expect(continueLink).toHaveAttribute('href', '/practice/hiragana/ka-row')
+  })
+
+  it('does not render a broken Continue action on the final row (no next row exists)', () => {
+    vi.useFakeTimers()
+    const lastRow = ROWS.find((r) => !r.isSummary && getNextRowId(r.id) === null)!
+    expect(lastRow).toBeDefined()
+    const { container, queryByRole } = render(
+      <MemoryRouter initialEntries={[`/practice/${lastRow.categoryId}/${lastRow.id}/word-builder`]}>
+        <Routes>
+          <Route path="/practice/:categoryId/:rowId/word-builder" element={<WordBuilderPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    let guard = 0
+    while (!container.textContent?.includes('complete!') && guard < 20) {
+      clickThroughWordBuilderRound(container)
+      guard += 1
+    }
+    expect(container.textContent).toMatch(/complete!/)
+    expect(queryByRole('link', { name: /continue/i })).toBeNull()
+    expect(queryByRole('link', { name: /back to hub/i })).not.toBeNull()
   })
 })

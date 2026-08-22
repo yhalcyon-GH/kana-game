@@ -21,6 +21,12 @@ type Props = {
   // have no mistake count to react to.
   mood?: MascotMood
   comment?: string
+  // Recommended Path's primary next step (see lib/recommendedPath.ts) —
+  // when present, becomes the prominent primary button and Play again
+  // demotes to a secondary action alongside Back to hub. Omitted whenever
+  // there's no next recommended step to send the learner to (Review
+  // sessions, or Word Builder finishing the last row in a category).
+  continueAction?: { label: string; to: string }
 }
 
 // Shared end-of-session screen for all five mini-games.
@@ -33,6 +39,7 @@ export function PracticeSummary({
   onReviewMistakes,
   mood,
   comment,
+  continueAction,
 }: Props) {
   return (
     <div className="flex flex-col items-center gap-6">
@@ -62,10 +69,22 @@ export function PracticeSummary({
       )}
 
       <div className="flex flex-wrap justify-center gap-3">
+        {continueAction && (
+          <Link
+            to={continueAction.to}
+            className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
+          >
+            {continueAction.label}
+          </Link>
+        )}
         <button
           type="button"
           onClick={onRetry}
-          className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
+          className={
+            continueAction
+              ? 'rounded-full border border-neutral-300 px-6 py-2 font-semibold hover:border-blue-400 dark:border-neutral-600'
+              : 'rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700'
+          }
         >
           Play again
         </button>

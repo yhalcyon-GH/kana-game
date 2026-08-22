@@ -9,7 +9,7 @@ import { ReviewEmptyState } from '../../components/ReviewEmptyState'
 import { RomajiToggle } from '../../components/RomajiToggle'
 import { WordImage } from '../../components/WordImage'
 import { CHARACTERS_BY_ID } from '../../data/characters'
-import { ROWS_BY_ID } from '../../data/curriculum'
+import { getNextRowId, ROWS_BY_ID } from '../../data/curriculum'
 import type { QuestionMode } from '../../data/feedback'
 import type { AnchorWord } from '../../data/types'
 import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
@@ -45,6 +45,7 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
   const recordResult = useProgressStore((s) => s.recordResult)
   const recordCharacterReviewResult = useProgressStore((s) => s.recordCharacterReviewResult)
   const recordWordReviewResult = useProgressStore((s) => s.recordWordReviewResult)
+  const markRowActivityCompleted = useProgressStore((s) => s.markRowActivityCompleted)
   const characters = useProgressStore((s) => s.characters)
   const showRomaji = useProgressStore((s) => s.showRomaji)
   const { speak, supported } = useTTS()
@@ -183,6 +184,21 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
 
   useEnterAdvance(status === 'wrong', advance)
 
+  // Recommended Path completion — see KanaQuizPage's identical comment.
+  // Word Builder is the FINAL core activity, so this also completes the
+  // row's whole Recommended Path (see PracticeSummary's continueAction
+  // below, and PracticeHubPage's "Lesson complete" state).
+  useEffect(() => {
+    if (finished && !isReview && rowId) markRowActivityCompleted(rowId, 'wordBuilder')
+  }, [finished, isReview, rowId, markRowActivityCompleted])
+
+  // Next Row for the Word Builder summary's Continue action — omitted
+  // entirely (no continueAction passed) when there's no next row, rather
+  // than rendering a broken link. Uses the existing getNextRowId helper
+  // instead of duplicating row-ordering logic.
+  const nextRowId = !isReview && rowId ? getNextRowId(rowId) : null
+  const nextRowCategoryId = nextRowId ? ROWS_BY_ID[nextRowId]?.categoryId : undefined
+
   const handleTrayClick = (tile: TrayTile) => {
     if (tile.placed || status !== 'playing') return
     const emptyIndex = slots.findIndex((s) => s === null)
@@ -227,6 +243,11 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
         onReviewMistakes={() => startMistakeReview(mistakeIds)}
         mood={finishMood ?? undefined}
         comment={finishFeedback?.text}
+        continueAction={
+          !isReview && nextRowId && nextRowCategoryId
+            ? { label: 'Continue → Next Row', to: `/practice/${nextRowCategoryId}/${nextRowId}` }
+            : undefined
+        }
       />
     )
   }

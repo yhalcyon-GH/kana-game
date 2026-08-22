@@ -8,6 +8,7 @@ import { CHARACTERS_BY_ID, getCharacterAudioId } from '../../data/characters'
 import { CATEGORIES_BY_ID, ROWS_BY_ID } from '../../data/curriculum'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
 import { useTTS } from '../../hooks/useTTS'
+import { useProgressStore } from '../../store/progressStore'
 
 const CANVAS_SIZE = 280 // CSS pixels, single-character phase
 const WORD_CHAR_SIZE = 130 // CSS pixels per character, word phase
@@ -32,6 +33,7 @@ export function TracingPage() {
   const navigate = useNavigate()
   const { isScopeReady, getScopeQuizCharacterIds, getScopeWords } = useCurriculum()
   const { speak, supported } = useTTS()
+  const markRowActivityCompleted = useProgressStore((s) => s.markRowActivityCompleted)
   const isReview = rowId === REVIEW_SCOPE_ID
   const isContrastPairs = CATEGORIES_BY_ID[categoryId ?? '']?.learnStyle === 'contrast-pairs'
   // ⭐ summary rows (see GojuonRow.isSummary) have no Tracing card on their
@@ -224,6 +226,15 @@ export function TracingPage() {
     setFinished(true)
   }, [roundIndex, queue.length, phase, wordIds])
 
+  // Recommended Path completion — see KanaQuizPage's identical comment.
+  // Finishing Tracing counts as "character introduction completed" exactly
+  // like finishing Learn does — neither is required over the other, and
+  // completing one never locks out the other (see PracticeHubPage's
+  // "Choose how to learn" step and lib/recommendedPath.ts).
+  useEffect(() => {
+    if (finished && !isReview && rowId) markRowActivityCompleted(rowId, 'tracing')
+  }, [finished, isReview, rowId, markRowActivityCompleted])
+
   if (!rowId || !isScopeReady(rowId)) return null
   // Contrast-pairs categories may have zero new characters of their own
   // (see docs/curriculum-extensibility.md's note on 長音) — checking
@@ -245,6 +256,14 @@ export function TracingPage() {
         }
         backHref={isReview ? '/practice/review' : `/practice/${categoryId}/${rowId}`}
         onRetry={startSession}
+        continueAction={
+          !isReview
+            ? {
+                label: 'Continue',
+                to: `/practice/${categoryId}/${rowId}/${isContrastPairs ? 'listening' : 'kana-quiz'}`,
+              }
+            : undefined
+        }
       />
     )
   }
