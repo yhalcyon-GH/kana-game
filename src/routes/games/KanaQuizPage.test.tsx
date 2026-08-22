@@ -83,22 +83,23 @@ describe('KanaQuizPage Read mode', () => {
     }
   })
 
-  it('answering plays the target pronunciation and reveals a replay button', () => {
+  it('never plays the target pronunciation or shows a replay button, before or after answering', () => {
     const { container } = renderRowQuiz()
     selectMode(container, 'Read')
 
     const kanaEl = container.querySelector('.font-kana.text-7xl')!
     const targetId = Object.keys(CHARACTERS_BY_ID).find((id) => CHARACTERS_BY_ID[id].kana === kanaEl.textContent)!
     const choiceButtons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
-    const someButton = choiceButtons[0]
 
-    act(() => fireEvent.click(someButton))
+    act(() => fireEvent.click(choiceButtons[0]))
 
-    // At least the target pronunciation played as feedback (a correct
-    // answer may also trigger the mascot's separate feedback voice line,
-    // which shares the same underlying HTMLMediaElement.play spy).
-    expect(playSpy).toHaveBeenCalled()
-    expect(container.querySelector('[aria-label="Replay audio"]')).not.toBeNull()
+    // Only the mascot's correct/incorrect feedback voice may have played
+    // (see AnswerFeedbackRow/useAnswerFeedback) — never the character's own
+    // pronunciation clip, and no replay button ever appears in Read mode.
+    for (const call of playSpy.mock.instances as HTMLAudioElement[]) {
+      expect(call.src).not.toMatch(/\/audio\/characters\//)
+    }
+    expect(container.querySelector('[aria-label="Replay audio"]')).toBeNull()
     expect(useProgressStore.getState().characters[targetId]).toBeDefined()
   })
 })
@@ -168,22 +169,29 @@ describe('KanaQuizPage character Review streak (both modes)', () => {
   })
 
   it('Recall: a wrong answer activates character Review for the target character at 0/2', () => {
+    // Recall never shows the target before answering, so the target is
+    // identified deterministically from the audio element the round-start
+    // autoplay used (its .src encodes "characters/<id>.wav") rather than by
+    // guessing/retrying — then a choice that is NOT that kana is clicked,
+    // guaranteeing a miss.
+    const playSpy = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined)
     const { container } = renderRowQuiz()
     selectMode(container, 'Recall')
 
+    const promptAudio = playSpy.mock.instances[0] as HTMLAudioElement
+    const match = promptAudio.src.match(/\/audio\/characters\/([^/]+)\.wav$/)
+    expect(match).not.toBeNull()
+    const targetId = match![1]
+    const targetKana = CHARACTERS_BY_ID[targetId].kana
+
     const buttons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
-    // Click whichever choice is wrong by checking store state after; retry
-    // with a different button if the first happened to be correct.
-    let clicked = buttons[0]
-    act(() => fireEvent.click(clicked))
-    const activeEntries = Object.entries(useProgressStore.getState().characters).filter(([, c]) => c.reviewActive)
-    expect(activeEntries.length).toBeLessThanOrEqual(1)
-    if (activeEntries.length === 0) {
-      // First click was the correct answer — nothing else to verify here,
-      // Read's equivalent test already covers the miss path deterministically.
-      return
-    }
-    expect(activeEntries[0][1]).toMatchObject({ reviewActive: true, reviewStreak: 0 })
+    const wrongButton = buttons.find((b) => b.textContent !== targetKana)!
+
+    act(() => fireEvent.click(wrongButton))
+
+    expect(useProgressStore.getState().characters[targetId]).toMatchObject({ reviewActive: true, reviewStreak: 0 })
+
+    playSpy.mockRestore()
   })
 })
 

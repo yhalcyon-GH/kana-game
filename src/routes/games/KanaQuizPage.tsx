@@ -29,8 +29,10 @@ type Mode = 'read' | 'recall'
 // this is the one place raw character knowledge gets checked directly.
 //
 // Two modes test the two directions of character recall:
-// - Read: kana -> romaji ("see か, choose ka"). No audio before answering —
-//   this is a pure reading-retrieval check.
+// - Read: kana -> romaji ("see か, choose ka"). No pronunciation audio at
+//   all, before or after answering, and no replay button — a pure visual
+//   kana-reading retrieval check (the mascot's existing correct/incorrect
+//   feedback voice is unrelated and still plays).
 // - Recall: audio -> kana ("hear ka, choose か"). The target kana is never
 //   shown before answering — the audio itself is the prompt.
 // Both share every other mechanic (distractors, session length, scoring,
@@ -113,8 +115,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
     setAnswered(false)
     clear()
     // Recall's prompt IS the audio — it must autoplay at round start. Read
-    // must NOT play anything before the learner answers (see handleChoice
-    // for Read's after-answer playback instead).
+    // never plays audio at all (see handleChoice).
     if (mode === 'recall') {
       speak(`characters/${getCharacterAudioId(currentCharId)}`, CHARACTERS_BY_ID[currentCharId].kana)
     }
@@ -135,11 +136,10 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
     const isCorrect = choiceId === currentCharId
     recordResult(currentCharId, isCorrect)
     recordCharacterReviewResult(currentCharId, isCorrect)
-    // Read only reveals the sound once the learner has committed to an
-    // answer — this is the retrieval check's payoff/feedback, not a hint.
-    if (mode === 'read') {
-      speak(`characters/${getCharacterAudioId(currentCharId)}`, CHARACTERS_BY_ID[currentCharId].kana)
-    }
+    // Read never plays the target pronunciation, before or after answering
+    // — it's a pure visual kana-reading check. The mascot's existing
+    // correct/incorrect feedback voice (onCorrect/onWrong below) is
+    // unrelated and stays as-is.
     if (isCorrect) {
       setCorrectCount((c) => c + 1)
       onCorrect()
@@ -221,12 +221,13 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
 
   if (!currentCharId) return null
   const currentChar = CHARACTERS_BY_ID[currentCharId]
-  // Read shows the target kana as the prompt and only ever reveals sound
-  // after answering. Recall's prompt is the audio itself — the kana stays
-  // hidden until the learner has committed to an answer, then the target's
-  // romaji/display label is revealed as feedback (the kana glyph itself
-  // isn't repeated here since it's already visible among the choices).
-  const showReplay = mode === 'recall' || answered
+  // Read shows the target kana as the prompt and never plays or offers its
+  // pronunciation at all — it's a pure visual kana-reading check. Recall's
+  // prompt is the audio itself — the kana stays hidden until the learner
+  // has committed to an answer, then the target's romaji/display label is
+  // revealed as feedback (the kana glyph itself isn't repeated here since
+  // it's already visible among the choices), and replay stays available
+  // both before and after answering.
 
   return (
     <div className="flex flex-col items-center gap-6">
@@ -242,7 +243,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
         {mode === 'recall' && answered && (
           <span className="text-2xl font-semibold">{currentChar.displayLabel ?? currentChar.romaji}</span>
         )}
-        {supported && showReplay && (
+        {supported && mode === 'recall' && (
           <button
             type="button"
             onClick={() => speak(`characters/${getCharacterAudioId(currentCharId)}`, currentChar.kana)}
