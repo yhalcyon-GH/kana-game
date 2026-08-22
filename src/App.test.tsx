@@ -223,11 +223,15 @@ describe('Learn jump-ahead links', () => {
   })
 
   it('"Back" from a later character still steps back one at a time, not straight to the hub', () => {
+    // katakana-a-row is now micro-batched (5/5/5/2, see curriculum.ts's
+    // learnBatches) — the position indicator reflects the current SET, not
+    // the row's full 17-character count. See LearnPage.test.tsx for
+    // dedicated micro-batch coverage.
     renderAt('/learn/katakana/katakana-a-row')
-    fireEvent.click(screen.getByText('Next')) // charIndex 0 -> 1
-    expect(screen.getByText('2 / 17')).toBeInTheDocument()
-    fireEvent.click(screen.getByText('Back')) // charIndex 1 -> 0, not the hub
-    expect(screen.getByText('1 / 17')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Next')) // charIndexInBatch 0 -> 1
+    expect(screen.getByText('Set 1 / 4 · 2 / 5')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Back')) // charIndexInBatch 1 -> 0, not the hub
+    expect(screen.getByText('Set 1 / 4 · 1 / 5')).toBeInTheDocument()
   })
 })
 
