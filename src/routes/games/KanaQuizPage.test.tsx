@@ -188,6 +188,13 @@ describe('KanaQuizPage Recall round behavior', () => {
     expect(container.querySelector('.font-kana.text-7xl')).toBeNull()
     expect(container.querySelector('[aria-label="Replay audio"]')).not.toBeNull()
 
+    // Issue #19: the target romaji stays hidden until answered, same as the
+    // kana itself — Recall's only prompt is the audio.
+    const romajiValuesBeforeAnswer = Object.values(CHARACTERS_BY_ID).map((c) => c.displayLabel ?? c.romaji)
+    expect(
+      Array.from(container.querySelectorAll('span')).some((el) => romajiValuesBeforeAnswer.includes(el.textContent ?? '')),
+    ).toBe(false)
+
     const choiceButtons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
     expect(choiceButtons.length).toBeGreaterThan(0)
     for (const button of choiceButtons) {

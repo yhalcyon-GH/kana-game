@@ -6,7 +6,7 @@ import { GameRoundHeader } from '../../components/GameRoundHeader'
 import { KanaTile } from '../../components/KanaTile'
 import { PracticeSummary } from '../../components/PracticeSummary'
 import { ReviewEmptyState } from '../../components/ReviewEmptyState'
-import { RomajiToggle } from '../../components/RomajiToggle'
+import { RomajiHint } from '../../components/RomajiHint'
 import { WordImage } from '../../components/WordImage'
 import { CHARACTERS_BY_ID } from '../../data/characters'
 import { getNextRowId, ROWS_BY_ID } from '../../data/curriculum'
@@ -47,7 +47,7 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
   const recordWordReviewResult = useProgressStore((s) => s.recordWordReviewResult)
   const markRowActivityCompleted = useProgressStore((s) => s.markRowActivityCompleted)
   const characters = useProgressStore((s) => s.characters)
-  const showRomaji = useProgressStore((s) => s.showRomaji)
+  const alwaysShowRomajiHints = useProgressStore((s) => s.alwaysShowRomajiHints)
   const { speak, supported } = useTTS()
   const isReview = rowId === REVIEW_SCOPE_ID
   const rounds = getScopeRounds(rowId)
@@ -94,6 +94,9 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
   const [slots, setSlots] = useState<(string | null)[]>([])
   const [tray, setTray] = useState<TrayTile[]>([])
   const [status, setStatus] = useState<'playing' | 'correct' | 'wrong'>('playing')
+  // Per-question romaji hint (see RomajiHint) — reset every round in
+  // setupRound below so revealing it never carries over to the next word.
+  const [romajiHintShown, setRomajiHintShown] = useState(false)
 
   // Sets up a fresh tray/slots for a new word. Slots are sized to the word's
   // GLYPH count (word.kana), not its characterId count — see TrayTile's
@@ -109,6 +112,7 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
       setTray(tileGlyphs.map((glyph, i) => ({ key: `${glyph}-${i}`, glyph, placed: false })))
       setSlots(new Array(targetGlyphs.length).fill(null))
       setStatus('playing')
+      setRomajiHintShown(false)
       clear()
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -260,10 +264,14 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
       <div className="flex flex-col items-center gap-2">
         <WordImage word={currentWord} className="h-20 w-20" />
         <span className="text-lg font-semibold">{currentWord.meaning}</span>
-        <div className="flex items-center gap-2">
-          {showRomaji && <span className="text-sm text-neutral-500 dark:text-neutral-400">{currentWord.romaji}</span>}
-          <RomajiToggle />
-        </div>
+        {status === 'playing' && (
+          <RomajiHint
+            romaji={currentWord.romaji}
+            alwaysShow={alwaysShowRomajiHints}
+            revealed={romajiHintShown}
+            onReveal={() => setRomajiHintShown(true)}
+          />
+        )}
         {supported && (
           <button
             type="button"

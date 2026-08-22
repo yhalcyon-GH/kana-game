@@ -273,3 +273,12 @@ describe('LearnPage: contrast-pairs and summary rows are unaffected', () => {
     expect(screen.queryByText(/Set \d/)).not.toBeInTheDocument()
   })
 })
+
+// Issue #19: Learn is the character-introduction stage, so romaji stays
+// always visible there — no per-question hiding/hint mechanic applies.
+describe('LearnPage romaji (Issue #19)', () => {
+  it('always shows romaji alongside the character being introduced', () => {
+    renderLearn('/learn/hiragana/a-row')
+    expect(screen.getByText(CHARACTERS_BY_ID.a.romaji)).toBeInTheDocument()
+  })
+})

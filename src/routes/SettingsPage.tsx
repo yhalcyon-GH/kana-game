@@ -17,6 +17,8 @@ export function SettingsPage() {
   const setMascotVoiceEnabled = useProgressStore((s) => s.setMascotVoiceEnabled)
   const mascotVoiceVolume = useProgressStore((s) => s.mascotVoiceVolume)
   const setMascotVoiceVolume = useProgressStore((s) => s.setMascotVoiceVolume)
+  const alwaysShowRomajiHints = useProgressStore((s) => s.alwaysShowRomajiHints)
+  const setAlwaysShowRomajiHints = useProgressStore((s) => s.setAlwaysShowRomajiHints)
 
   return (
     <div className="flex w-full max-w-sm flex-col items-center gap-6">
@@ -38,6 +40,16 @@ export function SettingsPage() {
           type="checkbox"
           checked={mascotVoiceEnabled}
           onChange={(e) => setMascotVoiceEnabled(e.target.checked)}
+          className="h-5 w-5"
+        />
+      </label>
+
+      <label className="flex w-full items-center justify-between rounded-xl border border-neutral-300 bg-white px-4 py-3 dark:border-neutral-600 dark:bg-neutral-800">
+        <span>Always show romaji hints</span>
+        <input
+          type="checkbox"
+          checked={alwaysShowRomajiHints}
+          onChange={(e) => setAlwaysShowRomajiHints(e.target.checked)}
           className="h-5 w-5"
         />
       </label>

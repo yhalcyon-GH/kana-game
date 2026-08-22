@@ -59,7 +59,13 @@ type ProgressState = {
   audioEnabled: boolean
   audioVolume: number
   audioSpeed: number
-  showRomaji: boolean
+  // Practice-only romaji hints (Listening/Word Builder) default to hidden
+  // per-question, revealed via a small "Show romaji" control — this setting
+  // opts into showing them from the start instead. Does NOT affect Learn/
+  // Tracing (always show romaji, unconditionally), Kana Quiz (Read/Recall
+  // already have their own correct romaji behavior), or Kana Typing (never
+  // shows target romaji during a question, by design).
+  alwaysShowRomajiHints: boolean
   // Tamamizu's per-answer/result-screen reaction voice (public/audio/
   // feedback/*.wav) — separate from `audioEnabled`, which gates
   // pronunciation audio (characters/words). See useTTS.ts's speak().
@@ -86,7 +92,7 @@ type ProgressState = {
   setAudioEnabled: (enabled: boolean) => void
   setAudioVolume: (volume: number) => void
   setAudioSpeed: (speed: number) => void
-  setShowRomaji: (show: boolean) => void
+  setAlwaysShowRomajiHints: (show: boolean) => void
   setMascotVoiceEnabled: (enabled: boolean) => void
   setMascotVoiceVolume: (volume: number) => void
   resetProgress: () => void
@@ -189,7 +195,7 @@ export function mergePersistedProgress(persistedState: unknown, currentState: Pr
     audioEnabled: booleanOr(persisted.audioEnabled, currentState.audioEnabled),
     audioVolume: clampFiniteOr(persisted.audioVolume, MIN_VOLUME, MAX_VOLUME, currentState.audioVolume),
     audioSpeed: clampFiniteOr(persisted.audioSpeed, MIN_AUDIO_SPEED, MAX_AUDIO_SPEED, currentState.audioSpeed),
-    showRomaji: booleanOr(persisted.showRomaji, currentState.showRomaji),
+    alwaysShowRomajiHints: booleanOr(persisted.alwaysShowRomajiHints, currentState.alwaysShowRomajiHints),
     mascotVoiceEnabled: booleanOr(persisted.mascotVoiceEnabled, currentState.mascotVoiceEnabled),
     mascotVoiceVolume: clampFiniteOr(persisted.mascotVoiceVolume, MIN_VOLUME, MAX_VOLUME, currentState.mascotVoiceVolume),
   }
@@ -206,7 +212,7 @@ export const useProgressStore = create<ProgressState>()(
       audioEnabled: true,
       audioVolume: 1,
       audioSpeed: 1,
-      showRomaji: true,
+      alwaysShowRomajiHints: false,
       mascotVoiceEnabled: true,
       mascotVoiceVolume: 1,
 
@@ -296,7 +302,7 @@ export const useProgressStore = create<ProgressState>()(
       setAudioEnabled: (enabled) => set({ audioEnabled: enabled }),
       setAudioVolume: (volume) => set({ audioVolume: volume }),
       setAudioSpeed: (speed) => set({ audioSpeed: speed }),
-      setShowRomaji: (show) => set({ showRomaji: show }),
+      setAlwaysShowRomajiHints: (show) => set({ alwaysShowRomajiHints: show }),
       setMascotVoiceEnabled: (enabled) => set({ mascotVoiceEnabled: enabled }),
       setMascotVoiceVolume: (volume) => set({ mascotVoiceVolume: volume }),
 
@@ -310,14 +316,14 @@ export const useProgressStore = create<ProgressState>()(
           audioEnabled: true,
           audioVolume: 1,
           audioSpeed: 1,
-          showRomaji: true,
+          alwaysShowRomajiHints: false,
           mascotVoiceEnabled: true,
           mascotVoiceVolume: 1,
         }),
     }),
     {
       name: 'kana-game-progress',
-      version: 8,
+      version: 9,
       // v1 -> v2: the default pronunciation speed changed from 1x to 0.5x;
       // carry that new default into browsers that already persisted a v1
       // state (which would otherwise keep the old 1x forever).
@@ -346,6 +352,9 @@ export const useProgressStore = create<ProgressState>()(
       // chōon rows (Issue #13), which changed their word ids (the id prefix
       // encodes the row). Remap any existing per-word Review state from the
       // old id to the new id so it isn't silently dropped.
+      // v8 -> v9: replaces `showRomaji` (Issue #17) with
+      // `alwaysShowRomajiHints` — a different setting with a different
+      // default (see the migration below), not a rename.
       migrate: (persistedState, version) => {
         const state = (isRecord(persistedState) ? persistedState : {}) as Partial<ProgressState>
         if (version < 2) {
@@ -407,6 +416,15 @@ export const useProgressStore = create<ProgressState>()(
             }
           }
           state.words = words as Record<string, WordProgress>
+        }
+        if (version < 9) {
+          // The old `showRomaji` (WordBuilder-only, session-wide, default
+          // ON) is replaced by `alwaysShowRomajiHints` (Listening + Word
+          // Builder per-question hint default, default OFF) — a different
+          // setting with a different default, not a rename, so its value is
+          // intentionally NOT carried forward.
+          delete (state as Record<string, unknown>).showRomaji
+          state.alwaysShowRomajiHints = false
         }
         return state
       },

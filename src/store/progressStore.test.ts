@@ -355,6 +355,59 @@ describe('progressStore', () => {
     })
   })
 
+  // Issue #19: the old session-wide, WordBuilder-only `showRomaji` (default
+  // ON) is replaced by `alwaysShowRomajiHints` (a different setting, default
+  // OFF) — its value is intentionally NOT carried forward.
+  describe('v8 -> v9 alwaysShowRomajiHints migration (Issue #19)', () => {
+    it('defaults alwaysShowRomajiHints to OFF for an existing user, regardless of their old showRomaji value', async () => {
+      localStorage.setItem(
+        'kana-game-progress',
+        JSON.stringify({ version: 8, state: { showRomaji: true, taughtRowIds: ['a-row'] } }),
+      )
+
+      await useProgressStore.persist.rehydrate()
+
+      const state = useProgressStore.getState()
+      expect(state.alwaysShowRomajiHints).toBe(false)
+      expect(state.taughtRowIds).toEqual(['a-row'])
+    })
+
+    it('does not lose other persisted data (Review/completion) during the migration', async () => {
+      localStorage.setItem(
+        'kana-game-progress',
+        JSON.stringify({
+          version: 8,
+          state: {
+            showRomaji: true,
+            rowActivityCompletion: { 'a-row': { kanaQuiz: true } },
+            words: { 'a-ai': { reviewActive: true, reviewStreak: 1 } },
+          },
+        }),
+      )
+
+      await useProgressStore.persist.rehydrate()
+
+      const state = useProgressStore.getState()
+      expect(state.rowActivityCompletion['a-row']).toEqual({ kanaQuiz: true })
+      expect(state.words['a-ai']).toMatchObject({ reviewActive: true, reviewStreak: 1 })
+    })
+  })
+
+  describe('alwaysShowRomajiHints setting (Issue #19)', () => {
+    it('defaults to OFF for a fresh install', () => {
+      expect(useProgressStore.getState().alwaysShowRomajiHints).toBe(false)
+    })
+
+    it('setAlwaysShowRomajiHints updates the flag and persists it across rehydrate', async () => {
+      useProgressStore.getState().setAlwaysShowRomajiHints(true)
+      expect(useProgressStore.getState().alwaysShowRomajiHints).toBe(true)
+
+      await useProgressStore.persist.rehydrate()
+
+      expect(useProgressStore.getState().alwaysShowRomajiHints).toBe(true)
+    })
+  })
+
   describe('Recommended Path completion (rowActivityCompletion)', () => {
     it('markRowActivityCompleted sets exactly the one flag for that row, leaving others false', () => {
       useProgressStore.getState().markRowActivityCompleted('ka-row', 'kanaQuiz')

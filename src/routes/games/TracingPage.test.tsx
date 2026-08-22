@@ -45,6 +45,13 @@ describe('TracingPage', () => {
 
     expect(getByText(/Round 2 \/ 5/)).toBeInTheDocument()
   })
+
+  // Issue #19: Tracing is a character-introduction stage alongside Learn,
+  // so romaji stays always visible there too.
+  it('always shows the current character\'s romaji', () => {
+    const { getByText } = renderTracing()
+    expect(getByText('a')).toBeInTheDocument()
+  })
 })
 
 describe('TracingPage Recommended Path completion (Issue #11)', () => {
