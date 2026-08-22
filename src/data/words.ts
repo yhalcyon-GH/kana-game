@@ -50,7 +50,6 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'sa-okashi', kana: 'おかし', romaji: 'okashi', meaning: 'snack', image: 'word-icons/sa-okashi.webp', characterIds: ['o', 'ka', 'shi'], audioText: 'お菓子' },
     { id: 'sa-sake', kana: 'さけ', romaji: 'sake', meaning: 'sake (alcohol)', image: 'word-icons/sa-sake.webp', characterIds: ['sa', 'ke'] },
     { id: 'sa-sushi', kana: 'すし', romaji: 'sushi', meaning: 'sushi', image: 'word-icons/sa-sushi.webp', characterIds: ['su', 'shi'], audioText: '寿司。' },
-    { id: 'sa-gakusei', kana: 'がくせい', romaji: 'gakusei', meaning: 'student', image: 'word-icons/sa-gakusei.webp', characterIds: ['ga', 'ku', 'se', 'i'], audioText: '学生' },
     { id: 'sa-kazoku', kana: 'かぞく', romaji: 'kazoku', meaning: 'family', image: 'word-icons/sa-kazoku.webp', characterIds: ['ka', 'zo', 'ku'], audioText: '家族' },
   ],
   'ta-row': [
@@ -101,7 +100,6 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'ma-tomodachi', kana: 'ともだち', romaji: 'tomodachi', meaning: 'friend', image: 'word-icons/ma-tomodachi.webp', characterIds: ['to', 'mo', 'da', 'chi'], audioText: '友達' },
     { id: 'ma-sashimi', kana: 'さしみ', romaji: 'sashimi', meaning: 'sashimi', image: 'word-icons/ma-sashimi.webp', characterIds: ['sa', 'shi', 'mi'], audioText: '刺身。' },
     { id: 'ma-mise', kana: 'みせ', romaji: 'mise', meaning: 'shop / store', image: 'word-icons/ma-mise.webp', characterIds: ['mi', 'se'], audioText: '店' },
-    { id: 'ma-imouto', kana: 'いもうと', romaji: 'imouto', meaning: 'younger sister', image: 'word-icons/ma-imouto.webp', characterIds: ['i', 'mo', 'u', 'to'], audioText: '妹' },
   ],
   'ya-row': [
     { id: 'ya-yama', kana: 'やま', romaji: 'yama', meaning: 'mountain', image: 'word-icons/ya-yama.webp', characterIds: ['ya', 'ma'], audioText: '山。' },
@@ -143,7 +141,6 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'wa-kanpai', kana: 'かんぱい', romaji: 'kanpai', meaning: 'cheers', image: 'word-icons/wa-kanpai.webp', characterIds: ['ka', 'n', 'pa', 'i'], audioText: '乾杯。' },
     { id: 'wa-tenpura', kana: 'てんぷら', romaji: 'tenpura', meaning: 'tempura', image: 'word-icons/wa-tenpura.webp', characterIds: ['te', 'n', 'pu', 'ra'], audioText: '天ぷら' },
     { id: 'wa-tonkatsu', kana: 'とんかつ', romaji: 'tonkatsu', meaning: 'pork cutlet', image: 'word-icons/wa-tonkatsu.webp', characterIds: ['to', 'n', 'ka', 'tsu'], audioText: '豚カツ。' },
-    { id: 'wa-sensei', kana: 'せんせい', romaji: 'sensei', meaning: 'teacher', image: 'word-icons/wa-sensei.webp', characterIds: ['se', 'n', 'se', 'i'], audioText: '先生' },
     { id: 'wa-nihongo', kana: 'にほんご', romaji: 'nihongo', meaning: 'Japanese (language)', image: 'word-icons/wa-nihongo.webp', characterIds: ['ni', 'ho', 'n', 'go'], audioText: '日本語' },
     { id: 'wa-denwa', kana: 'でんわ', romaji: 'denwa', meaning: 'telephone', image: 'word-icons/wa-denwa.webp', characterIds: ['de', 'n', 'wa'], audioText: '電話' },
   ],
@@ -369,6 +366,10 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'chouon-e-teinei', kana: 'ていねい', romaji: 'teinei', meaning: 'polite / careful', image: 'word-icons/chouon-e-teinei.webp', characterIds: ['te', 'i', 'ne', 'i'], audioText: '丁寧。' },
     // The exception: this vowel is really spelled え, not い.
     { id: 'chouon-e-oneesan', kana: 'おねえさん', romaji: 'oneesan', meaning: 'older sister', image: 'word-icons/chouon-e-oneesan.webp', characterIds: ['o', 'ne', 'e', 'sa', 'n'], audioText: 'お姉さん' },
+    // Moved from hiragana sa-row/wa-row (Issue #13) — せい in both words is
+    // a long え, same い-spelled-え pattern as ていねい/おじいさん above.
+    { id: 'chouon-e-gakusei', kana: 'がくせい', romaji: 'gakusei', meaning: 'student', image: 'word-icons/chouon-e-gakusei.webp', characterIds: ['ga', 'ku', 'se', 'i'], audioText: '学生' },
+    { id: 'chouon-e-sensei', kana: 'せんせい', romaji: 'sensei', meaning: 'teacher', image: 'word-icons/chouon-e-sensei.webp', characterIds: ['se', 'n', 'se', 'i'], audioText: '先生' },
   ],
   'chouon-o-row': [
     { id: 'chouon-o-otouto', kana: 'おとうと', romaji: 'otouto', meaning: 'younger brother', image: 'word-icons/chouon-o-otouto.webp', characterIds: ['o', 'to', 'u', 'to'] },
@@ -379,6 +380,9 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'chouon-o-ookii', kana: 'おおきい', romaji: 'ookii', meaning: 'big', image: 'word-icons/chouon-o-ookii.webp', characterIds: ['o', 'o', 'ki', 'i'], audioText: '大きい。' },
     { id: 'chouon-o-tooi', kana: 'とおい', romaji: 'tooi', meaning: 'far', image: 'word-icons/chouon-o-tooi.webp', characterIds: ['to', 'o', 'i'], audioText: '遠い。' },
     { id: 'chouon-o-koori', kana: 'こおり', romaji: 'koori', meaning: 'ice', image: 'word-icons/chouon-o-koori.webp', characterIds: ['ko', 'o', 'ri'], audioText: '氷。' },
+    // Moved from hiragana ma-row (Issue #13) — もう is a long お, pairing
+    // naturally with おとうと (younger brother) above.
+    { id: 'chouon-o-imouto', kana: 'いもうと', romaji: 'imouto', meaning: 'younger sister', image: 'word-icons/chouon-o-imouto.webp', characterIds: ['i', 'mo', 'u', 'to'], audioText: '妹' },
   ],
   'chouon-katakana-row': [
     // Minimal pair, the user's own example: ー is the only thing that

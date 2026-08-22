@@ -26,7 +26,7 @@ type Activity = {
   description: string
   // A small "✓" only — see progressStore.ts's RowActivityCompletion: this
   // activity's normal session has been completed once for this row. NOT
-  // mastery (see RowMap's separate, unrelated "🌟 mastered" badge) and
+  // mastery (see RowMap's separate, unrelated "👍" badge) and
   // deliberately not styled to look like it.
   completed?: boolean
   // Kana Typing only — labeled so it's clear it never gates or advances

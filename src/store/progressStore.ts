@@ -317,7 +317,7 @@ export const useProgressStore = create<ProgressState>()(
     }),
     {
       name: 'kana-game-progress',
-      version: 7,
+      version: 8,
       // v1 -> v2: the default pronunciation speed changed from 1x to 0.5x;
       // carry that new default into browsers that already persisted a v1
       // state (which would otherwise keep the old 1x forever).
@@ -342,6 +342,10 @@ export const useProgressStore = create<ProgressState>()(
       // (rowActivityCompletion, see RowActivityCompletion) — existing users
       // simply start with no activity marked completed for any row (an
       // empty object), same as a fresh install; nothing to backfill from.
+      // v7 -> v8: がくせい/せんせい/いもうと moved from hiragana rows to
+      // chōon rows (Issue #13), which changed their word ids (the id prefix
+      // encodes the row). Remap any existing per-word Review state from the
+      // old id to the new id so it isn't silently dropped.
       migrate: (persistedState, version) => {
         const state = (isRecord(persistedState) ? persistedState : {}) as Partial<ProgressState>
         if (version < 2) {
@@ -388,6 +392,21 @@ export const useProgressStore = create<ProgressState>()(
         }
         if (version < 7) {
           state.rowActivityCompletion = {}
+        }
+        if (version < 8) {
+          const RENAMED_WORD_IDS: Record<string, string> = {
+            'sa-gakusei': 'chouon-e-gakusei',
+            'wa-sensei': 'chouon-e-sensei',
+            'ma-imouto': 'chouon-o-imouto',
+          }
+          const words = isRecord(state.words) ? { ...state.words } : {}
+          for (const [oldId, newId] of Object.entries(RENAMED_WORD_IDS)) {
+            if (oldId in words) {
+              words[newId] = words[oldId]
+              delete words[oldId]
+            }
+          }
+          state.words = words as Record<string, WordProgress>
         }
         return state
       },
