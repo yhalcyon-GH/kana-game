@@ -123,6 +123,56 @@ describe('LearnPage micro-batches: a 10-character row (ka-row)', () => {
   })
 })
 
+// Regression: Back from the full-row recap used to always assume it was
+// reached via normal progression (final batch's own recap), landing on the
+// LAST batch's recap regardless of where the jump-ahead links were actually
+// clicked from. Back must instead undo the jump and return to the exact
+// origin — see LearnPage.tsx's jumpOrigin.
+describe('LearnPage micro-batches: Back correctly distinguishes a jump-ahead from normal progression', () => {
+  it('mid-batch -> "See them all" -> Back returns to the exact original batch/character, not the final batch recap', () => {
+    renderLearn('/learn/hiragana/ka-row')
+    fireEvent.click(screen.getByText('Next')) // Set 1 / 2 · 1 / 5 -> 2 / 5
+    expect(screen.getByText('Set 1 / 2 · 2 / 5')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('See them all'))
+    expect(screen.getByText(/all together/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Back'))
+    expect(screen.getByText('Set 1 / 2 · 2 / 5')).toBeInTheDocument()
+  })
+
+  it('mid-batch -> "See the words" -> Back -> full recap -> Back returns to the exact original batch/character', () => {
+    renderLearn('/learn/hiragana/ka-row')
+    fireEvent.click(screen.getByText('Next')) // Set 1 / 2 · 1 / 5 -> 2 / 5
+    expect(screen.getByText('Set 1 / 2 · 2 / 5')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('See the words'))
+    expect(screen.getByText(/words you can already read/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Back'))
+    expect(screen.getByText(/all together/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Back'))
+    expect(screen.getByText('Set 1 / 2 · 2 / 5')).toBeInTheDocument()
+  })
+
+  it('normal progression (final batch recap -> full recap) still returns to the final batch recap on Back, unaffected by the jump-ahead fix', () => {
+    renderLearn('/learn/hiragana/ka-row')
+    for (let i = 0; i < 4; i++) fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText('See this set')) // batch 1 recap
+    fireEvent.click(screen.getByText('Next set')) // batch 2, char 1
+    for (let i = 0; i < 4; i++) fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText('See this set')) // final (batch 2) recap
+    expect(screen.getByText('か〜こ・が〜ご — Set 2 / 2')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('See them all')) // -> full recap
+    expect(screen.getByText(/all together/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Back'))
+    expect(screen.getByText('か〜こ・が〜ご — Set 2 / 2')).toBeInTheDocument()
+  })
+})
+
 describe('LearnPage micro-batches: ha-row uses three 5-character batches', () => {
   it('shows Set 1/3, 2/3, 3/3 across は/ば/ぱ', () => {
     renderLearn('/learn/hiragana/ha-row')

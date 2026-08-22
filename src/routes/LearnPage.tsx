@@ -46,6 +46,14 @@ export function LearnPage() {
   const [batchIndex, setBatchIndex] = useState(0)
   const [charIndexInBatch, setCharIndexInBatch] = useState(0)
   const [summaryStep, setSummaryStep] = useState<'chars' | 'words'>('chars')
+  // Set only by the step-A jump-ahead links ("See them all"/"See the
+  // words"), which can skip straight to the full recap/words from ANY
+  // batch/character — remembers where the learner actually was so Back
+  // from the full recap can undo the jump and return there, instead of
+  // Back always assuming the (much more common) normal progression path
+  // "reached the full recap via the final batch's own recap." Cleared as
+  // soon as it's consumed. See handleRecapBack.
+  const [jumpOrigin, setJumpOrigin] = useState<{ batchIndex: number; charIndexInBatch: number } | null>(null)
   const { speak } = useTTS()
 
   useEffect(() => {
@@ -176,7 +184,14 @@ export function LearnPage() {
   }
 
   const handleRecapBack = () => {
-    if (isMultiBatch) {
+    if (jumpOrigin) {
+      // Undo a jump-ahead: return to the exact batch/character the learner
+      // was actually on, not the final batch's recap.
+      setBatchIndex(jumpOrigin.batchIndex)
+      setCharIndexInBatch(jumpOrigin.charIndexInBatch)
+      setJumpOrigin(null)
+      setStep('A')
+    } else if (isMultiBatch) {
       setBatchIndex(batches.length - 1)
       setStep('batchRecap')
     } else {
@@ -222,12 +237,28 @@ export function LearnPage() {
             reach the recap grid or word list is a lot of taps; these skip
             straight there without losing the "Back" behavior above, which
             still steps back one character at a time. Both always target the
-            FULL-row recap/words, regardless of which batch is showing. */}
+            FULL-row recap/words, regardless of which batch is showing —
+            recording the jump's origin so Back can return here instead of
+            wherever normal progression would land (see handleRecapBack). */}
         <div className="flex gap-4 text-sm">
-          <button type="button" onClick={() => setStep('recap')} className="text-neutral-500 underline hover:text-blue-600 dark:text-neutral-400 dark:hover:text-blue-400">
+          <button
+            type="button"
+            onClick={() => {
+              setJumpOrigin({ batchIndex, charIndexInBatch })
+              setStep('recap')
+            }}
+            className="text-neutral-500 underline hover:text-blue-600 dark:text-neutral-400 dark:hover:text-blue-400"
+          >
             See them all
           </button>
-          <button type="button" onClick={() => setStep('B')} className="text-neutral-500 underline hover:text-blue-600 dark:text-neutral-400 dark:hover:text-blue-400">
+          <button
+            type="button"
+            onClick={() => {
+              setJumpOrigin({ batchIndex, charIndexInBatch })
+              setStep('B')
+            }}
+            className="text-neutral-500 underline hover:text-blue-600 dark:text-neutral-400 dark:hover:text-blue-400"
+          >
             See the words
           </button>
         </div>
