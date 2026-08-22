@@ -168,3 +168,84 @@ describe('PracticeHubPage Recommended Path (Issue #11)', () => {
     expect(step4.queryByText('Lesson complete')).not.toBeNull()
   })
 })
+
+describe('PracticeHubPage 4-section layout (Issue #15)', () => {
+  function sectionHeadings(container: HTMLElement) {
+    return Array.from(container.querySelectorAll('h2')).map((h) => h.textContent)
+  }
+
+  function cardLabelsAfter(container: HTMLElement, headingText: string) {
+    const headings = Array.from(container.querySelectorAll('h2'))
+    const heading = headings.find((h) => h.textContent === headingText)!
+    const grid = heading.nextElementSibling!
+    return Array.from(grid.querySelectorAll('a')).map((a) => a.querySelector('.font-semibold')?.textContent?.replace('✓', '').trim())
+  }
+
+  it('renders Learn, Practice, and Optional as separate sections (Recommended appears once introduced)', () => {
+    useProgressStore.getState().markRowTaught('ka-row')
+    const { container } = renderRowHub('hiragana', 'ka-row')
+    expect(sectionHeadings(container)).toEqual(['⭐ Recommended', 'Learn', 'Practice', 'Optional'])
+  })
+
+  it('the Learn section lists Learn before Tracing', () => {
+    useProgressStore.getState().markRowTaught('ka-row')
+    const { container } = renderRowHub('hiragana', 'ka-row')
+    expect(cardLabelsAfter(container, 'Learn')).toEqual(['Learn', 'Tracing'])
+  })
+
+  it('the Practice section lists Kana Quiz, then Listening, then Word Builder', () => {
+    useProgressStore.getState().markRowTaught('ka-row')
+    const { container } = renderRowHub('hiragana', 'ka-row')
+    expect(cardLabelsAfter(container, 'Practice')).toEqual(['Kana Quiz', 'Listening', 'Word Builder'])
+  })
+
+  it('Kana Typing lives only in the Optional section, not in Practice', () => {
+    useProgressStore.getState().markRowTaught('ka-row')
+    const { container, getAllByText } = renderRowHub('hiragana', 'ka-row')
+    expect(cardLabelsAfter(container, 'Practice')).not.toContain('Kana Typing')
+    expect(cardLabelsAfter(container, 'Optional')).toEqual(['Kana Typing'])
+    // Exactly one Kana Typing card exists on the page at all.
+    expect(getAllByText('Kana Typing')).toHaveLength(1)
+  })
+
+  it('the Kana Typing card itself has no duplicated "Optional" text (the section heading already says it)', () => {
+    useProgressStore.getState().markRowTaught('ka-row')
+    const { container } = renderRowHub('hiragana', 'ka-row')
+    const headings = Array.from(container.querySelectorAll('h2'))
+    const optionalHeading = headings.find((h) => h.textContent === 'Optional')!
+    const grid = optionalHeading.nextElementSibling!
+    // The heading itself is the only "Optional" text in that section — the
+    // card shows its real description instead of repeating the word.
+    expect(grid.textContent).not.toMatch(/Optional/)
+    expect(grid.textContent).toMatch(/Type the word/)
+  })
+
+  it('the Recommended card also appears as a normal card in its own section', () => {
+    useProgressStore.getState().markRowTaught('ka-row')
+    const { getAllByText } = renderRowHub('hiragana', 'ka-row')
+    // Kana Quiz is Recommended here, and must still show up in Practice too.
+    expect(getAllByText('Kana Quiz').length).toBe(2)
+  })
+
+  it('an untaught row still has no ⭐ Recommended section, but does have Practice and Optional', () => {
+    const { queryByText, container } = renderRowHub('hiragana', 'ka-row')
+    expect(queryByText('⭐ Recommended')).toBeNull()
+    expect(sectionHeadings(container)).toEqual(['Choose how to learn', 'Practice', 'Optional'])
+  })
+
+  it('contrast-pairs rows omit Kana Quiz everywhere but still show Optional Kana Typing', () => {
+    const { container, queryByText } = renderRowHub('sokuon', 'sokuon-row')
+    expect(queryByText('Kana Quiz')).toBeNull()
+    expect(cardLabelsAfter(container, 'Practice')).toEqual(['Listening', 'Word Builder'])
+    expect(cardLabelsAfter(container, 'Optional')).toEqual(['Kana Typing'])
+  })
+
+  it('Review keeps its own Weak Kana / Weak Words Learn section, and still separates Optional Kana Typing', () => {
+    useProgressStore.getState().markRowTaught('a-row')
+    useProgressStore.getState().recordCharacterReviewResult('a', false)
+    const { container } = renderReviewHub()
+    expect(cardLabelsAfter(container, 'Learn')).toEqual(['Weak Kana', 'Weak Words'])
+    expect(cardLabelsAfter(container, 'Practice')).toEqual(['Kana Quiz', 'Listening', 'Word Builder'])
+    expect(cardLabelsAfter(container, 'Optional')).toEqual(['Kana Typing'])
+  })
+})

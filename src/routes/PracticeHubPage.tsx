@@ -8,16 +8,17 @@ import { REVIEW_SCOPE_ID, useCurriculum } from '../hooks/useCurriculum'
 import { getRecommendedActivity } from '../lib/recommendedPath'
 import { useProgressStore } from '../store/progressStore'
 
-// Tracing sits with Learn rather than the games below: it's how you find
-// out how to write a character (stroke order demo + guided trace), not a
-// mastery check like the games are, so it belongs to the "learning" step of
-// the flow, positioned right after Learn.
+// Ordered to match the Recommended Path sequence (Kana Quiz -> Listening ->
+// Word Builder), so the Practice section's card order mirrors what
+// Recommended will step through. Kana Typing is deliberately kept separate
+// (see KANA_TYPING_GAME below) — it never gates or advances the Recommended
+// Path, so it lives in its own "Optional" section instead of mixed in here.
 const PRACTICE_GAMES = [
+  { path: 'kana-quiz', label: 'Kana Quiz', emoji: '❓', description: 'Read a kana, pick its sound' },
   { path: 'listening', label: 'Listening', emoji: '🎧', description: 'Pick the word you hear' },
   { path: 'word-builder', label: 'Word Builder', emoji: '🧩', description: 'Spell the word from tiles' },
-  { path: 'kana-quiz', label: 'Kana Quiz', emoji: '❓', description: 'Read a kana, pick its sound' },
-  { path: 'kana-typing', label: 'Kana Typing', emoji: '⌨️', description: 'Type the word — kana or romaji' },
 ]
+const KANA_TYPING_GAME = { path: 'kana-typing', label: 'Kana Typing', emoji: '⌨️', description: 'Type the word — kana or romaji' }
 
 type Activity = {
   path: string
@@ -29,9 +30,6 @@ type Activity = {
   // mastery (see RowMap's separate, unrelated "👍" badge) and
   // deliberately not styled to look like it.
   completed?: boolean
-  // Kana Typing only — labeled so it's clear it never gates or advances
-  // the Recommended Path below, without a bigger explanatory panel.
-  optional?: boolean
 }
 
 function ActivityGrid({ activities }: { activities: Activity[] }) {
@@ -48,9 +46,7 @@ function ActivityGrid({ activities }: { activities: Activity[] }) {
             {activity.label}
             {activity.completed && <span className="ml-1 text-green-600 dark:text-green-400">✓</span>}
           </span>
-          <span className="text-xs text-neutral-500 dark:text-neutral-400">
-            {activity.optional ? 'Optional' : activity.description}
-          </span>
+          <span className="text-xs text-neutral-500 dark:text-neutral-400">{activity.description}</span>
         </Link>
       ))}
     </div>
@@ -184,9 +180,11 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
       emoji: game.emoji,
       description: game.description,
       completed: gameCompletion[game.path],
-      optional: game.path === 'kana-typing',
     }),
   )
+  const optionalActivities: Activity[] = [
+    { path: `${hubBase}/${KANA_TYPING_GAME.path}`, label: KANA_TYPING_GAME.label, emoji: KANA_TYPING_GAME.emoji, description: KANA_TYPING_GAME.description },
+  ]
 
   const recommendedActivity: Activity | undefined =
     recommended === 'kana-quiz' || recommended === 'listening' || recommended === 'word-builder'
@@ -238,6 +236,13 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
           Practice
         </h2>
         <ActivityGrid activities={practiceActivities} />
+      </div>
+
+      <div className="flex w-full max-w-md flex-col items-center gap-2">
+        <h2 className="self-start text-xs font-semibold tracking-wide text-neutral-400 uppercase dark:text-neutral-500">
+          Optional
+        </h2>
+        <ActivityGrid activities={optionalActivities} />
       </div>
     </div>
   )
