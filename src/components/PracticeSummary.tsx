@@ -21,10 +21,6 @@ type Props = {
   // have no mistake count to react to.
   mood?: MascotMood
   comment?: string
-  // Optional extra action alongside Play again/Back to hub — currently only
-  // Kana Quiz's "Switch mode" (see KanaQuizPage), which returns to its
-  // Read/Recall selector without leaving the game.
-  secondaryAction?: { label: string; onClick: () => void }
 }
 
 // Shared end-of-session screen for all five mini-games.
@@ -37,7 +33,6 @@ export function PracticeSummary({
   onReviewMistakes,
   mood,
   comment,
-  secondaryAction,
 }: Props) {
   return (
     <div className="flex flex-col items-center gap-6">
@@ -81,15 +76,6 @@ export function PracticeSummary({
             className="rounded-full bg-amber-500 px-6 py-2 font-semibold text-white hover:bg-amber-600"
           >
             Review {mistakes.length} mistake{mistakes.length === 1 ? '' : 's'}
-          </button>
-        )}
-        {secondaryAction && (
-          <button
-            type="button"
-            onClick={secondaryAction.onClick}
-            className="rounded-full border border-neutral-300 px-6 py-2 font-semibold hover:border-blue-400 dark:border-neutral-600"
-          >
-            {secondaryAction.label}
           </button>
         )}
         <Link

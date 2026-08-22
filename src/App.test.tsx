@@ -38,10 +38,8 @@ describe('routing', () => {
     expect(screen.getByText(/new characters/)).toBeInTheDocument()
   })
 
-  it('/practice/hiragana/a-row/kana-quiz renders the Kana Quiz mode selector, then the game once a mode is chosen', () => {
+  it('/practice/hiragana/a-row/kana-quiz renders the Kana Quiz game directly, with no mode selector', () => {
     renderAt('/practice/hiragana/a-row/kana-quiz')
-    expect(screen.getByText('Read')).toBeInTheDocument()
-    fireEvent.click(screen.getByText('Read'))
     expect(screen.getByText(/Round 1/)).toBeInTheDocument()
   })
 
@@ -65,9 +63,8 @@ describe('routing', () => {
     expect(screen.getByText(/new characters/)).toBeInTheDocument()
   })
 
-  it('/practice/katakana/katakana-a-row/kana-quiz renders the Kana Quiz mode selector, then the game once a mode is chosen', () => {
+  it('/practice/katakana/katakana-a-row/kana-quiz renders the Kana Quiz game directly, with no mode selector', () => {
     renderAt('/practice/katakana/katakana-a-row/kana-quiz')
-    fireEvent.click(screen.getByText('Read'))
     expect(screen.getByText(/Round 1/)).toBeInTheDocument()
   })
 
@@ -98,7 +95,6 @@ describe('routing', () => {
     useProgressStore.getState().markRowTaught('a-row')
     useProgressStore.getState().recordCharacterReviewResult('a', false)
     renderAt('/practice/review/kana-quiz')
-    fireEvent.click(screen.getByText('Read'))
     expect(screen.getByText(/Round 1/)).toBeInTheDocument()
   })
 
@@ -396,7 +392,6 @@ describe('character-set learnStyle with yōon (multi-glyph, one-mora characters)
 
   it('/practice/youon/youon-ka-row/kana-quiz renders normally rather than redirecting home', () => {
     renderAt('/practice/youon/youon-ka-row/kana-quiz')
-    fireEvent.click(screen.getByText('Read'))
     expect(screen.getByText(/Round 1/)).toBeInTheDocument()
   })
 
