@@ -85,6 +85,17 @@ export type GojuonRow = {
   // draws a fixed 15-question pool from the whole category instead of just
   // this row — see RowMap's ⭐ badge and useCurriculum's summary handling.
   isSummary?: boolean
+  // Optional presentation-only split of this row's new-character flashcard
+  // step (LearnPage step A) into small logical sound groups (e.g. か行
+  // then が行) — each batch gets its own browse-only recap before moving
+  // to the next, instead of stepping through every new character before
+  // any recap at all. Purely a Learn UI grouping: `characterIds` remains
+  // the single source of truth for unlock/mastery/Practice/Review, and
+  // flattening `learnBatches` (in order) must equal `characterIds` exactly
+  // — see curriculum.test.ts. Absent for rows that don't need it (5 or
+  // fewer characters), which keep the original single flashcard -> recap
+  // flow unchanged.
+  learnBatches?: string[][]
 }
 
 export type AnchorWord = {

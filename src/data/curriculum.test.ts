@@ -293,3 +293,74 @@ describe('character-set category content (拗音/yōon)', () => {
     expect(cumulative).not.toEqual(expect.arrayContaining(['rya', 'katakana-kya']))
   })
 })
+
+// Micro-batches (see types.ts's GojuonRow.learnBatches) are a Learn-only
+// presentation grouping — characterIds stays the single source of truth for
+// unlock/mastery/Practice/Review, so a batch definition drifting out of
+// sync with it (missing/duplicate/reordered ids) would only surface as a
+// silently-wrong Learn flow, not a type error. These invariants keep that
+// impossible.
+describe('learnBatches (micro-batch Learn presentation)', () => {
+  const rowsWithBatches = ROWS.filter((r) => !r.isSummary && r.learnBatches)
+
+  it('at least one real row actually defines learnBatches (this suite isn\'t vacuous)', () => {
+    expect(rowsWithBatches.length).toBeGreaterThan(0)
+  })
+
+  it('flattening learnBatches exactly reproduces characterIds, in order, for every row that has them', () => {
+    for (const row of rowsWithBatches) {
+      expect(row.learnBatches!.flat(), `row "${row.id}"`).toEqual(row.characterIds)
+    }
+  })
+
+  it('no batch is empty, and every row with learnBatches has more than one batch (a single batch would be redundant with the unbatched flow)', () => {
+    for (const row of rowsWithBatches) {
+      expect(row.learnBatches!.length, `row "${row.id}"`).toBeGreaterThan(1)
+      for (const batch of row.learnBatches!) {
+        expect(batch.length, `an empty batch in row "${row.id}"`).toBeGreaterThan(0)
+      }
+    }
+  })
+
+  it('rows with 5 or fewer characters do not define learnBatches (no redundant intermediate recap)', () => {
+    for (const row of ROWS) {
+      if (row.isSummary || row.categoryId === 'youon') continue // yōon always batches, see below
+      if (row.characterIds.length <= 5) {
+        expect(row.learnBatches, `row "${row.id}" has ${row.characterIds.length} characters`).toBeUndefined()
+      }
+    }
+  })
+
+  it('ha-row uses three 5-character batches (は/ば/ぱ)', () => {
+    const haRow = ROWS.find((r) => r.id === 'ha-row')!
+    expect(haRow.learnBatches).toEqual([
+      ['ha', 'hi', 'fu', 'he', 'ho'],
+      ['ba', 'bi', 'bu', 'be', 'bo'],
+      ['pa', 'pi', 'pu', 'pe', 'po'],
+    ])
+  })
+
+  it('katakana-a-row uses 5/5/5/2 logical batches (ア行・カ行・ガ行・ン&ー)', () => {
+    const row = ROWS.find((r) => r.id === 'katakana-a-row')!
+    expect(row.learnBatches!.map((b) => b.length)).toEqual([5, 5, 5, 2])
+  })
+
+  it('every yōon row is batched into its 3-sound families, regardless of character count', () => {
+    const youonRows = ROWS.filter((r) => r.categoryId === 'youon' && !r.isSummary)
+    expect(youonRows.length).toBeGreaterThan(0)
+    for (const row of youonRows) {
+      expect(row.learnBatches, `row "${row.id}"`).toBeDefined()
+      for (const batch of row.learnBatches!) {
+        expect(batch, `a batch in row "${row.id}"`).toHaveLength(3)
+      }
+    }
+  })
+
+  it('contrast-pairs rows (sokuon/chōon) never define learnBatches — their Learn flow skips the flashcard step entirely', () => {
+    const contrastPairsRows = ROWS.filter((r) => CATEGORIES_BY_ID[r.categoryId]?.learnStyle === 'contrast-pairs')
+    expect(contrastPairsRows.length).toBeGreaterThan(0)
+    for (const row of contrastPairsRows) {
+      expect(row.learnBatches, `row "${row.id}"`).toBeUndefined()
+    }
+  })
+})

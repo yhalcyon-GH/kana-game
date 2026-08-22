@@ -108,6 +108,10 @@ const REAL_ROWS: GojuonRow[] = [
     order: 1,
     characterIds: ['ka', 'ki', 'ku', 'ke', 'ko', 'ga', 'gi', 'gu', 'ge', 'go'],
     englishLabel: 'Ka Row',
+    learnBatches: [
+      ['ka', 'ki', 'ku', 'ke', 'ko'],
+      ['ga', 'gi', 'gu', 'ge', 'go'],
+    ],
   },
   {
     id: 'sa-row',
@@ -116,6 +120,10 @@ const REAL_ROWS: GojuonRow[] = [
     order: 2,
     characterIds: ['sa', 'shi', 'su', 'se', 'so', 'za', 'ji', 'zu', 'ze', 'zo'],
     englishLabel: 'Sa Row',
+    learnBatches: [
+      ['sa', 'shi', 'su', 'se', 'so'],
+      ['za', 'ji', 'zu', 'ze', 'zo'],
+    ],
   },
   {
     id: 'ta-row',
@@ -124,6 +132,10 @@ const REAL_ROWS: GojuonRow[] = [
     order: 3,
     characterIds: ['ta', 'chi', 'tsu', 'te', 'to', 'da', 'dji', 'dzu', 'de', 'do'],
     englishLabel: 'Ta Row',
+    learnBatches: [
+      ['ta', 'chi', 'tsu', 'te', 'to'],
+      ['da', 'dji', 'dzu', 'de', 'do'],
+    ],
   },
   { id: 'na-row', categoryId: DEFAULT_CATEGORY_ID, label: 'な〜の', order: 4, characterIds: ['na', 'ni', 'nu', 'ne', 'no'], englishLabel: 'Na Row' },
   {
@@ -137,6 +149,11 @@ const REAL_ROWS: GojuonRow[] = [
       'pa', 'pi', 'pu', 'pe', 'po',
     ],
     englishLabel: 'Ha Row',
+    learnBatches: [
+      ['ha', 'hi', 'fu', 'he', 'ho'],
+      ['ba', 'bi', 'bu', 'be', 'bo'],
+      ['pa', 'pi', 'pu', 'pe', 'po'],
+    ],
   },
   { id: 'ma-row', categoryId: DEFAULT_CATEGORY_ID, label: 'ま〜も', order: 6, characterIds: ['ma', 'mi', 'mu', 'me', 'mo'], englishLabel: 'Ma Row' },
   { id: 'ya-row', categoryId: DEFAULT_CATEGORY_ID, label: 'や・ゆ・よ', order: 7, characterIds: ['ya', 'yu', 'yo'], englishLabel: 'Ya Row' },
@@ -162,6 +179,12 @@ const REAL_ROWS: GojuonRow[] = [
       'katakana-n', 'katakana-chouon',
     ],
     englishLabel: 'A Row',
+    learnBatches: [
+      ['katakana-a', 'katakana-i', 'katakana-u', 'katakana-e', 'katakana-o'],
+      ['katakana-ka', 'katakana-ki', 'katakana-ku', 'katakana-ke', 'katakana-ko'],
+      ['katakana-ga', 'katakana-gi', 'katakana-gu', 'katakana-ge', 'katakana-go'],
+      ['katakana-n', 'katakana-chouon'],
+    ],
   },
   {
     id: 'katakana-sa-row',
@@ -173,6 +196,10 @@ const REAL_ROWS: GojuonRow[] = [
       'katakana-za', 'katakana-ji', 'katakana-zu', 'katakana-ze', 'katakana-zo',
     ],
     englishLabel: 'Sa Row',
+    learnBatches: [
+      ['katakana-sa', 'katakana-shi', 'katakana-su', 'katakana-se', 'katakana-so'],
+      ['katakana-za', 'katakana-ji', 'katakana-zu', 'katakana-ze', 'katakana-zo'],
+    ],
   },
   {
     id: 'katakana-ta-row',
@@ -184,6 +211,10 @@ const REAL_ROWS: GojuonRow[] = [
       'katakana-da', 'katakana-dji', 'katakana-dzu', 'katakana-de', 'katakana-do',
     ],
     englishLabel: 'Ta Row',
+    learnBatches: [
+      ['katakana-ta', 'katakana-chi', 'katakana-tsu', 'katakana-te', 'katakana-to'],
+      ['katakana-da', 'katakana-dji', 'katakana-dzu', 'katakana-de', 'katakana-do'],
+    ],
   },
   {
     id: 'katakana-na-row',
@@ -204,6 +235,11 @@ const REAL_ROWS: GojuonRow[] = [
       'katakana-pa', 'katakana-pi', 'katakana-pu', 'katakana-pe', 'katakana-po',
     ],
     englishLabel: 'Ha Row',
+    learnBatches: [
+      ['katakana-ha', 'katakana-hi', 'katakana-fu', 'katakana-he', 'katakana-ho'],
+      ['katakana-ba', 'katakana-bi', 'katakana-bu', 'katakana-be', 'katakana-bo'],
+      ['katakana-pa', 'katakana-pi', 'katakana-pu', 'katakana-pe', 'katakana-po'],
+    ],
   },
   {
     id: 'katakana-ma-row',
@@ -232,6 +268,10 @@ const REAL_ROWS: GojuonRow[] = [
     order: 7,
     characterIds: ['katakana-ra', 'katakana-ri', 'katakana-ru', 'katakana-re', 'katakana-ro', 'katakana-wa', 'katakana-wo'],
     englishLabel: 'Ra Row',
+    learnBatches: [
+      ['katakana-ra', 'katakana-ri', 'katakana-ru', 'katakana-re', 'katakana-ro'],
+      ['katakana-wa', 'katakana-wo'],
+    ],
   },
 
   // ===== 促音 (sokuon) — own order sequence, starting at 0 again =====
@@ -362,6 +402,10 @@ const REAL_ROWS: GojuonRow[] = [
     order: 0,
     characterIds: ['kya', 'kyu', 'kyo', 'gya', 'gyu', 'gyo'],
     englishLabel: 'Kya Row',
+    learnBatches: [
+      ['kya', 'kyu', 'kyo'],
+      ['gya', 'gyu', 'gyo'],
+    ],
   },
   {
     id: 'youon-sha-row',
@@ -370,6 +414,10 @@ const REAL_ROWS: GojuonRow[] = [
     order: 1,
     characterIds: ['sha', 'shu', 'sho', 'ja', 'ju', 'jo'],
     englishLabel: 'Sha Row',
+    learnBatches: [
+      ['sha', 'shu', 'sho'],
+      ['ja', 'ju', 'jo'],
+    ],
   },
   {
     id: 'youon-cha-na-row',
@@ -378,6 +426,10 @@ const REAL_ROWS: GojuonRow[] = [
     order: 2,
     characterIds: ['cha', 'chu', 'cho', 'nya', 'nyu', 'nyo'],
     englishLabel: 'Cha/Nya Row',
+    learnBatches: [
+      ['cha', 'chu', 'cho'],
+      ['nya', 'nyu', 'nyo'],
+    ],
   },
   {
     id: 'youon-ha-row',
@@ -386,6 +438,11 @@ const REAL_ROWS: GojuonRow[] = [
     order: 3,
     characterIds: ['hya', 'hyu', 'hyo', 'bya', 'byu', 'byo', 'pya', 'pyu', 'pyo'],
     englishLabel: 'Hya Row',
+    learnBatches: [
+      ['hya', 'hyu', 'hyo'],
+      ['bya', 'byu', 'byo'],
+      ['pya', 'pyu', 'pyo'],
+    ],
   },
   {
     id: 'youon-ma-ra-row',
@@ -394,6 +451,10 @@ const REAL_ROWS: GojuonRow[] = [
     order: 4,
     characterIds: ['mya', 'myu', 'myo', 'rya', 'ryu', 'ryo'],
     englishLabel: 'Mya/Rya Row',
+    learnBatches: [
+      ['mya', 'myu', 'myo'],
+      ['rya', 'ryu', 'ryo'],
+    ],
   },
   {
     id: 'youon-katakana-ka-row',
@@ -402,6 +463,10 @@ const REAL_ROWS: GojuonRow[] = [
     order: 5,
     characterIds: ['katakana-kya', 'katakana-kyu', 'katakana-kyo', 'katakana-gya', 'katakana-gyu', 'katakana-gyo'],
     englishLabel: 'Kya Row',
+    learnBatches: [
+      ['katakana-kya', 'katakana-kyu', 'katakana-kyo'],
+      ['katakana-gya', 'katakana-gyu', 'katakana-gyo'],
+    ],
   },
   {
     id: 'youon-katakana-sha-row',
@@ -410,6 +475,10 @@ const REAL_ROWS: GojuonRow[] = [
     order: 6,
     characterIds: ['katakana-sha', 'katakana-shu', 'katakana-sho', 'katakana-ja', 'katakana-ju', 'katakana-jo'],
     englishLabel: 'Sha Row',
+    learnBatches: [
+      ['katakana-sha', 'katakana-shu', 'katakana-sho'],
+      ['katakana-ja', 'katakana-ju', 'katakana-jo'],
+    ],
   },
   {
     id: 'youon-katakana-cha-na-row',
@@ -418,6 +487,10 @@ const REAL_ROWS: GojuonRow[] = [
     order: 7,
     characterIds: ['katakana-cha', 'katakana-chu', 'katakana-cho', 'katakana-nya', 'katakana-nyu', 'katakana-nyo'],
     englishLabel: 'Cha/Nya Row',
+    learnBatches: [
+      ['katakana-cha', 'katakana-chu', 'katakana-cho'],
+      ['katakana-nya', 'katakana-nyu', 'katakana-nyo'],
+    ],
   },
   {
     id: 'youon-katakana-ha-row',
@@ -430,6 +503,11 @@ const REAL_ROWS: GojuonRow[] = [
       'katakana-pya', 'katakana-pyu', 'katakana-pyo',
     ],
     englishLabel: 'Hya Row',
+    learnBatches: [
+      ['katakana-hya', 'katakana-hyu', 'katakana-hyo'],
+      ['katakana-bya', 'katakana-byu', 'katakana-byo'],
+      ['katakana-pya', 'katakana-pyu', 'katakana-pyo'],
+    ],
   },
   {
     id: 'youon-katakana-ma-ra-row',
@@ -438,6 +516,10 @@ const REAL_ROWS: GojuonRow[] = [
     order: 9,
     characterIds: ['katakana-mya', 'katakana-myu', 'katakana-myo', 'katakana-rya', 'katakana-ryu', 'katakana-ryo'],
     englishLabel: 'Mya/Rya Row',
+    learnBatches: [
+      ['katakana-mya', 'katakana-myu', 'katakana-myo'],
+      ['katakana-rya', 'katakana-ryu', 'katakana-ryo'],
+    ],
   },
 ]
 
