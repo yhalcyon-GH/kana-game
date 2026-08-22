@@ -29,7 +29,8 @@ function clickThroughListeningRound(container: HTMLElement) {
   }
 }
 
-const MEANING_TO_KANA: Record<string, string> = { love: 'あい', house: 'いえ' }
+const MEANING_TO_KANA: Record<string, string> = { love: 'あい', house: 'いえ', 'up / above': 'うえ', blue: 'あお' }
+const MEANING_TO_ROMAJI: Record<string, string> = { love: 'ai', house: 'ie', 'up / above': 'ue', blue: 'ao' }
 
 function renderReviewListening() {
   return render(
@@ -213,5 +214,71 @@ describe('ListeningPage Recommended Path completion (Issue #11)', () => {
     for (let round = 0; round < 8; round++) clickThroughListeningRound(container)
     const continueLink = getByRole('link', { name: /continue/i })
     expect(continueLink).toHaveAttribute('href', '/practice/hiragana/a-row/word-builder')
+  })
+})
+
+describe('ListeningPage romaji hint (Issue #19)', () => {
+  beforeEach(() => {
+    useProgressStore.getState().resetProgress()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('hides the target romaji at question start when alwaysShowRomajiHints is OFF', () => {
+    const { container, queryByText } = renderRowListening()
+    const meaning = container.querySelector('span.text-sm.text-neutral-500')!.textContent!.trim()
+    expect(queryByText(MEANING_TO_ROMAJI[meaning])).toBeNull()
+    expect(queryByText('Show romaji')).not.toBeNull()
+  })
+
+  it('"Show romaji" reveals the current question\'s target romaji', () => {
+    const { container, getByText, queryByText } = renderRowListening()
+    const meaning = container.querySelector('span.text-sm.text-neutral-500')!.textContent!.trim()
+    act(() => fireEvent.click(getByText('Show romaji')))
+    expect(queryByText(MEANING_TO_ROMAJI[meaning])).not.toBeNull()
+    expect(queryByText('Show romaji')).toBeNull()
+  })
+
+  it('resets the hint on the next question', () => {
+    vi.useFakeTimers()
+    const { container, getByText, queryByText } = renderRowListening()
+    act(() => fireEvent.click(getByText('Show romaji')))
+    expect(queryByText('Show romaji')).toBeNull()
+
+    clickThroughListeningRound(container)
+
+    expect(queryByText('Show romaji')).not.toBeNull()
+  })
+
+  it('shows the target romaji from the start when alwaysShowRomajiHints is ON, with no "Show romaji" button', () => {
+    useProgressStore.getState().setAlwaysShowRomajiHints(true)
+    const { container, queryByText } = renderRowListening()
+    const meaning = container.querySelector('span.text-sm.text-neutral-500')!.textContent!.trim()
+    expect(queryByText(MEANING_TO_ROMAJI[meaning])).not.toBeNull()
+    expect(queryByText('Show romaji')).toBeNull()
+  })
+
+  it('using the hint does not affect Review state or score', () => {
+    const { getByText } = renderRowListening()
+    act(() => fireEvent.click(getByText('Show romaji')))
+    expect(Object.values(useProgressStore.getState().words).every((w) => !w.reviewActive)).toBe(true)
+    expect(Object.values(useProgressStore.getState().characters).every((c) => !c.reviewActive)).toBe(true)
+  })
+
+  it('the same hint rule applies to Review-scoped Listening', () => {
+    useProgressStore.getState().markRowTaught('a-row')
+    useProgressStore.getState().recordWordReviewResult('a-ai', false)
+    const { container, queryByText } = render(
+      <MemoryRouter initialEntries={['/practice/review/listening']}>
+        <Routes>
+          <Route path="/practice/review/listening" element={<ListeningPage rowIdOverride={REVIEW_SCOPE_ID} />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    const meaning = container.querySelector('span.text-sm.text-neutral-500')!.textContent!.trim()
+    expect(queryByText(MEANING_TO_ROMAJI[meaning])).toBeNull()
+    expect(queryByText('Show romaji')).not.toBeNull()
   })
 })

@@ -298,3 +298,67 @@ describe('WordBuilderPage Recommended Path completion (Issue #11)', () => {
     expect(queryByRole('link', { name: /back to hub/i })).not.toBeNull()
   })
 })
+
+const A_ROW_MEANING_TO_ROMAJI: Record<string, string> = { love: 'ai', house: 'ie', 'up / above': 'ue', blue: 'ao' }
+
+describe('WordBuilderPage romaji hint (Issue #19)', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('hides the target romaji at question start when alwaysShowRomajiHints is OFF', () => {
+    const { container, queryByText } = renderRowWordBuilder()
+    const meaning = container.querySelector('.text-lg.font-semibold')!.textContent!.trim()
+    expect(queryByText(A_ROW_MEANING_TO_ROMAJI[meaning])).toBeNull()
+    expect(queryByText('Show romaji')).not.toBeNull()
+  })
+
+  it('"Show romaji" reveals the current question\'s target romaji', () => {
+    const { container, getByText, queryByText } = renderRowWordBuilder()
+    const meaning = container.querySelector('.text-lg.font-semibold')!.textContent!.trim()
+    act(() => fireEvent.click(getByText('Show romaji')))
+    expect(queryByText(A_ROW_MEANING_TO_ROMAJI[meaning])).not.toBeNull()
+    expect(queryByText('Show romaji')).toBeNull()
+  })
+
+  it('resets the hint on the next question', () => {
+    vi.useFakeTimers()
+    const { container, getByText, queryByText } = renderRowWordBuilder()
+    act(() => fireEvent.click(getByText('Show romaji')))
+    expect(queryByText('Show romaji')).toBeNull()
+
+    clickThroughWordBuilderRound(container)
+
+    expect(queryByText('Show romaji')).not.toBeNull()
+  })
+
+  it('shows the target romaji from the start when alwaysShowRomajiHints is ON, with no "Show romaji" button', () => {
+    useProgressStore.getState().setAlwaysShowRomajiHints(true)
+    const { container, queryByText } = renderRowWordBuilder()
+    const meaning = container.querySelector('.text-lg.font-semibold')!.textContent!.trim()
+    expect(queryByText(A_ROW_MEANING_TO_ROMAJI[meaning])).not.toBeNull()
+    expect(queryByText('Show romaji')).toBeNull()
+  })
+
+  it('using the hint does not affect Review state or score', () => {
+    const { getByText } = renderRowWordBuilder()
+    act(() => fireEvent.click(getByText('Show romaji')))
+    expect(Object.values(useProgressStore.getState().words).every((w) => !w.reviewActive)).toBe(true)
+    expect(Object.values(useProgressStore.getState().characters).every((c) => !c.reviewActive)).toBe(true)
+  })
+
+  it('the same hint rule applies to Review-scoped Word Builder', () => {
+    useProgressStore.getState().markRowTaught('a-row')
+    useProgressStore.getState().recordWordReviewResult('a-ai', false)
+    const { container, queryByText } = render(
+      <MemoryRouter initialEntries={['/practice/review/word-builder']}>
+        <Routes>
+          <Route path="/practice/review/word-builder" element={<WordBuilderPage rowIdOverride={REVIEW_SCOPE_ID} />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    const meaning = container.querySelector('.text-lg.font-semibold')!.textContent!.trim()
+    expect(queryByText(A_ROW_MEANING_TO_ROMAJI[meaning])).toBeNull()
+    expect(queryByText('Show romaji')).not.toBeNull()
+  })
+})

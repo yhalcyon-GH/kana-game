@@ -4,6 +4,7 @@ import { AnswerFeedbackRow } from '../../components/AnswerFeedbackRow'
 import { GameRoundHeader } from '../../components/GameRoundHeader'
 import { PracticeSummary } from '../../components/PracticeSummary'
 import { ReviewEmptyState } from '../../components/ReviewEmptyState'
+import { RomajiHint } from '../../components/RomajiHint'
 import { WordImage } from '../../components/WordImage'
 import { ROWS_BY_ID } from '../../data/curriculum'
 import type { QuestionMode } from '../../data/feedback'
@@ -33,6 +34,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
   const recordWordReviewResult = useProgressStore((s) => s.recordWordReviewResult)
   const markRowActivityCompleted = useProgressStore((s) => s.markRowActivityCompleted)
   const characters = useProgressStore((s) => s.characters)
+  const alwaysShowRomajiHints = useProgressStore((s) => s.alwaysShowRomajiHints)
   const isReview = rowId === REVIEW_SCOPE_ID
   const row = rowId && !isReview ? ROWS_BY_ID[rowId] : undefined
   const categoryId = isReview ? undefined : (params.categoryId ?? row?.categoryId)
@@ -78,6 +80,9 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
   const [choices, setChoices] = useState<AnchorWord[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [answered, setAnswered] = useState(false)
+  // Per-question romaji hint (see RomajiHint) — reset every round below so
+  // revealing it never carries over to the next word.
+  const [romajiHintShown, setRomajiHintShown] = useState(false)
 
   const currentWord = queue.length > 0 ? wordsById[queue[roundIndex]] : undefined
 
@@ -87,6 +92,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
     setChoices(shuffle([currentWord, ...distractors]))
     setSelectedId(null)
     setAnswered(false)
+    setRomajiHintShown(false)
     clear()
     speak(`words/${currentWord.id}`, currentWord.audioText ?? currentWord.kana)
     // Keyed on roundIndex too, not just currentWord.id — a small pool (e.g.
@@ -162,6 +168,14 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
       <div className="flex flex-col items-center gap-2">
         <WordImage word={currentWord} className="h-20 w-20" />
         <span className="text-sm text-neutral-500 dark:text-neutral-400">{currentWord.meaning}</span>
+        {!answered && (
+          <RomajiHint
+            romaji={currentWord.romaji}
+            alwaysShow={alwaysShowRomajiHints}
+            revealed={romajiHintShown}
+            onReveal={() => setRomajiHintShown(true)}
+          />
+        )}
         {supported && (
           <button
             type="button"
