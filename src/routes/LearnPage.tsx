@@ -199,9 +199,15 @@ export function LearnPage() {
     }
   }
 
+  // Recommended Path: finishing Learn is the first core step, so its
+  // primary action continues straight into the next recommended activity
+  // (Kana Quiz for character-set, Listening for contrast-pairs — no Kana
+  // Quiz step there, see lib/recommendedPath.ts) instead of just returning
+  // to the hub. markRowTaught still fires here exactly as before — this is
+  // the ONLY change to Learn's existing completion behavior.
   const handleFinish = () => {
     markRowTaught(rowId)
-    navigate(`/practice/${categoryId}/${rowId}`)
+    navigate(`/practice/${categoryId}/${rowId}/${isContrastPairs ? 'listening' : 'kana-quiz'}`)
   }
 
   if (step === 'A') {
@@ -347,7 +353,7 @@ export function LearnPage() {
           onClick={handleFinish}
           className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
         >
-          Start practicing
+          Continue
         </button>
       </div>
     </div>

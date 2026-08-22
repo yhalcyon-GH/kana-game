@@ -24,6 +24,24 @@ export type WordProgress = {
   reviewStreak: number
 }
 
+// One flag per core Recommended Path activity a row can complete — see
+// lib/recommendedPath.ts. Each flag means only "the learner reached this
+// activity's normal end-of-session summary at least once for this row",
+// nothing about accuracy or mastery (see isRowMastered, a separate,
+// already-dynamic box-based concept this deliberately does not touch).
+// `learn` is NOT tracked here — the existing `taughtRowIds` (see
+// markRowTaught) already is that flag, reused as-is. Kana Typing has no
+// flag: it's optional and never gates or advances the Recommended Path.
+export type RowActivityCompletion = {
+  tracing?: boolean
+  kanaQuiz?: boolean
+  listening?: boolean
+  wordBuilder?: boolean
+}
+
+const ROW_ACTIVITY_KEYS = ['tracing', 'kanaQuiz', 'listening', 'wordBuilder'] as const
+export type RowActivityKey = (typeof ROW_ACTIVITY_KEYS)[number]
+
 const FIRST_ROW_ID = 'a-row'
 const MIN_AUDIO_SPEED = 0.75
 const MAX_AUDIO_SPEED = 1.5
@@ -35,6 +53,9 @@ type ProgressState = {
   words: Record<string, WordProgress>
   unlockedRowIds: string[]
   taughtRowIds: string[]
+  // Recommended Path completion — see RowActivityCompletion's comment.
+  // Keyed by rowId; a row with nothing completed yet simply has no entry.
+  rowActivityCompletion: Record<string, RowActivityCompletion>
   audioEnabled: boolean
   audioVolume: number
   audioSpeed: number
@@ -52,6 +73,13 @@ type ProgressState = {
   recordCharacterReviewResult: (charId: string, correct: boolean) => void
   recordWordReviewResult: (wordId: string, correct: boolean) => void
   markRowTaught: (rowId: string) => void
+  // Marks one Recommended Path core activity completed for a row — call
+  // only when a NORMAL (non-Review-scoped) session reaches its real
+  // end-of-session summary, never on open/partial-play. Review-scoped
+  // sessions must not call this — Review is a separate repair workflow
+  // and must not advance normal-row Recommended Path state.
+  markRowActivityCompleted: (rowId: string, activity: RowActivityKey) => void
+  isRowActivityCompleted: (rowId: string, activity: RowActivityKey) => boolean
   isRowUnlocked: (rowId: string) => boolean
   isRowTaught: (rowId: string) => boolean
   isRowMastered: (rowId: string) => boolean
@@ -113,6 +141,15 @@ function reviewProgressOr(candidate: Record<string, unknown>): { reviewActive: b
   return { reviewActive: true, reviewStreak }
 }
 
+function rowActivityCompletionOr(value: unknown): RowActivityCompletion {
+  const candidate = isRecord(value) ? value : {}
+  const result: RowActivityCompletion = {}
+  for (const key of ROW_ACTIVITY_KEYS) {
+    if (candidate[key] === true) result[key] = true
+  }
+  return result
+}
+
 export function mergePersistedProgress(persistedState: unknown, currentState: ProgressState): ProgressState {
   const persisted = isRecord(persistedState) ? persistedState : {}
   const rawCharacters = isRecord(persisted.characters) ? persisted.characters : {}
@@ -144,6 +181,11 @@ export function mergePersistedProgress(persistedState: unknown, currentState: Pr
     words,
     unlockedRowIds: stringArrayOr(persisted.unlockedRowIds, currentState.unlockedRowIds),
     taughtRowIds: stringArrayOr(persisted.taughtRowIds, currentState.taughtRowIds),
+    rowActivityCompletion: Object.fromEntries(
+      Object.entries(isRecord(persisted.rowActivityCompletion) ? persisted.rowActivityCompletion : {})
+        .map(([rowId, value]) => [rowId, rowActivityCompletionOr(value)])
+        .filter(([, completion]) => Object.keys(completion as RowActivityCompletion).length > 0),
+    ),
     audioEnabled: booleanOr(persisted.audioEnabled, currentState.audioEnabled),
     audioVolume: clampFiniteOr(persisted.audioVolume, MIN_VOLUME, MAX_VOLUME, currentState.audioVolume),
     audioSpeed: clampFiniteOr(persisted.audioSpeed, MIN_AUDIO_SPEED, MAX_AUDIO_SPEED, currentState.audioSpeed),
@@ -160,6 +202,7 @@ export const useProgressStore = create<ProgressState>()(
       words: {},
       unlockedRowIds: [FIRST_ROW_ID],
       taughtRowIds: [],
+      rowActivityCompletion: {},
       audioEnabled: true,
       audioVolume: 1,
       audioSpeed: 1,
@@ -228,6 +271,16 @@ export const useProgressStore = create<ProgressState>()(
         }
       },
 
+      markRowActivityCompleted: (rowId, activity) => {
+        set((state) => ({
+          rowActivityCompletion: {
+            ...state.rowActivityCompletion,
+            [rowId]: { ...state.rowActivityCompletion[rowId], [activity]: true },
+          },
+        }))
+      },
+      isRowActivityCompleted: (rowId, activity) => get().rowActivityCompletion[rowId]?.[activity] === true,
+
       isRowUnlocked: (rowId) => get().unlockedRowIds.includes(rowId),
       isRowTaught: (rowId) => get().taughtRowIds.includes(rowId),
       isRowMastered: (rowId) => {
@@ -253,6 +306,7 @@ export const useProgressStore = create<ProgressState>()(
           words: {},
           unlockedRowIds: [FIRST_ROW_ID],
           taughtRowIds: [],
+          rowActivityCompletion: {},
           audioEnabled: true,
           audioVolume: 1,
           audioSpeed: 1,
@@ -263,7 +317,7 @@ export const useProgressStore = create<ProgressState>()(
     }),
     {
       name: 'kana-game-progress',
-      version: 6,
+      version: 7,
       // v1 -> v2: the default pronunciation speed changed from 1x to 0.5x;
       // carry that new default into browsers that already persisted a v1
       // state (which would otherwise keep the old 1x forever).
@@ -284,6 +338,10 @@ export const useProgressStore = create<ProgressState>()(
       // practicing it"); anything below becomes inactive. The streak always
       // starts at 0 either way, since the old score carried no record of a
       // partial correct-streak to resume.
+      // v6 -> v7: adds Recommended Path completion tracking
+      // (rowActivityCompletion, see RowActivityCompletion) — existing users
+      // simply start with no activity marked completed for any row (an
+      // empty object), same as a fresh install; nothing to backfill from.
       migrate: (persistedState, version) => {
         const state = (isRecord(persistedState) ? persistedState : {}) as Partial<ProgressState>
         if (version < 2) {
@@ -327,6 +385,9 @@ export const useProgressStore = create<ProgressState>()(
             if (isRecord(candidate)) migrateReviewFields(candidate)
           }
           state.words = words as Record<string, WordProgress>
+        }
+        if (version < 7) {
+          state.rowActivityCompletion = {}
         }
         return state
       },

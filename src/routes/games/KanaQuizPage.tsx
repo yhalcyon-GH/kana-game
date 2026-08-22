@@ -48,6 +48,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
   const { isScopeReady, getScopeCharacterIds, getScopeQuizCharacterIds, isQuizzableCharacterId, getScopeRounds } = useCurriculum()
   const recordResult = useProgressStore((s) => s.recordResult)
   const recordCharacterReviewResult = useProgressStore((s) => s.recordCharacterReviewResult)
+  const markRowActivityCompleted = useProgressStore((s) => s.markRowActivityCompleted)
   const characters = useProgressStore((s) => s.characters)
   const { speak, supported } = useTTS()
   const isReview = rowId === REVIEW_SCOPE_ID
@@ -129,6 +130,15 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
 
   useEnterAdvance(answered && selectedId !== currentCharId, advance)
 
+  // Recommended Path completion — see progressStore.ts's
+  // markRowActivityCompleted. Fires exactly once per real session (the
+  // effect only re-runs when `finished` itself flips), only for a normal
+  // row (never Review, a separate repair workflow that must not advance
+  // Recommended Path state).
+  useEffect(() => {
+    if (finished && !isReview && rowId) markRowActivityCompleted(rowId, 'kanaQuiz')
+  }, [finished, isReview, rowId, markRowActivityCompleted])
+
   const handleChoice = (choiceId: string) => {
     if (answered || !currentCharId) return
     setSelectedId(choiceId)
@@ -172,6 +182,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
         onReviewMistakes={() => startMistakeReview(mistakeIds)}
         mood={finishMood ?? undefined}
         comment={finishFeedback?.text}
+        continueAction={!isReview ? { label: 'Continue', to: `${hubHref}/listening` } : undefined}
       />
     )
   }
