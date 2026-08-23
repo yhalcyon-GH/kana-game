@@ -30,3 +30,24 @@ describe('SettingsPage "Always show romaji hints" (Issue #19)', () => {
     expect(useProgressStore.getState().alwaysShowRomajiHints).toBe(true)
   })
 })
+
+// Issue #29: replays the Tamamizu Guide on demand — pure UI, no
+// learning-progress side effects.
+describe('SettingsPage "View introduction again" (Issue #29)', () => {
+  it('is present', () => {
+    const { getByText } = render(<SettingsPage />)
+    expect(getByText('View introduction again')).toBeInTheDocument()
+  })
+
+  it('clicking it resets hasCompletedIntroGuide to false, without touching learning progress', () => {
+    useProgressStore.getState().setHasCompletedIntroGuide(true)
+    useProgressStore.getState().markRowTaught('a-row')
+    const { getByText } = render(<SettingsPage />)
+
+    fireEvent.click(getByText('View introduction again'))
+
+    const state = useProgressStore.getState()
+    expect(state.hasCompletedIntroGuide).toBe(false)
+    expect(state.taughtRowIds).toEqual(['a-row'])
+  })
+})

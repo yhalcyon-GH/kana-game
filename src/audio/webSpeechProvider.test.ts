@@ -32,4 +32,46 @@ describe('WebSpeechProvider', () => {
     const provider = new WebSpeechProvider()
     await expect(provider.speak({ key: 'characters/ka', text: 'か' }, { volume: 1, rate: 1 })).rejects.toBeTruthy()
   })
+
+  // Issue #29 (Tamamizu Guide): the fallback must correctly speak English
+  // narration, not silently mispronounce it with the app's picked Japanese
+  // voice/lang.
+  describe('lang handling', () => {
+    function withFakeSpeechSynthesis() {
+      const spoken: SpeechSynthesisUtterance[] = []
+      const fakeSynthesis = { speak: (u: SpeechSynthesisUtterance) => spoken.push(u), cancel: () => {} }
+      // @ts-expect-error jsdom has no real speechSynthesis to type against
+      window.speechSynthesis = fakeSynthesis
+      // @ts-expect-error jsdom has no real SpeechSynthesisUtterance
+      window.SpeechSynthesisUtterance = class {
+        text: string
+        lang = ''
+        volume = 1
+        rate = 1
+        voice: SpeechSynthesisVoice | null = null
+        constructor(text: string) {
+          this.text = text
+        }
+      }
+      return spoken
+    }
+
+    it('defaults to ja-JP and applies the picked Japanese voice when no lang is given (existing behavior)', async () => {
+      const spoken = withFakeSpeechSynthesis()
+      const provider = new WebSpeechProvider()
+      provider.voice = fakeVoice('ja-JP', 'Nanami')
+      await provider.speak({ key: 'characters/ka', text: 'か' }, { volume: 1, rate: 1 })
+      expect(spoken[0].lang).toBe('ja-JP')
+      expect(spoken[0].voice).toBe(provider.voice)
+    })
+
+    it('uses the given lang and does NOT apply the Japanese voice for a non-Japanese request', async () => {
+      const spoken = withFakeSpeechSynthesis()
+      const provider = new WebSpeechProvider()
+      provider.voice = fakeVoice('ja-JP', 'Nanami')
+      await provider.speak({ key: 'guide/intro-welcome', text: 'Hi!', lang: 'en-US' }, { volume: 1, rate: 1 })
+      expect(spoken[0].lang).toBe('en-US')
+      expect(spoken[0].voice).toBeNull()
+    })
+  })
 })

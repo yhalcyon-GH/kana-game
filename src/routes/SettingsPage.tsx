@@ -19,6 +19,7 @@ export function SettingsPage() {
   const setMascotVoiceVolume = useProgressStore((s) => s.setMascotVoiceVolume)
   const alwaysShowRomajiHints = useProgressStore((s) => s.alwaysShowRomajiHints)
   const setAlwaysShowRomajiHints = useProgressStore((s) => s.setAlwaysShowRomajiHints)
+  const setHasCompletedIntroGuide = useProgressStore((s) => s.setHasCompletedIntroGuide)
 
   return (
     <div className="flex w-full max-w-sm flex-col items-center gap-6">
@@ -53,6 +54,15 @@ export function SettingsPage() {
           className="h-5 w-5"
         />
       </label>
+
+      <button
+        type="button"
+        onClick={() => setHasCompletedIntroGuide(false)}
+        className="flex w-full items-center justify-between rounded-xl border border-neutral-300 bg-white px-4 py-3 text-left hover:border-blue-400 dark:border-neutral-600 dark:bg-neutral-800"
+      >
+        <span>View introduction again</span>
+        <span className="text-blue-600 dark:text-blue-400">›</span>
+      </button>
 
       <div className="flex w-full flex-col gap-4 rounded-xl border border-neutral-300 bg-white px-4 py-3 dark:border-neutral-600 dark:bg-neutral-800">
         <label className="flex flex-col gap-1">

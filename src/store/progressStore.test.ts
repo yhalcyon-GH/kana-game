@@ -441,6 +441,65 @@ describe('progressStore', () => {
     })
   })
 
+  // Issue #29: the Tamamizu Guide only shows automatically for a genuinely
+  // fresh install (see the store's initial `hasCompletedIntroGuide: false`)
+  // — anyone migrating through here already had SOME prior state, so they
+  // must not see it retroactively.
+  describe('v10 -> v11 hasCompletedIntroGuide migration (Issue #29)', () => {
+    it('treats an existing user as having already seen the guide', async () => {
+      localStorage.setItem('kana-game-progress', JSON.stringify({ version: 10, state: { taughtRowIds: ['a-row'] } }))
+
+      await useProgressStore.persist.rehydrate()
+
+      const state = useProgressStore.getState()
+      expect(state.hasCompletedIntroGuide).toBe(true)
+      expect(state.taughtRowIds).toEqual(['a-row'])
+    })
+
+    it('does not lose other persisted data during the migration', async () => {
+      localStorage.setItem(
+        'kana-game-progress',
+        JSON.stringify({
+          version: 10,
+          state: {
+            rowActivityCompletion: { 'a-row': { kanaQuiz: true } },
+            words: { 'a-ai': { reviewActive: true, reviewStreak: 1 } },
+          },
+        }),
+      )
+
+      await useProgressStore.persist.rehydrate()
+
+      const state = useProgressStore.getState()
+      expect(state.rowActivityCompletion['a-row']).toEqual({ kanaQuiz: true })
+      expect(state.words['a-ai']).toMatchObject({ reviewActive: true, reviewStreak: 1 })
+    })
+  })
+
+  describe('hasCompletedIntroGuide (Issue #29)', () => {
+    it('defaults to false for a fresh install (no persisted state at all)', () => {
+      expect(useProgressStore.getState().hasCompletedIntroGuide).toBe(false)
+    })
+
+    it('setHasCompletedIntroGuide updates the flag and persists it across rehydrate', async () => {
+      useProgressStore.getState().setHasCompletedIntroGuide(true)
+      expect(useProgressStore.getState().hasCompletedIntroGuide).toBe(true)
+
+      await useProgressStore.persist.rehydrate()
+
+      expect(useProgressStore.getState().hasCompletedIntroGuide).toBe(true)
+    })
+
+    it('does not affect unlock/taught/completion/Review/SRS/mastery state', () => {
+      useProgressStore.getState().setHasCompletedIntroGuide(true)
+      const state = useProgressStore.getState()
+      expect(state.taughtRowIds).toEqual([])
+      expect(state.rowActivityCompletion).toEqual({})
+      expect(state.characters).toEqual({})
+      expect(state.words).toEqual({})
+    })
+  })
+
   describe('lastStudied (Issue #23)', () => {
     it('defaults to null for a fresh install', () => {
       expect(useProgressStore.getState().lastStudied).toBeNull()

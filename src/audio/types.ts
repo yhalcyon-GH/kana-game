@@ -7,6 +7,11 @@
 export type SpeechRequest = {
   key: string
   text: string
+  // BCP-47 language tag for the Web Speech fallback (e.g. 'en-US') — omit
+  // for the app's default Japanese narration (characters/words/feedback).
+  // Irrelevant to StaticFileProvider (a pre-generated clip is whatever
+  // language it was recorded in); only WebSpeechProvider reads this.
+  lang?: string
 }
 
 export type SpeechPlaybackOptions = {

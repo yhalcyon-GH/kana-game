@@ -1,5 +1,6 @@
 import { Route, Routes } from 'react-router-dom'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { IntroGuide } from './components/IntroGuide'
 import { NavBar } from './components/NavBar'
 import { CATEGORIES, CATEGORIES_BY_ID, DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID, YOUON_CATEGORY_ID } from './data/curriculum'
 import { REVIEW_SCOPE_ID } from './hooks/useCurriculum'
@@ -32,6 +33,7 @@ function App() {
   useTrackLastStudied()
   return (
     <div className="min-h-screen bg-white text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100">
+      <IntroGuide />
       <NavBar />
       <main className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-4 py-8">
         <ErrorBoundary>

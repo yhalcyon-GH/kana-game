@@ -87,6 +87,12 @@ type ProgressState = {
   // Adjusted independently from `audioVolume` — same 0-2 gain-boost scale
   // (see audioVolume's comment), applied only to feedback/* clips.
   mascotVoiceVolume: number
+  // Tamamizu Guide Phase 1 (Issue #29) — the one-time first-launch
+  // introduction (see components/IntroGuide.tsx). true once the learner has
+  // finished OR skipped it; Settings' "View introduction again" can still
+  // replay it on demand without flipping this back — see
+  // setHasCompletedIntroGuide's own comment.
+  hasCompletedIntroGuide: boolean
 
   ensureCharacterInitialized: (charId: string) => void
   recordResult: (charId: string, correct: boolean) => void
@@ -112,6 +118,12 @@ type ProgressState = {
   setAlwaysShowRomajiHints: (show: boolean) => void
   setMascotVoiceEnabled: (enabled: boolean) => void
   setMascotVoiceVolume: (volume: number) => void
+  // Pure UI bookkeeping — never touches unlock/taught/completion/Review/
+  // SRS/mastery. Settings' "View introduction again" calls this with
+  // `false` to reopen the guide (IntroGuide sets it back to `true` again on
+  // its own completion/Skip), so replaying never permanently loses the
+  // "already introduced" state beyond the current viewing.
+  setHasCompletedIntroGuide: (completed: boolean) => void
   resetProgress: () => void
 }
 
@@ -229,6 +241,7 @@ export function mergePersistedProgress(persistedState: unknown, currentState: Pr
     audioSpeed: clampFiniteOr(persisted.audioSpeed, MIN_AUDIO_SPEED, MAX_AUDIO_SPEED, currentState.audioSpeed),
     lastStudied: lastStudiedOr(persisted.lastStudied),
     alwaysShowRomajiHints: booleanOr(persisted.alwaysShowRomajiHints, currentState.alwaysShowRomajiHints),
+    hasCompletedIntroGuide: booleanOr(persisted.hasCompletedIntroGuide, currentState.hasCompletedIntroGuide),
     mascotVoiceEnabled: booleanOr(persisted.mascotVoiceEnabled, currentState.mascotVoiceEnabled),
     mascotVoiceVolume: clampFiniteOr(persisted.mascotVoiceVolume, MIN_VOLUME, MAX_VOLUME, currentState.mascotVoiceVolume),
   }
@@ -249,6 +262,7 @@ export const useProgressStore = create<ProgressState>()(
       alwaysShowRomajiHints: false,
       mascotVoiceEnabled: true,
       mascotVoiceVolume: 1,
+      hasCompletedIntroGuide: false,
 
       ensureCharacterInitialized: (charId) => {
         if (get().characters[charId]) return
@@ -339,6 +353,7 @@ export const useProgressStore = create<ProgressState>()(
       setAudioVolume: (volume) => set({ audioVolume: volume }),
       setAudioSpeed: (speed) => set({ audioSpeed: speed }),
       setAlwaysShowRomajiHints: (show) => set({ alwaysShowRomajiHints: show }),
+      setHasCompletedIntroGuide: (completed) => set({ hasCompletedIntroGuide: completed }),
       setMascotVoiceEnabled: (enabled) => set({ mascotVoiceEnabled: enabled }),
       setMascotVoiceVolume: (volume) => set({ mascotVoiceVolume: volume }),
 
@@ -356,11 +371,12 @@ export const useProgressStore = create<ProgressState>()(
           alwaysShowRomajiHints: false,
           mascotVoiceEnabled: true,
           mascotVoiceVolume: 1,
+          hasCompletedIntroGuide: false,
         }),
     }),
     {
       name: 'kana-game-progress',
-      version: 10,
+      version: 11,
       // v1 -> v2: the default pronunciation speed changed from 1x to 0.5x;
       // carry that new default into browsers that already persisted a v1
       // state (which would otherwise keep the old 1x forever).
@@ -394,6 +410,10 @@ export const useProgressStore = create<ProgressState>()(
       // default (see the migration below), not a rename.
       // v9 -> v10: adds `lastStudied` (Issue #23, Home's Continue card) —
       // brand new, no prior equivalent to backfill from.
+      // v10 -> v11: adds `hasCompletedIntroGuide` (Issue #29, Tamamizu
+      // Guide) — an existing installation is treated as already having
+      // seen it (see the migration below), so it's never shown
+      // retroactively.
       migrate: (persistedState, version) => {
         const state = (isRecord(persistedState) ? persistedState : {}) as Partial<ProgressState>
         if (version < 2) {
@@ -469,6 +489,16 @@ export const useProgressStore = create<ProgressState>()(
           // New in this version — no history to backfill, Continue simply
           // doesn't render for existing users until they visit something.
           state.lastStudied = null
+        }
+        if (version < 11) {
+          // Tamamizu Guide Phase 1 (Issue #29) — an existing installation
+          // (anything that had SOME prior persisted state, i.e. every
+          // migration path through here) is treated as already having seen
+          // the introduction, so it never pops up retroactively for a
+          // returning learner. Only a genuinely fresh install (no
+          // persisted state at all — see the initial store state above)
+          // starts at false.
+          state.hasCompletedIntroGuide = true
         }
         return state
       },
