@@ -19,4 +19,17 @@ describe('Recommended (Issue #21)', () => {
     expect(getByText('content')).toBeInTheDocument()
     expect(getAllByText('✨')).toHaveLength(2)
   })
+
+  // Issue #25: sparkles must sit inside the card's own bounds, not
+  // overflow past its edges (negative offsets would poke outside).
+  it('positions both sparkles with non-negative insets, not negative overflow offsets', () => {
+    const { getAllByText } = render(
+      <RecommendedFrame>
+        <span>content</span>
+      </RecommendedFrame>,
+    )
+    for (const sparkle of getAllByText('✨')) {
+      expect(sparkle.className).not.toMatch(/-top-|-left-|-right-|-bottom-/)
+    }
+  })
 })

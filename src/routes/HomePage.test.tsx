@@ -67,3 +67,22 @@ describe('HomePage section Recommended (Issue #21)', () => {
     expect(recommendedLinks).toHaveLength(0)
   })
 })
+
+// Issue #25: Home's card shows the exact row + activity from the single
+// Global Recommended Target, not just the category.
+describe('HomePage Recommended shows row + activity (Issue #25)', () => {
+  it('shows a-row\'s intro (Learn) before anything is learned', () => {
+    const { getByRole } = renderHome()
+    const hiraganaLink = getByRole('link', { name: /Hiragana/ })
+    expect(hiraganaLink.textContent).toMatch(/あ〜お/)
+    expect(hiraganaLink.textContent).toMatch(/Learn/)
+  })
+
+  it('shows Kana Quiz once a-row\'s intro is done', () => {
+    useProgressStore.getState().markRowTaught('a-row')
+    const { getByRole } = renderHome()
+    const hiraganaLink = getByRole('link', { name: /Hiragana/ })
+    expect(hiraganaLink.textContent).toMatch(/あ〜お/)
+    expect(hiraganaLink.textContent).toMatch(/Kana Quiz/)
+  })
+})

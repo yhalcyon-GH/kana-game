@@ -265,4 +265,95 @@ describe('useCurriculum', () => {
       expect(result.current.recommendedCategoryId).toBeNull()
     })
   })
+
+  // Issue #25: the single Global Recommended Target — recommendedCategoryId
+  // above is just its .categoryId; these tests pin down the exact row and
+  // activity too.
+  describe('globalRecommendedTarget', () => {
+    it('targets a-row\'s intro (Learn/Tracing) before anything is learned', () => {
+      const { result } = renderHook(() => useCurriculum())
+      expect(result.current.globalRecommendedTarget).toEqual({
+        categoryId: DEFAULT_CATEGORY_ID,
+        rowId: 'a-row',
+        activity: 'learn',
+      })
+    })
+
+    it('targets a-row\'s Kana Quiz once Learn (or Tracing) is done', () => {
+      useProgressStore.getState().markRowTaught('a-row')
+      const { result } = renderHook(() => useCurriculum())
+      expect(result.current.globalRecommendedTarget).toEqual({
+        categoryId: DEFAULT_CATEGORY_ID,
+        rowId: 'a-row',
+        activity: 'kana-quiz',
+      })
+    })
+
+    it('targets Listening once Kana Quiz is done, then Word Builder once Listening is done', () => {
+      useProgressStore.getState().markRowTaught('a-row')
+      useProgressStore.getState().markRowActivityCompleted('a-row', 'kanaQuiz')
+      const { result: afterQuiz } = renderHook(() => useCurriculum())
+      expect(afterQuiz.current.globalRecommendedTarget?.activity).toBe('listening')
+
+      useProgressStore.getState().markRowActivityCompleted('a-row', 'listening')
+      const { result: afterListening } = renderHook(() => useCurriculum())
+      expect(afterListening.current.globalRecommendedTarget?.activity).toBe('word-builder')
+    })
+
+    it('moves to the next row (ka-row) once a-row is fully done', () => {
+      useProgressStore.getState().markRowTaught('a-row')
+      useProgressStore.getState().markRowActivityCompleted('a-row', 'kanaQuiz')
+      useProgressStore.getState().markRowActivityCompleted('a-row', 'listening')
+      useProgressStore.getState().markRowActivityCompleted('a-row', 'wordBuilder')
+      const { result } = renderHook(() => useCurriculum())
+      expect(result.current.globalRecommendedTarget).toEqual({
+        categoryId: DEFAULT_CATEGORY_ID,
+        rowId: 'ka-row',
+        activity: 'learn',
+      })
+    })
+
+    it('stays on the earlier incomplete step even when a later activity in the same row completes first', () => {
+      useProgressStore.getState().markRowTaught('a-row')
+      useProgressStore.getState().markRowActivityCompleted('a-row', 'wordBuilder')
+      const { result } = renderHook(() => useCurriculum())
+      // kanaQuiz/listening are still incomplete and come first.
+      expect(result.current.globalRecommendedTarget?.rowId).toBe('a-row')
+      expect(result.current.globalRecommendedTarget?.activity).toBe('kana-quiz')
+    })
+
+    it('stays on an earlier incomplete row even when a later row is fully completed first', () => {
+      useProgressStore.getState().markRowTaught('ka-row')
+      useProgressStore.getState().markRowActivityCompleted('ka-row', 'kanaQuiz')
+      useProgressStore.getState().markRowActivityCompleted('ka-row', 'listening')
+      useProgressStore.getState().markRowActivityCompleted('ka-row', 'wordBuilder')
+      const { result } = renderHook(() => useCurriculum())
+      // a-row was never touched — it comes first in the curriculum.
+      expect(result.current.globalRecommendedTarget).toEqual({
+        categoryId: DEFAULT_CATEGORY_ID,
+        rowId: 'a-row',
+        activity: 'learn',
+      })
+    })
+
+    it('never produces more than one target at once', () => {
+      useProgressStore.getState().markRowTaught('a-row')
+      const { result } = renderHook(() => useCurriculum())
+      expect(result.current.globalRecommendedTarget).not.toBeNull()
+      expect(Array.isArray(result.current.globalRecommendedTarget)).toBe(false)
+    })
+
+    it('is unaffected by Review/SRS/mastery state', () => {
+      useProgressStore.getState().recordCharacterReviewResult('a', false)
+      for (let i = 0; i < 4; i++) useProgressStore.getState().recordResult('a', true)
+      const { result } = renderHook(() => useCurriculum())
+      // Still the untouched a-row intro — box/Review progress on 'a' alone
+      // doesn't complete Learn/Tracing or advance the target.
+      expect(result.current.globalRecommendedTarget).toEqual({
+        categoryId: DEFAULT_CATEGORY_ID,
+        rowId: 'a-row',
+        activity: 'learn',
+      })
+    })
+  })
 })

@@ -17,8 +17,9 @@ type Props = {
 // — replaces the single HomePage that used to show every category's rows
 // stacked in one page. HomePage itself is now just a chooser linking here.
 export function CategoryRowsPage({ title, description, categoryIds }: Props) {
-  const { rows, isRowUnlocked, isRowTaught } = useCurriculum()
+  const { rows, isRowUnlocked, isRowTaught, globalRecommendedTarget } = useCurriculum()
   const isRowMastered = useProgressStore((s) => s.isRowMastered)
+  const isRowRecommended = (rowId: string) => globalRecommendedTarget?.rowId === rowId
   // Subscribed so mastery badges refresh even when only `characters`
   // changes (e.g. practicing an already-taught row) without touching
   // unlockedRowIds/taughtRowIds, which isRowMastered doesn't itself track.
@@ -60,7 +61,13 @@ export function CategoryRowsPage({ title, description, categoryIds }: Props) {
             {category?.explanation && (
               <p className="max-w-xl text-center text-sm text-neutral-500 dark:text-neutral-400">{category.explanation}</p>
             )}
-            <RowMap rows={groupRows} isUnlocked={isRowUnlocked} isTaught={isRowTaught} isMastered={isRowMastered} />
+            <RowMap
+              rows={groupRows}
+              isUnlocked={isRowUnlocked}
+              isTaught={isRowTaught}
+              isMastered={isRowMastered}
+              isRecommended={isRowRecommended}
+            />
           </div>
         ))
       ) : (

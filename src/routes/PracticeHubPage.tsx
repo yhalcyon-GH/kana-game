@@ -68,7 +68,7 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   const params = useParams<{ categoryId?: string; rowId?: string }>()
   const rowId = rowIdOverride ?? params.rowId
   const navigate = useNavigate()
-  const { isScopeReady, reviewCount } = useCurriculum()
+  const { isScopeReady, reviewCount, globalRecommendedTarget } = useCurriculum()
   const isReview = rowId === REVIEW_SCOPE_ID
   const row = rowId && !isReview ? ROWS_BY_ID[rowId] : undefined
   const categoryId = isReview ? undefined : (params.categoryId ?? row?.categoryId)
@@ -187,9 +187,18 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
     { path: `${hubBase}/${KANA_TYPING_GAME.path}`, label: KANA_TYPING_GAME.label, emoji: KANA_TYPING_GAME.emoji, description: KANA_TYPING_GAME.description },
   ]
 
+  // "⭐ Recommended" here reflects the ONE app-wide Global Recommended
+  // Target (Issue #25, see useCurriculum's globalRecommendedTarget) — this
+  // section only appears when THIS row is currently that target, and then
+  // only for its specific activity. `recommended` above (this row's own
+  // next step) still separately drives this row's OWN unrelated UI
+  // ("Choose how to learn"/✓ marks/"Lesson complete"), regardless of
+  // whether this row happens to be the global target right now.
+  const isGlobalTarget =
+    showRecommendedPath && globalRecommendedTarget?.categoryId === categoryId && globalRecommendedTarget?.rowId === rowId
   const recommendedActivity: Activity | undefined =
-    recommended === 'kana-quiz' || recommended === 'listening' || recommended === 'word-builder'
-      ? practiceActivities.find((a) => a.path === `${hubBase}/${recommended}`)
+    isGlobalTarget && globalRecommendedTarget && globalRecommendedTarget.activity !== 'learn'
+      ? practiceActivities.find((a) => a.path === `${hubBase}/${globalRecommendedTarget.activity}`)
       : undefined
 
   return (
