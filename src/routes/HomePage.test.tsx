@@ -26,25 +26,43 @@ function renderHome() {
   )
 }
 
-describe('HomePage Continue card (Issue #23)', () => {
+describe('HomePage Continue card (Issue #23/#27)', () => {
   it('does not render for a first-time user with no resume history', () => {
     const { queryByText } = renderHome()
     expect(queryByText('Continue')).toBeNull()
   })
 
-  it('shows the last-studied category/row/activity and links back to it', () => {
+  it('shows the last-studied category/row and links to that row\'s Practice Hub, not the specific activity', () => {
     useProgressStore.getState().setLastStudied({ categoryId: 'hiragana', rowId: 'ka-row', activity: 'kanaQuiz' })
     const { getByRole } = renderHome()
     const continueLink = getByRole('link', { name: /Continue/ })
     expect(continueLink.textContent).toMatch(/Hiragana/)
-    expect(continueLink.textContent).toMatch(/Kana Quiz/)
-    expect(continueLink).toHaveAttribute('href', '/practice/hiragana/ka-row/kana-quiz')
+    expect(continueLink.textContent).toMatch(/か〜こ・が〜ご/)
+    expect(continueLink.textContent).not.toMatch(/Kana Quiz/)
+    expect(continueLink).toHaveAttribute('href', '/practice/hiragana/ka-row')
   })
 
-  it('links Learn back to the Learn page, not a practice route', () => {
+  it('resumes the row\'s Hub even when the last activity was Learn', () => {
     useProgressStore.getState().setLastStudied({ categoryId: 'hiragana', rowId: 'a-row', activity: 'learn' })
     const { getByRole } = renderHome()
-    expect(getByRole('link', { name: /Continue/ })).toHaveAttribute('href', '/learn/hiragana/a-row')
+    expect(getByRole('link', { name: /Continue/ })).toHaveAttribute('href', '/practice/hiragana/a-row')
+  })
+
+  it('renders below the section cards, not above them', () => {
+    useProgressStore.getState().setLastStudied({ categoryId: 'hiragana', rowId: 'a-row', activity: 'learn' })
+    const { getByRole } = renderHome()
+    const continueLink = getByRole('link', { name: /Continue/ })
+    const hiraganaLink = getByRole('link', { name: /^ひらがな/ })
+    // DOCUMENT_POSITION_FOLLOWING (4) means continueLink comes AFTER hiraganaLink.
+    expect(hiraganaLink.compareDocumentPosition(continueLink) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('styles "Continue" distinctly from Recommended — no ⭐/sparkle, just blue link-colored text', () => {
+    useProgressStore.getState().setLastStudied({ categoryId: 'hiragana', rowId: 'a-row', activity: 'learn' })
+    const { getByText } = renderHome()
+    const continueText = getByText('Continue')
+    expect(continueText.className).toMatch(/text-blue-600/)
+    expect(continueText.textContent).not.toMatch(/⭐/)
   })
 })
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { matchResumableRoute, resumeHref } from './lastStudied'
+import { matchResumableRoute, resumeHref, resumeRowHref } from './lastStudied'
 
 describe('matchResumableRoute (Issue #23)', () => {
   it('matches Learn for a real row', () => {
@@ -71,5 +71,14 @@ describe('resumeHref', () => {
     expect(resumeHref({ categoryId: 'hiragana', rowId: 'a-row', activity: 'wordBuilder' })).toBe(
       '/practice/hiragana/a-row/word-builder',
     )
+  })
+})
+
+// Issue #27: Continue resumes the last-studied ROW's Practice Hub, not the
+// exact last activity page.
+describe('resumeRowHref', () => {
+  it('links to the row\'s Practice Hub regardless of which activity was last visited', () => {
+    expect(resumeRowHref({ categoryId: 'hiragana', rowId: 'a-row' })).toBe('/practice/hiragana/a-row')
+    expect(resumeRowHref({ categoryId: 'hiragana', rowId: 'ka-row' })).toBe('/practice/hiragana/ka-row')
   })
 })
