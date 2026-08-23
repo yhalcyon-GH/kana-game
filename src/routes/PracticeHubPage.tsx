@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { HubBreadcrumb } from '../components/HubBreadcrumb'
 import { Mascot } from '../components/Mascot'
+import { RecommendedFrame, RecommendedLabel } from '../components/Recommended'
 import { ReviewEmptyState } from '../components/ReviewEmptyState'
 import { CATEGORIES_BY_ID, getNextRowId, ROWS_BY_ID } from '../data/curriculum'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../hooks/useCurriculum'
@@ -217,10 +218,12 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
 
       {showRecommendedPath && recommendedActivity && (
         <div className="flex w-full max-w-md flex-col items-center gap-2">
-          <h2 className="self-start text-xs font-semibold tracking-wide text-neutral-400 uppercase dark:text-neutral-500">
-            ⭐ Recommended
+          <h2 className="self-start text-sm">
+            <RecommendedLabel />
           </h2>
-          <ActivityGrid activities={[recommendedActivity]} />
+          <RecommendedFrame className="w-full">
+            <ActivityGrid activities={[recommendedActivity]} />
+          </RecommendedFrame>
         </div>
       )}
 
