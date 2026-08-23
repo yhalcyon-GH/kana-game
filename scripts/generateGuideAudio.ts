@@ -1,8 +1,16 @@
 // One-off generator for Tamamizu Guide Phase 1's narration (Issue #29's
-// missing-asset follow-up) — public/audio/guide/intro-*.wav. Distinct voice
-// from scripts/generateAudioElevenLabs.ts's narrator: this uses the voice
-// the user specified for this recording (passed via --voice, see below),
-// not scripts/elevenLabsClient.ts's default VOICE_ID.
+// missing-asset follow-up). Distinct voice from
+// scripts/generateAudioElevenLabs.ts's narrator: this uses the voice the
+// user specified for this recording (passed via --voice, see below), not
+// scripts/elevenLabsClient.ts's default VOICE_ID.
+//
+// Writes to BOTH locations the project's asset convention expects (see
+// design/README's "design/ = source, public/ = served" split, if present,
+// or just this comment): design/audio/guide/ is the source/edit master,
+// public/audio/guide/ is the exact same file served by the app at runtime
+// (Vite copies public/ verbatim — nothing here needs further processing,
+// so both copies are byte-identical). Re-running this script overwrites
+// both.
 //
 // Text here is the EXACT wording src/data/introGuideContent.ts's `subtitle`
 // fields use (captions and audio must match) — this script doesn't read
@@ -10,8 +18,12 @@
 // sync by hand if either changes.
 //
 //   ELEVENLABS_API_KEY=sk_... npx tsx scripts/generateGuideAudio.ts --voice <voiceId>
+import { copyFile, mkdir } from 'node:fs/promises'
 import path from 'node:path'
 import { OUT_DIR, requireApiKey, synthesizeToFile } from './elevenLabsClient'
+
+const DESIGN_SOURCE_DIR = path.resolve(import.meta.dirname, '../design/audio/guide')
+const PUBLIC_SERVED_DIR = path.join(OUT_DIR, 'guide')
 
 const apiKey = requireApiKey()
 
@@ -39,11 +51,16 @@ const STEPS: { id: string; text: string }[] = [
 ]
 
 async function main() {
+  await mkdir(DESIGN_SOURCE_DIR, { recursive: true })
   for (const step of STEPS) {
-    const outPath = path.join(OUT_DIR, 'guide', `${step.id}.wav`)
+    const sourcePath = path.join(DESIGN_SOURCE_DIR, `${step.id}.wav`)
+    const servedPath = path.join(PUBLIC_SERVED_DIR, `${step.id}.wav`)
     console.log(`Generating ${step.id}.wav ...`)
-    await synthesizeToFile(outPath, step.text, apiKey, voiceId)
-    console.log(`  -> ${outPath}`)
+    await synthesizeToFile(sourcePath, step.text, apiKey, voiceId)
+    await mkdir(PUBLIC_SERVED_DIR, { recursive: true })
+    await copyFile(sourcePath, servedPath)
+    console.log(`  -> ${sourcePath}`)
+    console.log(`  -> ${servedPath}`)
   }
 }
 

@@ -49,8 +49,8 @@ export function IntroGuide() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col items-center justify-between gap-6 bg-white p-6 dark:bg-neutral-900">
-      <div className="flex w-full justify-end">
+    <div className="fixed inset-0 z-50 flex flex-col bg-white p-4 dark:bg-neutral-900">
+      <div className="flex w-full shrink-0 justify-end">
         <button
           type="button"
           onClick={() => setCompleted(true)}
@@ -60,31 +60,44 @@ export function IntroGuide() {
         </button>
       </div>
 
-      <div className="flex flex-1 flex-col items-center justify-center gap-4">
-        {step.slideAsset && (
+      {/* min-h-0 on every flex ancestor down to the image is what lets the
+          slide actually grow to fill the remaining width AND height (object-
+          contain still preserves its aspect ratio, never crops) — a plain
+          flex-1 alone can't shrink an item below its content's natural size. */}
+      <div className="flex min-h-0 flex-1 flex-col items-center gap-3 py-2">
+        {step.slideAsset ? (
+          <>
+            <div className="flex min-h-0 w-full flex-1 items-center justify-center">
+              <img
+                src={`${import.meta.env.BASE_URL}${step.slideAsset}`}
+                alt=""
+                className="max-h-full max-w-full object-contain"
+                // Degrade safely if the asset isn't shipped yet — never a
+                // broken-image icon (see Issue #29's "missing assets" note).
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none'
+                }}
+              />
+            </div>
+            {/* Auxiliary narrator presence only — deliberately small so it
+                never competes with the slide (the step's main content) for
+                space. */}
+            <img src={`${import.meta.env.BASE_URL}${step.mascotAsset}`} alt="" className="h-14 w-14 shrink-0" />
+          </>
+        ) : (
           <img
-            src={`${import.meta.env.BASE_URL}${step.slideAsset}`}
+            src={`${import.meta.env.BASE_URL}${step.mascotAsset}`}
             alt=""
-            className="max-h-56 w-full max-w-xs object-contain"
-            // Degrade safely if the asset isn't shipped yet — never a
-            // broken-image icon (see Issue #29's "missing assets" note).
-            onError={(e) => {
-              e.currentTarget.style.display = 'none'
-            }}
+            className="h-48 w-48 shrink-0 sm:h-64 sm:w-64"
           />
         )}
-        <img
-          src={`${import.meta.env.BASE_URL}${step.mascotAsset}`}
-          alt=""
-          className={step.slideAsset ? 'h-16 w-16' : 'h-32 w-32'}
-        />
-        <p className="max-w-sm text-center text-lg whitespace-pre-line">{stepContent.subtitle}</p>
+        <p className="max-w-sm shrink-0 text-center text-base whitespace-pre-line sm:text-lg">{stepContent.subtitle}</p>
       </div>
 
       <button
         type="button"
         onClick={advance}
-        className="w-full max-w-xs rounded-full bg-blue-600 px-6 py-3 text-center font-semibold text-white hover:bg-blue-700"
+        className="mx-auto w-full max-w-xs shrink-0 rounded-full bg-blue-600 px-6 py-3 text-center font-semibold text-white hover:bg-blue-700"
       >
         {isLast ? locale.finalLabel : locale.nextLabel}
       </button>

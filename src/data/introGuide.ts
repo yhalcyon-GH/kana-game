@@ -21,12 +21,16 @@ export type IntroGuideStep = {
   mascotAsset: string
 }
 
-const TAMAMIZU_NORMAL = 'mascot/normal.webp'
+// Guide-specific pose (sitting, from design/images/tamamizu/tamamizu-
+// sitting.png) — distinct from components/Mascot.tsx's answer-feedback mood
+// crops (public/mascot/*.webp), which this component never reads, so a new
+// pose here never touches that type/mapping.
+const TAMAMIZU_GUIDE = 'guide/tamamizu-sitting.webp'
 
 export const INTRO_GUIDE_STEPS: IntroGuideStep[] = [
-  { id: 'intro.welcome', mascotAsset: TAMAMIZU_NORMAL },
-  { id: 'intro.writingSystems', slideAsset: 'guide/slide-writing-systems.webp', mascotAsset: TAMAMIZU_NORMAL },
-  { id: 'intro.kanaSounds', slideAsset: 'guide/slide-kana-sounds.webp', mascotAsset: TAMAMIZU_NORMAL },
-  { id: 'intro.kanjiMeaning', slideAsset: 'guide/slide-kanji-meaning.webp', mascotAsset: TAMAMIZU_NORMAL },
-  { id: 'intro.startHiragana', mascotAsset: TAMAMIZU_NORMAL },
+  { id: 'intro.welcome', mascotAsset: TAMAMIZU_GUIDE },
+  { id: 'intro.writingSystems', slideAsset: 'guide/slide-writing-systems.webp', mascotAsset: TAMAMIZU_GUIDE },
+  { id: 'intro.kanaSounds', slideAsset: 'guide/slide-kana-sounds.webp', mascotAsset: TAMAMIZU_GUIDE },
+  { id: 'intro.kanjiMeaning', slideAsset: 'guide/slide-kanji-meaning.webp', mascotAsset: TAMAMIZU_GUIDE },
+  { id: 'intro.startHiragana', mascotAsset: TAMAMIZU_GUIDE },
 ]
