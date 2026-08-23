@@ -38,6 +38,15 @@ export function resumeHref(entry: LastStudied): string {
   return `/practice/${entry.categoryId}/${entry.rowId}/${ACTIVITY_TO_GAME_SEGMENT[entry.activity]}`
 }
 
+// Home's Continue card (Issue #27) resumes the last-studied ROW's Practice
+// Hub rather than the exact last activity page — a less brittle resumption
+// point than resumeHref above, and clearly distinct from Recommended
+// (which points at one specific step). Reuses the same persisted
+// `lastStudied` data; only the target differs.
+export function resumeRowHref(entry: Pick<LastStudied, 'categoryId' | 'rowId'>): string {
+  return `/practice/${entry.categoryId}/${entry.rowId}`
+}
+
 function toLastStudied(categoryId: string, rowId: string, activity: ResumableActivity): LastStudied | null {
   // A summary row's Learn/Practice shape doesn't fit "resume this one row"
   // (see PracticeHubPage's showRecommendedPath comment for the same
