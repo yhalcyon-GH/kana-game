@@ -1,4 +1,6 @@
-export type ScriptEntryPoint = { to: string; label: string; english: string; icon: string }
+import { CHOUON_CATEGORY_ID, DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID, SOKUON_CATEGORY_ID, YOUON_CATEGORY_ID } from './curriculum'
+
+export type ScriptEntryPoint = { to: string; label: string; english: string; icon: string; categoryIds: string[] }
 
 // The four top-level script pages, shared by HomePage's card grid and
 // NavBar's script-jump row — a single source so an icon/label change only
@@ -22,8 +24,16 @@ export type ScriptEntryPoint = { to: string; label: string; english: string; ico
 // multiple categories, so it gets its own generic icon rather than
 // borrowing one category's.
 export const SCRIPT_ENTRY_POINTS: ScriptEntryPoint[] = [
-  { to: '/hiragana', label: 'ひらがな', english: 'Hiragana', icon: 'category-icons/hiragana.webp' },
-  { to: '/katakana', label: 'カタカナ', english: 'Katakana', icon: 'category-icons/katakana.webp' },
-  { to: '/youon', label: '○+ゃゅょ', english: 'Yōon', icon: 'category-icons/youon.webp' },
-  { to: '/other', label: 'っ＆ー', english: 'Stop & Long Sound', icon: 'category-icons/other.webp' },
+  { to: '/hiragana', label: 'ひらがな', english: 'Hiragana', icon: 'category-icons/hiragana.webp', categoryIds: [DEFAULT_CATEGORY_ID] },
+  { to: '/katakana', label: 'カタカナ', english: 'Katakana', icon: 'category-icons/katakana.webp', categoryIds: [KATAKANA_CATEGORY_ID] },
+  { to: '/youon', label: '○+ゃゅょ', english: 'Yōon', icon: 'category-icons/youon.webp', categoryIds: [YOUON_CATEGORY_ID] },
+  {
+    to: '/other',
+    label: 'っ＆ー',
+    english: 'Stop & Long Sound',
+    icon: 'category-icons/other.webp',
+    // Bundles both contrast-pairs categories (see App.tsx's OTHER_CATEGORY_IDS)
+    // into this one card — either being next-recommended recommends this card.
+    categoryIds: [SOKUON_CATEGORY_ID, CHOUON_CATEGORY_ID],
+  },
 ]

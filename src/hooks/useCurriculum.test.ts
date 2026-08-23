@@ -1,7 +1,27 @@
 import { renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
+import {
+  CHOUON_CATEGORY_ID,
+  DEFAULT_CATEGORY_ID,
+  KATAKANA_CATEGORY_ID,
+  ROWS,
+  SOKUON_CATEGORY_ID,
+  YOUON_CATEGORY_ID,
+} from '../data/curriculum'
 import { useProgressStore } from '../store/progressStore'
 import { REVIEW_SCOPE_ID, useCurriculum } from './useCurriculum'
+
+// Drives every real (non-summary) row in a category to its own Recommended
+// Path 'done' state — the exact signal recommendedCategoryId reuses — via
+// the existing store actions, rather than reaching into internals.
+function completeCategory(categoryId: string) {
+  for (const row of ROWS.filter((r) => r.categoryId === categoryId && !r.isSummary)) {
+    useProgressStore.getState().markRowTaught(row.id)
+    useProgressStore.getState().markRowActivityCompleted(row.id, 'kanaQuiz')
+    useProgressStore.getState().markRowActivityCompleted(row.id, 'listening')
+    useProgressStore.getState().markRowActivityCompleted(row.id, 'wordBuilder')
+  }
+}
 
 beforeEach(() => {
   useProgressStore.getState().resetProgress()
@@ -191,6 +211,58 @@ describe('useCurriculum', () => {
       useProgressStore.getState().markRowTaught('a-row')
       const { result } = renderHook(() => useCurriculum())
       expect(result.current.getScopeWords(REVIEW_SCOPE_ID)).toEqual([])
+    })
+  })
+
+  // Issue #21: recommendedCategoryId drives HomePage's section-level
+  // "⭐ Recommended" card — reuses the exact same per-row Recommended Path
+  // 'done' signal PracticeHubPage already uses (see completeCategory above),
+  // walked in CATEGORIES' declared order (hiragana -> katakana -> sokuon ->
+  // chōon -> yōon).
+  describe('recommendedCategoryId', () => {
+    it('recommends hiragana before anything is learned', () => {
+      const { result } = renderHook(() => useCurriculum())
+      expect(result.current.recommendedCategoryId).toBe(DEFAULT_CATEGORY_ID)
+    })
+
+    it('moves to katakana once every hiragana row is done', () => {
+      completeCategory(DEFAULT_CATEGORY_ID)
+      const { result } = renderHook(() => useCurriculum())
+      expect(result.current.recommendedCategoryId).toBe(KATAKANA_CATEGORY_ID)
+    })
+
+    it('moves to sokuon once hiragana and katakana are both done', () => {
+      completeCategory(DEFAULT_CATEGORY_ID)
+      completeCategory(KATAKANA_CATEGORY_ID)
+      const { result } = renderHook(() => useCurriculum())
+      expect(result.current.recommendedCategoryId).toBe(SOKUON_CATEGORY_ID)
+    })
+
+    it('moves to chōon once sokuon is also done', () => {
+      completeCategory(DEFAULT_CATEGORY_ID)
+      completeCategory(KATAKANA_CATEGORY_ID)
+      completeCategory(SOKUON_CATEGORY_ID)
+      const { result } = renderHook(() => useCurriculum())
+      expect(result.current.recommendedCategoryId).toBe(CHOUON_CATEGORY_ID)
+    })
+
+    it('moves to yōon once chōon is also done', () => {
+      completeCategory(DEFAULT_CATEGORY_ID)
+      completeCategory(KATAKANA_CATEGORY_ID)
+      completeCategory(SOKUON_CATEGORY_ID)
+      completeCategory(CHOUON_CATEGORY_ID)
+      const { result } = renderHook(() => useCurriculum())
+      expect(result.current.recommendedCategoryId).toBe(YOUON_CATEGORY_ID)
+    })
+
+    it('recommends nothing once every category is done', () => {
+      completeCategory(DEFAULT_CATEGORY_ID)
+      completeCategory(KATAKANA_CATEGORY_ID)
+      completeCategory(SOKUON_CATEGORY_ID)
+      completeCategory(CHOUON_CATEGORY_ID)
+      completeCategory(YOUON_CATEGORY_ID)
+      const { result } = renderHook(() => useCurriculum())
+      expect(result.current.recommendedCategoryId).toBeNull()
     })
   })
 })
