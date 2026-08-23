@@ -42,6 +42,17 @@ export type RowActivityCompletion = {
 const ROW_ACTIVITY_KEYS = ['tracing', 'kanaQuiz', 'listening', 'wordBuilder'] as const
 export type RowActivityKey = (typeof ROW_ACTIVITY_KEYS)[number]
 
+// "Continue" (Home's resume card, Issue #23) — deliberately separate from
+// Recommended Path: this just remembers the last real learning/practice
+// screen visited (Learn or one of the 5 game pages) for a real, non-summary
+// row, so Home can offer a one-tap way back into it. Never touched by
+// Recommended Path/completion/Review/SRS/mastery logic, and the Practice
+// Hub itself + Review scope are deliberately never recorded as resume
+// targets (see lib/lastStudied.ts's resumable-route matcher).
+const RESUMABLE_ACTIVITY_KEYS = ['learn', 'tracing', 'kanaQuiz', 'listening', 'wordBuilder', 'kanaTyping'] as const
+export type ResumableActivity = (typeof RESUMABLE_ACTIVITY_KEYS)[number]
+export type LastStudied = { categoryId: string; rowId: string; activity: ResumableActivity }
+
 const FIRST_ROW_ID = 'a-row'
 const MIN_AUDIO_SPEED = 0.75
 const MAX_AUDIO_SPEED = 1.5
@@ -56,6 +67,9 @@ type ProgressState = {
   // Recommended Path completion — see RowActivityCompletion's comment.
   // Keyed by rowId; a row with nothing completed yet simply has no entry.
   rowActivityCompletion: Record<string, RowActivityCompletion>
+  // null until the learner has visited at least one resumable screen — see
+  // LastStudied's comment. Home's Continue card simply doesn't render then.
+  lastStudied: LastStudied | null
   audioEnabled: boolean
   audioVolume: number
   audioSpeed: number
@@ -86,6 +100,9 @@ type ProgressState = {
   // and must not advance normal-row Recommended Path state.
   markRowActivityCompleted: (rowId: string, activity: RowActivityKey) => void
   isRowActivityCompleted: (rowId: string, activity: RowActivityKey) => boolean
+  // Pure navigation bookkeeping for Continue (Issue #23) — never touches
+  // Recommended Path/completion/Review/SRS/mastery.
+  setLastStudied: (entry: LastStudied) => void
   isRowUnlocked: (rowId: string) => boolean
   isRowTaught: (rowId: string) => boolean
   isRowMastered: (rowId: string) => boolean
@@ -156,6 +173,21 @@ function rowActivityCompletionOr(value: unknown): RowActivityCompletion {
   return result
 }
 
+function lastStudiedOr(value: unknown): LastStudied | null {
+  if (!isRecord(value)) return null
+  const { categoryId, rowId, activity } = value
+  if (typeof categoryId !== 'string' || !categoryId) return null
+  if (typeof rowId !== 'string' || !rowId) return null
+  if (typeof activity !== 'string' || !(RESUMABLE_ACTIVITY_KEYS as readonly string[]).includes(activity)) return null
+  // Defensive against stale data (e.g. a row removed/renamed since this was
+  // saved) — a Continue card must never point at a nonexistent or summary
+  // row (see lib/lastStudied.ts's resumable-route matcher, which excludes
+  // summary rows the same way when recording).
+  const row = ROWS_BY_ID[rowId]
+  if (!row || row.isSummary || row.categoryId !== categoryId) return null
+  return { categoryId, rowId, activity: activity as ResumableActivity }
+}
+
 export function mergePersistedProgress(persistedState: unknown, currentState: ProgressState): ProgressState {
   const persisted = isRecord(persistedState) ? persistedState : {}
   const rawCharacters = isRecord(persisted.characters) ? persisted.characters : {}
@@ -195,6 +227,7 @@ export function mergePersistedProgress(persistedState: unknown, currentState: Pr
     audioEnabled: booleanOr(persisted.audioEnabled, currentState.audioEnabled),
     audioVolume: clampFiniteOr(persisted.audioVolume, MIN_VOLUME, MAX_VOLUME, currentState.audioVolume),
     audioSpeed: clampFiniteOr(persisted.audioSpeed, MIN_AUDIO_SPEED, MAX_AUDIO_SPEED, currentState.audioSpeed),
+    lastStudied: lastStudiedOr(persisted.lastStudied),
     alwaysShowRomajiHints: booleanOr(persisted.alwaysShowRomajiHints, currentState.alwaysShowRomajiHints),
     mascotVoiceEnabled: booleanOr(persisted.mascotVoiceEnabled, currentState.mascotVoiceEnabled),
     mascotVoiceVolume: clampFiniteOr(persisted.mascotVoiceVolume, MIN_VOLUME, MAX_VOLUME, currentState.mascotVoiceVolume),
@@ -209,6 +242,7 @@ export const useProgressStore = create<ProgressState>()(
       unlockedRowIds: [FIRST_ROW_ID],
       taughtRowIds: [],
       rowActivityCompletion: {},
+      lastStudied: null,
       audioEnabled: true,
       audioVolume: 1,
       audioSpeed: 1,
@@ -287,6 +321,8 @@ export const useProgressStore = create<ProgressState>()(
       },
       isRowActivityCompleted: (rowId, activity) => get().rowActivityCompletion[rowId]?.[activity] === true,
 
+      setLastStudied: (entry) => set({ lastStudied: entry }),
+
       isRowUnlocked: (rowId) => get().unlockedRowIds.includes(rowId),
       isRowTaught: (rowId) => get().taughtRowIds.includes(rowId),
       isRowMastered: (rowId) => {
@@ -313,6 +349,7 @@ export const useProgressStore = create<ProgressState>()(
           unlockedRowIds: [FIRST_ROW_ID],
           taughtRowIds: [],
           rowActivityCompletion: {},
+          lastStudied: null,
           audioEnabled: true,
           audioVolume: 1,
           audioSpeed: 1,
@@ -323,7 +360,7 @@ export const useProgressStore = create<ProgressState>()(
     }),
     {
       name: 'kana-game-progress',
-      version: 9,
+      version: 10,
       // v1 -> v2: the default pronunciation speed changed from 1x to 0.5x;
       // carry that new default into browsers that already persisted a v1
       // state (which would otherwise keep the old 1x forever).
@@ -355,6 +392,8 @@ export const useProgressStore = create<ProgressState>()(
       // v8 -> v9: replaces `showRomaji` (Issue #17) with
       // `alwaysShowRomajiHints` — a different setting with a different
       // default (see the migration below), not a rename.
+      // v9 -> v10: adds `lastStudied` (Issue #23, Home's Continue card) —
+      // brand new, no prior equivalent to backfill from.
       migrate: (persistedState, version) => {
         const state = (isRecord(persistedState) ? persistedState : {}) as Partial<ProgressState>
         if (version < 2) {
@@ -425,6 +464,11 @@ export const useProgressStore = create<ProgressState>()(
           // intentionally NOT carried forward.
           delete (state as Record<string, unknown>).showRomaji
           state.alwaysShowRomajiHints = false
+        }
+        if (version < 10) {
+          // New in this version — no history to backfill, Continue simply
+          // doesn't render for existing users until they visit something.
+          state.lastStudied = null
         }
         return state
       },

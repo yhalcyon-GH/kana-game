@@ -26,6 +26,28 @@ function renderHome() {
   )
 }
 
+describe('HomePage Continue card (Issue #23)', () => {
+  it('does not render for a first-time user with no resume history', () => {
+    const { queryByText } = renderHome()
+    expect(queryByText('Continue')).toBeNull()
+  })
+
+  it('shows the last-studied category/row/activity and links back to it', () => {
+    useProgressStore.getState().setLastStudied({ categoryId: 'hiragana', rowId: 'ka-row', activity: 'kanaQuiz' })
+    const { getByRole } = renderHome()
+    const continueLink = getByRole('link', { name: /Continue/ })
+    expect(continueLink.textContent).toMatch(/Hiragana/)
+    expect(continueLink.textContent).toMatch(/Kana Quiz/)
+    expect(continueLink).toHaveAttribute('href', '/practice/hiragana/ka-row/kana-quiz')
+  })
+
+  it('links Learn back to the Learn page, not a practice route', () => {
+    useProgressStore.getState().setLastStudied({ categoryId: 'hiragana', rowId: 'a-row', activity: 'learn' })
+    const { getByRole } = renderHome()
+    expect(getByRole('link', { name: /Continue/ })).toHaveAttribute('href', '/learn/hiragana/a-row')
+  })
+})
+
 describe('HomePage section Recommended (Issue #21)', () => {
   it('recommends exactly the Hiragana card before anything is learned', () => {
     const { getAllByRole, getByRole } = renderHome()
