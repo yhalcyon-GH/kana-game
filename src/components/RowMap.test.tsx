@@ -34,3 +34,42 @@ describe('RowMap mastery badge (Issue #13)', () => {
     expect(queryByText('📗 learned')).not.toBeNull()
   })
 })
+
+describe('RowMap Recommended row (Issue #25)', () => {
+  it('shows the Recommended label on a row isRecommended flags true', () => {
+    const { queryByText } = render(
+      <MemoryRouter>
+        <RowMap
+          rows={[row]}
+          isUnlocked={() => true}
+          isTaught={() => true}
+          isMastered={() => false}
+          isRecommended={() => true}
+        />
+      </MemoryRouter>,
+    )
+    expect(queryByText('⭐ Recommended')).not.toBeNull()
+  })
+
+  it('shows no Recommended label when isRecommended is false or omitted', () => {
+    const { queryByText } = render(
+      <MemoryRouter>
+        <RowMap
+          rows={[row]}
+          isUnlocked={() => true}
+          isTaught={() => true}
+          isMastered={() => false}
+          isRecommended={() => false}
+        />
+      </MemoryRouter>,
+    )
+    expect(queryByText('⭐ Recommended')).toBeNull()
+
+    const { queryByText: queryOmitted } = render(
+      <MemoryRouter>
+        <RowMap rows={[row]} isUnlocked={() => true} isTaught={() => true} isMastered={() => false} />
+      </MemoryRouter>,
+    )
+    expect(queryOmitted('⭐ Recommended')).toBeNull()
+  })
+})

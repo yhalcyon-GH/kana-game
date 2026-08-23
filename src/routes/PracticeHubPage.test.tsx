@@ -30,6 +30,17 @@ function renderRowHub(categoryId: string, rowId: string) {
   )
 }
 
+// Fully completes a row's core path — used to move the single Global
+// Recommended Target (Issue #25) past a-row so tests below can put ka-row
+// under test without a-row's still-incomplete intro stealing the ⭐
+// Recommended section instead.
+function completeRow(rowId: string) {
+  useProgressStore.getState().markRowTaught(rowId)
+  useProgressStore.getState().markRowActivityCompleted(rowId, 'kanaQuiz')
+  useProgressStore.getState().markRowActivityCompleted(rowId, 'listening')
+  useProgressStore.getState().markRowActivityCompleted(rowId, 'wordBuilder')
+}
+
 describe('PracticeHubPage Review empty state (Issue #2)', () => {
   // Something has been taught (so isScopeReady is true — this isn't the
   // "nothing taught yet" case), but nothing is currently active in either
@@ -65,6 +76,10 @@ describe('PracticeHubPage Recommended Path (Issue #11)', () => {
   })
 
   it('after Learn is completed, Recommended becomes Kana Quiz', () => {
+    // a-row must be fully done first, or the single Global Recommended
+    // Target (Issue #25) stays on a-row's own still-incomplete intro
+    // instead of moving to ka-row.
+    completeRow('a-row')
     useProgressStore.getState().markRowTaught('ka-row')
     const { queryByText, getAllByText } = renderRowHub('hiragana', 'ka-row')
     expect(queryByText('⭐ Recommended')).not.toBeNull()
@@ -73,6 +88,7 @@ describe('PracticeHubPage Recommended Path (Issue #11)', () => {
   })
 
   it('after Tracing alone is completed (no markRowTaught), Recommended also becomes Kana Quiz', () => {
+    completeRow('a-row')
     useProgressStore.getState().markRowActivityCompleted('ka-row', 'tracing')
     const { queryByText, getAllByText } = renderRowHub('hiragana', 'ka-row')
     expect(queryByText('⭐ Recommended')).not.toBeNull()
@@ -182,6 +198,7 @@ describe('PracticeHubPage 4-section layout (Issue #15)', () => {
   }
 
   it('renders Learn, Practice, and Optional as separate sections (Recommended appears once introduced)', () => {
+    completeRow('a-row')
     useProgressStore.getState().markRowTaught('ka-row')
     const { container } = renderRowHub('hiragana', 'ka-row')
     expect(sectionHeadings(container)).toEqual(['⭐ Recommended', 'Learn', 'Practice', 'Optional'])
@@ -221,6 +238,7 @@ describe('PracticeHubPage 4-section layout (Issue #15)', () => {
   })
 
   it('the Recommended card also appears as a normal card in its own section', () => {
+    completeRow('a-row')
     useProgressStore.getState().markRowTaught('ka-row')
     const { getAllByText } = renderRowHub('hiragana', 'ka-row')
     // Kana Quiz is Recommended here, and must still show up in Practice too.
@@ -247,5 +265,50 @@ describe('PracticeHubPage 4-section layout (Issue #15)', () => {
     expect(cardLabelsAfter(container, 'Learn')).toEqual(['Weak Kana', 'Weak Words'])
     expect(cardLabelsAfter(container, 'Practice')).toEqual(['Kana Quiz', 'Listening', 'Word Builder'])
     expect(cardLabelsAfter(container, 'Optional')).toEqual(['Kana Typing'])
+  })
+})
+
+// Issue #25: only the row that is currently the single Global Recommended
+// Target shows a ⭐ Recommended section — a row visited out of order never
+// shows its own, even though its own local per-row UI (Choose how to
+// learn/✓ marks/Lesson complete) still works normally either way.
+describe('PracticeHubPage Global Recommended Target (Issue #25)', () => {
+  it('a later row visited before an earlier row is finished shows no ⭐ Recommended section', () => {
+    // a-row (curriculum-first) is still untouched — ka-row is not the
+    // global target no matter what's done on ka-row itself.
+    useProgressStore.getState().markRowTaught('ka-row')
+    useProgressStore.getState().markRowActivityCompleted('ka-row', 'kanaQuiz')
+    const { queryByText } = renderRowHub('hiragana', 'ka-row')
+    expect(queryByText('⭐ Recommended')).toBeNull()
+  })
+
+  it('that later row still shows its own Lesson complete once its own path finishes, without ever being the global target', () => {
+    completeRow('ka-row')
+    // a-row was never touched, so ka-row is still not the global target —
+    // but ka-row's OWN Lesson complete is about ka-row's own progress.
+    const { queryByText } = renderRowHub('hiragana', 'ka-row')
+    expect(queryByText('⭐ Recommended')).toBeNull()
+    expect(queryByText('Lesson complete')).not.toBeNull()
+  })
+
+  it('once the earlier row (a-row) is finished, the target moves to ka-row and its Recommended section appears', () => {
+    completeRow('a-row')
+    useProgressStore.getState().markRowTaught('ka-row')
+    const { queryByText } = renderRowHub('hiragana', 'ka-row')
+    expect(queryByText('⭐ Recommended')).not.toBeNull()
+  })
+
+  it('a-row itself still shows its own Recommended section for its own next step while it is the target', () => {
+    const before = renderRowHub('hiragana', 'a-row')
+    // a-row's intro (Learn/Tracing) is the target here — per the existing
+    // "Choose how to learn" design, that specific state shows no separate
+    // Recommended card (neither Learn nor Tracing is singled out).
+    expect(before.queryByText('Choose how to learn')).not.toBeNull()
+    expect(before.queryByText('⭐ Recommended')).toBeNull()
+    before.unmount()
+
+    useProgressStore.getState().markRowTaught('a-row')
+    const after = renderRowHub('hiragana', 'a-row')
+    expect(after.queryByText('⭐ Recommended')).not.toBeNull()
   })
 })

@@ -1,8 +1,10 @@
 import { Link } from 'react-router-dom'
 import { CategoryIcon } from '../components/CategoryIcon'
 import { RecommendedFrame, RecommendedLabel } from '../components/Recommended'
+import { ROWS_BY_ID } from '../data/curriculum'
 import { SCRIPT_ENTRY_POINTS } from '../data/scriptEntryPoints'
 import { useCurriculum } from '../hooks/useCurriculum'
+import { RECOMMENDED_ACTIVITY_LABELS } from '../lib/recommendedPath'
 
 // Top-level chooser — four script groups, each its own page
 // (CategoryRowsPage), rather than one long page stacking every category's
@@ -11,7 +13,8 @@ import { useCurriculum } from '../hooks/useCurriculum'
 // card here each time a small category is added later; 拗音 gets its own
 // card since it has enough rows to deserve one.
 export function HomePage() {
-  const { recommendedCategoryId } = useCurriculum()
+  const { recommendedCategoryId, globalRecommendedTarget } = useCurriculum()
+  const recommendedRow = globalRecommendedTarget ? ROWS_BY_ID[globalRecommendedTarget.rowId] : undefined
 
   return (
     <div className="flex flex-col items-center gap-6">
@@ -31,7 +34,16 @@ export function HomePage() {
               <CategoryIcon icon={card.icon} className="h-10 w-10 text-2xl" />
               <span className="font-kana text-2xl font-bold">{card.label}</span>
               <span className="text-sm font-semibold text-neutral-500 dark:text-neutral-400">{card.english}</span>
-              {isRecommended && <RecommendedLabel />}
+              {isRecommended && (
+                <>
+                  <RecommendedLabel />
+                  {recommendedRow && globalRecommendedTarget && (
+                    <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                      {recommendedRow.label} · {RECOMMENDED_ACTIVITY_LABELS[globalRecommendedTarget.activity]}
+                    </span>
+                  )}
+                </>
+              )}
             </Link>
           )
           return isRecommended ? (

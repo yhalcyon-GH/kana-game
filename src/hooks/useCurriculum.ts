@@ -3,7 +3,7 @@ import { CHARACTERS_BY_ID, EXCLUDED_FROM_KANA_QUIZ } from '../data/characters'
 import { CATEGORIES, CATEGORIES_BY_ID, getCumulativeCharacterIds, ROWS, ROWS_BY_ID, SUMMARY_ROW_SOURCE_CATEGORY_IDS } from '../data/curriculum'
 import type { AnchorWord } from '../data/types'
 import { ALL_WORDS, WORDS_BY_ROW } from '../data/words'
-import { getRecommendedActivity } from '../lib/recommendedPath'
+import { getGlobalRecommendedTarget } from '../lib/recommendedPath'
 import { useProgressStore } from '../store/progressStore'
 import { GAME_SESSION_ROUNDS } from './useGameSession'
 
@@ -144,37 +144,20 @@ export function useCurriculum() {
 
   const isRowTaught = (rowId: string) => taughtRowIds.includes(rowId)
 
-  // Which top-level script section (see data/scriptEntryPoints.ts) to try
-  // next, for HomePage's own "⭐ Recommended" card — the first category (in
-  // CATEGORIES' declared order) that isn't fully done yet. "Done" reuses
-  // the EXACT same per-row signal PracticeHubPage's own Recommended Path
-  // already uses (getRecommendedActivity(...) === 'done'), not row
-  // mastery (👍) — chōon rows have empty characterIds and can structurally
-  // never reach box-4 mastery, so keying this off isRowMastered would get
-  // permanently stuck once chōon is reached. null once every category is
-  // done — matches PracticeHubPage's own "Lesson complete" pattern of the
-  // marker disappearing once there's nothing left to recommend.
-  const recommendedCategoryId = useMemo(() => {
-    for (const category of CATEGORIES) {
-      const rows = ROWS.filter((r) => r.categoryId === category.id && !r.isSummary)
-      if (rows.length === 0) continue
-      const allDone = rows.every((row) => {
-        const completion = rowActivityCompletion[row.id]
-        const introCompleted = taughtRowIds.includes(row.id) || completion?.tracing === true
-        return (
-          getRecommendedActivity({
-            learnStyle: category.learnStyle,
-            introCompleted,
-            kanaQuizCompleted: completion?.kanaQuiz === true,
-            listeningCompleted: completion?.listening === true,
-            wordBuilderCompleted: completion?.wordBuilder === true,
-          }) === 'done'
-        )
-      })
-      if (!allDone) return category.id
-    }
-    return null
-  }, [taughtRowIds, rowActivityCompletion])
+  // The ONE app-wide Recommended Target (Issue #25) — every screen (Home,
+  // Category/Row selection, Practice Hub) reads this SAME value instead of
+  // computing its own, so skipping ahead in the curriculum never produces
+  // more than one "recommended" thing at once. Walks categories/rows in
+  // curriculum order and stops at the first incomplete step — reuses
+  // getRecommendedActivity's exact per-row 'done' signal (not row mastery/
+  // 👍 — chōon rows have empty characterIds and can structurally never
+  // reach box-4 mastery, so keying this off isRowMastered would get
+  // permanently stuck once chōon is reached). null once everything is done.
+  const globalRecommendedTarget = useMemo(
+    () => getGlobalRecommendedTarget(ROWS, CATEGORIES, taughtRowIds, rowActivityCompletion),
+    [taughtRowIds, rowActivityCompletion],
+  )
+  const recommendedCategoryId = globalRecommendedTarget?.categoryId ?? null
 
   // Word pool for a given practice scope: a real row's own word list, or —
   // for the review scope — exactly the words currently active in word
@@ -251,6 +234,7 @@ export function useCurriculum() {
     isRowUnlocked: () => true,
     isRowTaught,
     recommendedCategoryId,
+    globalRecommendedTarget,
     getScopeWords,
     getScopeCharacterIds,
     getScopeQuizCharacterIds,
