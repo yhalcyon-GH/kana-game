@@ -29,7 +29,7 @@ const EN: IntroGuideLocaleContent = {
       audioKey: 'guide/intro-writing-systems',
     },
     'intro.kanaSounds': {
-      subtitle: 'Hiragana and Katakana represent sounds. These two both represent the sound "a."',
+      subtitle: 'Hiragana and Katakana represent sounds. Both of these represent the sound "a."',
       audioKey: 'guide/intro-kana-sounds',
     },
     'intro.kanjiMeaning': {
