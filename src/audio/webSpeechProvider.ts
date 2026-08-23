@@ -13,11 +13,17 @@ export class WebSpeechProvider implements SpeechProvider {
     if (!('speechSynthesis' in window)) return Promise.reject(new Error('Web Speech API not supported'))
     window.speechSynthesis.cancel()
     const utterance = new SpeechSynthesisUtterance(request.text)
-    utterance.lang = 'ja-JP'
+    const lang = request.lang ?? 'ja-JP'
+    utterance.lang = lang
     // Web Speech's volume caps natively at 1.0 (no gain-boost equivalent).
     utterance.volume = Math.min(1, options.volume)
     utterance.rate = options.rate
-    if (this.voice) utterance.voice = this.voice
+    // `this.voice` is always the picked JAPANESE voice (see pickJapaneseVoice
+    // below) — assigning it for a non-Japanese request would override
+    // `utterance.lang` with a Japanese accent, so only apply it for the
+    // app's default Japanese narration and let the browser pick its own
+    // default voice for any other language.
+    if (this.voice && lang.startsWith('ja')) utterance.voice = this.voice
     window.speechSynthesis.speak(utterance)
     return Promise.resolve()
   }

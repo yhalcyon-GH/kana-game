@@ -45,11 +45,11 @@ export function useTTS() {
   // "words/a-ai" (matching the folders scripts/generateAudioElevenLabs.ts
   // writes to). fallbackText is only used if that clip can't be played.
   const speak = useCallback(
-    (audioKey: string, fallbackText: string) => {
+    (audioKey: string, fallbackText: string, lang?: string) => {
       if (!audioEnabled) return
       const isFeedback = audioKey.startsWith('feedback/')
       if (isFeedback && !mascotVoiceEnabled) return
-      const request = { key: audioKey, text: fallbackText }
+      const request = { key: audioKey, text: fallbackText, lang }
       const options = { volume: isFeedback ? mascotVoiceVolume : audioVolume, rate: audioSpeed }
       staticProvider.speak(request, options).catch(() => {
         webSpeechProvider.speak(request, options).catch(() => {})

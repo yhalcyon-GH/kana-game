@@ -20,6 +20,11 @@ function renderAt(path: string) {
 
 beforeEach(() => {
   useProgressStore.getState().resetProgress()
+  // These are routing tests, not onboarding tests — suppress the Tamamizu
+  // Guide overlay (see components/IntroGuide.tsx) so it never covers/
+  // duplicates the page content under test. IntroGuide has its own
+  // dedicated tests.
+  useProgressStore.getState().setHasCompletedIntroGuide(true)
 })
 
 describe('routing', () => {
