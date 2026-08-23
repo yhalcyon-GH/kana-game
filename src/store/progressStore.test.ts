@@ -408,6 +408,88 @@ describe('progressStore', () => {
     })
   })
 
+  // Issue #23: Home's Continue card — pure navigation bookkeeping, no
+  // history for a fresh install/existing pre-migration user.
+  describe('v9 -> v10 lastStudied migration (Issue #23)', () => {
+    it('defaults lastStudied to null for an existing user with no prior equivalent', async () => {
+      localStorage.setItem('kana-game-progress', JSON.stringify({ version: 9, state: { taughtRowIds: ['a-row'] } }))
+
+      await useProgressStore.persist.rehydrate()
+
+      const state = useProgressStore.getState()
+      expect(state.lastStudied).toBeNull()
+      expect(state.taughtRowIds).toEqual(['a-row'])
+    })
+
+    it('does not lose other persisted data during the migration', async () => {
+      localStorage.setItem(
+        'kana-game-progress',
+        JSON.stringify({
+          version: 9,
+          state: {
+            rowActivityCompletion: { 'a-row': { kanaQuiz: true } },
+            words: { 'a-ai': { reviewActive: true, reviewStreak: 1 } },
+          },
+        }),
+      )
+
+      await useProgressStore.persist.rehydrate()
+
+      const state = useProgressStore.getState()
+      expect(state.rowActivityCompletion['a-row']).toEqual({ kanaQuiz: true })
+      expect(state.words['a-ai']).toMatchObject({ reviewActive: true, reviewStreak: 1 })
+    })
+  })
+
+  describe('lastStudied (Issue #23)', () => {
+    it('defaults to null for a fresh install', () => {
+      expect(useProgressStore.getState().lastStudied).toBeNull()
+    })
+
+    it('setLastStudied updates the field and persists it across rehydrate', async () => {
+      useProgressStore.getState().setLastStudied({ categoryId: 'hiragana', rowId: 'a-row', activity: 'kanaQuiz' })
+      expect(useProgressStore.getState().lastStudied).toEqual({ categoryId: 'hiragana', rowId: 'a-row', activity: 'kanaQuiz' })
+
+      await useProgressStore.persist.rehydrate()
+
+      expect(useProgressStore.getState().lastStudied).toEqual({ categoryId: 'hiragana', rowId: 'a-row', activity: 'kanaQuiz' })
+    })
+
+    it('setLastStudied does not touch Recommended Path/completion/Review/SRS/mastery state', () => {
+      useProgressStore.getState().setLastStudied({ categoryId: 'hiragana', rowId: 'a-row', activity: 'learn' })
+      const state = useProgressStore.getState()
+      expect(state.rowActivityCompletion).toEqual({})
+      expect(state.taughtRowIds).toEqual([])
+      expect(state.characters).toEqual({})
+      expect(state.words).toEqual({})
+    })
+
+    it('a persisted lastStudied pointing at a nonexistent row is dropped rather than surfaced', async () => {
+      localStorage.setItem(
+        'kana-game-progress',
+        JSON.stringify({ version: 10, state: { lastStudied: { categoryId: 'hiragana', rowId: 'not-a-real-row', activity: 'learn' } } }),
+      )
+
+      await useProgressStore.persist.rehydrate()
+
+      expect(useProgressStore.getState().lastStudied).toBeNull()
+    })
+
+    it('a persisted lastStudied pointing at a summary row is dropped rather than surfaced', async () => {
+      localStorage.setItem(
+        'kana-game-progress',
+        JSON.stringify({
+          version: 10,
+          state: { lastStudied: { categoryId: 'hiragana', rowId: 'hiragana-summary', activity: 'learn' } },
+        }),
+      )
+
+      await useProgressStore.persist.rehydrate()
+
+      expect(useProgressStore.getState().lastStudied).toBeNull()
+    })
+  })
+
   describe('Recommended Path completion (rowActivityCompletion)', () => {
     it('markRowActivityCompleted sets exactly the one flag for that row, leaving others false', () => {
       useProgressStore.getState().markRowActivityCompleted('ka-row', 'kanaQuiz')

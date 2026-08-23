@@ -3,6 +3,7 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { NavBar } from './components/NavBar'
 import { CATEGORIES, CATEGORIES_BY_ID, DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID, YOUON_CATEGORY_ID } from './data/curriculum'
 import { REVIEW_SCOPE_ID } from './hooks/useCurriculum'
+import { useTrackLastStudied } from './hooks/useTrackLastStudied'
 import { KanaQuizPage } from './routes/games/KanaQuizPage'
 import { KanaTypingPage } from './routes/games/KanaTypingPage'
 import { ListeningPage } from './routes/games/ListeningPage'
@@ -28,6 +29,7 @@ const OTHER_CATEGORY_IDS = CATEGORIES.map((c) => c.id).filter(
 )
 
 function App() {
+  useTrackLastStudied()
   return (
     <div className="min-h-screen bg-white text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100">
       <NavBar />
