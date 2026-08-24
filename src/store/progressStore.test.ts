@@ -500,6 +500,23 @@ describe('progressStore', () => {
     })
   })
 
+  describe('hasCompletedLearnTracingGuide (Issue #33)', () => {
+    it('defaults to false, persists across reload, and does not affect Introduction or learning progress', async () => {
+      expect(useProgressStore.getState().hasCompletedLearnTracingGuide).toBe(false)
+
+      useProgressStore.getState().setHasCompletedLearnTracingGuide(true)
+      await useProgressStore.persist.rehydrate()
+
+      const state = useProgressStore.getState()
+      expect(state.hasCompletedLearnTracingGuide).toBe(true)
+      expect(state.hasCompletedIntroGuide).toBe(false)
+      expect(state.taughtRowIds).toEqual([])
+      expect(state.rowActivityCompletion).toEqual({})
+      expect(state.characters).toEqual({})
+      expect(state.words).toEqual({})
+    })
+  })
+
   describe('lastStudied (Issue #23)', () => {
     it('defaults to null for a fresh install', () => {
       expect(useProgressStore.getState().lastStudied).toBeNull()

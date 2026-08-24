@@ -93,6 +93,10 @@ type ProgressState = {
   // replay it on demand without flipping this back — see
   // setHasCompletedIntroGuide's own comment.
   hasCompletedIntroGuide: boolean
+  // Tamamizu Guide Phase 2 (Issue #33) — independent one-time explanation
+  // for choosing Learn or Tracing on the first Hiragana row. Pure UI state;
+  // it must never affect any learning or recommendation state.
+  hasCompletedLearnTracingGuide: boolean
 
   ensureCharacterInitialized: (charId: string) => void
   recordResult: (charId: string, correct: boolean) => void
@@ -124,6 +128,7 @@ type ProgressState = {
   // its own completion/Skip), so replaying never permanently loses the
   // "already introduced" state beyond the current viewing.
   setHasCompletedIntroGuide: (completed: boolean) => void
+  setHasCompletedLearnTracingGuide: (completed: boolean) => void
   resetProgress: () => void
 }
 
@@ -242,6 +247,7 @@ export function mergePersistedProgress(persistedState: unknown, currentState: Pr
     lastStudied: lastStudiedOr(persisted.lastStudied),
     alwaysShowRomajiHints: booleanOr(persisted.alwaysShowRomajiHints, currentState.alwaysShowRomajiHints),
     hasCompletedIntroGuide: booleanOr(persisted.hasCompletedIntroGuide, currentState.hasCompletedIntroGuide),
+    hasCompletedLearnTracingGuide: booleanOr(persisted.hasCompletedLearnTracingGuide, currentState.hasCompletedLearnTracingGuide),
     mascotVoiceEnabled: booleanOr(persisted.mascotVoiceEnabled, currentState.mascotVoiceEnabled),
     mascotVoiceVolume: clampFiniteOr(persisted.mascotVoiceVolume, MIN_VOLUME, MAX_VOLUME, currentState.mascotVoiceVolume),
   }
@@ -263,6 +269,7 @@ export const useProgressStore = create<ProgressState>()(
       mascotVoiceEnabled: true,
       mascotVoiceVolume: 1,
       hasCompletedIntroGuide: false,
+      hasCompletedLearnTracingGuide: false,
 
       ensureCharacterInitialized: (charId) => {
         if (get().characters[charId]) return
@@ -354,6 +361,7 @@ export const useProgressStore = create<ProgressState>()(
       setAudioSpeed: (speed) => set({ audioSpeed: speed }),
       setAlwaysShowRomajiHints: (show) => set({ alwaysShowRomajiHints: show }),
       setHasCompletedIntroGuide: (completed) => set({ hasCompletedIntroGuide: completed }),
+      setHasCompletedLearnTracingGuide: (completed) => set({ hasCompletedLearnTracingGuide: completed }),
       setMascotVoiceEnabled: (enabled) => set({ mascotVoiceEnabled: enabled }),
       setMascotVoiceVolume: (volume) => set({ mascotVoiceVolume: volume }),
 
@@ -372,11 +380,12 @@ export const useProgressStore = create<ProgressState>()(
           mascotVoiceEnabled: true,
           mascotVoiceVolume: 1,
           hasCompletedIntroGuide: false,
+          hasCompletedLearnTracingGuide: false,
         }),
     }),
     {
       name: 'kana-game-progress',
-      version: 11,
+      version: 12,
       // v1 -> v2: the default pronunciation speed changed from 1x to 0.5x;
       // carry that new default into browsers that already persisted a v1
       // state (which would otherwise keep the old 1x forever).
@@ -414,6 +423,9 @@ export const useProgressStore = create<ProgressState>()(
       // Guide) — an existing installation is treated as already having
       // seen it (see the migration below), so it's never shown
       // retroactively.
+      // v11 -> v12: adds the independent Learn/Tracing choice guide
+      // (Issue #33). Unlike first-launch Introduction, it is intentionally
+      // new for every learner until dismissed on the first Hiragana row.
       migrate: (persistedState, version) => {
         const state = (isRecord(persistedState) ? persistedState : {}) as Partial<ProgressState>
         if (version < 2) {
@@ -499,6 +511,9 @@ export const useProgressStore = create<ProgressState>()(
           // persisted state at all — see the initial store state above)
           // starts at false.
           state.hasCompletedIntroGuide = true
+        }
+        if (version < 12) {
+          state.hasCompletedLearnTracingGuide = false
         }
         return state
       },

@@ -1,10 +1,12 @@
 import { useEffect } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { HubBreadcrumb } from '../components/HubBreadcrumb'
+import { LearnTracingGuide } from '../components/LearnTracingGuide'
 import { Mascot } from '../components/Mascot'
 import { RecommendedFrame, RecommendedLabel } from '../components/Recommended'
 import { ReviewEmptyState } from '../components/ReviewEmptyState'
 import { CATEGORIES_BY_ID, getNextRowId, ROWS_BY_ID } from '../data/curriculum'
+import { LEARN_TRACING_GUIDE } from '../data/learnTracingGuide'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../hooks/useCurriculum'
 import { getRecommendedActivity } from '../lib/recommendedPath'
 import { useProgressStore } from '../store/progressStore'
@@ -31,6 +33,7 @@ type Activity = {
   // mastery (see RowMap's separate, unrelated "👍" badge) and
   // deliberately not styled to look like it.
   completed?: boolean
+  highlighted?: boolean
 }
 
 function ActivityGrid({ activities }: { activities: Activity[] }) {
@@ -40,7 +43,7 @@ function ActivityGrid({ activities }: { activities: Activity[] }) {
         <Link
           key={activity.path}
           to={activity.path}
-          className="flex flex-col items-center gap-1 rounded-xl border border-neutral-300 bg-white p-4 text-center hover:border-blue-400 dark:border-neutral-600 dark:bg-neutral-800"
+          className={`flex flex-col items-center gap-1 rounded-xl border bg-white p-4 text-center hover:border-blue-400 dark:bg-neutral-800 ${activity.highlighted ? 'border-yellow-400 ring-2 ring-yellow-400 ring-offset-2 dark:border-yellow-300 dark:ring-yellow-300' : 'border-neutral-300 dark:border-neutral-600'}`}
         >
           <span className="text-3xl">{activity.emoji}</span>
           <span className="font-semibold">
@@ -75,6 +78,7 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
 
   const isRowTaught = useProgressStore((s) => s.isRowTaught)
   const rowActivityCompletion = useProgressStore((s) => s.rowActivityCompletion)
+  const hasCompletedLearnTracingGuide = useProgressStore((s) => s.hasCompletedLearnTracingGuide)
 
   useEffect(() => {
     // Review with nothing taught yet gets an explanatory message below
@@ -133,6 +137,11 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   // shape (every character/word in the category at once, no per-character
   // markRowTaught) doesn't fit this per-row completion model.
   const showRecommendedPath = !isReview && !isSummary
+  const showLearnTracingGuide =
+    !hasCompletedLearnTracingGuide &&
+    !isReview &&
+    categoryId === LEARN_TRACING_GUIDE.target.categoryId &&
+    rowId === LEARN_TRACING_GUIDE.target.rowId
   const tracingCompleted = showRecommendedPath && rowActivityCompletion[rowId]?.tracing === true
   const kanaQuizCompleted = showRecommendedPath && rowActivityCompletion[rowId]?.kanaQuiz === true
   const listeningCompleted = showRecommendedPath && rowActivityCompletion[rowId]?.listening === true
@@ -164,10 +173,26 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
         { path: `${hubBase}/learn-words`, label: 'Weak Words', emoji: '📚', description: 'Review words you keep missing' },
       ]
     : [
-        { path: `/learn/${categoryId}/${rowId}`, label: 'Learn', emoji: '📖', description: 'Meet the new characters', completed: isRowTaught(rowId) },
+        {
+          path: `/learn/${categoryId}/${rowId}`,
+          label: 'Learn',
+          emoji: '📖',
+          description: 'Meet the new characters',
+          completed: isRowTaught(rowId),
+          highlighted: showLearnTracingGuide,
+        },
         ...(isSummary
           ? []
-          : [{ path: `${hubBase}/tracing`, label: 'Tracing', emoji: '✍️', description: 'Watch the stroke order, then trace', completed: tracingCompleted }]),
+          : [
+              {
+                path: `${hubBase}/tracing`,
+                label: 'Tracing',
+                emoji: '✍️',
+                description: 'Watch the stroke order, then trace',
+                completed: tracingCompleted,
+                highlighted: showLearnTracingGuide,
+              },
+            ]),
       ]
   const gameCompletion: Record<string, boolean | undefined> = {
     'kana-quiz': kanaQuizCompleted,
@@ -242,6 +267,8 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
         </h2>
         <ActivityGrid activities={learnActivities} />
       </div>
+
+      {showLearnTracingGuide && <LearnTracingGuide />}
 
       <div className="flex w-full max-w-md flex-col items-center gap-2">
         <h2 className="self-start text-xs font-semibold tracking-wide text-neutral-400 uppercase dark:text-neutral-500">

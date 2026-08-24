@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react'
+import { fireEvent, render } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { getNextRowId, ROWS } from '../data/curriculum'
@@ -40,6 +40,50 @@ function completeRow(rowId: string) {
   useProgressStore.getState().markRowActivityCompleted(rowId, 'listening')
   useProgressStore.getState().markRowActivityCompleted(rowId, 'wordBuilder')
 }
+
+describe('Learn / Tracing Guide (Issue #33)', () => {
+  it('shows the one-time guide on a fresh Hiragana あ〜お hub, highlighting both choices without covering them', () => {
+    const { getByRole, getByTestId } = renderRowHub('hiragana', 'a-row')
+
+    const learn = getByRole('link', { name: /Learn/ })
+    const tracing = getByRole('link', { name: /Tracing/ })
+    expect(learn).toHaveClass('ring-yellow-400')
+    expect(tracing).toHaveClass('ring-yellow-400')
+
+    const guide = getByTestId('learn-tracing-guide')
+    expect(getByRole('img', { name: 'Tamamizu explains Learn and Tracing' })).toHaveAttribute('src', '/guide/learn-tracing.webp')
+    // The guide is in normal document flow after the choices, so a small
+    // viewport can scroll instead of the image covering either card.
+    expect(learn.compareDocumentPosition(guide) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
+    expect(tracing.compareDocumentPosition(guide) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
+  })
+
+  it('closes independently of Introduction and leaves both activities available without changing learning progress', () => {
+    const { getByRole, getByText, queryByTestId } = renderRowHub('hiragana', 'a-row')
+
+    fireEvent.click(getByText('Got it!'))
+
+    const state = useProgressStore.getState()
+    expect(queryByTestId('learn-tracing-guide')).toBeNull()
+    expect(state.hasCompletedLearnTracingGuide).toBe(true)
+    expect(state.hasCompletedIntroGuide).toBe(false)
+    expect(state.taughtRowIds).toEqual([])
+    expect(state.rowActivityCompletion).toEqual({})
+    expect(state.characters).toEqual({})
+    expect(state.words).toEqual({})
+    expect(getByRole('link', { name: /Learn/ })).not.toHaveAttribute('aria-disabled')
+    expect(getByRole('link', { name: /Tracing/ })).not.toHaveAttribute('aria-disabled')
+  })
+
+  it('does not show again after completion or on any other row', () => {
+    const first = renderRowHub('hiragana', 'a-row')
+    fireEvent.click(first.getByText('Got it!'))
+    first.unmount()
+
+    expect(renderRowHub('hiragana', 'a-row').queryByTestId('learn-tracing-guide')).toBeNull()
+    expect(renderRowHub('hiragana', 'ka-row').queryByTestId('learn-tracing-guide')).toBeNull()
+  })
+})
 
 describe('PracticeHubPage Review empty state (Issue #2)', () => {
   // Something has been taught (so isScopeReady is true — this isn't the
