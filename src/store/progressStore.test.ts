@@ -6,8 +6,9 @@ beforeEach(() => {
 })
 
 describe('progressStore', () => {
-  it('persists Practice Guide dismissal independently without changing learning progress', () => {
+  it('persists Practice Guide dismissal across rehydrate independently without changing learning progress', async () => {
     useProgressStore.getState().markRowTaught('a-row')
+    useProgressStore.getState().setHasCompletedIntroGuide(true)
     const before = useProgressStore.getState()
     const progressBefore = {
       taughtRowIds: before.taughtRowIds,
@@ -19,10 +20,18 @@ describe('progressStore', () => {
     }
 
     useProgressStore.getState().setHasCompletedPracticeGuide(true)
+    const persisted = localStorage.getItem('kana-game-progress')
+    expect(persisted).not.toBeNull()
+
+    // Simulate a reload by clearing the in-memory state, restoring the
+    // bytes written before that reset, and hydrating from localStorage.
+    useProgressStore.getState().resetProgress()
+    localStorage.setItem('kana-game-progress', persisted!)
+    await useProgressStore.persist.rehydrate()
 
     const after = useProgressStore.getState()
     expect(after.hasCompletedPracticeGuide).toBe(true)
-    expect(after.hasCompletedIntroGuide).toBe(false)
+    expect(after.hasCompletedIntroGuide).toBe(true)
     expect(after.hasCompletedLearnTracingGuide).toBe(false)
     expect({
       taughtRowIds: after.taughtRowIds,
