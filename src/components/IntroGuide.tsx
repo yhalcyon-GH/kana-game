@@ -4,13 +4,14 @@ import { DEFAULT_INTRO_GUIDE_LOCALE, INTRO_GUIDE_CONTENT } from '../data/introGu
 import { useTTS } from '../hooks/useTTS'
 import { useProgressStore } from '../store/progressStore'
 
-// Tamamizu Guide Phase 1 (Issue #29) — the one-time first-launch
-// introduction. Deliberately dumb about CONTENT: this component only knows
-// how to show the current step's slide/mascot/subtitle, play its audio, and
-// advance/skip — every step's actual copy, asset paths, and button labels
-// come from data/introGuide.ts (step structure) + data/introGuideContent.ts
-// (locale text/audio), so swapping assets/copy or adding a locale later
-// never touches this file.
+// Tamamizu Guide (Issue #29/#31) — the one-time first-launch introduction.
+// Deliberately dumb about CONTENT: this component only knows how to show
+// the current step's slide + subtitle, play its audio, and advance/skip —
+// every step's actual copy, asset path, and button labels come from
+// data/introGuide.ts (step structure) + data/introGuideContent.ts (locale
+// text/audio), so swapping assets/copy or adding a locale later never
+// touches this file. Tamamizu is drawn into each slide's own artwork, so
+// there's no separate mascot image to render here.
 export function IntroGuide() {
   const completed = useProgressStore((s) => s.hasCompletedIntroGuide)
   const setCompleted = useProgressStore((s) => s.setHasCompletedIntroGuide)
@@ -65,32 +66,18 @@ export function IntroGuide() {
           contain still preserves its aspect ratio, never crops) — a plain
           flex-1 alone can't shrink an item below its content's natural size. */}
       <div className="flex min-h-0 flex-1 flex-col items-center gap-3 py-2">
-        {step.slideAsset ? (
-          <>
-            <div className="flex min-h-0 w-full flex-1 items-center justify-center">
-              <img
-                src={`${import.meta.env.BASE_URL}${step.slideAsset}`}
-                alt=""
-                className="max-h-full max-w-full object-contain"
-                // Degrade safely if the asset isn't shipped yet — never a
-                // broken-image icon (see Issue #29's "missing assets" note).
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none'
-                }}
-              />
-            </div>
-            {/* Auxiliary narrator presence only — deliberately small so it
-                never competes with the slide (the step's main content) for
-                space. */}
-            <img src={`${import.meta.env.BASE_URL}${step.mascotAsset}`} alt="" className="h-14 w-14 shrink-0" />
-          </>
-        ) : (
+        <div className="flex min-h-0 w-full flex-1 items-center justify-center">
           <img
-            src={`${import.meta.env.BASE_URL}${step.mascotAsset}`}
+            src={`${import.meta.env.BASE_URL}${step.slideAsset}`}
             alt=""
-            className="h-48 w-48 shrink-0 sm:h-64 sm:w-64"
+            className="max-h-full max-w-full object-contain"
+            // Degrade safely if the asset isn't shipped yet — never a
+            // broken-image icon (see Issue #29's "missing assets" note).
+            onError={(e) => {
+              e.currentTarget.style.display = 'none'
+            }}
           />
-        )}
+        </div>
         <p className="max-w-sm shrink-0 text-center text-base whitespace-pre-line sm:text-lg">{stepContent.subtitle}</p>
       </div>
 

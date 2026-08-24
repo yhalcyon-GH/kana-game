@@ -11,23 +11,26 @@ beforeEach(() => {
   useProgressStore.getState().resetProgress()
 })
 
-describe('IntroGuide (Issue #29)', () => {
+describe('IntroGuide (Issue #29/#31)', () => {
   it('renders nothing once the guide is already completed', () => {
     useProgressStore.getState().setHasCompletedIntroGuide(true)
     const { container } = render(<IntroGuide />)
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('starts on step 1 (Welcome) with its subtitle and only Tamamizu\'s image (no slide)', () => {
+  it('starts on step 1 (Welcome) with its subtitle and exactly one slide image (Tamamizu is drawn into the art)', () => {
     const { container, getByText } = render(<IntroGuide />)
     expect(getByText(locale.steps['intro.welcome'].subtitle)).toBeInTheDocument()
     expect(container.querySelectorAll('img')).toHaveLength(1)
   })
 
-  it('a slide step (step 2) shows both the slide and Tamamizu', () => {
+  it('every step shows exactly one slide image, never a separate mascot image', () => {
     const { container, getByText } = render(<IntroGuide />)
-    fireEvent.click(getByText(locale.nextLabel))
-    expect(container.querySelectorAll('img')).toHaveLength(2)
+    for (let i = 0; i < INTRO_GUIDE_STEPS.length - 1; i++) {
+      expect(container.querySelectorAll('img')).toHaveLength(1)
+      fireEvent.click(getByText(locale.nextLabel))
+    }
+    expect(container.querySelectorAll('img')).toHaveLength(1)
   })
 
   it('Next advances through every step in order, ending on "Let\'s go!"', () => {
