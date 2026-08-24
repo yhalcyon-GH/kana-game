@@ -32,11 +32,10 @@ describe('CategoryRowsPage Recommended row (Issue #25)', () => {
     useProgressStore.getState().markRowActivityCompleted('a-row', 'kanaQuiz')
     useProgressStore.getState().markRowActivityCompleted('a-row', 'listening')
     useProgressStore.getState().markRowActivityCompleted('a-row', 'wordBuilder')
-    const { container, getAllByText } = renderHiragana()
+    const { getAllByText, getByText } = renderHiragana()
     expect(getAllByText('⭐ Recommended')).toHaveLength(1)
     // ka-row's own card, not a-row's, carries it.
-    const kaRowCard = Array.from(container.querySelectorAll('span.font-kana')).find((el) => el.textContent === 'か〜こ・が〜ご')!
-    expect(kaRowCard.closest('div')?.textContent).toMatch(/Recommended/)
+    expect(getByText('か〜こ').closest('a')?.textContent).toMatch(/Recommended/)
   })
 
   it('shows no Recommended row for a different category once its target has moved elsewhere', () => {

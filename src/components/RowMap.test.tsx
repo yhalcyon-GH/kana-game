@@ -73,3 +73,64 @@ describe('RowMap Recommended row (Issue #25)', () => {
     expect(queryOmitted('⭐ Recommended')).toBeNull()
   })
 })
+
+describe('RowMap row-selection presentation (Issue #38)', () => {
+  const groupedRow: GojuonRow = {
+    ...row,
+    id: 'ka-row',
+    label: 'か〜こ・が〜ご',
+    displayLines: ['か〜こ', 'が〜ご'],
+  }
+
+  it('renders each configured learning group on its own non-wrapping line', () => {
+    const { getByText } = render(
+      <MemoryRouter>
+        <RowMap rows={[groupedRow]} isUnlocked={() => true} isTaught={() => false} isMastered={() => false} />
+      </MemoryRouter>,
+    )
+
+    for (const line of groupedRow.displayLines!) {
+      expect(getByText(line)).toHaveClass('block', 'whitespace-nowrap')
+    }
+  })
+
+  it('keeps a single-group row on the normal one-line fallback', () => {
+    const { getByText } = renderRowMap(() => false)
+    expect(getByText(row.label)).toHaveClass('font-kana', 'text-lg')
+    expect(getByText(row.label).children).toHaveLength(0)
+  })
+
+  it('makes the whole unlocked card one native link and removes Open', () => {
+    const { getByRole, queryByText } = render(
+      <MemoryRouter>
+        <RowMap
+          rows={[groupedRow]}
+          isUnlocked={() => true}
+          isTaught={() => false}
+          isMastered={() => false}
+          isRecommended={() => true}
+        />
+      </MemoryRouter>,
+    )
+
+    const link = getByRole('link')
+    expect(link).toHaveAttribute('href', '/practice/hiragana/ka-row')
+    expect(link).toHaveClass('focus-visible:ring-4')
+    expect(link).toHaveTextContent('か〜こが〜ご')
+    expect(link).toHaveTextContent('⭐ Recommended')
+    expect(queryByText('Open')).toBeNull()
+    expect(link.querySelectorAll('a,button')).toHaveLength(0)
+  })
+
+  it('keeps a locked card non-interactive and non-navigable', () => {
+    const { queryByRole, getByText } = render(
+      <MemoryRouter>
+        <RowMap rows={[groupedRow]} isUnlocked={() => false} isTaught={() => false} isMastered={() => false} />
+      </MemoryRouter>,
+    )
+
+    expect(queryByRole('link')).toBeNull()
+    expect(queryByRole('button')).toBeNull()
+    expect(getByText('🔒 locked')).toBeInTheDocument()
+  })
+})
