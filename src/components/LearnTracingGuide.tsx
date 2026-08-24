@@ -9,14 +9,15 @@ import { useProgressStore } from '../store/progressStore'
 // Tamamizu's English speech bubble.
 export function LearnTracingGuide() {
   const setCompleted = useProgressStore((s) => s.setHasCompletedLearnTracingGuide)
-  const { speak } = useTTS()
+  const { speak, stop } = useTTS()
   const content = LEARN_TRACING_GUIDE_CONTENT[DEFAULT_LEARN_TRACING_GUIDE_LOCALE]
 
   useEffect(() => {
     speak(content.audioKey, content.speechText, content.lang)
     // Guide content is static for the component's one-time mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    return stop
+  }, [stop])
 
   return (
     <aside data-testid="learn-tracing-guide" className="flex w-full max-w-md flex-col items-center gap-3" aria-label="Learn and Tracing guide">
@@ -27,7 +28,7 @@ export function LearnTracingGuide() {
       />
       <button
         type="button"
-        onClick={() => setCompleted(true)}
+        onClick={() => { stop(); setCompleted(true) }}
         className="w-full max-w-xs rounded-full bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700"
       >
         {content.dismissLabel}
