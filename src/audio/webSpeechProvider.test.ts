@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { pickJapaneseVoice, WebSpeechProvider } from './webSpeechProvider'
 
 function fakeVoice(lang: string, name: string): SpeechSynthesisVoice {
@@ -26,6 +26,13 @@ describe('pickJapaneseVoice', () => {
 })
 
 describe('WebSpeechProvider', () => {
+  it('cancels browser speech when stopped', () => {
+    const cancel = vi.fn()
+    // @ts-expect-error test API shim
+    window.speechSynthesis = { cancel }
+    new WebSpeechProvider().stop()
+    expect(cancel).toHaveBeenCalledOnce()
+  })
   it('rejects when the Web Speech API is unavailable', async () => {
     // jsdom does not implement window.speechSynthesis, so this exercises the
     // real "unsupported browser" path without needing to delete anything.
