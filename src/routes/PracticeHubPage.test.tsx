@@ -99,6 +99,12 @@ describe('Learn / Tracing Guide (Issue #33)', () => {
 })
 
 describe('Practice Guide (Issue #35)', () => {
+  it('defers Practice Guide while the Learn / Tracing Guide is still visible', () => {
+    useProgressStore.getState().markRowTaught('a-row')
+    const hub = renderRowHub('hiragana', 'a-row')
+    expect(hub.getByTestId('learn-tracing-guide')).toBeInTheDocument()
+    expect(hub.queryByTestId('practice-guide')).toBeNull()
+  })
   it('appears only after Learn or Tracing has completed on the first Hiragana row', () => {
     const fresh = renderRowHub('hiragana', 'a-row')
     expect(fresh.queryByTestId('practice-guide')).toBeNull()
@@ -152,6 +158,15 @@ describe('Practice Guide (Issue #35)', () => {
     useProgressStore.getState().setHasCompletedLearnTracingGuide(true)
     useProgressStore.getState().markRowTaught('a-row')
     expect(renderRowHub('hiragana', 'ka-row').queryByTestId('practice-guide')).toBeNull()
+  })
+
+  it('does not show again after dismissal and re-mount', () => {
+    useProgressStore.getState().setHasCompletedLearnTracingGuide(true)
+    useProgressStore.getState().markRowTaught('a-row')
+    const first = renderRowHub('hiragana', 'a-row')
+    fireEvent.click(first.getByText('Got it!'))
+    first.unmount()
+    expect(renderRowHub('hiragana', 'a-row').queryByTestId('practice-guide')).toBeNull()
   })
 })
 

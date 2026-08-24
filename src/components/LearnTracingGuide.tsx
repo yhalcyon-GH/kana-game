@@ -15,9 +15,8 @@ export function LearnTracingGuide() {
   useEffect(() => {
     speak(content.audioKey, content.speechText, content.lang)
     // Guide content is static for the component's one-time mount.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     return stop
-  }, [stop])
+  }, [content, speak, stop])
 
   return (
     <aside data-testid="learn-tracing-guide" className="flex w-full max-w-md flex-col items-center gap-3" aria-label="Learn and Tracing guide">

@@ -166,6 +166,7 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   const introCompleted = showRecommendedPath && (isRowTaught(rowId) || tracingCompleted)
   const showPracticeGuide =
     !hasCompletedPracticeGuide &&
+    hasCompletedLearnTracingGuide &&
     !isReview &&
     categoryId === PRACTICE_GUIDE.target.categoryId &&
     rowId === PRACTICE_GUIDE.target.rowId &&
