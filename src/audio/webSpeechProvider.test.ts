@@ -1,9 +1,16 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { pickJapaneseVoice, WebSpeechProvider } from './webSpeechProvider'
 
 function fakeVoice(lang: string, name: string): SpeechSynthesisVoice {
   return { lang, name } as SpeechSynthesisVoice
 }
+
+afterEach(() => {
+  // @ts-expect-error remove per-test browser API shim
+  delete window.speechSynthesis
+  // @ts-expect-error remove per-test browser API shim
+  delete window.SpeechSynthesisUtterance
+})
 
 describe('pickJapaneseVoice', () => {
   it('prefers a Natural/Online voice over a plain Japanese voice', () => {
