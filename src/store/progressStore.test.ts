@@ -6,6 +6,34 @@ beforeEach(() => {
 })
 
 describe('progressStore', () => {
+  it('persists Practice Guide dismissal independently without changing learning progress', () => {
+    useProgressStore.getState().markRowTaught('a-row')
+    const before = useProgressStore.getState()
+    const progressBefore = {
+      taughtRowIds: before.taughtRowIds,
+      rowActivityCompletion: before.rowActivityCompletion,
+      characters: before.characters,
+      words: before.words,
+      lastStudied: before.lastStudied,
+      unlockedRowIds: before.unlockedRowIds,
+    }
+
+    useProgressStore.getState().setHasCompletedPracticeGuide(true)
+
+    const after = useProgressStore.getState()
+    expect(after.hasCompletedPracticeGuide).toBe(true)
+    expect(after.hasCompletedIntroGuide).toBe(false)
+    expect(after.hasCompletedLearnTracingGuide).toBe(false)
+    expect({
+      taughtRowIds: after.taughtRowIds,
+      rowActivityCompletion: after.rowActivityCompletion,
+      characters: after.characters,
+      words: after.words,
+      lastStudied: after.lastStudied,
+      unlockedRowIds: after.unlockedRowIds,
+    }).toEqual(progressBefore)
+  })
+
   it('backfills missing v6 maps and review fields during hydration', () => {
     const current = useProgressStore.getState()
     const merged = mergePersistedProgress(
