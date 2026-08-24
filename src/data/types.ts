@@ -64,6 +64,10 @@ export type GojuonRow = {
   id: string
   categoryId: string
   label: string
+  // Optional presentation-only lines for the compact row-selection card.
+  // The canonical `label` remains unchanged for navigation and other UI.
+  // Each entry is one intentional, non-wrapping learning group.
+  displayLines?: string[]
   characterIds: string[]
   order: number
   // Short English note shown above this row's word grid on LearnPage (step

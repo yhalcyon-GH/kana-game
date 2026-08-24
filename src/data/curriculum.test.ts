@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { CHARACTERS, CHARACTERS_BY_ID } from './characters'
-import { CATEGORIES, CATEGORIES_BY_ID, getCumulativeCharacterIds, getNextRowId, getPreviousRowId, ROWS } from './curriculum'
+import { CATEGORIES, CATEGORIES_BY_ID, getCumulativeCharacterIds, getNextRowId, getPreviousRowId, ROWS, ROWS_BY_ID } from './curriculum'
 import { WORDS_BY_ID, WORDS_BY_ROW } from './words'
 
 describe('curriculum content integrity', () => {
@@ -362,6 +362,36 @@ describe('learnBatches (micro-batch Learn presentation)', () => {
     for (const row of contrastPairsRows) {
       expect(row.learnBatches, `row "${row.id}"`).toBeUndefined()
     }
+  })
+})
+
+describe('row-selection display lines (Issue #38)', () => {
+  it('uses intentional groups for Hiragana and the combined first Katakana row', () => {
+    expect(ROWS_BY_ID['ka-row'].label).toBe('か〜こ・が〜ご')
+    expect(ROWS_BY_ID['ka-row'].displayLines).toEqual(['か〜こ', 'が〜ご'])
+    expect(ROWS_BY_ID['ha-row'].displayLines).toEqual(['は〜ほ', 'ば〜ぼ', 'ぱ〜ぽ'])
+    expect(ROWS_BY_ID['katakana-a-row'].displayLines).toEqual(['ア〜オ', 'カ〜コ', 'ガ〜ゴ', 'ン・ー'])
+    expect(ROWS_BY_ID['katakana-ra-row'].displayLines).toEqual(['ラ〜ロ', 'ワ・ヲ'])
+  })
+
+  it('keeps each Yōon learning batch together, including its middle dots', () => {
+    expect(ROWS_BY_ID['youon-ka-row'].displayLines).toEqual(['きゃ・きゅ・きょ', 'ぎゃ・ぎゅ・ぎょ'])
+    expect(ROWS_BY_ID['youon-ha-row'].displayLines).toEqual([
+      'ひゃ・ひゅ・ひょ',
+      'びゃ・びゅ・びょ',
+      'ぴゃ・ぴゅ・ぴょ',
+    ])
+    expect(ROWS_BY_ID['youon-katakana-ha-row'].displayLines).toEqual([
+      'ヒャ・ヒュ・ヒョ',
+      'ビャ・ビュ・ビョ',
+      'ピャ・ピュ・ピョ',
+    ])
+  })
+
+  it('leaves single-group rows on the label fallback', () => {
+    expect(ROWS_BY_ID['a-row'].displayLines).toBeUndefined()
+    expect(ROWS_BY_ID['na-row'].displayLines).toBeUndefined()
+    expect(ROWS_BY_ID['sokuon-row'].displayLines).toBeUndefined()
   })
 })
 

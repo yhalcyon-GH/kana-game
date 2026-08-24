@@ -126,7 +126,10 @@ describe('script chooser pages', () => {
   it('/katakana shows only katakana rows', () => {
     renderAt('/katakana')
     expect(screen.getByRole('heading', { name: 'カタカナ' })).toBeInTheDocument()
-    expect(screen.getByText('ア〜オ・カ〜ゴ・ン・ー')).toBeInTheDocument()
+    expect(screen.getByText('ア〜オ')).toBeInTheDocument()
+    expect(screen.getByText('カ〜コ')).toBeInTheDocument()
+    expect(screen.getByText('ガ〜ゴ')).toBeInTheDocument()
+    expect(screen.getByText('ン・ー')).toBeInTheDocument()
     expect(screen.queryByText('あ〜お')).not.toBeInTheDocument()
   })
 
@@ -138,7 +141,8 @@ describe('script chooser pages', () => {
   it('/youon shows only yōon rows, with no category subheading (single-category page)', () => {
     renderAt('/youon')
     expect(screen.getByRole('heading', { name: '○+ゃゅょ' })).toBeInTheDocument()
-    expect(screen.getByText('きゃ・きゅ・きょ・ぎゃ・ぎゅ・ぎょ')).toBeInTheDocument()
+    expect(screen.getByText('きゃ・きゅ・きょ')).toBeInTheDocument()
+    expect(screen.getByText('ぎゃ・ぎゅ・ぎょ')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument()
     expect(screen.queryByText('っ・ッ')).not.toBeInTheDocument()
     expect(screen.queryByText('あー')).not.toBeInTheDocument()
