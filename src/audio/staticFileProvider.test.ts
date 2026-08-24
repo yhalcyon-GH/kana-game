@@ -74,4 +74,19 @@ describe('StaticFileProvider', () => {
     const provider = new StaticFileProvider()
     await expect(provider.speak({ key: 'characters/a', text: 'あ' }, { volume: 1, rate: 1 })).rejects.toThrow('decode failed')
   })
+
+  it('stops playback, rewinds, and neutralizes a pending request', async () => {
+    const pending = deferred<void>()
+    playSpy.mockReturnValueOnce(pending.promise)
+    const pauseSpy = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {})
+    const provider = new StaticFileProvider()
+    const request = provider.speak({ key: 'characters/a', text: 'あ' }, { volume: 1, rate: 1 })
+    const audioEl = playSpy.mock.instances[0] as HTMLAudioElement
+    provider.stop()
+    expect(pauseSpy).toHaveBeenCalledWith()
+    expect(audioEl.currentTime).toBe(0)
+    pending.reject(new Error('stopped'))
+    await expect(request).resolves.toBeUndefined()
+    pauseSpy.mockRestore()
+  })
 })

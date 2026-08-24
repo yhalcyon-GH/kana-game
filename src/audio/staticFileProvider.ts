@@ -28,6 +28,13 @@ export class StaticFileProvider implements SpeechProvider {
   // audibly overlapping for the same character.
   private requestId = 0
 
+  stop() {
+    this.requestId++
+    if (!this.audioEl) return
+    this.audioEl.pause()
+    this.audioEl.currentTime = 0
+  }
+
   private ensureGraph(): { audioEl: HTMLAudioElement; gainNode: GainNode | null } {
     if (!this.audioEl) {
       this.audioEl = new Audio()

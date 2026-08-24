@@ -6,6 +6,43 @@ beforeEach(() => {
 })
 
 describe('progressStore', () => {
+  it('persists Practice Guide dismissal across rehydrate independently without changing learning progress', async () => {
+    useProgressStore.getState().markRowTaught('a-row')
+    useProgressStore.getState().setHasCompletedIntroGuide(true)
+    const before = useProgressStore.getState()
+    const progressBefore = {
+      taughtRowIds: before.taughtRowIds,
+      rowActivityCompletion: before.rowActivityCompletion,
+      characters: before.characters,
+      words: before.words,
+      lastStudied: before.lastStudied,
+      unlockedRowIds: before.unlockedRowIds,
+    }
+
+    useProgressStore.getState().setHasCompletedPracticeGuide(true)
+    const persisted = localStorage.getItem('kana-game-progress')
+    expect(persisted).not.toBeNull()
+
+    // Simulate a reload by clearing the in-memory state, restoring the
+    // bytes written before that reset, and hydrating from localStorage.
+    useProgressStore.getState().resetProgress()
+    localStorage.setItem('kana-game-progress', persisted!)
+    await useProgressStore.persist.rehydrate()
+
+    const after = useProgressStore.getState()
+    expect(after.hasCompletedPracticeGuide).toBe(true)
+    expect(after.hasCompletedIntroGuide).toBe(true)
+    expect(after.hasCompletedLearnTracingGuide).toBe(false)
+    expect({
+      taughtRowIds: after.taughtRowIds,
+      rowActivityCompletion: after.rowActivityCompletion,
+      characters: after.characters,
+      words: after.words,
+      lastStudied: after.lastStudied,
+      unlockedRowIds: after.unlockedRowIds,
+    }).toEqual(progressBefore)
+  })
+
   it('backfills missing v6 maps and review fields during hydration', () => {
     const current = useProgressStore.getState()
     const merged = mergePersistedProgress(

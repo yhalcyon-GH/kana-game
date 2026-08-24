@@ -9,6 +9,10 @@ import type { SpeechPlaybackOptions, SpeechProvider, SpeechRequest } from './typ
 export class WebSpeechProvider implements SpeechProvider {
   voice: SpeechSynthesisVoice | null = null
 
+  stop() {
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel()
+  }
+
   speak(request: SpeechRequest, options: SpeechPlaybackOptions): Promise<void> {
     if (!('speechSynthesis' in window)) return Promise.reject(new Error('Web Speech API not supported'))
     window.speechSynthesis.cancel()

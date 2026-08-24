@@ -15,7 +15,7 @@ import { useProgressStore } from '../store/progressStore'
 export function IntroGuide() {
   const completed = useProgressStore((s) => s.hasCompletedIntroGuide)
   const setCompleted = useProgressStore((s) => s.setHasCompletedIntroGuide)
-  const { speak } = useTTS()
+  const { speak, stop } = useTTS()
   const [stepIndex, setStepIndex] = useState(0)
 
   // Settings' "View introduction again" flips `completed` back to false on
@@ -36,11 +36,14 @@ export function IntroGuide() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [completed, step.id])
 
+  useEffect(() => stop, [stop])
+
   if (completed) return null
 
   const isLast = stepIndex === INTRO_GUIDE_STEPS.length - 1
 
   const advance = () => {
+    stop()
     // Usable even while step audio is still playing — no wait/gate here.
     if (isLast) {
       setCompleted(true)
@@ -54,7 +57,7 @@ export function IntroGuide() {
       <div className="flex w-full shrink-0 justify-end">
         <button
           type="button"
-          onClick={() => setCompleted(true)}
+          onClick={() => { stop(); setCompleted(true) }}
           className="text-sm text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
         >
           {locale.skipLabel}

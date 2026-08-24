@@ -3,10 +3,12 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { HubBreadcrumb } from '../components/HubBreadcrumb'
 import { LearnTracingGuide } from '../components/LearnTracingGuide'
 import { Mascot } from '../components/Mascot'
+import { PracticeGuide } from '../components/PracticeGuide'
 import { RecommendedFrame, RecommendedLabel } from '../components/Recommended'
 import { ReviewEmptyState } from '../components/ReviewEmptyState'
 import { CATEGORIES_BY_ID, getNextRowId, ROWS_BY_ID } from '../data/curriculum'
 import { LEARN_TRACING_GUIDE } from '../data/learnTracingGuide'
+import { PRACTICE_GUIDE } from '../data/practiceGuide'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../hooks/useCurriculum'
 import { getRecommendedActivity } from '../lib/recommendedPath'
 import { useProgressStore } from '../store/progressStore'
@@ -37,11 +39,12 @@ type Activity = {
   disabled?: boolean
 }
 
-function ActivityGrid({ activities }: { activities: Activity[] }) {
+function ActivityGrid({ activities, disabled = false }: { activities: Activity[]; disabled?: boolean }) {
   return (
     <div className="grid w-full max-w-md grid-cols-3 gap-3">
       {activities.map((activity) => {
-        const className = `flex flex-col items-center gap-1 rounded-xl border bg-white p-4 text-center dark:bg-neutral-800 ${activity.disabled ? 'cursor-not-allowed' : 'hover:border-blue-400'} ${activity.highlighted ? 'border-yellow-400 ring-2 ring-yellow-400 ring-offset-2 dark:border-yellow-300 dark:ring-yellow-300' : 'border-neutral-300 dark:border-neutral-600'}`
+        const isDisabled = disabled || activity.disabled
+        const className = `flex flex-col items-center gap-1 rounded-xl border bg-white p-4 text-center dark:bg-neutral-800 ${isDisabled ? 'cursor-not-allowed' : 'hover:border-blue-400'} ${activity.highlighted ? 'border-yellow-400 ring-2 ring-yellow-400 ring-offset-2 dark:border-yellow-300 dark:ring-yellow-300' : 'border-neutral-300 dark:border-neutral-600'}`
         const content = (
           <>
           <span className="text-3xl">{activity.emoji}</span>
@@ -53,7 +56,7 @@ function ActivityGrid({ activities }: { activities: Activity[] }) {
           </>
         )
 
-        return activity.disabled ? (
+        return isDisabled ? (
           <div key={activity.path} role="link" aria-disabled="true" tabIndex={-1} className={className}>
             {content}
           </div>
@@ -89,6 +92,7 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   const isRowTaught = useProgressStore((s) => s.isRowTaught)
   const rowActivityCompletion = useProgressStore((s) => s.rowActivityCompletion)
   const hasCompletedLearnTracingGuide = useProgressStore((s) => s.hasCompletedLearnTracingGuide)
+  const hasCompletedPracticeGuide = useProgressStore((s) => s.hasCompletedPracticeGuide)
 
   useEffect(() => {
     // Review with nothing taught yet gets an explanatory message below
@@ -160,6 +164,13 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   // finished once — neither is required over the other, and finishing one
   // never locks out the other (both stay freely accessible below either way).
   const introCompleted = showRecommendedPath && (isRowTaught(rowId) || tracingCompleted)
+  const showPracticeGuide =
+    !hasCompletedPracticeGuide &&
+    hasCompletedLearnTracingGuide &&
+    !isReview &&
+    categoryId === PRACTICE_GUIDE.target.categoryId &&
+    rowId === PRACTICE_GUIDE.target.rowId &&
+    introCompleted
   const recommended = showRecommendedPath
     ? getRecommendedActivity({
         learnStyle: isContrastPairs ? 'contrast-pairs' : 'character-set',
@@ -263,21 +274,26 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
       )}
 
       {showRecommendedPath && recommendedActivity && (
-        <div className="flex w-full max-w-md flex-col items-center gap-2">
+        <div
+          data-testid={showPracticeGuide ? 'practice-guide-recommended' : undefined}
+          className={`flex w-full max-w-md flex-col items-center gap-2 ${showPracticeGuide ? 'rounded-xl border-2 border-yellow-400 p-2 ring-2 ring-yellow-400 ring-offset-2 dark:border-yellow-300 dark:ring-yellow-300' : ''}`}
+        >
           <h2 className="self-start text-sm">
             <RecommendedLabel />
           </h2>
           <RecommendedFrame className="w-full">
-            <ActivityGrid activities={[recommendedActivity]} />
+            <ActivityGrid activities={[recommendedActivity]} disabled={showPracticeGuide} />
           </RecommendedFrame>
         </div>
       )}
+
+      {showPracticeGuide && <PracticeGuide />}
 
       <div className="flex w-full max-w-md flex-col items-center gap-2">
         <h2 className="self-start text-xs font-semibold tracking-wide text-neutral-400 uppercase dark:text-neutral-500">
           {showRecommendedPath && !introCompleted ? 'Choose how to learn' : 'Learn'}
         </h2>
-        <ActivityGrid activities={learnActivities} />
+        <ActivityGrid activities={learnActivities} disabled={showPracticeGuide} />
       </div>
 
       {showLearnTracingGuide && <LearnTracingGuide />}
@@ -286,14 +302,14 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
         <h2 className="self-start text-xs font-semibold tracking-wide text-neutral-400 uppercase dark:text-neutral-500">
           Practice
         </h2>
-        <ActivityGrid activities={practiceActivities} />
+        <ActivityGrid activities={practiceActivities} disabled={showPracticeGuide} />
       </div>
 
       <div className="flex w-full max-w-md flex-col items-center gap-2">
         <h2 className="self-start text-xs font-semibold tracking-wide text-neutral-400 uppercase dark:text-neutral-500">
           Optional
         </h2>
-        <ActivityGrid activities={optionalActivities} />
+        <ActivityGrid activities={optionalActivities} disabled={showPracticeGuide} />
       </div>
     </div>
   )

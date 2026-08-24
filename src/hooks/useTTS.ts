@@ -58,5 +58,10 @@ export function useTTS() {
     [audioEnabled, audioVolume, audioSpeed, mascotVoiceEnabled, mascotVoiceVolume, staticProvider, webSpeechProvider],
   )
 
-  return { speak, supported: true }
+  const stop = useCallback(() => {
+    staticProvider.stop()
+    webSpeechProvider.stop()
+  }, [staticProvider, webSpeechProvider])
+
+  return { speak, stop, supported: true }
 }

@@ -98,6 +98,78 @@ describe('Learn / Tracing Guide (Issue #33)', () => {
   })
 })
 
+describe('Practice Guide (Issue #35)', () => {
+  it('defers Practice Guide while the Learn / Tracing Guide is still visible', () => {
+    useProgressStore.getState().markRowTaught('a-row')
+    const hub = renderRowHub('hiragana', 'a-row')
+    expect(hub.getByTestId('learn-tracing-guide')).toBeInTheDocument()
+    expect(hub.queryByTestId('practice-guide')).toBeNull()
+  })
+  it('appears only after Learn or Tracing has completed on the first Hiragana row', () => {
+    const fresh = renderRowHub('hiragana', 'a-row')
+    expect(fresh.queryByTestId('practice-guide')).toBeNull()
+    fresh.unmount()
+
+    useProgressStore.getState().setHasCompletedLearnTracingGuide(true)
+    useProgressStore.getState().markRowTaught('a-row')
+    const afterLearn = renderRowHub('hiragana', 'a-row')
+    expect(afterLearn.getByTestId('practice-guide')).toBeInTheDocument()
+    afterLearn.unmount()
+
+    useProgressStore.getState().resetProgress()
+    useProgressStore.getState().setHasCompletedLearnTracingGuide(true)
+    useProgressStore.getState().markRowActivityCompleted('a-row', 'tracing')
+    const afterTracing = renderRowHub('hiragana', 'a-row')
+    expect(afterTracing.getByTestId('practice-guide')).toBeInTheDocument()
+    afterTracing.unmount()
+  })
+
+  it('highlights Recommended and disables every hub activity until Got it restores the links', () => {
+    useProgressStore.getState().setHasCompletedLearnTracingGuide(true)
+    useProgressStore.getState().markRowTaught('a-row')
+    const { getAllByRole, getByTestId, getAllByText, getByText, getByRole } = renderRowHub('hiragana', 'a-row')
+
+    const guide = getByTestId('practice-guide')
+    const recommended = getByTestId('practice-guide-recommended')
+    expect(recommended).toHaveClass('ring-yellow-400')
+    expect(getByText('⭐ Recommended')).toHaveClass('font-bold', 'text-red-600')
+    expect(getAllByText('✨')).toHaveLength(2)
+    expect(getByRole('img', { name: 'Tamamizu explains Practice and Recommended' })).toHaveAttribute('src', '/guide/practice-guide.webp')
+    expect(getByText('Got it!')).toBeInTheDocument()
+    expect(guide).not.toHaveTextContent('Now, let’s practice!')
+
+    const activityCards = () => getAllByRole('link').filter((card) => card.classList.contains('rounded-xl'))
+    expect(activityCards()).toHaveLength(7) // Recommended + Learn + Tracing + 3 Practice + Optional
+    for (const card of activityCards()) {
+      expect(card).toHaveAttribute('aria-disabled', 'true')
+      expect(card).toHaveAttribute('tabindex', '-1')
+      expect(card.tagName).not.toBe('A')
+    }
+
+    fireEvent.click(getByText('Got it!'))
+
+    for (const card of activityCards()) {
+      expect(card).not.toHaveAttribute('aria-disabled')
+      expect(card.tagName).toBe('A')
+    }
+  })
+
+  it('does not show on another row after completing the first row', () => {
+    useProgressStore.getState().setHasCompletedLearnTracingGuide(true)
+    useProgressStore.getState().markRowTaught('a-row')
+    expect(renderRowHub('hiragana', 'ka-row').queryByTestId('practice-guide')).toBeNull()
+  })
+
+  it('does not show again after dismissal and re-mount', () => {
+    useProgressStore.getState().setHasCompletedLearnTracingGuide(true)
+    useProgressStore.getState().markRowTaught('a-row')
+    const first = renderRowHub('hiragana', 'a-row')
+    fireEvent.click(first.getByText('Got it!'))
+    first.unmount()
+    expect(renderRowHub('hiragana', 'a-row').queryByTestId('practice-guide')).toBeNull()
+  })
+})
+
 describe('PracticeHubPage Review empty state (Issue #2)', () => {
   // Something has been taught (so isScopeReady is true — this isn't the
   // "nothing taught yet" case), but nothing is currently active in either
