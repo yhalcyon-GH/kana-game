@@ -34,25 +34,35 @@ type Activity = {
   // deliberately not styled to look like it.
   completed?: boolean
   highlighted?: boolean
+  disabled?: boolean
 }
 
 function ActivityGrid({ activities }: { activities: Activity[] }) {
   return (
     <div className="grid w-full max-w-md grid-cols-3 gap-3">
-      {activities.map((activity) => (
-        <Link
-          key={activity.path}
-          to={activity.path}
-          className={`flex flex-col items-center gap-1 rounded-xl border bg-white p-4 text-center hover:border-blue-400 dark:bg-neutral-800 ${activity.highlighted ? 'border-yellow-400 ring-2 ring-yellow-400 ring-offset-2 dark:border-yellow-300 dark:ring-yellow-300' : 'border-neutral-300 dark:border-neutral-600'}`}
-        >
+      {activities.map((activity) => {
+        const className = `flex flex-col items-center gap-1 rounded-xl border bg-white p-4 text-center dark:bg-neutral-800 ${activity.disabled ? 'cursor-not-allowed' : 'hover:border-blue-400'} ${activity.highlighted ? 'border-yellow-400 ring-2 ring-yellow-400 ring-offset-2 dark:border-yellow-300 dark:ring-yellow-300' : 'border-neutral-300 dark:border-neutral-600'}`
+        const content = (
+          <>
           <span className="text-3xl">{activity.emoji}</span>
           <span className="font-semibold">
             {activity.label}
             {activity.completed && <span className="ml-1 text-green-600 dark:text-green-400">✓</span>}
           </span>
           <span className="text-xs text-neutral-500 dark:text-neutral-400">{activity.description}</span>
-        </Link>
-      ))}
+          </>
+        )
+
+        return activity.disabled ? (
+          <div key={activity.path} role="link" aria-disabled="true" tabIndex={-1} className={className}>
+            {content}
+          </div>
+        ) : (
+          <Link key={activity.path} to={activity.path} className={className}>
+            {content}
+          </Link>
+        )
+      })}
     </div>
   )
 }
@@ -180,6 +190,7 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
           description: 'Meet the new characters',
           completed: isRowTaught(rowId),
           highlighted: showLearnTracingGuide,
+          disabled: showLearnTracingGuide,
         },
         ...(isSummary
           ? []
@@ -191,6 +202,7 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
                 description: 'Watch the stroke order, then trace',
                 completed: tracingCompleted,
                 highlighted: showLearnTracingGuide,
+                disabled: showLearnTracingGuide,
               },
             ]),
       ]

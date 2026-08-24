@@ -58,8 +58,17 @@ describe('Learn / Tracing Guide (Issue #33)', () => {
     expect(tracing.compareDocumentPosition(guide) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
   })
 
-  it('closes independently of Introduction and leaves both activities available without changing learning progress', () => {
+  it('keeps Learn and Tracing inaccessible until Got it, then restores both links without changing learning progress', () => {
     const { getByRole, getByText, queryByTestId } = renderRowHub('hiragana', 'a-row')
+
+    const learnWhileGuided = getByRole('link', { name: /Learn/ })
+    const tracingWhileGuided = getByRole('link', { name: /Tracing/ })
+    expect(learnWhileGuided).toHaveAttribute('aria-disabled', 'true')
+    expect(tracingWhileGuided).toHaveAttribute('aria-disabled', 'true')
+    expect(learnWhileGuided).toHaveAttribute('tabindex', '-1')
+    expect(tracingWhileGuided).toHaveAttribute('tabindex', '-1')
+    expect(learnWhileGuided.tagName).not.toBe('A')
+    expect(tracingWhileGuided.tagName).not.toBe('A')
 
     fireEvent.click(getByText('Got it!'))
 
@@ -71,8 +80,12 @@ describe('Learn / Tracing Guide (Issue #33)', () => {
     expect(state.rowActivityCompletion).toEqual({})
     expect(state.characters).toEqual({})
     expect(state.words).toEqual({})
-    expect(getByRole('link', { name: /Learn/ })).not.toHaveAttribute('aria-disabled')
-    expect(getByRole('link', { name: /Tracing/ })).not.toHaveAttribute('aria-disabled')
+    const learnAfterDismiss = getByRole('link', { name: /Learn/ })
+    const tracingAfterDismiss = getByRole('link', { name: /Tracing/ })
+    expect(learnAfterDismiss).not.toHaveAttribute('aria-disabled')
+    expect(tracingAfterDismiss).not.toHaveAttribute('aria-disabled')
+    expect(learnAfterDismiss).toHaveAttribute('href', '/learn/hiragana/a-row')
+    expect(tracingAfterDismiss).toHaveAttribute('href', '/practice/hiragana/a-row/tracing')
   })
 
   it('does not show again after completion or on any other row', () => {
