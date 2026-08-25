@@ -44,6 +44,10 @@ const STEPS: { id: string; text: string }[] = [
   { id: 'intro-writing-systems', text: 'Japanese has three main writing systems: Hiragana, Katakana, and Kanji.' },
   { id: 'intro-kana-sounds', text: 'Hiragana and Katakana represent sounds. Both of these represent the sound "a."' },
   {
+    id: 'intro-kana-usage',
+    text: 'Hiragana is mainly used for Japanese words and grammar. Katakana is mainly used for foreign words.',
+  },
+  {
     id: 'intro-kanji-meaning',
     text: 'Kanji also carry meaning. The top kanji means "mountain," and the bottom one means "tree."',
   },

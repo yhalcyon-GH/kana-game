@@ -32,6 +32,10 @@ const EN: IntroGuideLocaleContent = {
       subtitle: 'Hiragana and Katakana represent sounds. Both of these represent the sound "a."',
       audioKey: 'guide/intro-kana-sounds',
     },
+    'intro.kanaUsage': {
+      subtitle: 'Hiragana is mainly used for Japanese words and grammar. Katakana is mainly used for foreign words.',
+      audioKey: 'guide/intro-kana-usage',
+    },
     'intro.kanjiMeaning': {
       subtitle: 'Kanji also carry meaning. The top kanji means "mountain," and the bottom one means "tree."',
       audioKey: 'guide/intro-kanji-meaning',
