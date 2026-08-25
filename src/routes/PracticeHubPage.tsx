@@ -3,12 +3,15 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { HubBreadcrumb } from '../components/HubBreadcrumb'
 import { LearnTracingGuide } from '../components/LearnTracingGuide'
 import { Mascot } from '../components/Mascot'
+import { ConceptGuide } from '../components/ConceptGuide'
 import { PracticeGuide } from '../components/PracticeGuide'
 import { RecommendedFrame, RecommendedLabel } from '../components/Recommended'
 import { ReviewEmptyState } from '../components/ReviewEmptyState'
 import { CATEGORIES_BY_ID, getNextRowId, ROWS_BY_ID } from '../data/curriculum'
 import { LEARN_TRACING_GUIDE } from '../data/learnTracingGuide'
 import { PRACTICE_GUIDE } from '../data/practiceGuide'
+import { SOKUON_GUIDE } from '../data/sokuonGuide'
+import { DEFAULT_SOKUON_GUIDE_LOCALE, SOKUON_GUIDE_CONTENT } from '../data/sokuonGuideContent'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../hooks/useCurriculum'
 import { getRecommendedActivity } from '../lib/recommendedPath'
 import { useProgressStore } from '../store/progressStore'
@@ -91,8 +94,11 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
 
   const isRowTaught = useProgressStore((s) => s.isRowTaught)
   const rowActivityCompletion = useProgressStore((s) => s.rowActivityCompletion)
+  const hasCompletedIntroGuide = useProgressStore((s) => s.hasCompletedIntroGuide)
   const hasCompletedLearnTracingGuide = useProgressStore((s) => s.hasCompletedLearnTracingGuide)
   const hasCompletedPracticeGuide = useProgressStore((s) => s.hasCompletedPracticeGuide)
+  const hasCompletedSokuonGuide = useProgressStore((s) => s.hasCompletedSokuonGuide)
+  const setHasCompletedSokuonGuide = useProgressStore((s) => s.setHasCompletedSokuonGuide)
 
   useEffect(() => {
     // Review with nothing taught yet gets an explanatory message below
@@ -171,6 +177,13 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
     categoryId === PRACTICE_GUIDE.target.categoryId &&
     rowId === PRACTICE_GUIDE.target.rowId &&
     introCompleted
+  const showSokuonGuide =
+    !hasCompletedSokuonGuide &&
+    hasCompletedIntroGuide &&
+    !isReview &&
+    categoryId === SOKUON_GUIDE.target.categoryId &&
+    rowId === SOKUON_GUIDE.target.rowId
+  const disableHubActivities = showPracticeGuide || showSokuonGuide
   const recommended = showRecommendedPath
     ? getRecommendedActivity({
         learnStyle: isContrastPairs ? 'contrast-pairs' : 'character-set',
@@ -282,18 +295,28 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
             <RecommendedLabel />
           </h2>
           <RecommendedFrame className="w-full">
-            <ActivityGrid activities={[recommendedActivity]} disabled={showPracticeGuide} />
+            <ActivityGrid activities={[recommendedActivity]} disabled={disableHubActivities} />
           </RecommendedFrame>
         </div>
       )}
 
       {showPracticeGuide && <PracticeGuide />}
 
+      {showSokuonGuide && (
+        <ConceptGuide
+          testId="sokuon-guide"
+          imageAsset={SOKUON_GUIDE.slideAsset}
+          imageAlt="Tamamizu explains the small tsu"
+          {...SOKUON_GUIDE_CONTENT[DEFAULT_SOKUON_GUIDE_LOCALE]}
+          onDismiss={() => setHasCompletedSokuonGuide(true)}
+        />
+      )}
+
       <div className="flex w-full max-w-md flex-col items-center gap-2">
         <h2 className="self-start text-xs font-semibold tracking-wide text-neutral-400 uppercase dark:text-neutral-500">
           {showRecommendedPath && !introCompleted ? 'Choose how to learn' : 'Learn'}
         </h2>
-        <ActivityGrid activities={learnActivities} disabled={showPracticeGuide} />
+        <ActivityGrid activities={learnActivities} disabled={disableHubActivities} />
       </div>
 
       {showLearnTracingGuide && <LearnTracingGuide />}
@@ -302,14 +325,14 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
         <h2 className="self-start text-xs font-semibold tracking-wide text-neutral-400 uppercase dark:text-neutral-500">
           Practice
         </h2>
-        <ActivityGrid activities={practiceActivities} disabled={showPracticeGuide} />
+        <ActivityGrid activities={practiceActivities} disabled={disableHubActivities} />
       </div>
 
       <div className="flex w-full max-w-md flex-col items-center gap-2">
         <h2 className="self-start text-xs font-semibold tracking-wide text-neutral-400 uppercase dark:text-neutral-500">
           Optional
         </h2>
-        <ActivityGrid activities={optionalActivities} disabled={showPracticeGuide} />
+        <ActivityGrid activities={optionalActivities} disabled={disableHubActivities} />
       </div>
     </div>
   )

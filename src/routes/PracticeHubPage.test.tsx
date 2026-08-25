@@ -381,6 +381,9 @@ describe('PracticeHubPage 4-section layout (Issue #15)', () => {
   })
 
   it('contrast-pairs rows omit Kana Quiz everywhere but still show Optional Kana Typing', () => {
+    // This test inspects the normal post-guide link layout; the one-time
+    // Sokuon Guide behavior has dedicated coverage in SokuonGuide.test.tsx.
+    useProgressStore.getState().setHasCompletedSokuonGuide(true)
     const { container, queryByText } = renderRowHub('sokuon', 'sokuon-row')
     expect(queryByText('Kana Quiz')).toBeNull()
     expect(cardLabelsAfter(container, 'Practice')).toEqual(['Listening', 'Word Builder'])

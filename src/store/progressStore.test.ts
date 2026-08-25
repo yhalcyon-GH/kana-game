@@ -6,6 +6,43 @@ beforeEach(() => {
 })
 
 describe('progressStore', () => {
+  it('persists Sokuon Guide dismissal independently without changing learning progress', async () => {
+    useProgressStore.getState().setHasCompletedIntroGuide(true)
+    useProgressStore.getState().markRowTaught('a-row')
+    const before = useProgressStore.getState()
+    const progressBefore = {
+      taughtRowIds: before.taughtRowIds,
+      rowActivityCompletion: before.rowActivityCompletion,
+      characters: before.characters,
+      words: before.words,
+      lastStudied: before.lastStudied,
+      unlockedRowIds: before.unlockedRowIds,
+    }
+
+    useProgressStore.getState().setHasCompletedSokuonGuide(true)
+    const persisted = localStorage.getItem('kana-game-progress')
+    expect(persisted).not.toBeNull()
+
+    useProgressStore.getState().resetProgress()
+    localStorage.setItem('kana-game-progress', persisted!)
+    await useProgressStore.persist.rehydrate()
+
+    const after = useProgressStore.getState()
+    expect(after.hasCompletedSokuonGuide).toBe(true)
+    expect(after.hasCompletedIntroGuide).toBe(true)
+    expect(after.hasCompletedLearnTracingGuide).toBe(false)
+    expect(after.hasCompletedPracticeGuide).toBe(false)
+    expect(after.hasCompletedReviewGuide).toBe(false)
+    expect({
+      taughtRowIds: after.taughtRowIds,
+      rowActivityCompletion: after.rowActivityCompletion,
+      characters: after.characters,
+      words: after.words,
+      lastStudied: after.lastStudied,
+      unlockedRowIds: after.unlockedRowIds,
+    }).toEqual(progressBefore)
+  })
+
   it('persists Review Guide dismissal independently without changing learning or Review progress', async () => {
     useProgressStore.getState().markRowTaught('a-row')
     useProgressStore.getState().recordCharacterReviewResult('a', false)
