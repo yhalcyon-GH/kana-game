@@ -5,9 +5,17 @@ import { useTTS } from '../hooks/useTTS'
 import { useProgressStore } from '../store/progressStore'
 import { useGuideHighlight } from './GuideHighlightContext'
 
+type Props = {
+  // Overrides the default "mark completed" dismissal — used for a manual
+  // Settings replay (Issue #46), where dismissing must clear the ephemeral
+  // replay target instead of ever touching `hasCompletedReviewGuide`.
+  // Omitted for the normal automatic first-time appearance.
+  onDismiss?: () => void
+}
+
 // Appears only from PracticeSummary, so the first Review explanation never
 // interrupts a live question. The supplied art contains all visible copy.
-export function ReviewGuide() {
+export function ReviewGuide({ onDismiss }: Props = {}) {
   const setCompleted = useProgressStore((s) => s.setHasCompletedReviewGuide)
   const { setReviewGuideVisible } = useGuideHighlight()
   const { speak, stop } = useTTS()
@@ -22,6 +30,12 @@ export function ReviewGuide() {
     }
   }, [content, setReviewGuideVisible, speak, stop])
 
+  const handleDismiss = () => {
+    stop()
+    if (onDismiss) onDismiss()
+    else setCompleted(true)
+  }
+
   return (
     <aside data-testid="review-guide" className="flex w-full max-w-xl flex-col items-center gap-3" aria-label="Review guide">
       <img
@@ -31,7 +45,7 @@ export function ReviewGuide() {
       />
       <button
         type="button"
-        onClick={() => { stop(); setCompleted(true) }}
+        onClick={handleDismiss}
         className="w-full max-w-xs rounded-full bg-orange-500 px-6 py-3 font-semibold text-white hover:bg-orange-600"
       >
         {content.dismissLabel}

@@ -1,7 +1,14 @@
-import { CATEGORIES_BY_ID } from '../data/curriculum'
+import { useNavigate } from 'react-router-dom'
+import { KanaIntroExcerptGuide } from '../components/KanaIntroExcerptGuide'
+import { CATEGORIES_BY_ID, SOKUON_CATEGORY_ID } from '../data/curriculum'
+import { SOKUON_GUIDE } from '../data/sokuonGuide'
+import { DEFAULT_KANA_INTRO_EXCERPT_GUIDE_LOCALE, KANA_INTRO_EXCERPT_GUIDE_CONTENT } from '../data/kanaIntroExcerptGuideContent'
 import { RowMap } from '../components/RowMap'
 import { useCurriculum } from '../hooks/useCurriculum'
+import { buildGuideReplayHref, useGuideReplay } from '../hooks/useGuideReplay'
 import { useProgressStore } from '../store/progressStore'
+
+const SOKUON_TARGET_PATH = `/practice/${SOKUON_GUIDE.target.categoryId}/${SOKUON_GUIDE.target.rowId}`
 
 type Props = {
   title: string
@@ -11,13 +18,22 @@ type Props = {
   // (sokuon/chōon) into one page. See App.tsx for how each page
   // (hiragana/katakana/youon/other) instantiates this with a different list.
   categoryIds: string[]
+  // Only true for the dedicated /hiragana and /katakana pages (see App.tsx)
+  // — shows the always-available replay button for the two-step "kana
+  // represent sounds" / "Hiragana vs Katakana usage" Introduction excerpt
+  // (Issue #46). Not a new standalone Guide, so it's opt-in per page rather
+  // than inferred from `categoryIds`.
+  showKanaIntroExcerptGuide?: boolean
 }
 
 // One row-map page per top-level script group (see App.tsx's four routes)
 // — replaces the single HomePage that used to show every category's rows
 // stacked in one page. HomePage itself is now just a chooser linking here.
-export function CategoryRowsPage({ title, description, categoryIds }: Props) {
+export function CategoryRowsPage({ title, description, categoryIds, showKanaIntroExcerptGuide = false }: Props) {
   const { rows, isRowUnlocked, isRowTaught, globalRecommendedTarget } = useCurriculum()
+  const navigate = useNavigate()
+  const kanaIntroExcerptGuide = useGuideReplay('kanaIntro')
+  const excerptLocale = KANA_INTRO_EXCERPT_GUIDE_CONTENT[DEFAULT_KANA_INTRO_EXCERPT_GUIDE_LOCALE]
   const isRowMastered = useProgressStore((s) => s.isRowMastered)
   const isRowRecommended = (rowId: string) => globalRecommendedTarget?.rowId === rowId
   // Subscribed so mastery badges refresh even when only `characters`
@@ -49,33 +65,61 @@ export function CategoryRowsPage({ title, description, categoryIds }: Props) {
     <div className="flex flex-col items-center gap-6">
       <h1 className="text-3xl font-bold">{title}</h1>
       <p className="max-w-md text-center text-neutral-500 dark:text-neutral-400">{description}</p>
+      {showKanaIntroExcerptGuide && (
+        <button
+          type="button"
+          onClick={kanaIntroExcerptGuide.startReplay}
+          className="rounded-full border border-neutral-300 px-4 py-2 text-sm font-semibold hover:border-blue-400 dark:border-neutral-600"
+        >
+          {excerptLocale.buttonLabel}
+        </button>
+      )}
       {groups.length > 0 ? (
-        groups.map(({ category, rows: groupRows }) => (
-          <div key={category?.id} className="flex w-full flex-col items-center gap-4">
-            {/* displayLabel (○+っ, ○+ー, ...) instead of the real kanji
-                `label` (促音, 長音, ...) — the target audience may not read
-                ANY kana yet, let alone kanji, see ScriptCategory.displayLabel's
-                comment. No .font-kana here either way, since displayLabel's
-                '+'/'○' aren't in the hand-subsetted kana-only webfont. */}
-            {groups.length > 1 && <h2 className="text-xl font-semibold">{category?.displayLabel ?? category?.label}</h2>}
-            {category?.explanation && (
-              <p className="max-w-xl text-center text-sm text-neutral-500 dark:text-neutral-400">{category.explanation}</p>
-            )}
-            <RowMap
-              rows={groupRows}
-              isUnlocked={isRowUnlocked}
-              isTaught={isRowTaught}
-              isMastered={isRowMastered}
-              isRecommended={isRowRecommended}
-            />
-          </div>
-        ))
+        groups.map(({ category, rows: groupRows }) => {
+          // Sokuon's category `explanation` used to render unconditionally
+          // here; it's replaced by an always-available "View Sokuon Guide"
+          // button (Issue #46) that opens the existing Sokuon concept Guide
+          // on its real screen instead of duplicating its copy on this page.
+          // Chōon/Yōon keep their own `explanation` paragraph unchanged.
+          const isSokuonGroup = category?.id === SOKUON_CATEGORY_ID
+          return (
+            <div key={category?.id} className="flex w-full flex-col items-center gap-4">
+              {/* displayLabel (○+っ, ○+ー, ...) instead of the real kanji
+                  `label` (促音, 長音, ...) — the target audience may not read
+                  ANY kana yet, let alone kanji, see ScriptCategory.displayLabel's
+                  comment. No .font-kana here either way, since displayLabel's
+                  '+'/'○' aren't in the hand-subsetted kana-only webfont. */}
+              {groups.length > 1 && <h2 className="text-xl font-semibold">{category?.displayLabel ?? category?.label}</h2>}
+              {isSokuonGroup ? (
+                <button
+                  type="button"
+                  onClick={() => navigate(buildGuideReplayHref(SOKUON_TARGET_PATH, 'sokuon'))}
+                  className="rounded-full border border-neutral-300 px-4 py-2 text-sm font-semibold hover:border-blue-400 dark:border-neutral-600"
+                >
+                  View Sokuon Guide
+                </button>
+              ) : (
+                category?.explanation && (
+                  <p className="max-w-xl text-center text-sm text-neutral-500 dark:text-neutral-400">{category.explanation}</p>
+                )
+              )}
+              <RowMap
+                rows={groupRows}
+                isUnlocked={isRowUnlocked}
+                isTaught={isRowTaught}
+                isMastered={isRowMastered}
+                isRecommended={isRowRecommended}
+              />
+            </div>
+          )
+        })
       ) : (
         <p className="text-neutral-400 dark:text-neutral-500">まだ利用できるレッスンがありません。</p>
       )}
       {summaryRows.length > 0 && (
         <RowMap rows={summaryRows} isUnlocked={isRowUnlocked} isTaught={isRowTaught} isMastered={isRowMastered} />
       )}
+      {kanaIntroExcerptGuide.isReplaying && <KanaIntroExcerptGuide onDismiss={kanaIntroExcerptGuide.dismissReplay} />}
     </div>
   )
 }

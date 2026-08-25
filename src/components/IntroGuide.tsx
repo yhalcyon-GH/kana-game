@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { INTRO_GUIDE_STEPS } from '../data/introGuide'
 import { DEFAULT_INTRO_GUIDE_LOCALE, INTRO_GUIDE_CONTENT } from '../data/introGuideContent'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 import { useTTS } from '../hooks/useTTS'
 import { useProgressStore } from '../store/progressStore'
 
@@ -17,6 +18,7 @@ export function IntroGuide() {
   const setCompleted = useProgressStore((s) => s.setHasCompletedIntroGuide)
   const { speak, stop } = useTTS()
   const [stepIndex, setStepIndex] = useState(0)
+  const containerRef = useFocusTrap<HTMLDivElement>(!completed)
 
   // Settings' "View introduction again" flips `completed` back to false on
   // an instance that may already be past step 0 from a prior viewing —
@@ -53,7 +55,14 @@ export function IntroGuide() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-white p-4 dark:bg-neutral-900">
+    <div
+      ref={containerRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Tamamizu Guide"
+      tabIndex={-1}
+      className="fixed inset-0 z-50 flex flex-col bg-white p-4 dark:bg-neutral-900"
+    >
       <div className="flex w-full shrink-0 justify-end">
         <button
           type="button"
