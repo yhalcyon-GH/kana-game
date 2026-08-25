@@ -6,6 +6,7 @@ import { useProgressStore } from '../store/progressStore'
 import { IntroGuide } from './IntroGuide'
 import { LearnTracingGuide } from './LearnTracingGuide'
 import { PracticeGuide } from './PracticeGuide'
+import { ReviewGuide } from './ReviewGuide'
 
 const tts = vi.hoisted(() => ({ speak: vi.fn(), stop: vi.fn() }))
 
@@ -62,6 +63,7 @@ describe('guide narration cleanup (Issue #37)', () => {
   it.each([
     ['Learn / Tracing', <LearnTracingGuide key="learn-tracing-dismiss" />],
     ['Practice', <PracticeGuide key="practice-dismiss" />],
+    ['Review', <ReviewGuide key="review-dismiss" />],
   ])('stops %s Guide narration when Got it! is pressed', (_name, component) => {
     const { getByText } = render(component)
 
@@ -73,6 +75,7 @@ describe('guide narration cleanup (Issue #37)', () => {
   it.each([
     ['Learn / Tracing', <LearnTracingGuide key="learn-tracing-unmount" />],
     ['Practice', <PracticeGuide key="practice-unmount" />],
+    ['Review', <ReviewGuide key="review-unmount" />],
   ])('stops %s Guide narration when the guide unmounts', (_name, component) => {
     const guide = render(component)
     tts.stop.mockClear()

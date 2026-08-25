@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { CategoryIcon } from './CategoryIcon'
 import { SCRIPT_ENTRY_POINTS } from '../data/scriptEntryPoints'
 import { useCurriculum } from '../hooks/useCurriculum'
+import { useGuideHighlight } from './GuideHighlightContext'
 
 const LINKS = [
   { to: '/', label: 'Home', icon: '🏠' },
@@ -12,6 +13,7 @@ const LINKS = [
 
 export function NavBar() {
   const { reviewCount } = useCurriculum()
+  const { reviewGuideVisible } = useGuideHighlight()
 
   return (
     <div className="border-b border-neutral-200 dark:border-neutral-700">
@@ -22,8 +24,10 @@ export function NavBar() {
             to={link.to}
             end={link.to === '/'}
             className={({ isActive }) =>
-              `flex items-center gap-1.5 text-sm font-medium ${
-                isActive
+              `flex items-center gap-1.5 text-sm font-medium ${link.to === '/review' ? 'rounded-lg px-1.5 py-1' : ''} ${
+                reviewGuideVisible && link.to === '/review'
+                  ? 'text-orange-600 ring-2 ring-orange-400 ring-offset-2 dark:text-orange-400 dark:ring-orange-400'
+                  : isActive
                   ? 'text-blue-600 dark:text-blue-400'
                   : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
               }`
@@ -31,7 +35,11 @@ export function NavBar() {
           >
             {link.icon} {link.label}
             {link.to === '/review' && reviewCount > 0 && (
-              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-xs font-semibold text-white">
+              <span
+                className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs font-semibold text-white ${
+                  reviewGuideVisible ? 'bg-orange-500 ring-2 ring-orange-300' : 'bg-red-500'
+                }`}
+              >
                 {reviewCount}
               </span>
             )}
