@@ -4,10 +4,18 @@ import { DEFAULT_PRACTICE_GUIDE_LOCALE, PRACTICE_GUIDE_CONTENT } from '../data/p
 import { useTTS } from '../hooks/useTTS'
 import { useProgressStore } from '../store/progressStore'
 
+type Props = {
+  // Overrides the default "mark completed" dismissal — used for a manual
+  // Settings replay (Issue #46), where dismissing must clear the ephemeral
+  // replay target instead of ever touching `hasCompletedPracticeGuide`.
+  // Omitted for the normal automatic first-time appearance.
+  onDismiss?: () => void
+}
+
 // In-context explanation of the Practice Hub's existing Recommended area.
 // The supplied artwork contains the visible English copy, so no duplicate
 // application-side subtitle is rendered here.
-export function PracticeGuide() {
+export function PracticeGuide({ onDismiss }: Props = {}) {
   const setCompleted = useProgressStore((s) => s.setHasCompletedPracticeGuide)
   const { speak, stop } = useTTS()
   const content = PRACTICE_GUIDE_CONTENT[DEFAULT_PRACTICE_GUIDE_LOCALE]
@@ -18,6 +26,12 @@ export function PracticeGuide() {
     return stop
   }, [content, speak, stop])
 
+  const handleDismiss = () => {
+    stop()
+    if (onDismiss) onDismiss()
+    else setCompleted(true)
+  }
+
   return (
     <aside data-testid="practice-guide" className="flex w-full max-w-md flex-col items-center gap-3" aria-label="Practice guide">
       <img
@@ -27,7 +41,7 @@ export function PracticeGuide() {
       />
       <button
         type="button"
-        onClick={() => { stop(); setCompleted(true) }}
+        onClick={handleDismiss}
         className="w-full max-w-xs rounded-full bg-blue-600 px-6 py-3 font-semibold text-white hover:bg-blue-700"
       >
         {content.dismissLabel}

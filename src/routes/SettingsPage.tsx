@@ -1,3 +1,6 @@
+import { useNavigate } from 'react-router-dom'
+import { GUIDE_CATALOG } from '../data/guideCatalog'
+import { buildGuideReplayHref } from '../hooks/useGuideReplay'
 import { useProgressStore } from '../store/progressStore'
 
 // Volume sliders go 0-2 rather than 0-1: 1.0 (the raw, unattenuated clip
@@ -20,6 +23,7 @@ export function SettingsPage() {
   const alwaysShowRomajiHints = useProgressStore((s) => s.alwaysShowRomajiHints)
   const setAlwaysShowRomajiHints = useProgressStore((s) => s.setAlwaysShowRomajiHints)
   const setHasCompletedIntroGuide = useProgressStore((s) => s.setHasCompletedIntroGuide)
+  const navigate = useNavigate()
 
   return (
     <div className="flex w-full max-w-sm flex-col items-center gap-6">
@@ -55,14 +59,25 @@ export function SettingsPage() {
         />
       </label>
 
-      <button
-        type="button"
-        onClick={() => setHasCompletedIntroGuide(false)}
-        className="flex w-full items-center justify-between rounded-xl border border-neutral-300 bg-white px-4 py-3 text-left hover:border-blue-400 dark:border-neutral-600 dark:bg-neutral-800"
-      >
-        <span>View introduction again</span>
-        <span className="text-blue-600 dark:text-blue-400">›</span>
-      </button>
+      <div className="flex w-full flex-col gap-2">
+        <h2 className="self-start text-xs font-semibold tracking-wide text-neutral-400 uppercase dark:text-neutral-500">
+          Guides
+        </h2>
+        {GUIDE_CATALOG.map((guide) => (
+          <button
+            key={guide.id}
+            type="button"
+            onClick={() => {
+              if (guide.kind === 'introFlag') setHasCompletedIntroGuide(false)
+              else navigate(buildGuideReplayHref(guide.path, guide.id))
+            }}
+            className="flex w-full items-center justify-between rounded-xl border border-neutral-300 bg-white px-4 py-3 text-left hover:border-blue-400 dark:border-neutral-600 dark:bg-neutral-800"
+          >
+            <span>{guide.label}</span>
+            <span className="text-blue-600 dark:text-blue-400">›</span>
+          </button>
+        ))}
+      </div>
 
       <div className="flex w-full flex-col gap-4 rounded-xl border border-neutral-300 bg-white px-4 py-3 dark:border-neutral-600 dark:bg-neutral-800">
         <label className="flex flex-col gap-1">

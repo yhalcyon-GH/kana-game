@@ -20,11 +20,21 @@ function renderReviewHub() {
   )
 }
 
-function renderRowHub(categoryId: string, rowId: string) {
+function renderRowHub(categoryId: string, rowId: string, search = '') {
   return render(
-    <MemoryRouter initialEntries={[`/practice/${categoryId}/${rowId}`]}>
+    <MemoryRouter initialEntries={[`/practice/${categoryId}/${rowId}${search}`]}>
       <Routes>
         <Route path="/practice/:categoryId/:rowId" element={<PracticeHubPage />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
+
+function renderReviewHubAt(search: string) {
+  return render(
+    <MemoryRouter initialEntries={[`/practice/review${search}`]}>
+      <Routes>
+        <Route path="/practice/review" element={<PracticeHubPage rowIdOverride={REVIEW_SCOPE_ID} />} />
       </Routes>
     </MemoryRouter>,
   )
@@ -442,5 +452,133 @@ describe('PracticeHubPage Global Recommended Target (Issue #25)', () => {
     useProgressStore.getState().markRowTaught('a-row')
     const after = renderRowHub('hiragana', 'a-row')
     expect(after.queryByText('⭐ Recommended')).not.toBeNull()
+  })
+})
+
+// Issue #46: every in-context Guide can be manually replayed on its real
+// screen via a `?guide=<id>` ephemeral target, even once its own completed
+// flag is already true, without that dismissal ever writing the flag back.
+describe('Manual Guide replay (Issue #46)', () => {
+  function completeEveryGuide() {
+    useProgressStore.getState().setHasCompletedIntroGuide(true)
+    useProgressStore.getState().setHasCompletedLearnTracingGuide(true)
+    useProgressStore.getState().setHasCompletedPracticeGuide(true)
+    useProgressStore.getState().setHasCompletedSokuonGuide(true)
+    useProgressStore.getState().setHasCompletedReviewGuide(true)
+  }
+
+  it('Learn / Tracing replays on hiragana/a-row after its flag is already true, and dismiss leaves the flag true', () => {
+    completeEveryGuide()
+    const hub = renderRowHub('hiragana', 'a-row', '?guide=learnTracing')
+    expect(hub.getByTestId('learn-tracing-guide')).toBeInTheDocument()
+    expect(hub.queryByTestId('practice-guide')).toBeNull()
+
+    fireEvent.click(hub.getByText('Got it!'))
+
+    expect(hub.queryByTestId('learn-tracing-guide')).toBeNull()
+    expect(useProgressStore.getState().hasCompletedLearnTracingGuide).toBe(true)
+  })
+
+  it('Practice replays on hiragana/a-row after its flag is already true, bypassing its normal preconditions, and dismiss leaves the flag true', () => {
+    // Practice's automatic trigger normally also needs Learn/Tracing done
+    // and the row's intro completed — a manual replay must still work even
+    // when neither is true.
+    useProgressStore.getState().setHasCompletedPracticeGuide(true)
+    const hub = renderRowHub('hiragana', 'a-row', '?guide=practice')
+    expect(hub.getByTestId('practice-guide')).toBeInTheDocument()
+    expect(hub.queryByTestId('learn-tracing-guide')).toBeNull()
+
+    fireEvent.click(hub.getByText('Got it!'))
+
+    expect(hub.queryByTestId('practice-guide')).toBeNull()
+    expect(useProgressStore.getState().hasCompletedPracticeGuide).toBe(true)
+    expect(useProgressStore.getState().hasCompletedLearnTracingGuide).toBe(false)
+  })
+
+  it('Sokuon replays on sokuon/sokuon-row after its flag is already true, and dismiss leaves the flag true', () => {
+    completeEveryGuide()
+    const hub = renderRowHub('sokuon', 'sokuon-row', '?guide=sokuon')
+    expect(hub.getByTestId('sokuon-guide')).toBeInTheDocument()
+
+    fireEvent.click(hub.getByText('Got it!'))
+
+    expect(hub.queryByTestId('sokuon-guide')).toBeNull()
+    expect(useProgressStore.getState().hasCompletedSokuonGuide).toBe(true)
+  })
+
+  it('Review replays on the Review hub after its flag is already true, even with nothing due, and dismiss leaves the flag true', () => {
+    completeEveryGuide()
+    // Something must already be taught for the Review scope to be "ready"
+    // at all (see isScopeReady) — this is the "reviewed everything" case,
+    // not "never studied anything yet".
+    useProgressStore.getState().markRowTaught('a-row')
+    const hub = renderReviewHubAt('?guide=review')
+    expect(hub.getByTestId('review-guide')).toBeInTheDocument()
+    expect(hub.queryByText('Review complete!')).toBeNull()
+
+    fireEvent.click(hub.getByText('Got it!'))
+
+    expect(hub.queryByTestId('review-guide')).toBeNull()
+    expect(useProgressStore.getState().hasCompletedReviewGuide).toBe(true)
+  })
+
+  it("each replay only ever shows the selected Guide, and never mutates any Guide's completed flag while the flag started false", () => {
+    // The realistic case for a fresh learner: replaying Practice from
+    // Settings before Learn/Tracing was ever completed must not silently
+    // mark either Guide as done via the replay's own dismissal.
+    const hub = renderRowHub('hiragana', 'a-row', '?guide=practice')
+
+    expect(hub.getByTestId('practice-guide')).toBeInTheDocument()
+    expect(hub.queryByTestId('learn-tracing-guide')).toBeNull()
+
+    fireEvent.click(hub.getByText('Got it!'))
+
+    const state = useProgressStore.getState()
+    expect(state.hasCompletedPracticeGuide).toBe(false)
+    expect(state.hasCompletedLearnTracingGuide).toBe(false)
+  })
+
+  it('dismissing a replay removes the replay target and leaves the row taught/mastery/unlock state untouched', () => {
+    useProgressStore.getState().markRowTaught('a-row')
+    const before = useProgressStore.getState()
+    const progressBefore = {
+      taughtRowIds: before.taughtRowIds,
+      rowActivityCompletion: before.rowActivityCompletion,
+      characters: before.characters,
+      words: before.words,
+      unlockedRowIds: before.unlockedRowIds,
+      lastStudied: before.lastStudied,
+    }
+    completeEveryGuide()
+    const hub = renderRowHub('hiragana', 'a-row', '?guide=learnTracing')
+
+    fireEvent.click(hub.getByText('Got it!'))
+
+    const after = useProgressStore.getState()
+    expect({
+      taughtRowIds: after.taughtRowIds,
+      rowActivityCompletion: after.rowActivityCompletion,
+      characters: after.characters,
+      words: after.words,
+      unlockedRowIds: after.unlockedRowIds,
+      lastStudied: after.lastStudied,
+    }).toEqual(progressBefore)
+  })
+
+  it('an invalid replay id fails safely and shows the normal page', () => {
+    completeEveryGuide()
+    const hub = renderRowHub('hiragana', 'a-row', '?guide=not-a-real-guide')
+
+    expect(hub.queryByTestId('learn-tracing-guide')).toBeNull()
+    expect(hub.queryByTestId('practice-guide')).toBeNull()
+    expect(hub.getByRole('link', { name: /Learn/ })).toBeInTheDocument()
+  })
+
+  it('reloading with a valid replay URL shows that Guide again', () => {
+    completeEveryGuide()
+    // "Reload" here just means mounting fresh at a URL that already has the
+    // replay param — there's no separate persistence to lose.
+    const hub = renderRowHub('sokuon', 'sokuon-row', '?guide=sokuon')
+    expect(hub.getByTestId('sokuon-guide')).toBeInTheDocument()
   })
 })

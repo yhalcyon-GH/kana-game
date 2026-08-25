@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useFocusTrap } from '../hooks/useFocusTrap'
 import { useTTS } from '../hooks/useTTS'
 
 type ConceptGuideProps = {
@@ -26,6 +27,7 @@ export function ConceptGuide({
   onDismiss,
 }: ConceptGuideProps) {
   const { speak, stop } = useTTS()
+  const containerRef = useFocusTrap<HTMLDivElement>(true)
 
   useEffect(() => {
     speak(audioKey, subtitle, lang)
@@ -34,9 +36,11 @@ export function ConceptGuide({
 
   return (
     <div
+      ref={containerRef}
       role="dialog"
       aria-modal="true"
       aria-label={imageAlt}
+      tabIndex={-1}
       data-testid={testId}
       className="fixed inset-0 z-50 flex flex-col bg-white p-4 dark:bg-neutral-900"
     >

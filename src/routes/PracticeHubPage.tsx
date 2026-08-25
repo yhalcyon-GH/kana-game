@@ -7,12 +7,14 @@ import { ConceptGuide } from '../components/ConceptGuide'
 import { PracticeGuide } from '../components/PracticeGuide'
 import { RecommendedFrame, RecommendedLabel } from '../components/Recommended'
 import { ReviewEmptyState } from '../components/ReviewEmptyState'
+import { ReviewGuide } from '../components/ReviewGuide'
 import { CATEGORIES_BY_ID, getNextRowId, ROWS_BY_ID } from '../data/curriculum'
 import { LEARN_TRACING_GUIDE } from '../data/learnTracingGuide'
 import { PRACTICE_GUIDE } from '../data/practiceGuide'
 import { SOKUON_GUIDE } from '../data/sokuonGuide'
 import { DEFAULT_SOKUON_GUIDE_LOCALE, SOKUON_GUIDE_CONTENT } from '../data/sokuonGuideContent'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../hooks/useCurriculum'
+import { useActiveGuideReplayId, useGuideReplay } from '../hooks/useGuideReplay'
 import { getRecommendedActivity } from '../lib/recommendedPath'
 import { useProgressStore } from '../store/progressStore'
 
@@ -100,6 +102,17 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   const hasCompletedSokuonGuide = useProgressStore((s) => s.hasCompletedSokuonGuide)
   const setHasCompletedSokuonGuide = useProgressStore((s) => s.setHasCompletedSokuonGuide)
 
+  // Manual Guide replay (Issue #46) — a `?guide=<id>` ephemeral target that
+  // forces exactly one Guide to display on its real screen, regardless of
+  // any completed flag or other precondition, without ever writing that
+  // flag. Each hook instance only matches its own id, so at most one of
+  // these is ever true at once.
+  const { isReplaying: isLearnTracingReplay, dismissReplay: dismissLearnTracingReplay } = useGuideReplay('learnTracing')
+  const { isReplaying: isPracticeReplay, dismissReplay: dismissPracticeReplay } = useGuideReplay('practice')
+  const { isReplaying: isSokuonReplay, dismissReplay: dismissSokuonReplay } = useGuideReplay('sokuon')
+  const { isReplaying: isReviewReplay, dismissReplay: dismissReviewReplay } = useGuideReplay('review')
+  const activeGuideReplayId = useActiveGuideReplayId()
+
   useEffect(() => {
     // Review with nothing taught yet gets an explanatory message below
     // instead of a silent bounce to Home — from the learner's side, a tap
@@ -131,8 +144,10 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   // either pool (see useCurriculum's weakCharacterIds/weakWords) is a
   // genuine success state, not "nothing to show" — there's no fallback to
   // mixing in already-mastered material any more, so the game cards below
-  // would otherwise link to empty sessions.
-  if (isReview && reviewCount === 0) {
+  // would otherwise link to empty sessions. A manual Review Guide replay
+  // (Issue #46) still needs the real Review screen even with zero items
+  // due, so it deliberately skips this empty-state short-circuit.
+  if (isReview && reviewCount === 0 && !isReviewReplay) {
     return <ReviewEmptyState />
   }
 
@@ -157,11 +172,27 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   // shape (every character/word in the category at once, no per-character
   // markRowTaught) doesn't fit this per-row completion model.
   const showRecommendedPath = !isReview && !isSummary
+  const isLearnTracingTargetRoute =
+    !isReview && categoryId === LEARN_TRACING_GUIDE.target.categoryId && rowId === LEARN_TRACING_GUIDE.target.rowId
+  const isPracticeTargetRoute =
+    !isReview && categoryId === PRACTICE_GUIDE.target.categoryId && rowId === PRACTICE_GUIDE.target.rowId
+  const isSokuonTargetRoute =
+    !isReview && categoryId === SOKUON_GUIDE.target.categoryId && rowId === SOKUON_GUIDE.target.rowId
+  // A `?guide=` value only counts as "active here" when it names one of
+  // THIS route's own Guides (e.g. hiragana/a-row hosts both Learn/Tracing
+  // and Practice) — that's what lets a manual replay suppress this route's
+  // other automatic Guide instead of showing both at once, while an
+  // unrelated or invalid id leaves every automatic condition exactly as it
+  // would be with no `?guide=` at all (Issue #46's "invalid replay ids fail
+  // safely and show the normal page" / "never shows two Guides
+  // simultaneously").
+  const isKnownReplayHere =
+    activeGuideReplayId !== null &&
+    ((isLearnTracingTargetRoute && activeGuideReplayId === 'learnTracing') ||
+      (isPracticeTargetRoute && activeGuideReplayId === 'practice') ||
+      (isSokuonTargetRoute && activeGuideReplayId === 'sokuon'))
   const showLearnTracingGuide =
-    !hasCompletedLearnTracingGuide &&
-    !isReview &&
-    categoryId === LEARN_TRACING_GUIDE.target.categoryId &&
-    rowId === LEARN_TRACING_GUIDE.target.rowId
+    isLearnTracingTargetRoute && (isLearnTracingReplay || (!isKnownReplayHere && !hasCompletedLearnTracingGuide))
   const tracingCompleted = showRecommendedPath && rowActivityCompletion[rowId]?.tracing === true
   const kanaQuizCompleted = showRecommendedPath && rowActivityCompletion[rowId]?.kanaQuiz === true
   const listeningCompleted = showRecommendedPath && rowActivityCompletion[rowId]?.listening === true
@@ -171,18 +202,12 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   // never locks out the other (both stay freely accessible below either way).
   const introCompleted = showRecommendedPath && (isRowTaught(rowId) || tracingCompleted)
   const showPracticeGuide =
-    !hasCompletedPracticeGuide &&
-    hasCompletedLearnTracingGuide &&
-    !isReview &&
-    categoryId === PRACTICE_GUIDE.target.categoryId &&
-    rowId === PRACTICE_GUIDE.target.rowId &&
-    introCompleted
+    isPracticeTargetRoute &&
+    (isPracticeReplay ||
+      (!isKnownReplayHere && !hasCompletedPracticeGuide && hasCompletedLearnTracingGuide && introCompleted))
   const showSokuonGuide =
-    !hasCompletedSokuonGuide &&
-    hasCompletedIntroGuide &&
-    !isReview &&
-    categoryId === SOKUON_GUIDE.target.categoryId &&
-    rowId === SOKUON_GUIDE.target.rowId
+    isSokuonTargetRoute && (isSokuonReplay || (!isKnownReplayHere && !hasCompletedSokuonGuide && hasCompletedIntroGuide))
+  const showReviewGuide = isReview && isReviewReplay
   const disableHubActivities = showPracticeGuide || showSokuonGuide
   const recommended = showRecommendedPath
     ? getRecommendedActivity({
@@ -272,6 +297,8 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
         </p>
       )}
 
+      {showReviewGuide && <ReviewGuide onDismiss={dismissReviewReplay} />}
+
       {showRecommendedPath && recommended === 'done' && (
         <div className="flex flex-col items-center gap-2">
           <p className="text-sm font-semibold text-neutral-500 dark:text-neutral-400">Lesson complete</p>
@@ -300,7 +327,7 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
         </div>
       )}
 
-      {showPracticeGuide && <PracticeGuide />}
+      {showPracticeGuide && <PracticeGuide onDismiss={isPracticeReplay ? dismissPracticeReplay : undefined} />}
 
       {showSokuonGuide && (
         <ConceptGuide
@@ -308,7 +335,7 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
           imageAsset={SOKUON_GUIDE.slideAsset}
           imageAlt="Tamamizu explains the small tsu"
           {...SOKUON_GUIDE_CONTENT[DEFAULT_SOKUON_GUIDE_LOCALE]}
-          onDismiss={() => setHasCompletedSokuonGuide(true)}
+          onDismiss={isSokuonReplay ? dismissSokuonReplay : () => setHasCompletedSokuonGuide(true)}
         />
       )}
 
@@ -319,7 +346,9 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
         <ActivityGrid activities={learnActivities} disabled={disableHubActivities} />
       </div>
 
-      {showLearnTracingGuide && <LearnTracingGuide />}
+      {showLearnTracingGuide && (
+        <LearnTracingGuide onDismiss={isLearnTracingReplay ? dismissLearnTracingReplay : undefined} />
+      )}
 
       <div className="flex w-full max-w-md flex-col items-center gap-2">
         <h2 className="self-start text-xs font-semibold tracking-wide text-neutral-400 uppercase dark:text-neutral-500">
