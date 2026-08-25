@@ -33,6 +33,17 @@ describe('IntroGuide (Issue #29/#31)', () => {
     expect(container.querySelectorAll('img')).toHaveLength(1)
   })
 
+  it('shows the kana-usage slide and exact locale subtitle as step 4', () => {
+    const { container, getByText } = render(<IntroGuide />)
+    for (let i = 0; i < 3; i++) fireEvent.click(getByText(locale.nextLabel))
+
+    expect(getByText(locale.steps['intro.kanaUsage'].subtitle)).toBeInTheDocument()
+    expect(container.querySelector('img')).toHaveAttribute(
+      'src',
+      expect.stringContaining('guide/slide-kana-usage.webp'),
+    )
+  })
+
   it('Next advances through every step in order, ending on "Let\'s go!"', () => {
     const { getByText } = render(<IntroGuide />)
     const subtitleText = () => document.querySelector('p')?.textContent

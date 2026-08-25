@@ -13,6 +13,7 @@ export type IntroGuideStepId =
   | 'intro.welcome'
   | 'intro.writingSystems'
   | 'intro.kanaSounds'
+  | 'intro.kanaUsage'
   | 'intro.kanjiMeaning'
   | 'intro.startHiragana'
 
@@ -26,6 +27,7 @@ export const INTRO_GUIDE_STEPS: IntroGuideStep[] = [
   { id: 'intro.welcome', slideAsset: 'guide/slide-welcome.webp' },
   { id: 'intro.writingSystems', slideAsset: 'guide/slide-writing-systems.webp' },
   { id: 'intro.kanaSounds', slideAsset: 'guide/slide-kana-sounds.webp' },
+  { id: 'intro.kanaUsage', slideAsset: 'guide/slide-kana-usage.webp' },
   { id: 'intro.kanjiMeaning', slideAsset: 'guide/slide-kanji-meaning.webp' },
   { id: 'intro.startHiragana', slideAsset: 'guide/slide-start-hiragana.webp' },
 ]
