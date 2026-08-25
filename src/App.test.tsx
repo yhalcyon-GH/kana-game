@@ -48,6 +48,14 @@ describe('routing', () => {
     expect(screen.getByText(/Round 1/)).toBeInTheDocument()
   })
 
+  it('does not interrupt an active question with the Review Guide even when Review has a target', () => {
+    useProgressStore.getState().markRowTaught('a-row')
+    useProgressStore.getState().recordCharacterReviewResult('a', false)
+    renderAt('/practice/hiragana/a-row/kana-quiz')
+    expect(screen.getByText(/Round 1/)).toBeInTheDocument()
+    expect(screen.queryByTestId('review-guide')).toBeNull()
+  })
+
   it('/practice/hiragana/a-row/tracing renders the Tracing page', () => {
     renderAt('/practice/hiragana/a-row/tracing')
     expect(screen.getByText('Trace each character')).toBeInTheDocument()

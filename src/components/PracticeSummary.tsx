@@ -1,7 +1,10 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { PARENTHESIZED_CHARACTER_IDS } from '../data/characters'
+import { useCurriculum } from '../hooks/useCurriculum'
+import { useProgressStore } from '../store/progressStore'
 import { Mascot, type MascotMood } from './Mascot'
 import { ProgressBadge } from './ProgressBadge'
+import { ReviewGuide } from './ReviewGuide'
 
 type Stat = { label: string; value: string | number }
 type MistakeEntry = { id: string; kana: string; romaji: string }
@@ -41,6 +44,11 @@ export function PracticeSummary({
   comment,
   continueAction,
 }: Props) {
+  const { reviewCount } = useCurriculum()
+  const hasCompletedReviewGuide = useProgressStore((s) => s.hasCompletedReviewGuide)
+  const { pathname } = useLocation()
+  const showReviewGuide = !hasCompletedReviewGuide && reviewCount > 0 && !pathname.startsWith('/practice/review')
+
   return (
     <div className="flex flex-col items-center gap-6">
       <h2 className="text-2xl font-bold">{title}</h2>
@@ -67,6 +75,8 @@ export function PracticeSummary({
           </ul>
         </div>
       )}
+
+      {showReviewGuide && <ReviewGuide />}
 
       <div className="flex flex-wrap justify-center gap-3">
         {continueAction && (
