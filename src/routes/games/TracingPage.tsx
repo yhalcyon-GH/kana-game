@@ -31,11 +31,23 @@ const WORD_CHAR_SIZE = 130 // CSS pixels per character, word phase
 export function TracingPage() {
   const { categoryId, rowId } = useParams<{ categoryId: string; rowId: string }>()
   const navigate = useNavigate()
-  const { isScopeReady, getScopeQuizCharacterIds, getScopeWords } = useCurriculum()
+  const { isScopeReady, getScopeQuizCharacterIds, getScopeWords, isSimilarLettersRow } = useCurriculum()
   const { speak, supported } = useTTS()
   const markRowActivityCompleted = useProgressStore((s) => s.markRowActivityCompleted)
   const isReview = rowId === REVIEW_SCOPE_ID
   const isContrastPairs = CATEGORIES_BY_ID[categoryId ?? '']?.learnStyle === 'contrast-pairs'
+  // Similar Letters (see GojuonRow.isSimilarLetters) is characters-only here:
+  // "Tracing/Stroke: 100% Similar Letters targets" means exactly
+  // row.characterIds (already what charPool below resolves to via
+  // getScopeQuizCharacterIds), never a word phase — getScopeWords' Similar
+  // Letters branch returns the WHOLE same-script normal word pool (see its
+  // comment), which would leak tons of irrelevant normal-word tracing into
+  // what's supposed to be a curated look-alike lesson. So `words` is forced
+  // empty below instead of calling getScopeWords at all for this row, which
+  // also makes advance() skip straight to finishing after the last
+  // character (its "move to words phase" branch is guarded on
+  // wordIds.length > 0).
+  const isSimilarLetters = isSimilarLettersRow(rowId)
   // ⭐ summary rows (see GojuonRow.isSummary) have no Tracing card on their
   // hub — a category-wide word list isn't a meaningful "trace this row's
   // words" phase — but guard direct navigation too, same as Kana Quiz does
@@ -56,7 +68,7 @@ export function TracingPage() {
   }, [rowId, categoryId, isSummary, isScopeReady, navigate])
 
   const charPool = useMemo(() => getScopeQuizCharacterIds(rowId), [rowId, getScopeQuizCharacterIds])
-  const words = useMemo(() => getScopeWords(rowId), [rowId, getScopeWords])
+  const words = useMemo(() => (isSimilarLetters ? [] : getScopeWords(rowId)), [rowId, getScopeWords, isSimilarLetters])
   const wordIds = useMemo(() => words.map((w) => w.id), [words])
   const wordsById = useMemo(() => Object.fromEntries(words.map((w) => [w.id, w])), [words])
 
@@ -232,8 +244,8 @@ export function TracingPage() {
   // completing one never locks out the other (see PracticeHubPage's
   // "Choose how to learn" step and lib/recommendedPath.ts).
   useEffect(() => {
-    if (finished && !isReview && rowId) markRowActivityCompleted(rowId, 'tracing')
-  }, [finished, isReview, rowId, markRowActivityCompleted])
+    if (finished && !isReview && !isSimilarLetters && rowId) markRowActivityCompleted(rowId, 'tracing')
+  }, [finished, isReview, isSimilarLetters, rowId, markRowActivityCompleted])
 
   if (!rowId || !isScopeReady(rowId)) return null
   // Contrast-pairs categories may have zero new characters of their own
@@ -249,10 +261,12 @@ export function TracingPage() {
         stats={
           isContrastPairs
             ? [{ label: 'Words traced', value: wordIds.length }]
-            : [
-                { label: 'Characters traced', value: charPool.length },
-                { label: 'Words traced', value: wordIds.length },
-              ]
+            : isSimilarLetters
+              ? [{ label: 'Characters traced', value: charPool.length }]
+              : [
+                  { label: 'Characters traced', value: charPool.length },
+                  { label: 'Words traced', value: wordIds.length },
+                ]
         }
         backHref={isReview ? '/practice/review' : `/practice/${categoryId}/${rowId}`}
         onRetry={startSession}
