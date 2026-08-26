@@ -221,25 +221,170 @@ export function pickSimilarLettersDistractorCharIds(
   return [...shuffleWith(mates, rng), ...shuffleWith(otherGroupChars, rng), ...shuffleWith(normal, rng)].slice(0, count)
 }
 
-// Listening distractor words — same three-tier priority as above, applied
-// via each candidate word's characters: (1) a word containing a same-group
-// mate of one of the target word's own characters, (2) a word containing
-// some OTHER confusion-group character (not the target's own group), (3)
-// any remaining normal word.
-export function pickSimilarLettersDistractorWords<T extends { id: string; characterIds: string[] }>(
+// ---------------------------------------------------------------------------
+// Similar Letters Listening — spelling-choice generation (replaces the old
+// real-word-distractor approach for Similar Letters ONLY; normal Listening
+// still uses pickSimilarLettersDistractorWords/pickDistractorWords). See the
+// PR issue: the learner hears the real target word and picks its correct
+// KANA SPELLING out of 4 generated variants (1 correct + 3 fabricated wrong
+// spellings). Wrong spellings are DISPLAY-ONLY strings — never given a fake
+// id/AnchorWord, never persisted anywhere.
+// ---------------------------------------------------------------------------
+
+// UI-only shape for one Listening spelling choice. `key` is an ephemeral
+// React list key, NOT a word id — never treat it as one, and never feed it
+// to recordWordReviewResult/progressStore/Review/SRS.
+export type SpellingChoice = { key: string; kana: string; isCorrect: boolean }
+
+type SpellingPosition = { charId: string; kana: string }
+
+function toPositions(characterIds: readonly string[], kanaById: (id: string) => string): SpellingPosition[] {
+  return characterIds.map((charId) => ({ charId, kana: kanaById(charId) }))
+}
+
+function renderSpelling(positions: readonly SpellingPosition[]): string {
+  return positions.map((p) => p.kana).join('')
+}
+
+function withSubstitutions(
+  positions: readonly SpellingPosition[],
+  indices: readonly number[],
+  newCharIds: readonly string[],
+  kanaById: (id: string) => string,
+): SpellingPosition[] {
+  const copy = positions.map((p) => ({ ...p }))
+  indices.forEach((idx, i) => {
+    copy[idx] = { charId: newCharIds[i], kana: kanaById(newCharIds[i]) }
+  })
+  return copy
+}
+
+// All subsets of `indices` with size >= 2, capped at `cap` results — used
+// only for tier 2 (multi-character same-group substitution). Bounded: real
+// words are short (a handful of characters), and this only enumerates
+// subsets of the characters that actually have a confusion-group mate, which
+// is normally a small fraction of the word.
+function subsetsOfSizeAtLeastTwo(indices: readonly number[], cap: number): number[][] {
+  const n = Math.min(indices.length, 16) // hard safety cap — never explored in practice
+  const result: number[][] = []
+  for (let mask = 1; mask < 1 << n && result.length < cap; mask++) {
+    let popcount = 0
+    for (let i = 0; i < n; i++) if (mask & (1 << i)) popcount++
+    if (popcount < 2) continue
+    const combo: number[] = []
+    for (let i = 0; i < n; i++) if (mask & (1 << i)) combo.push(indices[i])
+    result.push(combo)
+  }
+  return result
+}
+
+// Builds the 4 Listening choices (1 correct spelling + `count - 1` fabricated
+// wrong spellings) for `targetWord`, per the priority order:
+//   1. single-character same-confusion-group substitution
+//   2. multi-character same-confusion-group substitution
+//   3. single-character substitution with a different Similar Letters
+//      character (any `groups` member) NOT in the substituted char's own group
+//   4. random same-script substitution from `sameScriptPool` (already
+//      filtered by the caller to exclude ー/っ/ッ/placeholder characters)
+// Falls through tiers only when the current tier can't produce enough unique
+// candidates. Never crosses scripts (sameScriptPool is caller-supplied and
+// assumed same-script). Every choice has the exact same character COUNT as
+// the correct spelling (position-substitution only, no insert/delete).
+export function buildSimilarLettersSpellingChoices<T extends { id: string; characterIds: string[] }>(
   targetWord: T,
   groups: readonly string[][],
-  candidates: readonly T[],
+  kanaById: (charId: string) => string,
+  sameScriptPool: readonly string[],
   count: number,
   rng: Rng = Math.random,
-): T[] {
-  const others = candidates.filter((w) => w.id !== targetWord.id)
-  const mateIds = new Set(targetWord.characterIds.flatMap((id) => getGroupMates(groups, id)))
-  const allGroupIds = new Set(groups.flat())
-  const isMate = (w: T) => w.characterIds.some((id) => mateIds.has(id))
-  const isOtherGroup = (w: T) => !isMate(w) && w.characterIds.some((id) => allGroupIds.has(id))
-  const preferred = shuffleWith(others.filter(isMate), rng)
-  const otherGroup = shuffleWith(others.filter(isOtherGroup), rng)
-  const rest = shuffleWith(others.filter((w) => !isMate(w) && !isOtherGroup(w)), rng)
-  return [...preferred, ...otherGroup, ...rest].slice(0, count)
+): SpellingChoice[] {
+  const positions = toPositions(targetWord.characterIds, kanaById)
+  const correctKana = renderSpelling(positions)
+  const wrongCount = Math.max(0, count - 1)
+
+  const wrongSpellings = new Set<string>()
+  const wrong: string[] = []
+  const tryAdd = (spelling: string) => {
+    if (wrong.length >= wrongCount) return
+    if (spelling === correctKana) return
+    if (wrongSpellings.has(spelling)) return
+    wrongSpellings.add(spelling)
+    wrong.push(spelling)
+  }
+
+  const groupPositions = positions
+    .map((p, idx) => ({ idx, mates: getGroupMates(groups, p.charId) }))
+    .filter((p) => p.mates.length > 0)
+
+  // Tier 1: single-character same-group substitution.
+  const tier1 = shuffleWith(
+    groupPositions.flatMap((gp) => gp.mates.map((mate) => ({ idx: gp.idx, mate }))),
+    rng,
+  )
+  for (const cand of tier1) {
+    if (wrong.length >= wrongCount) break
+    tryAdd(renderSpelling(withSubstitutions(positions, [cand.idx], [cand.mate], kanaById)))
+  }
+
+  // Tier 2: multi-character (2+) same-group substitution.
+  if (wrong.length < wrongCount && groupPositions.length >= 2) {
+    const combos = shuffleWith(
+      subsetsOfSizeAtLeastTwo(
+        groupPositions.map((gp) => gp.idx),
+        20,
+      ),
+      rng,
+    )
+    for (const combo of combos) {
+      if (wrong.length >= wrongCount) break
+      const newIds = combo.map((idx) => pickUniform(getGroupMates(groups, positions[idx].charId), rng))
+      tryAdd(renderSpelling(withSubstitutions(positions, combo, newIds, kanaById)))
+    }
+  }
+
+  // Tier 3: other-Similar-Letters substitution (a different confusion-group
+  // character, not from the substituted position's own group).
+  if (wrong.length < wrongCount) {
+    const allGroupIds = [...new Set(groups.flat())]
+    const positionOrder = shuffleWith(
+      positions.map((_, idx) => idx),
+      rng,
+    )
+    for (const idx of positionOrder) {
+      if (wrong.length >= wrongCount) break
+      const ownGroupIds = new Set([positions[idx].charId, ...getGroupMates(groups, positions[idx].charId)])
+      const otherGroupChars = shuffleWith(
+        allGroupIds.filter((id) => !ownGroupIds.has(id)),
+        rng,
+      )
+      for (const otherId of otherGroupChars) {
+        if (wrong.length >= wrongCount) break
+        tryAdd(renderSpelling(withSubstitutions(positions, [idx], [otherId], kanaById)))
+      }
+    }
+  }
+
+  // Tier 4: random same-script substitution — final fallback.
+  if (wrong.length < wrongCount) {
+    const positionOrder = shuffleWith(
+      positions.map((_, idx) => idx),
+      rng,
+    )
+    for (const idx of positionOrder) {
+      if (wrong.length >= wrongCount) break
+      const candidates = shuffleWith(
+        sameScriptPool.filter((id) => id !== positions[idx].charId),
+        rng,
+      )
+      for (const candidateId of candidates) {
+        if (wrong.length >= wrongCount) break
+        tryAdd(renderSpelling(withSubstitutions(positions, [idx], [candidateId], kanaById)))
+      }
+    }
+  }
+
+  const wrongChoices: SpellingChoice[] = wrong.map((kana, i) => ({ key: `wrong-${i}`, kana, isCorrect: false }))
+  const correctChoice: SpellingChoice = { key: 'correct', kana: correctKana, isCorrect: true }
+  return shuffleWith([correctChoice, ...wrongChoices], rng)
 }
+

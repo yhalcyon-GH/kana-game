@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildGroupBalancedPicks,
+  buildSimilarLettersSpellingChoices,
   buildSimilarLettersTargetQueue,
   buildSimilarLettersWordQueue,
   getGroupMates,
   pickSimilarLettersDistractorCharIds,
-  pickSimilarLettersDistractorWords,
   type Rng,
 } from './similarLettersSelection'
 
@@ -284,30 +284,113 @@ describe('pickSimilarLettersDistractorCharIds', () => {
   })
 })
 
-describe('pickSimilarLettersDistractorWords', () => {
-  type W = { id: string; characterIds: string[] }
-  const target: W = { id: 'w-shi', characterIds: ['shi'] }
-  const candidates: W[] = [
-    { id: 'w-tsu', characterIds: ['tsu'] },
-    { id: 'w-su', characterIds: ['su'] },
-    { id: 'w-other', characterIds: ['unrelated'] },
+describe('buildSimilarLettersSpellingChoices', () => {
+  // おこのみやき — o/ko/no/mi/ya/ki — confusion groups involved: お/あ (o/a),
+  // か/や (ka/ya), き/さ/ち (ki/sa/chi). Uses the real hiragana groups (not
+  // the toy GROUPS fixture above) since the point is exercising real
+  // same-group substitution candidates for this exact word.
+  const HIRAGANA_GROUPS = [
+    ['a', 'o'],
+    ['ki', 'sa', 'chi'],
+    ['nu', 'me'],
+    ['ne', 'wa', 're'],
+    ['ha', 'ho', 'ma'],
+    ['ka', 'ya'],
+    ['ru', 'ro'],
   ]
+  const KANA_BY_ID: Record<string, string> = {
+    a: 'あ',
+    o: 'お',
+    ko: 'こ',
+    no: 'の',
+    mi: 'み',
+    ya: 'や',
+    ki: 'き',
+    sa: 'さ',
+    chi: 'ち',
+    ka: 'か',
+  }
+  const kanaById = (id: string) => KANA_BY_ID[id] ?? ''
+  const okonomiyaki = { id: 'fixture-okonomiyaki', characterIds: ['o', 'ko', 'no', 'mi', 'ya', 'ki'] }
+  const hiraganaPool = Object.keys(KANA_BY_ID)
 
-  it('prefers a candidate word containing a same-group character', () => {
-    for (let seed = 0; seed < 20; seed++) {
-      const [first] = pickSimilarLettersDistractorWords(target, GROUPS, candidates, 1, seededRng(seed))
-      expect(first.id, `seed ${seed}`).toBe('w-tsu')
+  it('generates plausible same-group substitutions (a, b: correct spelling in fixture data)', () => {
+    const seenKana = new Set<string>()
+    for (let seed = 0; seed < 30; seed++) {
+      const choices = buildSimilarLettersSpellingChoices(okonomiyaki, HIRAGANA_GROUPS, kanaById, hiraganaPool, 4, seededRng(seed))
+      choices.forEach((c) => seenKana.add(c.kana))
     }
+    // Same-group substitutions should be preferred over random fallback —
+    // at least one of the classic same-group variants should appear.
+    const plausible = ['あこのみやき', 'おこのみかき', 'おこのみやさ', 'おこのみやち']
+    expect(plausible.some((p) => seenKana.has(p))).toBe(true)
   })
 
-  it('prioritizes: same-group word, then other-confusion-group word, then normal word', () => {
-    const withNormal: W[] = [...candidates, { id: 'w-ko', characterIds: ['ko'] }]
-    for (let seed = 0; seed < 10; seed++) {
-      const picks = pickSimilarLettersDistractorWords(target, GROUPS, withNormal, 2, seededRng(seed))
-      expect(picks.map((w) => w.id), `seed ${seed}`).toContain('w-tsu')
-      // The second slot must be an other-group word (w-su/w-ko), not the
-      // unrelated normal word, while both other-group options are present.
-      expect(picks.map((w) => w.id)).not.toContain('w-other')
+  it('produces exactly 1 correct + 3 unique wrong = 4 unique choices (b, c, d, f)', () => {
+    const choices = buildSimilarLettersSpellingChoices(okonomiyaki, HIRAGANA_GROUPS, kanaById, hiraganaPool, 4, seededRng(1))
+    expect(choices.length).toBe(4)
+    expect(choices.filter((c) => c.isCorrect).length).toBe(1)
+    const correctKana = choices.find((c) => c.isCorrect)!.kana
+    expect(correctKana).toBe('おこのみやき')
+    const wrong = choices.filter((c) => !c.isCorrect)
+    expect(wrong.length).toBe(3)
+    wrong.forEach((w) => expect(w.kana).not.toBe(correctKana))
+    const allKana = choices.map((c) => c.kana)
+    expect(new Set(allKana).size).toBe(allKana.length)
+  })
+
+  it('every choice has the same kana length as the correct spelling (e)', () => {
+    const choices = buildSimilarLettersSpellingChoices(okonomiyaki, HIRAGANA_GROUPS, kanaById, hiraganaPool, 4, seededRng(2))
+    choices.forEach((c) => expect(c.kana.length).toBe('おこのみやき'.length))
+  })
+
+  it('falls back to same-script random substitution when same-group candidates are insufficient (g)', () => {
+    // A word with no confusion-group characters at all forces straight to
+    // tier 3/4 (no group mates available for any position).
+    const plainWord = { id: 'fixture-plain', characterIds: ['no', 'mi'] }
+    const choices = buildSimilarLettersSpellingChoices(plainWord, HIRAGANA_GROUPS, kanaById, hiraganaPool, 4, seededRng(3))
+    expect(choices.length).toBe(4)
+    expect(choices.filter((c) => c.isCorrect).length).toBe(1)
+  })
+
+  it('never substitutes in a katakana character for a hiragana word (h)', () => {
+    const choices = buildSimilarLettersSpellingChoices(okonomiyaki, HIRAGANA_GROUPS, kanaById, hiraganaPool, 4, seededRng(4))
+    const katakanaRange = /[゠-ヿ]/
+    choices.forEach((c) => expect(katakanaRange.test(c.kana)).toBe(false))
+  })
+
+  it('never substitutes in a hiragana character for a katakana word (i)', () => {
+    const KATAKANA_KANA_BY_ID: Record<string, string> = {
+      'katakana-a': 'ア',
+      'katakana-ma': 'マ',
+      'katakana-ta': 'タ',
+      'katakana-ku': 'ク',
     }
+    const katakanaGroups = [['katakana-a', 'katakana-ma'], ['katakana-ta', 'katakana-ku']]
+    const katakanaWord = { id: 'fixture-katakana', characterIds: ['katakana-a', 'katakana-ta'] }
+    const choices = buildSimilarLettersSpellingChoices(
+      katakanaWord,
+      katakanaGroups,
+      (id) => KATAKANA_KANA_BY_ID[id] ?? '',
+      Object.keys(KATAKANA_KANA_BY_ID),
+      4,
+      seededRng(5),
+    )
+    const hiraganaRange = /[぀-ゟ]/
+    choices.forEach((c) => expect(hiraganaRange.test(c.kana)).toBe(false))
+  })
+
+  it('creates no fake AnchorWord/id object — choices are plain {key, kana, isCorrect} (j)', () => {
+    const choices = buildSimilarLettersSpellingChoices(okonomiyaki, HIRAGANA_GROUPS, kanaById, hiraganaPool, 4, seededRng(6))
+    choices.forEach((c) => {
+      expect(Object.keys(c).sort()).toEqual(['isCorrect', 'kana', 'key'])
+      expect(c.key).not.toBe(okonomiyaki.id)
+    })
+  })
+
+  it('is deterministic for a given seed', () => {
+    const a = buildSimilarLettersSpellingChoices(okonomiyaki, HIRAGANA_GROUPS, kanaById, hiraganaPool, 4, seededRng(77))
+    const b = buildSimilarLettersSpellingChoices(okonomiyaki, HIRAGANA_GROUPS, kanaById, hiraganaPool, 4, seededRng(77))
+    expect(a).toEqual(b)
   })
 })

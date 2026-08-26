@@ -308,33 +308,20 @@ describe('LearnPage: Similar Letters', () => {
     expect(document.querySelector('img')).toBeNull()
   })
 
-  it('shows a decorative red-pen SVG overlay (visual only, no caption text) for each character', () => {
+  it('renders only the plain CharacterCard for each character in the group — no drawn-on annotation overlay', () => {
     renderLearn('/learn/hiragana/hiragana-similar-letters')
-    // Group 1 is あ・お — see similarLetterAnnotations.ts. No prose caption
-    // should be rendered anywhere — the marks are the only explanation.
-    expect(screen.queryByText(/closes into itself/)).toBeNull()
-    expect(screen.queryByText(/tail stroke/)).toBeNull()
+    // Group 1 is あ・お. No decorative SVG overlay of any kind should exist
+    // anymore — Learn just shows the live CharacterCards side by side.
+    expect(document.querySelector('svg')).toBeNull()
+    expect(document.querySelector('marker')).toBeNull()
+    expect(document.querySelector('circle')).toBeNull()
+    expect(document.querySelector('line[x1]')).toBeNull()
 
-    const svgs = document.querySelectorAll('svg[aria-hidden="true"]')
-    expect(svgs.length).toBeGreaterThan(0)
-    svgs.forEach((svg) => {
-      expect(svg.getAttribute('class')).toMatch(/pointer-events-none/)
-    })
-    // Each character's overlay actually draws a mark (circle/line/arrow).
-    expect(document.querySelectorAll('svg[aria-hidden="true"] circle, svg[aria-hidden="true"] line').length).toBeGreaterThan(0)
-    // The real CharacterCard glyph markup is still used underneath, not a
-    // custom re-rendered glyph.
     const glyphA = screen.getByText(CHARACTERS_BY_ID.a.kana)
+    const glyphO = screen.getByText(CHARACTERS_BY_ID.o.kana)
     expect(glyphA.className).toMatch(/font-kana/)
-  })
-
-  it('gives each card a unique arrowhead marker id so multiple cards on one page do not collide', () => {
-    renderLearn('/learn/hiragana/hiragana-similar-letters')
-    const markers = Array.from(document.querySelectorAll('marker'))
-    expect(markers.length).toBeGreaterThan(1)
-    const ids = markers.map((m) => m.id)
-    expect(new Set(ids).size).toBe(ids.length)
-    ids.forEach((id) => expect(id).toMatch(/^similar-letter-arrowhead-/))
+    expect(glyphO.className).toMatch(/font-kana/)
+    expect(document.querySelector('img')).toBeNull()
   })
 
   it('Next steps through every group in order, and the final group shows "Done"', () => {

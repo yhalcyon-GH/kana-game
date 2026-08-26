@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { AnnotatedKanaCard } from '../components/AnnotatedKanaCard'
 import { CharacterCard } from '../components/CharacterCard'
 import { CharacterGrid } from '../components/CharacterGrid'
 import { WordCard } from '../components/WordCard'
@@ -171,7 +170,7 @@ export function LearnPage() {
         </p>
         <div className="flex flex-wrap items-start justify-center gap-4">
           {currentGroupChars.map((c) => (
-            <AnnotatedKanaCard key={c.id} char={c} />
+            <CharacterCard key={c.id} char={c} />
           ))}
         </div>
         <div className="flex gap-3">

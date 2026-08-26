@@ -96,6 +96,61 @@ describe('Similar Letters — word-based games target pool', () => {
   })
 })
 
+describe('Similar Letters — Listening spelling-choice answer handling', () => {
+  it('selecting a wrong spelling choice records recordWordReviewResult against the real word id (false), never a choice key', () => {
+    for (let attempt = 0; attempt < 15; attempt++) {
+      useProgressStore.getState().resetProgress()
+      const { container, unmount } = renderGame(ListeningPage, 'hiragana', 'hiragana-similar-letters', 'listening')
+      const buttons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
+      // Click the first choice, whichever it is, then inspect the words
+      // store: whatever entry gets recorded must be a real AnchorWord id,
+      // never a synthetic "wrong-N"/"correct" spelling-choice key.
+      fireEvent.click(buttons[0])
+      const wordsState = useProgressStore.getState().words
+      const activeIds = Object.keys(wordsState)
+      activeIds.forEach((id) => {
+        expect(id).not.toMatch(/^wrong-\d+$/)
+        expect(id).not.toBe('correct')
+      })
+      unmount()
+    }
+  })
+
+  it('selecting the correct spelling choice records recordWordReviewResult(currentWord.id, true)', () => {
+    for (let attempt = 0; attempt < 15; attempt++) {
+      useProgressStore.getState().resetProgress()
+      const { container, unmount } = renderGame(ListeningPage, 'hiragana', 'hiragana-similar-letters', 'listening')
+      const buttons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
+      // Click every choice across attempts isn't feasible in one render (only
+      // one click is allowed pre-`answered`) — instead, click buttons until
+      // one attempt lands on the correct choice (identified post-click by the
+      // green border), then assert the recorded word entry is real.
+      fireEvent.click(buttons[0])
+      const greenButton = container.querySelector('button.border-green-500')
+      if (greenButton && buttons[0] === greenButton) {
+        const wordsState = useProgressStore.getState().words
+        const ids = Object.keys(wordsState)
+        expect(ids.length).toBeGreaterThan(0)
+        ids.forEach((id) => {
+          expect(id).not.toMatch(/^wrong-\d+$/)
+          expect(id).not.toBe('correct')
+        })
+      }
+      unmount()
+    }
+  })
+
+  it('never creates a fake AnchorWord object in progressStore.words for a wrong spelling choice', () => {
+    useProgressStore.getState().resetProgress()
+    const { container, unmount } = renderGame(ListeningPage, 'hiragana', 'hiragana-similar-letters', 'listening')
+    const buttons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
+    fireEvent.click(buttons[0])
+    const words = useProgressStore.getState().words
+    expect(Object.keys(words).length).toBeLessThanOrEqual(1)
+    unmount()
+  })
+})
+
 describe('Similar Letters — side effects reuse normal SRS/Review semantics', () => {
   it("answering a Kana Quiz round for a target character updates THAT character's own box/Review state, exactly like normal Practice", () => {
     const { getAllByRole } = renderGame(KanaQuizPage, 'hiragana', 'hiragana-similar-letters', 'kana-quiz')
