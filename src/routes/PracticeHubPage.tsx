@@ -15,6 +15,8 @@ import { SOKUON_GUIDE } from '../data/sokuonGuide'
 import { DEFAULT_SOKUON_GUIDE_LOCALE, SOKUON_GUIDE_CONTENT } from '../data/sokuonGuideContent'
 import { CHOUON_GUIDE } from '../data/chouonGuide'
 import { ChouonGuide } from '../components/ChouonGuide'
+import { YOUON_GUIDE } from '../data/youonGuide'
+import { YouonGuide } from '../components/YouonGuide'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../hooks/useCurriculum'
 import { useActiveGuideReplayId, useGuideReplay } from '../hooks/useGuideReplay'
 import { getRecommendedActivity } from '../lib/recommendedPath'
@@ -105,6 +107,8 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   const setHasCompletedSokuonGuide = useProgressStore((s) => s.setHasCompletedSokuonGuide)
   const hasCompletedChouonGuide = useProgressStore((s) => s.hasCompletedChouonGuide)
   const setHasCompletedChouonGuide = useProgressStore((s) => s.setHasCompletedChouonGuide)
+  const hasCompletedYouonGuide = useProgressStore((s) => s.hasCompletedYouonGuide)
+  const setHasCompletedYouonGuide = useProgressStore((s) => s.setHasCompletedYouonGuide)
 
   // Manual Guide replay (Issue #46) — a `?guide=<id>` ephemeral target that
   // forces exactly one Guide to display on its real screen, regardless of
@@ -115,6 +119,7 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   const { isReplaying: isPracticeReplay, dismissReplay: dismissPracticeReplay } = useGuideReplay('practice')
   const { isReplaying: isSokuonReplay, dismissReplay: dismissSokuonReplay } = useGuideReplay('sokuon')
   const { isReplaying: isChouonReplay, dismissReplay: dismissChouonReplay } = useGuideReplay('chouon')
+  const { isReplaying: isYouonReplay, dismissReplay: dismissYouonReplay } = useGuideReplay('youon')
   const { isReplaying: isReviewReplay, dismissReplay: dismissReviewReplay } = useGuideReplay('review')
   const activeGuideReplayId = useActiveGuideReplayId()
 
@@ -185,6 +190,8 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
     !isReview && categoryId === SOKUON_GUIDE.target.categoryId && rowId === SOKUON_GUIDE.target.rowId
   const isChouonTargetRoute =
     !isReview && categoryId === CHOUON_GUIDE.target.categoryId && rowId === CHOUON_GUIDE.target.rowId
+  const isYouonTargetRoute =
+    !isReview && categoryId === YOUON_GUIDE.target.categoryId && rowId === YOUON_GUIDE.target.rowId
   // A `?guide=` value only counts as "active here" when it names one of
   // THIS route's own Guides (e.g. hiragana/a-row hosts both Learn/Tracing
   // and Practice) — that's what lets a manual replay suppress this route's
@@ -198,7 +205,8 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
     ((isLearnTracingTargetRoute && activeGuideReplayId === 'learnTracing') ||
       (isPracticeTargetRoute && activeGuideReplayId === 'practice') ||
       (isSokuonTargetRoute && activeGuideReplayId === 'sokuon') ||
-      (isChouonTargetRoute && activeGuideReplayId === 'chouon'))
+      (isChouonTargetRoute && activeGuideReplayId === 'chouon') ||
+      (isYouonTargetRoute && activeGuideReplayId === 'youon'))
   const showLearnTracingGuide =
     isLearnTracingTargetRoute && (isLearnTracingReplay || (!isKnownReplayHere && !hasCompletedLearnTracingGuide))
   const tracingCompleted = showRecommendedPath && rowActivityCompletion[rowId]?.tracing === true
@@ -217,8 +225,10 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
     isSokuonTargetRoute && (isSokuonReplay || (!isKnownReplayHere && !hasCompletedSokuonGuide && hasCompletedIntroGuide))
   const showChouonGuide =
     isChouonTargetRoute && (isChouonReplay || (!isKnownReplayHere && !hasCompletedChouonGuide && hasCompletedIntroGuide))
+  const showYouonGuide =
+    isYouonTargetRoute && (isYouonReplay || (!isKnownReplayHere && !hasCompletedYouonGuide && hasCompletedIntroGuide))
   const showReviewGuide = isReview && isReviewReplay
-  const disableHubActivities = showPracticeGuide || showSokuonGuide || showChouonGuide
+  const disableHubActivities = showPracticeGuide || showSokuonGuide || showChouonGuide || showYouonGuide
   const recommended = showRecommendedPath
     ? getRecommendedActivity({
         learnStyle: isContrastPairs ? 'contrast-pairs' : 'character-set',
@@ -351,6 +361,10 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
 
       {showChouonGuide && (
         <ChouonGuide onDismiss={isChouonReplay ? dismissChouonReplay : () => setHasCompletedChouonGuide(true)} />
+      )}
+
+      {showYouonGuide && (
+        <YouonGuide onDismiss={isYouonReplay ? dismissYouonReplay : () => setHasCompletedYouonGuide(true)} />
       )}
 
       <div className="flex w-full max-w-md flex-col items-center gap-2">

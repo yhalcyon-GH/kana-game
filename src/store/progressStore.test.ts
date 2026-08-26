@@ -640,6 +640,7 @@ describe('progressStore', () => {
       expect(state.hasCompletedChouonGuide).toBe(true)
       expect(state.hasCompletedIntroGuide).toBe(false)
       expect(state.hasCompletedSokuonGuide).toBe(false)
+      expect(state.hasCompletedYouonGuide).toBe(false)
       expect(state.taughtRowIds).toEqual([])
       expect(state.rowActivityCompletion).toEqual({})
       expect(state.characters).toEqual({})
@@ -647,15 +648,54 @@ describe('progressStore', () => {
     })
   })
 
-  describe('v15 -> v16 hasCompletedChouonGuide migration', () => {
-    it('defaults an existing user to false (shown the next time they open the first Chōon lesson)', async () => {
+  describe('hasCompletedYouonGuide (Issue #50)', () => {
+    it('defaults to false, persists across reload, and does not affect other Guide flags or learning progress', async () => {
+      expect(useProgressStore.getState().hasCompletedYouonGuide).toBe(false)
+
+      useProgressStore.getState().setHasCompletedYouonGuide(true)
+      await useProgressStore.persist.rehydrate()
+
+      const state = useProgressStore.getState()
+      expect(state.hasCompletedYouonGuide).toBe(true)
+      expect(state.hasCompletedIntroGuide).toBe(false)
+      expect(state.hasCompletedSokuonGuide).toBe(false)
+      expect(state.hasCompletedChouonGuide).toBe(false)
+      expect(state.taughtRowIds).toEqual([])
+      expect(state.rowActivityCompletion).toEqual({})
+      expect(state.characters).toEqual({})
+      expect(state.words).toEqual({})
+    })
+  })
+
+  describe('v15 -> current migration', () => {
+    it('defaults hasCompletedYouonGuide and hasCompletedChouonGuide to false, preserving existing progress', async () => {
       localStorage.setItem('kana-game-progress', JSON.stringify({ version: 15, state: { taughtRowIds: ['a-row'] } }))
 
       await useProgressStore.persist.rehydrate()
 
       const state = useProgressStore.getState()
+      expect(state.hasCompletedYouonGuide).toBe(false)
       expect(state.hasCompletedChouonGuide).toBe(false)
       expect(state.taughtRowIds).toEqual(['a-row'])
+    })
+  })
+
+  describe('v16 -> v17 hasCompletedChouonGuide migration', () => {
+    it('preserves an existing hasCompletedYouonGuide: true and taughtRowIds while defaulting hasCompletedChouonGuide to false', async () => {
+      localStorage.setItem(
+        'kana-game-progress',
+        JSON.stringify({
+          version: 16,
+          state: { taughtRowIds: ['a-row', 'youon-ka-row'], hasCompletedYouonGuide: true },
+        }),
+      )
+
+      await useProgressStore.persist.rehydrate()
+
+      const state = useProgressStore.getState()
+      expect(state.hasCompletedYouonGuide).toBe(true)
+      expect(state.hasCompletedChouonGuide).toBe(false)
+      expect(state.taughtRowIds).toEqual(['a-row', 'youon-ka-row'])
     })
   })
 
