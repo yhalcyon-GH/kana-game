@@ -26,6 +26,14 @@ type Options = {
   // answer — see WordBuilderPage, where one hit adjusts both the character
   // AND word review scores at once, making this trigger almost every round.
   sessionKey: string | undefined
+  // Overrides ids/weight-based sampling entirely with a caller-built queue —
+  // used only by Similar Letters mode (see lib/similarLettersSelection.ts),
+  // whose 80/20 group-balanced target selection doesn't fit the normal
+  // weighted-by-box sampling this hook otherwise does. Called fresh on every
+  // startSession invocation (not memoized here), so Retry/onFinish->Retry
+  // still reshuffles exactly like the normal ids/weight path does. Every
+  // other caller omits this and behaves byte-for-byte as before.
+  buildQueue?: () => string[]
 }
 
 // Shared round/queue/score state machine for the four graded mini-games
@@ -35,19 +43,19 @@ type Options = {
 // were answered correctly out of the total. Each page still owns its own
 // per-round setup (choices, tray tiles, etc.) via currentId/roundIndex —
 // this hook only owns the queue itself.
-export function useGameSession({ ids, weight, onFinish, resetSession, rounds = GAME_SESSION_ROUNDS, sessionKey }: Options) {
+export function useGameSession({ ids, weight, onFinish, resetSession, rounds = GAME_SESSION_ROUNDS, sessionKey, buildQueue }: Options) {
   const [queue, setQueue] = useState<string[]>([])
   const [roundIndex, setRoundIndex] = useState(0)
   const [correctCount, setCorrectCount] = useState(0)
   const [finished, setFinished] = useState(false)
 
   const startSession = useCallback(() => {
-    setQueue(buildWeightedQueue(ids, weight, Math.min(rounds, ids.length * 3)))
+    setQueue(buildQueue ? buildQueue() : buildWeightedQueue(ids, weight, Math.min(rounds, ids.length * 3)))
     setRoundIndex(0)
     setCorrectCount(0)
     setFinished(false)
     resetSession()
-  }, [ids, weight, rounds, resetSession])
+  }, [ids, weight, rounds, resetSession, buildQueue])
 
   useEffect(() => {
     if (ids.length > 0) startSession()

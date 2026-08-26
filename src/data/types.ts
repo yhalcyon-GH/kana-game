@@ -100,6 +100,17 @@ export type GojuonRow = {
   // fewer characters), which keep the original single flashcard -> recap
   // flow unchanged.
   learnBatches?: string[][]
+  // Marks a synthetic "Similar Letters" row (one per script, hiragana and
+  // katakana) — a supplementary comparison lesson over a curated set of
+  // visually-confusable characters, grouped into `learnBatches` (each batch
+  // IS one confusion group, e.g. ['shi','tsu']) rather than covering a
+  // normal five-line gojūon row. Deliberately NOT part of the main
+  // curriculum progression: excluded from the Global Recommended Target
+  // (see lib/recommendedPath.ts) and from Practice Hub's Recommended Path
+  // chrome (see PracticeHubPage's `showRecommendedPath`), and never marked
+  // taught via markRowTaught. See RowMap's 🔍 badge and useCurriculum's
+  // isSimilarLettersRow/getConfusionGroups.
+  isSimilarLetters?: boolean
 }
 
 export type AnchorWord = {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { AnnotatedKanaCard } from '../components/AnnotatedKanaCard'
 import { CharacterCard } from '../components/CharacterCard'
 import { CharacterGrid } from '../components/CharacterGrid'
 import { WordCard } from '../components/WordCard'
@@ -46,6 +47,10 @@ export function LearnPage() {
   const [batchIndex, setBatchIndex] = useState(0)
   const [charIndexInBatch, setCharIndexInBatch] = useState(0)
   const [summaryStep, setSummaryStep] = useState<'chars' | 'words'>('chars')
+  // Similar Letters (see GojuonRow.isSimilarLetters): one confusion group
+  // ('learnBatches' entry — see similarLetters.ts) per page, stepped
+  // through independently of the normal step-A machinery below.
+  const [groupIndex, setGroupIndex] = useState(0)
   // Set only by the step-A jump-ahead links ("See them all"/"See the
   // words"), which can skip straight to the full recap/words from ANY
   // batch/character — remembers where the learner actually was so Back
@@ -79,7 +84,7 @@ export function LearnPage() {
     // of the step-A single-flashcard view below, but `step` still defaults
     // to 'A' underneath it — without this check, the first character would
     // auto-play on a page that's meant to be tap-to-play only.
-    if (step !== 'A' || characters.length === 0 || row?.isSummary || !char) return
+    if (step !== 'A' || characters.length === 0 || row?.isSummary || row?.isSimilarLetters || !char) return
     // ー/っ/ッ have no sound in isolation — see CharacterCard's comment.
     if (char.romaji !== '-') speak(`characters/${getCharacterAudioId(char.id)}`, char.kana)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -134,6 +139,55 @@ export function LearnPage() {
             className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
           >
             Done
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (row.isSimilarLetters) {
+    const groups = row.learnBatches ?? []
+    const isLastGroup = groupIndex === groups.length - 1
+    const currentGroup = groups[groupIndex] ?? []
+    const currentGroupChars = currentGroup.map((id) => CHARACTERS_BY_ID[id])
+
+    const handlePrevGroup = () => {
+      if (groupIndex > 0) setGroupIndex((i) => i - 1)
+      else navigate(`/practice/${categoryId}/${rowId}`)
+    }
+    // Similar Letters is a supplementary comparison lesson, not a main
+    // curriculum step — finishing it never calls markRowTaught (see
+    // GojuonRow.isSimilarLetters), it just returns to the hub.
+    const handleNextGroup = () => {
+      if (!isLastGroup) setGroupIndex((i) => i + 1)
+      else navigate(`/practice/${categoryId}/${rowId}`)
+    }
+
+    return (
+      <div className="flex flex-col items-center gap-6">
+        <h1 className="text-2xl font-bold">🔍 {row.englishLabel ?? row.label}</h1>
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">
+          Group {groupIndex + 1} / {groups.length}
+        </p>
+        <div className="flex flex-wrap items-start justify-center gap-4">
+          {currentGroupChars.map((c) => (
+            <AnnotatedKanaCard key={c.id} char={c} />
+          ))}
+        </div>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={handlePrevGroup}
+            className="rounded-full border border-neutral-300 px-6 py-2 font-semibold hover:border-blue-400 dark:border-neutral-600"
+          >
+            Back
+          </button>
+          <button
+            type="button"
+            onClick={handleNextGroup}
+            className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
+          >
+            {isLastGroup ? 'Done' : 'Next'}
           </button>
         </div>
       </div>

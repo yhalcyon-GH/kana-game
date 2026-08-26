@@ -18,6 +18,7 @@ import { useGameSession } from '../../hooks/useGameSession'
 import { useTTS } from '../../hooks/useTTS'
 import { pickDistractorWords } from '../../lib/distractorPicker'
 import { shuffle } from '../../lib/shuffle'
+import { buildSimilarLettersWordQueue, pickSimilarLettersDistractorWords } from '../../lib/similarLettersSelection'
 import { useProgressStore } from '../../store/progressStore'
 
 type Props = {
@@ -29,7 +30,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
   const params = useParams<{ categoryId?: string; rowId?: string }>()
   const rowId = rowIdOverride ?? params.rowId
   const navigate = useNavigate()
-  const { isScopeReady, getScopeWords, getScopeRounds } = useCurriculum()
+  const { isScopeReady, getScopeWords, getScopeRounds, isSimilarLettersRow, getConfusionGroups } = useCurriculum()
   const recordResult = useProgressStore((s) => s.recordResult)
   const recordWordReviewResult = useProgressStore((s) => s.recordWordReviewResult)
   const markRowActivityCompleted = useProgressStore((s) => s.markRowActivityCompleted)
@@ -73,8 +74,23 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
     [wordsById, characters],
   )
 
+  // Similar Letters mode (see similarLettersSelection.ts): 80% of a
+  // session's target words contain a confusion-group character (group-
+  // balanced across every group that has at least one matching word), 20%
+  // are a normal word from the same script — instead of the normal
+  // weighted-by-box word sampling.
+  const isSimilarLetters = isSimilarLettersRow(rowId)
+  const confusionGroups = useMemo(() => getConfusionGroups(rowId), [rowId, getConfusionGroups])
+  const buildQueue = useMemo(() => {
+    if (!isSimilarLetters) return undefined
+    const targetIds = new Set(confusionGroups.flat())
+    const targetWords = scopeWords.filter((w) => w.characterIds.some((id) => targetIds.has(id)))
+    const normalWords = scopeWords.filter((w) => !w.characterIds.some((id) => targetIds.has(id)))
+    return () => buildSimilarLettersWordQueue(confusionGroups, targetWords, normalWords, rounds)
+  }, [isSimilarLetters, confusionGroups, scopeWords, rounds])
+
   const { queue, roundIndex, correctCount, setCorrectCount, finished, startMistakeReview, advance } =
-    useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession, rounds, sessionKey })
+    useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession, rounds, sessionKey, buildQueue })
   const { schedule: scheduleAdvance } = useDelayedAction()
 
   const [choices, setChoices] = useState<AnchorWord[]>([])
@@ -88,7 +104,9 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
 
   useEffect(() => {
     if (!currentWord) return
-    const distractors = pickDistractorWords(currentWord, scopeWords, 3)
+    const distractors = isSimilarLetters
+      ? pickSimilarLettersDistractorWords(currentWord, confusionGroups, scopeWords, 3)
+      : pickDistractorWords(currentWord, scopeWords, 3)
     setChoices(shuffle([currentWord, ...distractors]))
     setSelectedId(null)
     setAnswered(false)

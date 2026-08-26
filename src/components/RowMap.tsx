@@ -24,16 +24,19 @@ export function RowMap({ rows, isUnlocked, isTaught, isMastered, isRecommended }
 
         const card = (
           <div
-            className={`flex h-full flex-col items-center justify-center gap-2 rounded-xl text-center transition-colors ${row.displayLines ? 'p-3' : 'p-4'} ${row.isSummary ? 'border-2' : 'border'} ${
+            className={`flex h-full flex-col items-center justify-center gap-2 rounded-xl text-center transition-colors ${row.displayLines ? 'p-3' : 'p-4'} ${row.isSummary || row.isSimilarLetters ? 'border-2' : 'border'} ${
               unlocked
                 ? row.isSummary
                   ? 'border-neutral-300 bg-white group-hover:border-red-400 group-hover:bg-red-50 group-active:bg-red-100 dark:border-neutral-600 dark:bg-neutral-800 dark:group-hover:border-red-500 dark:group-hover:bg-red-950/30 dark:group-active:bg-red-950/50'
-                  : 'border-neutral-300 bg-white group-hover:border-blue-400 group-hover:bg-blue-50 group-active:bg-blue-100 dark:border-neutral-600 dark:bg-neutral-800 dark:group-hover:border-blue-500 dark:group-hover:bg-blue-950/30 dark:group-active:bg-blue-950/50'
+                  : row.isSimilarLetters
+                    ? 'border-neutral-300 bg-white group-hover:border-purple-400 group-hover:bg-purple-50 group-active:bg-purple-100 dark:border-neutral-600 dark:bg-neutral-800 dark:group-hover:border-purple-500 dark:group-hover:bg-purple-950/30 dark:group-active:bg-purple-950/50'
+                    : 'border-neutral-300 bg-white group-hover:border-blue-400 group-hover:bg-blue-50 group-active:bg-blue-100 dark:border-neutral-600 dark:bg-neutral-800 dark:group-hover:border-blue-500 dark:group-hover:bg-blue-950/30 dark:group-active:bg-blue-950/50'
                 : 'border-neutral-200 bg-neutral-50 opacity-50 dark:border-neutral-800 dark:bg-neutral-900'
             }`}
           >
             <span className={`font-kana font-semibold ${row.displayLines ? 'text-sm sm:text-lg' : 'text-lg'}`}>
               {row.isSummary && '⭐ '}
+              {row.isSimilarLetters && '🔍 '}
               {row.displayLines
                 ? row.displayLines.map((line) => (
                     <span key={line} className="block whitespace-nowrap">
@@ -43,7 +46,17 @@ export function RowMap({ rows, isUnlocked, isTaught, isMastered, isRecommended }
                 : row.label}
             </span>
             <span className="text-xs text-neutral-500 dark:text-neutral-400">
-              {row.isSummary ? 'summary' : !unlocked ? '🔒 locked' : mastered ? '👍' : taught ? '📗 learned' : '📘 new'}
+              {row.isSummary
+                ? 'summary'
+                : row.isSimilarLetters
+                  ? 'similar letters'
+                  : !unlocked
+                    ? '🔒 locked'
+                    : mastered
+                      ? '👍'
+                      : taught
+                        ? '📗 learned'
+                        : '📘 new'}
             </span>
             {recommended && <RecommendedLabel />}
           </div>

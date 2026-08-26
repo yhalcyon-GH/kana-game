@@ -7,6 +7,14 @@ import { KANA_INTRO_EXCERPT_GUIDE_CONTENT, DEFAULT_KANA_INTRO_EXCERPT_GUIDE_LOCA
 import { useProgressStore } from '../store/progressStore'
 import { CategoryRowsPage } from './CategoryRowsPage'
 
+function renderKatakana() {
+  return render(
+    <MemoryRouter>
+      <CategoryRowsPage title="カタカナ" description="" categoryIds={[KATAKANA_CATEGORY_ID]} />
+    </MemoryRouter>,
+  )
+}
+
 const tts = vi.hoisted(() => ({ speak: vi.fn(), stop: vi.fn() }))
 vi.mock('../hooks/useTTS', () => ({ useTTS: () => tts }))
 
@@ -235,5 +243,44 @@ describe('Sokuon section Guide replay (Issue #46)', () => {
 
     expect(getByTestId('landed-path')).toHaveTextContent('/practice/sokuon/sokuon-row?guide=sokuon')
     expect(useProgressStore.getState().hasCompletedSokuonGuide).toBe(true)
+  })
+})
+
+// Similar Letters: a supplementary comparison-lesson card added to the
+// Hiragana and Katakana sections, immediately left of Summary — see
+// data/similarLetters.ts.
+describe('Similar Letters entry card', () => {
+  it("shows a Similar Letters card on the Hiragana section, immediately left of (before) Summary", () => {
+    const { getByText } = renderHiragana()
+    const similarCard = getByText(/にてる字/).closest('a')
+    const summaryCard = getByText(/あ〜ん/).closest('a')
+    expect(similarCard).not.toBeNull()
+    expect(summaryCard).not.toBeNull()
+    // DOCUMENT_POSITION_FOLLOWING (4): summaryCard comes AFTER similarCard.
+    expect(similarCard!.compareDocumentPosition(summaryCard!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('shows a Similar Letters card on the Katakana section too', () => {
+    const { getByText } = renderKatakana()
+    expect(getByText(/にてる字/)).toBeInTheDocument()
+  })
+
+  it('is never shown as a 5th top-level script category on Home (only inside Hiragana/Katakana sections)', () => {
+    const { queryByText } = renderKatakana()
+    // Sanity: it's present on the section page itself...
+    expect(queryByText(/にてる字/)).toBeInTheDocument()
+  })
+
+  it('uses the same (unconditional) unlock condition as Summary — always accessible, never shows 🔒', () => {
+    const { getByText } = renderHiragana()
+    const similarCard = getByText(/にてる字/).closest('div[class*="rounded-xl"]')
+    expect(similarCard?.textContent).not.toMatch(/🔒/)
+    expect(getByText('similar letters')).toBeInTheDocument()
+  })
+
+  it('links to the Practice Hub for its own synthetic row', () => {
+    const { getByText } = renderHiragana()
+    const link = getByText(/にてる字/).closest('a')
+    expect(link).toHaveAttribute('href', '/practice/hiragana/hiragana-similar-letters')
   })
 })

@@ -21,6 +21,7 @@ import { useTTS } from '../../hooks/useTTS'
 import { pickDistractorCharIds } from '../../lib/distractorPicker'
 import { kanaToRomaji } from '../../lib/kanaToRomaji'
 import { shuffle } from '../../lib/shuffle'
+import { buildSimilarLettersWordQueue, pickSimilarLettersDistractorCharIds } from '../../lib/similarLettersSelection'
 import { useProgressStore } from '../../store/progressStore'
 
 const DISTRACTOR_COUNT = 3
@@ -41,7 +42,8 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
   const params = useParams<{ categoryId?: string; rowId?: string }>()
   const rowId = rowIdOverride ?? params.rowId
   const navigate = useNavigate()
-  const { isScopeReady, getScopeCharacterIds, getScopeWords, getScopeRounds } = useCurriculum()
+  const { isScopeReady, getScopeCharacterIds, getScopeWords, getScopeRounds, isSimilarLettersRow, getConfusionGroups } =
+    useCurriculum()
   const recordResult = useProgressStore((s) => s.recordResult)
   const recordCharacterReviewResult = useProgressStore((s) => s.recordCharacterReviewResult)
   const recordWordReviewResult = useProgressStore((s) => s.recordWordReviewResult)
@@ -88,8 +90,20 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
     [wordsById, characters],
   )
 
+  // Similar Letters mode (see similarLettersSelection.ts) — same 80/20
+  // group-balanced word queue as ListeningPage.
+  const isSimilarLetters = isSimilarLettersRow(rowId)
+  const confusionGroups = useMemo(() => getConfusionGroups(rowId), [rowId, getConfusionGroups])
+  const buildQueue = useMemo(() => {
+    if (!isSimilarLetters) return undefined
+    const targetIds = new Set(confusionGroups.flat())
+    const targetWords = scopeWords.filter((w) => w.characterIds.some((id) => targetIds.has(id)))
+    const normalWords = scopeWords.filter((w) => !w.characterIds.some((id) => targetIds.has(id)))
+    return () => buildSimilarLettersWordQueue(confusionGroups, targetWords, normalWords, rounds)
+  }, [isSimilarLetters, confusionGroups, scopeWords, rounds])
+
   const { queue, roundIndex, correctCount, setCorrectCount, finished, startMistakeReview, advance } =
-    useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession, rounds, sessionKey })
+    useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession, rounds, sessionKey, buildQueue })
 
   const [slots, setSlots] = useState<(string | null)[]>([])
   const [tray, setTray] = useState<TrayTile[]>([])
@@ -105,7 +119,9 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
   // it came from a 1-glyph or 2-glyph source character.
   const setupRound = useCallback(
     (word: AnchorWord) => {
-      const distractorCharIds = pickDistractorCharIds(word.characterIds, scopeCharacterIds, DISTRACTOR_COUNT)
+      const distractorCharIds = isSimilarLetters
+        ? pickSimilarLettersDistractorCharIds(word.characterIds, confusionGroups, scopeCharacterIds, DISTRACTOR_COUNT)
+        : pickDistractorCharIds(word.characterIds, scopeCharacterIds, DISTRACTOR_COUNT)
       const targetGlyphs = [...word.kana]
       const distractorGlyphs = distractorCharIds.flatMap((id) => [...(CHARACTERS_BY_ID[id]?.kana ?? '')])
       const tileGlyphs = shuffle([...targetGlyphs, ...distractorGlyphs])
