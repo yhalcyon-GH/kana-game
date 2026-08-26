@@ -52,13 +52,21 @@ describe('SettingsPage "Always show romaji hints" (Issue #19)', () => {
 // Issue #46: a data-driven Guides list replaces the standalone "View
 // introduction again" row, letting every currently-implemented Guide be
 // replayed from Settings.
-describe('SettingsPage Guides list (Issue #46)', () => {
-  it('lists all five implemented Guides', () => {
+describe('SettingsPage Guides list (Issue #46/#50/Chōon Guide)', () => {
+  it('lists all seven implemented Guides', () => {
     const { getByText } = renderSettings()
     for (const guide of GUIDE_CATALOG) {
       expect(getByText(guide.label)).toBeInTheDocument()
     }
-    expect(GUIDE_CATALOG.map((g) => g.label)).toEqual(['Introduction', 'Learn / Tracing', 'Practice', 'Review', 'Sokuon'])
+    expect(GUIDE_CATALOG.map((g) => g.label)).toEqual([
+      'Introduction',
+      'Learn / Tracing',
+      'Practice',
+      'Review',
+      'Sokuon',
+      'Chōon',
+      'Yōon',
+    ])
   })
 
   it('Introduction still replays from step 1 via the existing flag toggle', () => {
@@ -78,6 +86,8 @@ describe('SettingsPage Guides list (Issue #46)', () => {
     ['Practice', 'practice', '/practice/hiragana/a-row'],
     ['Review', 'review', '/practice/review'],
     ['Sokuon', 'sokuon', '/practice/sokuon/sokuon-row'],
+    ['Chōon', 'chouon', '/practice/chouon/chouon-a-row'],
+    ['Yōon', 'youon', '/practice/youon/youon-ka-row'],
   ])('selecting %s navigates to its real screen with a %s replay target', (label, id, path) => {
     const { getByText, getByTestId } = renderSettings()
 
@@ -86,7 +96,7 @@ describe('SettingsPage Guides list (Issue #46)', () => {
     expect(getByTestId('landed-path')).toHaveTextContent(`${path}?guide=${id}`)
   })
 
-  it.each(['Learn / Tracing', 'Practice', 'Review', 'Sokuon'] as const)(
+  it.each(['Learn / Tracing', 'Practice', 'Review', 'Sokuon', 'Chōon', 'Yōon'] as const)(
     'selecting %s does not touch any Guide completed flag or learning/progress state',
     (label) => {
       useProgressStore.getState().markRowTaught('a-row')
@@ -97,6 +107,8 @@ describe('SettingsPage Guides list (Issue #46)', () => {
         hasCompletedPracticeGuide: before.hasCompletedPracticeGuide,
         hasCompletedReviewGuide: before.hasCompletedReviewGuide,
         hasCompletedSokuonGuide: before.hasCompletedSokuonGuide,
+        hasCompletedChouonGuide: before.hasCompletedChouonGuide,
+        hasCompletedYouonGuide: before.hasCompletedYouonGuide,
       }
       const progressBefore = {
         taughtRowIds: before.taughtRowIds,
@@ -117,6 +129,8 @@ describe('SettingsPage Guides list (Issue #46)', () => {
         hasCompletedPracticeGuide: after.hasCompletedPracticeGuide,
         hasCompletedReviewGuide: after.hasCompletedReviewGuide,
         hasCompletedSokuonGuide: after.hasCompletedSokuonGuide,
+        hasCompletedChouonGuide: after.hasCompletedChouonGuide,
+        hasCompletedYouonGuide: after.hasCompletedYouonGuide,
       }).toEqual(guideFlagsBefore)
       expect({
         taughtRowIds: after.taughtRowIds,
