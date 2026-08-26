@@ -629,6 +629,36 @@ describe('progressStore', () => {
     })
   })
 
+  describe('hasCompletedChouonGuide', () => {
+    it('defaults to false, persists across reload, and does not affect other Guide flags or learning progress', async () => {
+      expect(useProgressStore.getState().hasCompletedChouonGuide).toBe(false)
+
+      useProgressStore.getState().setHasCompletedChouonGuide(true)
+      await useProgressStore.persist.rehydrate()
+
+      const state = useProgressStore.getState()
+      expect(state.hasCompletedChouonGuide).toBe(true)
+      expect(state.hasCompletedIntroGuide).toBe(false)
+      expect(state.hasCompletedSokuonGuide).toBe(false)
+      expect(state.taughtRowIds).toEqual([])
+      expect(state.rowActivityCompletion).toEqual({})
+      expect(state.characters).toEqual({})
+      expect(state.words).toEqual({})
+    })
+  })
+
+  describe('v15 -> v16 hasCompletedChouonGuide migration', () => {
+    it('defaults an existing user to false (shown the next time they open the first Chōon lesson)', async () => {
+      localStorage.setItem('kana-game-progress', JSON.stringify({ version: 15, state: { taughtRowIds: ['a-row'] } }))
+
+      await useProgressStore.persist.rehydrate()
+
+      const state = useProgressStore.getState()
+      expect(state.hasCompletedChouonGuide).toBe(false)
+      expect(state.taughtRowIds).toEqual(['a-row'])
+    })
+  })
+
   describe('lastStudied (Issue #23)', () => {
     it('defaults to null for a fresh install', () => {
       expect(useProgressStore.getState().lastStudied).toBeNull()

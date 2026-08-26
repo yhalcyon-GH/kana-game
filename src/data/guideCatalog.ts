@@ -1,3 +1,4 @@
+import { CHOUON_GUIDE } from './chouonGuide'
 import { LEARN_TRACING_GUIDE } from './learnTracingGuide'
 import { PRACTICE_GUIDE } from './practiceGuide'
 import { SOKUON_GUIDE } from './sokuonGuide'
@@ -18,11 +19,12 @@ import { SOKUON_GUIDE } from './sokuonGuide'
 // to display without touching its persisted completed flag.
 export type GuideCatalogEntry =
   | { id: 'intro'; label: string; kind: 'introFlag' }
-  | { id: 'learnTracing' | 'practice' | 'review' | 'sokuon'; label: string; kind: 'replay'; path: string }
+  | { id: 'learnTracing' | 'practice' | 'review' | 'sokuon' | 'chouon'; label: string; kind: 'replay'; path: string }
 
 const learnTracingPath = `/practice/${LEARN_TRACING_GUIDE.target.categoryId}/${LEARN_TRACING_GUIDE.target.rowId}`
 const practicePath = `/practice/${PRACTICE_GUIDE.target.categoryId}/${PRACTICE_GUIDE.target.rowId}`
 const sokuonPath = `/practice/${SOKUON_GUIDE.target.categoryId}/${SOKUON_GUIDE.target.rowId}`
+const chouonPath = `/practice/${CHOUON_GUIDE.target.categoryId}/${CHOUON_GUIDE.target.rowId}`
 
 export const GUIDE_CATALOG: GuideCatalogEntry[] = [
   { id: 'intro', label: 'Introduction', kind: 'introFlag' },
@@ -30,4 +32,5 @@ export const GUIDE_CATALOG: GuideCatalogEntry[] = [
   { id: 'practice', label: 'Practice', kind: 'replay', path: practicePath },
   { id: 'review', label: 'Review', kind: 'replay', path: '/practice/review' },
   { id: 'sokuon', label: 'Sokuon', kind: 'replay', path: sokuonPath },
+  { id: 'chouon', label: 'Chōon', kind: 'replay', path: chouonPath },
 ]
