@@ -20,25 +20,55 @@ function pickUniform<T>(arr: readonly T[], rng: Rng): T {
   return arr[Math.floor(rng() * arr.length)]
 }
 
-// Reorders `items` so no id repeats back-to-back, whenever that's
-// mathematically possible — same greedy idea as
-// practiceSelection.ts's arrangeNoConsecutiveRepeats, reimplemented locally
-// (rather than imported) so it can take an injectable rng.
-function arrangeNoImmediateRepeat(items: string[], rng: Rng): string[] {
-  const remaining = new Map<string, number>()
-  for (const item of items) remaining.set(item, (remaining.get(item) ?? 0) + 1)
+// Picks uniformly from `pool`, making a best-effort attempt (a handful of
+// resamples) to avoid returning a value equal to `avoid` — used only for
+// filler (normal-target) items being slotted next to a fixed neighbor. Never
+// used on the group-balanced Similar sequence itself: that order is fixed
+// and must never be reshuffled to satisfy repeat-avoidance (see
+// interleavePreservingOrder below).
+function pickAvoiding<T>(pool: readonly T[], avoid: T | null, rng: Rng): T {
+  if (avoid === null || pool.length <= 1) return pickUniform(pool, rng)
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const candidate = pickUniform(pool, rng)
+    if (candidate !== avoid) return candidate
+  }
+  return pickUniform(pool, rng)
+}
 
-  const result: string[] = []
-  let last: string | null = null
-  for (let i = 0; i < items.length; i++) {
-    let candidates = [...remaining.entries()].filter(([id, c]) => c > 0 && id !== last)
-    if (candidates.length === 0) candidates = [...remaining.entries()].filter(([, c]) => c > 0)
-    const maxCount = Math.max(...candidates.map(([, c]) => c))
-    const top = candidates.filter(([, c]) => c === maxCount)
-    const [id] = pickUniform(top, rng)
-    result.push(id)
-    remaining.set(id, (remaining.get(id) ?? 1) - 1)
-    last = id
+// Interleaves `fillerCount` items drawn from `fillerPool` into the fixed
+// sequence `ordered`, WITHOUT ever changing the relative order of `ordered`
+// itself — i.e. filtering the returned array down to just the `ordered`
+// values (removing every filler) always reproduces `ordered` exactly.
+//
+// This is the fix for the bug where a final `shuffleWith([...similarPicks,
+// ...normalPicks])` used to destroy the group-cycle order that
+// buildGroupBalancedPicks had carefully constructed. Now: `ordered` (the
+// Similar-target picks) keeps its exact order, and only the *positions*
+// where filler (normal-target) items get inserted are randomized.
+//
+// No-immediate-repeat avoidance for the filler items is best-effort only
+// (see pickAvoiding) — when it conflicts with preserving `ordered`'s
+// sequence, preserving that sequence always wins, per spec.
+function interleavePreservingOrder<T>(ordered: readonly T[], fillerCount: number, fillerPool: readonly T[], rng: Rng): T[] {
+  const total = ordered.length + fillerCount
+  if (total === 0) return []
+  if (fillerCount === 0) return [...ordered]
+  const positions = shuffleWith(
+    Array.from({ length: total }, (_, i) => i),
+    rng,
+  )
+  const fillerSlots = new Set(positions.slice(0, fillerCount))
+
+  const result: T[] = new Array(total)
+  let oi = 0
+  for (let i = 0; i < total; i++) {
+    if (!fillerSlots.has(i)) result[i] = ordered[oi++]
+  }
+  for (let i = 0; i < total; i++) {
+    if (fillerSlots.has(i)) {
+      const avoid = i > 0 ? result[i - 1] : null
+      result[i] = pickAvoiding(fillerPool, avoid, rng)
+    }
   }
   return result
 }
@@ -77,6 +107,15 @@ export function buildGroupBalancedPicks(groups: readonly string[][], count: numb
 // confusion group; the 20% side is a uniform pick from the normal pool.
 // `count` is the round's total question count (e.g. 8 or 15 — the existing
 // round-length constants, unchanged).
+//
+// The group-cycle order buildGroupBalancedPicks produces for the Similar
+// side is preserved EXACTLY in the returned queue — filtering the result
+// down to only Similar-target ids always reproduces that order. The Normal
+// ids are interleaved at randomized positions and never disturb it. When the
+// normal pool is empty/insufficient, the shortfall is filled by extending
+// the group-balanced cycle further (NOT by padding with flat random
+// characters), so even an all-Similar queue still respects group-cycle
+// ordering.
 export function buildSimilarLettersTargetQueue(
   groups: readonly string[][],
   normalPoolIds: readonly string[],
@@ -84,24 +123,20 @@ export function buildSimilarLettersTargetQueue(
   rng: Rng = Math.random,
 ): string[] {
   if (count <= 0) return []
-  const similarCount = Math.round(count * 0.8)
-  const normalCount = count - similarCount
+  const desiredNormalCount = count - Math.round(count * 0.8)
+  const normalCount = normalPoolIds.length > 0 ? desiredNormalCount : 0
+  const similarCount = count - normalCount
 
-  const similarPicks = buildGroupBalancedPicks(groups, similarCount, rng)
-  const normalPicks: string[] = []
-  for (let i = 0; i < normalCount && normalPoolIds.length > 0; i++) normalPicks.push(pickUniform(normalPoolIds, rng))
-
-  let combined = [...similarPicks, ...normalPicks]
-  // Round-length guarantee (mirrors buildSimilarLettersWordQueue below): if
-  // the normal pool is empty (or, in a degenerate case, every confusion
-  // group is empty too) top back up from whichever pool has characters
-  // rather than ever handing back a short round.
-  const fallbackIds = groups.flat().length > 0 ? groups.flat() : normalPoolIds
-  while (combined.length < count && fallbackIds.length > 0) {
-    combined.push(pickUniform(fallbackIds, rng))
+  let similarPicks = buildGroupBalancedPicks(groups, similarCount, rng)
+  // Degenerate case: every confusion group is empty too — buildGroupBalancedPicks
+  // can't produce anything, so fall back to the normal pool just to hit the
+  // round-length guarantee (no group-cycle claim applies when there are no
+  // groups at all).
+  while (similarPicks.length < similarCount && normalPoolIds.length > 0) {
+    similarPicks = [...similarPicks, pickUniform(normalPoolIds, rng)]
   }
 
-  return arrangeNoImmediateRepeat(shuffleWith(combined, rng), rng)
+  return interleavePreservingOrder(similarPicks, normalCount, normalPoolIds, rng)
 }
 
 // Word-pool analogue of buildSimilarLettersTargetQueue, for the three
@@ -121,8 +156,9 @@ export function buildSimilarLettersWordQueue<T extends { id: string; characterId
   rng: Rng = Math.random,
 ): string[] {
   if (count <= 0) return []
-  const similarCount = Math.round(count * 0.8)
-  const normalCount = count - similarCount
+  const desiredNormalCount = count - Math.round(count * 0.8)
+  const normalCount = normalWords.length > 0 ? desiredNormalCount : 0
+  const similarCount = count - normalCount
 
   const wordIdsByGroup = groups
     .map((group) => targetWords.filter((w) => w.characterIds.some((id) => group.includes(id))).map((w) => w.id))
@@ -131,28 +167,23 @@ export function buildSimilarLettersWordQueue<T extends { id: string; characterId
   // words in the current word data — fall back to picking from ALL target
   // words undifferentiated rather than producing zero similar-letters
   // questions.
-  const similarPicks =
+  let similarPicks =
     wordIdsByGroup.length > 0
       ? buildGroupBalancedPicks(wordIdsByGroup, similarCount, rng)
       : buildGroupBalancedPicks([targetWords.map((w) => w.id)], similarCount, rng)
 
-  const normalPicks: string[] = []
-  for (let i = 0; i < normalCount && normalWords.length > 0; i++) normalPicks.push(pickUniform(normalWords, rng).id)
-
-  let combined = [...similarPicks, ...normalPicks]
-  // Round-length guarantee: either side above can come up short of its
-  // intended share (a confusion group/normal pool too small, or even
-  // completely empty for this row's word data) — always top the queue back
-  // up to the full intended round length (8/15) by drawing from whichever
-  // pool actually has words, target words preferred, normal words as the
-  // fallback-of-the-fallback, so the round never silently runs shorter than
-  // every other Similar Letters game.
+  // Round-length guarantee: if target words can't fill their intended share
+  // (too few words, or none at all) top back up from normal words rather
+  // than ever handing back a short round. This degenerate padding carries no
+  // group-cycle claim (there's no group data behind it), unlike the normal
+  // shortfall-into-extra-cycle handling above via `similarCount`.
   const fallbackPool = targetWords.length > 0 ? targetWords : normalWords
-  while (combined.length < count && fallbackPool.length > 0) {
-    combined.push(pickUniform(fallbackPool, rng).id)
+  while (similarPicks.length < similarCount && fallbackPool.length > 0) {
+    similarPicks = [...similarPicks, pickUniform(fallbackPool, rng).id]
   }
 
-  return arrangeNoImmediateRepeat(shuffleWith(combined, rng), rng)
+  const normalPool = normalWords.map((w) => w.id)
+  return interleavePreservingOrder(similarPicks, normalCount, normalPool, rng)
 }
 
 // Every OTHER character in the same confusion group as `id` (empty if `id`

@@ -135,6 +135,110 @@ describe('buildSimilarLettersTargetQueue round-length guarantee', () => {
   })
 })
 
+// Asserts the actual bug fix: the final queue must never reshuffle the
+// group-cycle order buildGroupBalancedPicks produced for the Similar-target
+// items — filtering the final queue down to just those items must exactly
+// reproduce that order, with Normal-target items freely interleaved
+// anywhere around/between them.
+describe('buildSimilarLettersTargetQueue preserves group-cycle order in the final queue', () => {
+  function groupIndexOf(id: string): number {
+    return GROUPS.findIndex((g) => g.includes(id))
+  }
+
+  it('the Similar-target subsequence of the final queue is periodic by full group-cycles', () => {
+    const normalPool = ['normal-1', 'normal-2']
+    const queue = buildSimilarLettersTargetQueue(GROUPS, normalPool, 60, seededRng(17))
+    const groupIds = new Set(GROUPS.flat())
+    const similarSubsequence = queue.filter((id) => groupIds.has(id))
+
+    // Every full cycle (chunk of GROUPS.length) touches each group exactly
+    // once — matching buildGroupBalancedPicks's own per-cycle shuffle
+    // behavior (a full permutation of all group indices per cycle).
+    for (let i = 0; i < similarSubsequence.length; i += GROUPS.length) {
+      const chunk = similarSubsequence.slice(i, i + GROUPS.length)
+      if (chunk.length < GROUPS.length) continue
+      const indices = chunk.map(groupIndexOf)
+      expect(new Set(indices).size, `cycle starting at index ${i}`).toBe(GROUPS.length)
+    }
+  })
+
+  it('matches buildGroupBalancedPicks called directly with the same rng seed/sequence', () => {
+    // Build the Similar sequence directly via buildGroupBalancedPicks with a
+    // fresh seeded rng, then build the final interleaved queue with a fresh
+    // rng of the same seed. Because the queue is empty of normal picks (pool
+    // empty), the two should consume the rng identically and produce the
+    // exact same Similar-only sequence.
+    const count = 24
+    const direct = buildGroupBalancedPicks(GROUPS, count, seededRng(31))
+    const queue = buildSimilarLettersTargetQueue(GROUPS, [], count, seededRng(31))
+    expect(queue).toEqual(direct)
+  })
+
+  it('padding when the normal pool is insufficient extends the group cycle rather than going flat-random', () => {
+    // No normal pool at all -> the entire queue is Similar-target items,
+    // and must still respect full group-cycle ordering even though this
+    // exceeds one buildGroupBalancedPicks cycle.
+    const queue = buildSimilarLettersTargetQueue(GROUPS, [], 90, seededRng(41))
+    expect(queue.length).toBe(90)
+    const groupIds = new Set(GROUPS.flat())
+    expect(queue.every((id) => groupIds.has(id))).toBe(true)
+    for (let i = 0; i < queue.length; i += GROUPS.length) {
+      const chunk = queue.slice(i, i + GROUPS.length)
+      if (chunk.length < GROUPS.length) continue
+      expect(new Set(chunk.map(groupIndexOf)).size, `cycle starting at index ${i}`).toBe(GROUPS.length)
+    }
+  })
+})
+
+describe('buildSimilarLettersWordQueue preserves group-cycle order in the final queue', () => {
+  type W = { id: string; characterIds: string[] }
+  // One word per character across all 3 groups, so every group has exactly
+  // one matching word — makes the word-id -> group-index mapping unambiguous.
+  const wordGroups: W[] = [
+    { id: 'w-shi', characterIds: ['shi'] },
+    { id: 'w-tsu', characterIds: ['tsu'] },
+    { id: 'w-su', characterIds: ['su'] },
+    { id: 'w-nu', characterIds: ['nu'] },
+    { id: 'w-ko', characterIds: ['ko'] },
+    { id: 'w-yu', characterIds: ['yu'] },
+  ]
+  const normalWords: W[] = [
+    { id: 'w-normal-1', characterIds: ['x'] },
+    { id: 'w-normal-2', characterIds: ['y'] },
+  ]
+
+  function groupIndexOfWord(id: string): number {
+    const charId = wordGroups.find((w) => w.id === id)?.characterIds[0]
+    if (charId === undefined) return -1
+    return GROUPS.findIndex((g) => g.includes(charId))
+  }
+
+  it('the target-word subsequence of the final queue is periodic by full group-cycles', () => {
+    const queue = buildSimilarLettersWordQueue(GROUPS, wordGroups, normalWords, 60, seededRng(23))
+    const targetIds = new Set(wordGroups.map((w) => w.id))
+    const targetSubsequence = queue.filter((id) => targetIds.has(id))
+
+    for (let i = 0; i < targetSubsequence.length; i += GROUPS.length) {
+      const chunk = targetSubsequence.slice(i, i + GROUPS.length)
+      if (chunk.length < GROUPS.length) continue
+      const indices = chunk.map(groupIndexOfWord)
+      expect(new Set(indices).size, `cycle starting at index ${i}`).toBe(GROUPS.length)
+    }
+  })
+
+  it('padding when the normal word pool is insufficient extends the group cycle rather than going flat-random', () => {
+    const queue = buildSimilarLettersWordQueue(GROUPS, wordGroups, [], 90, seededRng(29))
+    expect(queue.length).toBe(90)
+    const targetIds = new Set(wordGroups.map((w) => w.id))
+    expect(queue.every((id) => targetIds.has(id))).toBe(true)
+    for (let i = 0; i < queue.length; i += GROUPS.length) {
+      const chunk = queue.slice(i, i + GROUPS.length)
+      if (chunk.length < GROUPS.length) continue
+      expect(new Set(chunk.map(groupIndexOfWord)).size, `cycle starting at index ${i}`).toBe(GROUPS.length)
+    }
+  })
+})
+
 describe('getGroupMates', () => {
   it('returns every OTHER member of the same group', () => {
     expect(getGroupMates(GROUPS, 'shi')).toEqual(['tsu'])
