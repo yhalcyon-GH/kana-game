@@ -206,19 +206,14 @@ function renderOtherPage() {
   )
 }
 
-// Issue #46: the always-visible Sokuon category explanation is replaced by
-// an always-available "View Sokuon Guide" button that opens the existing
-// Sokuon concept Guide on its real screen — Chōon keeps its own unrelated
-// category explanation unchanged.
+// Issue #46/Chōon Guide: the always-visible Sokuon and Chōon category
+// explanations are each replaced by an always-available "View X Guide"
+// button that opens the matching concept Guide on its real screen. The
+// underlying `explanation` data is left untouched in curriculum.ts.
 describe('Sokuon section Guide replay (Issue #46)', () => {
   it('no longer shows the old always-visible Sokuon explanation', () => {
     const { queryByText } = renderOtherPage()
     expect(queryByText(/Sokuon is a short pause/)).toBeNull()
-  })
-
-  it("keeps Chōon's own category explanation unchanged", () => {
-    const { getByText } = renderOtherPage()
-    expect(getByText(/Chōon means a "long vowel"/)).toBeInTheDocument()
   })
 
   it('always shows the View Sokuon Guide button', () => {
@@ -235,6 +230,29 @@ describe('Sokuon section Guide replay (Issue #46)', () => {
 
     expect(getByTestId('landed-path')).toHaveTextContent('/practice/sokuon/sokuon-row?guide=sokuon')
     expect(useProgressStore.getState().hasCompletedSokuonGuide).toBe(true)
+  })
+})
+
+describe('Chōon section Guide replay', () => {
+  it('no longer shows the old always-visible Chōon explanation', () => {
+    const { queryByText } = renderOtherPage()
+    expect(queryByText(/Chōon means a "long vowel"/)).toBeNull()
+  })
+
+  it('always shows the View Chōon Guide button', () => {
+    useProgressStore.getState().setHasCompletedChouonGuide(true)
+    const { getByText } = renderOtherPage()
+    expect(getByText('View Chōon Guide')).toBeInTheDocument()
+  })
+
+  it('opens the Chōon Guide replay target on its real screen without changing hasCompletedChouonGuide', () => {
+    useProgressStore.getState().setHasCompletedChouonGuide(true)
+    const { getByText, getByTestId } = renderOtherPage()
+
+    fireEvent.click(getByText('View Chōon Guide'))
+
+    expect(getByTestId('landed-path')).toHaveTextContent('/practice/chouon/chouon-a-row?guide=chouon')
+    expect(useProgressStore.getState().hasCompletedChouonGuide).toBe(true)
   })
 })
 

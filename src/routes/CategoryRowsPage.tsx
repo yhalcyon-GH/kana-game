@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { KanaIntroExcerptGuide } from '../components/KanaIntroExcerptGuide'
-import { CATEGORIES_BY_ID, SOKUON_CATEGORY_ID, YOUON_CATEGORY_ID } from '../data/curriculum'
+import { CATEGORIES_BY_ID, CHOUON_CATEGORY_ID, SOKUON_CATEGORY_ID, YOUON_CATEGORY_ID } from '../data/curriculum'
+import { CHOUON_GUIDE } from '../data/chouonGuide'
 import { SOKUON_GUIDE } from '../data/sokuonGuide'
 import { YOUON_GUIDE } from '../data/youonGuide'
 import { DEFAULT_KANA_INTRO_EXCERPT_GUIDE_LOCALE, KANA_INTRO_EXCERPT_GUIDE_CONTENT } from '../data/kanaIntroExcerptGuideContent'
@@ -10,6 +11,7 @@ import { buildGuideReplayHref, useGuideReplay } from '../hooks/useGuideReplay'
 import { useProgressStore } from '../store/progressStore'
 
 const SOKUON_TARGET_PATH = `/practice/${SOKUON_GUIDE.target.categoryId}/${SOKUON_GUIDE.target.rowId}`
+const CHOUON_TARGET_PATH = `/practice/${CHOUON_GUIDE.target.categoryId}/${CHOUON_GUIDE.target.rowId}`
 const YOUON_TARGET_PATH = `/practice/${YOUON_GUIDE.target.categoryId}/${YOUON_GUIDE.target.rowId}`
 
 type Props = {
@@ -78,13 +80,15 @@ export function CategoryRowsPage({ title, description, categoryIds, showKanaIntr
       )}
       {groups.length > 0 ? (
         groups.map(({ category, rows: groupRows }) => {
-          // Sokuon's and Yōon's category `explanation` used to render
-          // unconditionally here; each is replaced by an always-available
-          // "View X Guide" button (Issue #46/#50) that opens the matching
-          // concept Guide on its real screen instead of duplicating its copy
-          // on this page. Chōon keeps its own `explanation` paragraph
-          // unchanged (no dedicated Guide covers it yet).
+          // Sokuon's, Chōon's, and Yōon's category `explanation` used to
+          // render unconditionally here; each is replaced by an
+          // always-available "View X Guide" button (Issue #46/#50/Chōon
+          // Guide) that opens the matching concept Guide on its real screen
+          // instead of duplicating its copy on this page. The underlying
+          // `explanation` data itself is left untouched in curriculum.ts —
+          // only what's rendered here changed.
           const isSokuonGroup = category?.id === SOKUON_CATEGORY_ID
+          const isChouonGroup = category?.id === CHOUON_CATEGORY_ID
           const isYouonGroup = category?.id === YOUON_CATEGORY_ID
           return (
             <div key={category?.id} className="flex w-full flex-col items-center gap-4">
@@ -101,6 +105,14 @@ export function CategoryRowsPage({ title, description, categoryIds, showKanaIntr
                   className="rounded-full border border-neutral-300 px-4 py-2 text-sm font-semibold hover:border-blue-400 dark:border-neutral-600"
                 >
                   View Sokuon Guide
+                </button>
+              ) : isChouonGroup ? (
+                <button
+                  type="button"
+                  onClick={() => navigate(buildGuideReplayHref(CHOUON_TARGET_PATH, 'chouon'))}
+                  className="rounded-full border border-neutral-300 px-4 py-2 text-sm font-semibold hover:border-blue-400 dark:border-neutral-600"
+                >
+                  View Chōon Guide
                 </button>
               ) : isYouonGroup ? (
                 <button

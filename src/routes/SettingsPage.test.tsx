@@ -52,8 +52,8 @@ describe('SettingsPage "Always show romaji hints" (Issue #19)', () => {
 // Issue #46: a data-driven Guides list replaces the standalone "View
 // introduction again" row, letting every currently-implemented Guide be
 // replayed from Settings.
-describe('SettingsPage Guides list (Issue #46/#50)', () => {
-  it('lists all six implemented Guides', () => {
+describe('SettingsPage Guides list (Issue #46/#50/Chōon Guide)', () => {
+  it('lists all seven implemented Guides', () => {
     const { getByText } = renderSettings()
     for (const guide of GUIDE_CATALOG) {
       expect(getByText(guide.label)).toBeInTheDocument()
@@ -64,6 +64,7 @@ describe('SettingsPage Guides list (Issue #46/#50)', () => {
       'Practice',
       'Review',
       'Sokuon',
+      'Chōon',
       'Yōon',
     ])
   })
@@ -85,6 +86,7 @@ describe('SettingsPage Guides list (Issue #46/#50)', () => {
     ['Practice', 'practice', '/practice/hiragana/a-row'],
     ['Review', 'review', '/practice/review'],
     ['Sokuon', 'sokuon', '/practice/sokuon/sokuon-row'],
+    ['Chōon', 'chouon', '/practice/chouon/chouon-a-row'],
     ['Yōon', 'youon', '/practice/youon/youon-ka-row'],
   ])('selecting %s navigates to its real screen with a %s replay target', (label, id, path) => {
     const { getByText, getByTestId } = renderSettings()
@@ -94,7 +96,7 @@ describe('SettingsPage Guides list (Issue #46/#50)', () => {
     expect(getByTestId('landed-path')).toHaveTextContent(`${path}?guide=${id}`)
   })
 
-  it.each(['Learn / Tracing', 'Practice', 'Review', 'Sokuon', 'Yōon'] as const)(
+  it.each(['Learn / Tracing', 'Practice', 'Review', 'Sokuon', 'Chōon', 'Yōon'] as const)(
     'selecting %s does not touch any Guide completed flag or learning/progress state',
     (label) => {
       useProgressStore.getState().markRowTaught('a-row')
@@ -105,6 +107,7 @@ describe('SettingsPage Guides list (Issue #46/#50)', () => {
         hasCompletedPracticeGuide: before.hasCompletedPracticeGuide,
         hasCompletedReviewGuide: before.hasCompletedReviewGuide,
         hasCompletedSokuonGuide: before.hasCompletedSokuonGuide,
+        hasCompletedChouonGuide: before.hasCompletedChouonGuide,
         hasCompletedYouonGuide: before.hasCompletedYouonGuide,
       }
       const progressBefore = {
@@ -126,6 +129,7 @@ describe('SettingsPage Guides list (Issue #46/#50)', () => {
         hasCompletedPracticeGuide: after.hasCompletedPracticeGuide,
         hasCompletedReviewGuide: after.hasCompletedReviewGuide,
         hasCompletedSokuonGuide: after.hasCompletedSokuonGuide,
+        hasCompletedChouonGuide: after.hasCompletedChouonGuide,
         hasCompletedYouonGuide: after.hasCompletedYouonGuide,
       }).toEqual(guideFlagsBefore)
       expect({
