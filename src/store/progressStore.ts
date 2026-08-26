@@ -106,6 +106,9 @@ type ProgressState = {
   // Tamamizu concept guide (Issue #44) — independent one-time explanation
   // shown when the first Sokuon lesson is opened. Pure UI state only.
   hasCompletedSokuonGuide: boolean
+  // Tamamizu Guide (Issue #50) — independent one-time explanation shown
+  // when the first Yōon lesson is opened. Pure UI state only.
+  hasCompletedYouonGuide: boolean
 
   ensureCharacterInitialized: (charId: string) => void
   recordResult: (charId: string, correct: boolean) => void
@@ -141,6 +144,7 @@ type ProgressState = {
   setHasCompletedPracticeGuide: (completed: boolean) => void
   setHasCompletedReviewGuide: (completed: boolean) => void
   setHasCompletedSokuonGuide: (completed: boolean) => void
+  setHasCompletedYouonGuide: (completed: boolean) => void
   resetProgress: () => void
 }
 
@@ -263,6 +267,7 @@ export function mergePersistedProgress(persistedState: unknown, currentState: Pr
     hasCompletedPracticeGuide: booleanOr(persisted.hasCompletedPracticeGuide, currentState.hasCompletedPracticeGuide),
     hasCompletedReviewGuide: booleanOr(persisted.hasCompletedReviewGuide, currentState.hasCompletedReviewGuide),
     hasCompletedSokuonGuide: booleanOr(persisted.hasCompletedSokuonGuide, currentState.hasCompletedSokuonGuide),
+    hasCompletedYouonGuide: booleanOr(persisted.hasCompletedYouonGuide, currentState.hasCompletedYouonGuide),
     mascotVoiceEnabled: booleanOr(persisted.mascotVoiceEnabled, currentState.mascotVoiceEnabled),
     mascotVoiceVolume: clampFiniteOr(persisted.mascotVoiceVolume, MIN_VOLUME, MAX_VOLUME, currentState.mascotVoiceVolume),
   }
@@ -288,6 +293,7 @@ export const useProgressStore = create<ProgressState>()(
       hasCompletedPracticeGuide: false,
       hasCompletedReviewGuide: false,
       hasCompletedSokuonGuide: false,
+      hasCompletedYouonGuide: false,
 
       ensureCharacterInitialized: (charId) => {
         if (get().characters[charId]) return
@@ -383,6 +389,7 @@ export const useProgressStore = create<ProgressState>()(
       setHasCompletedPracticeGuide: (completed) => set({ hasCompletedPracticeGuide: completed }),
       setHasCompletedReviewGuide: (completed) => set({ hasCompletedReviewGuide: completed }),
       setHasCompletedSokuonGuide: (completed) => set({ hasCompletedSokuonGuide: completed }),
+      setHasCompletedYouonGuide: (completed) => set({ hasCompletedYouonGuide: completed }),
       setMascotVoiceEnabled: (enabled) => set({ mascotVoiceEnabled: enabled }),
       setMascotVoiceVolume: (volume) => set({ mascotVoiceVolume: volume }),
 
@@ -405,11 +412,12 @@ export const useProgressStore = create<ProgressState>()(
           hasCompletedPracticeGuide: false,
           hasCompletedReviewGuide: false,
           hasCompletedSokuonGuide: false,
+          hasCompletedYouonGuide: false,
         }),
     }),
     {
       name: 'kana-game-progress',
-      version: 15,
+      version: 16,
       // v1 -> v2: the default pronunciation speed changed from 1x to 0.5x;
       // carry that new default into browsers that already persisted a v1
       // state (which would otherwise keep the old 1x forever).
@@ -551,6 +559,11 @@ export const useProgressStore = create<ProgressState>()(
           // New independent UI state. Existing learners see the explanation
           // the next time they open the first Sokuon lesson.
           state.hasCompletedSokuonGuide = false
+        }
+        if (version < 16) {
+          // New independent UI state. Existing learners see the explanation
+          // the next time they open the first Yōon lesson.
+          state.hasCompletedYouonGuide = false
         }
         return state
       },

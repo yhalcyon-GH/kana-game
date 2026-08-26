@@ -1,7 +1,7 @@
 import { fireEvent, render } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { CHOUON_CATEGORY_ID, DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID, SOKUON_CATEGORY_ID } from '../data/curriculum'
+import { CHOUON_CATEGORY_ID, DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID, SOKUON_CATEGORY_ID, YOUON_CATEGORY_ID } from '../data/curriculum'
 import { INTRO_GUIDE_CONTENT, DEFAULT_INTRO_GUIDE_LOCALE } from '../data/introGuideContent'
 import { KANA_INTRO_EXCERPT_GUIDE_CONTENT, DEFAULT_KANA_INTRO_EXCERPT_GUIDE_LOCALE } from '../data/kanaIntroExcerptGuideContent'
 import { useProgressStore } from '../store/progressStore'
@@ -235,5 +235,42 @@ describe('Sokuon section Guide replay (Issue #46)', () => {
 
     expect(getByTestId('landed-path')).toHaveTextContent('/practice/sokuon/sokuon-row?guide=sokuon')
     expect(useProgressStore.getState().hasCompletedSokuonGuide).toBe(true)
+  })
+})
+
+function renderYouonPage() {
+  return render(
+    <MemoryRouter initialEntries={['/youon']}>
+      <Routes>
+        <Route path="/youon" element={<CategoryRowsPage title="拗音" description="" categoryIds={[YOUON_CATEGORY_ID]} />} />
+        <Route path="*" element={<LocationDisplay />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
+
+// Issue #50: the always-visible Yōon category explanation duplicates the new
+// Yōon Guide's content, so it's replaced by an always-available "View Yōon
+// Guide" button, matching Sokuon's Issue #46 precedent.
+describe('Yōon section Guide replay (Issue #50)', () => {
+  it('no longer shows the old always-visible Yōon explanation', () => {
+    const { queryByText } = renderYouonPage()
+    expect(queryByText(/Yōon are contracted sounds/)).toBeNull()
+  })
+
+  it('always shows the View Yōon Guide button', () => {
+    useProgressStore.getState().setHasCompletedYouonGuide(true)
+    const { getByText } = renderYouonPage()
+    expect(getByText('View Yōon Guide')).toBeInTheDocument()
+  })
+
+  it('opens the Yōon Guide replay target on its real screen without changing hasCompletedYouonGuide', () => {
+    useProgressStore.getState().setHasCompletedYouonGuide(true)
+    const { getByText, getByTestId } = renderYouonPage()
+
+    fireEvent.click(getByText('View Yōon Guide'))
+
+    expect(getByTestId('landed-path')).toHaveTextContent('/practice/youon/youon-ka-row?guide=youon')
+    expect(useProgressStore.getState().hasCompletedYouonGuide).toBe(true)
   })
 })
