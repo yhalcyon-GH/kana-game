@@ -164,9 +164,11 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
   // effect only re-runs when `finished` itself flips), only for a normal
   // row (never Review, a separate repair workflow that must not advance
   // Recommended Path state).
+  // Similar Letters' synthetic row must never get a completion record (it's
+  // outside Recommended Path — see PracticeHubPage's showRecommendedPath).
   useEffect(() => {
-    if (finished && !isReview && rowId) markRowActivityCompleted(rowId, 'kanaQuiz')
-  }, [finished, isReview, rowId, markRowActivityCompleted])
+    if (finished && !isReview && !isSimilarLetters && rowId) markRowActivityCompleted(rowId, 'kanaQuiz')
+  }, [finished, isReview, isSimilarLetters, rowId, markRowActivityCompleted])
 
   const handleChoice = (choiceId: string) => {
     if (answered || !currentCharId) return

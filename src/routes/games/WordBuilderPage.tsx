@@ -207,10 +207,13 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
   // Recommended Path completion — see KanaQuizPage's identical comment.
   // Word Builder is the FINAL core activity, so this also completes the
   // row's whole Recommended Path (see PracticeSummary's continueAction
-  // below, and PracticeHubPage's "Lesson complete" state).
+  // below, and PracticeHubPage's "Lesson complete" state). Similar Letters
+  // is a supplementary comparison lesson on a synthetic row, never part of
+  // Recommended Path (see PracticeHubPage's showRecommendedPath) — it must
+  // not write a completion record for that synthetic row id either.
   useEffect(() => {
-    if (finished && !isReview && rowId) markRowActivityCompleted(rowId, 'wordBuilder')
-  }, [finished, isReview, rowId, markRowActivityCompleted])
+    if (finished && !isReview && !isSimilarLetters && rowId) markRowActivityCompleted(rowId, 'wordBuilder')
+  }, [finished, isReview, isSimilarLetters, rowId, markRowActivityCompleted])
 
   // Next Row for the Word Builder summary's Continue action — omitted
   // entirely (no continueAction passed) when there's no next row, rather

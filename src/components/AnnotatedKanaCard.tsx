@@ -16,6 +16,11 @@ type Props = {
 // is everywhere else in the app.
 export function AnnotatedKanaCard({ char }: Props) {
   const annotation = SIMILAR_LETTER_ANNOTATIONS[char.id]
+  // Marker ids are DOM ids and must be unique per card — with multiple
+  // AnnotatedKanaCard instances on the same page, a shared literal id would
+  // collide and break marker-end url(#...) resolution for every card but
+  // the first. Scope it to this character.
+  const arrowheadId = `similar-letter-arrowhead-${char.id}`
 
   return (
     <div className="relative inline-flex flex-col items-center gap-1">
@@ -68,14 +73,14 @@ export function AnnotatedKanaCard({ char }: Props) {
                   stroke="#dc2626"
                   strokeWidth={2.5}
                   strokeLinecap="round"
-                  markerEnd={`url(#similar-letter-arrowhead)`}
+                  markerEnd={`url(#${arrowheadId})`}
                   vectorEffect="non-scaling-stroke"
                 />
               )
             })}
             <defs>
               <marker
-                id="similar-letter-arrowhead"
+                id={arrowheadId}
                 markerWidth="6"
                 markerHeight="6"
                 refX="4"
@@ -88,14 +93,6 @@ export function AnnotatedKanaCard({ char }: Props) {
           </svg>
         )}
       </div>
-      {/* The accessible equivalent of the red marks above — screen readers
-          don't perceive color, so this short caption is what actually
-          carries "what's different here," not just decoration duplicated in
-          text. Visually small/muted since the marks themselves are the
-          primary presentation. */}
-      {annotation && (
-        <p className="max-w-[9rem] text-center text-[11px] text-neutral-500 dark:text-neutral-400">{annotation.caption}</p>
-      )}
     </div>
   )
 }

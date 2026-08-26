@@ -91,7 +91,17 @@ export function buildSimilarLettersTargetQueue(
   const normalPicks: string[] = []
   for (let i = 0; i < normalCount && normalPoolIds.length > 0; i++) normalPicks.push(pickUniform(normalPoolIds, rng))
 
-  return arrangeNoImmediateRepeat(shuffleWith([...similarPicks, ...normalPicks], rng), rng)
+  let combined = [...similarPicks, ...normalPicks]
+  // Round-length guarantee (mirrors buildSimilarLettersWordQueue below): if
+  // the normal pool is empty (or, in a degenerate case, every confusion
+  // group is empty too) top back up from whichever pool has characters
+  // rather than ever handing back a short round.
+  const fallbackIds = groups.flat().length > 0 ? groups.flat() : normalPoolIds
+  while (combined.length < count && fallbackIds.length > 0) {
+    combined.push(pickUniform(fallbackIds, rng))
+  }
+
+  return arrangeNoImmediateRepeat(shuffleWith(combined, rng), rng)
 }
 
 // Word-pool analogue of buildSimilarLettersTargetQueue, for the three
@@ -129,7 +139,20 @@ export function buildSimilarLettersWordQueue<T extends { id: string; characterId
   const normalPicks: string[] = []
   for (let i = 0; i < normalCount && normalWords.length > 0; i++) normalPicks.push(pickUniform(normalWords, rng).id)
 
-  return arrangeNoImmediateRepeat(shuffleWith([...similarPicks, ...normalPicks], rng), rng)
+  let combined = [...similarPicks, ...normalPicks]
+  // Round-length guarantee: either side above can come up short of its
+  // intended share (a confusion group/normal pool too small, or even
+  // completely empty for this row's word data) — always top the queue back
+  // up to the full intended round length (8/15) by drawing from whichever
+  // pool actually has words, target words preferred, normal words as the
+  // fallback-of-the-fallback, so the round never silently runs shorter than
+  // every other Similar Letters game.
+  const fallbackPool = targetWords.length > 0 ? targetWords : normalWords
+  while (combined.length < count && fallbackPool.length > 0) {
+    combined.push(pickUniform(fallbackPool, rng).id)
+  }
+
+  return arrangeNoImmediateRepeat(shuffleWith(combined, rng), rng)
 }
 
 // Every OTHER character in the same confusion group as `id` (empty if `id`
@@ -139,10 +162,13 @@ export function getGroupMates(groups: readonly string[][], id: string): string[]
   return group ? group.filter((c) => c !== id) : []
 }
 
-// Kana Quiz/Word Builder distractor characters: prefers the target(s)' OWN
-// confusion-group mates first (Issue "same-group distractor preference" —
-// シ's choices should include ツ, not just any random katakana), then fills
-// any remaining slots from the rest of the pool. Mirrors
+// Kana Quiz/Word Builder distractor characters — three-tier priority (Issue
+// "distractor priority order"): (1) the target(s)' OWN confusion-group
+// mates first (シ's choices should include ツ, not just any random
+// katakana), (2) characters from OTHER confusion groups next (still a
+// "similar letters" character, just not this target's own pair/trio — e.g.
+// ス/ヌ before an unrelated normal character), (3) normal same-script
+// characters last, only filling whatever slots remain. Mirrors
 // distractorPicker.ts's pickDistractorCharIds's multi-target shape (Word
 // Builder passes a whole word's characterIds; Kana Quiz passes one id).
 export function pickSimilarLettersDistractorCharIds(
@@ -156,14 +182,19 @@ export function pickSimilarLettersDistractorCharIds(
   const mates = [...new Set(targetCharIds.flatMap((id) => getGroupMates(groups, id)))].filter(
     (id) => pool.includes(id) && !targetSet.has(id),
   )
-  const rest = pool.filter((id) => !targetSet.has(id) && !mates.includes(id))
-  return [...shuffleWith(mates, rng), ...shuffleWith(rest, rng)].slice(0, count)
+  const mateSet = new Set(mates)
+  const allGroupIds = new Set(groups.flat())
+  const otherGroupChars = pool.filter((id) => !targetSet.has(id) && !mateSet.has(id) && allGroupIds.has(id))
+  const otherGroupSet = new Set(otherGroupChars)
+  const normal = pool.filter((id) => !targetSet.has(id) && !mateSet.has(id) && !otherGroupSet.has(id))
+  return [...shuffleWith(mates, rng), ...shuffleWith(otherGroupChars, rng), ...shuffleWith(normal, rng)].slice(0, count)
 }
 
-// Listening distractor words: prefers a candidate word that contains a
-// confusion-group mate of one of the target word's own characters (e.g.
-// target シ's word choices should include a ツ-containing word), then fills
-// any remaining slots from the rest of the candidate pool.
+// Listening distractor words — same three-tier priority as above, applied
+// via each candidate word's characters: (1) a word containing a same-group
+// mate of one of the target word's own characters, (2) a word containing
+// some OTHER confusion-group character (not the target's own group), (3)
+// any remaining normal word.
 export function pickSimilarLettersDistractorWords<T extends { id: string; characterIds: string[] }>(
   targetWord: T,
   groups: readonly string[][],
@@ -173,8 +204,11 @@ export function pickSimilarLettersDistractorWords<T extends { id: string; charac
 ): T[] {
   const others = candidates.filter((w) => w.id !== targetWord.id)
   const mateIds = new Set(targetWord.characterIds.flatMap((id) => getGroupMates(groups, id)))
+  const allGroupIds = new Set(groups.flat())
   const isMate = (w: T) => w.characterIds.some((id) => mateIds.has(id))
+  const isOtherGroup = (w: T) => !isMate(w) && w.characterIds.some((id) => allGroupIds.has(id))
   const preferred = shuffleWith(others.filter(isMate), rng)
-  const rest = shuffleWith(others.filter((w) => !isMate(w)), rng)
-  return [...preferred, ...rest].slice(0, count)
+  const otherGroup = shuffleWith(others.filter(isOtherGroup), rng)
+  const rest = shuffleWith(others.filter((w) => !isMate(w) && !isOtherGroup(w)), rng)
+  return [...preferred, ...otherGroup, ...rest].slice(0, count)
 }

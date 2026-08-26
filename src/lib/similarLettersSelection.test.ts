@@ -120,6 +120,19 @@ describe('buildSimilarLettersWordQueue', () => {
     const queue = buildSimilarLettersWordQueue(GROUPS, targetWords, normalWords, 20, seededRng(4))
     expect(queue.length).toBeGreaterThan(0)
   })
+
+  it('always returns exactly `count` items, even when one side of the pool is empty', () => {
+    expect(buildSimilarLettersWordQueue(GROUPS, targetWords, [], 15, seededRng(1)).length).toBe(15)
+    expect(buildSimilarLettersWordQueue(GROUPS, targetWords, [], 8, seededRng(2)).length).toBe(8)
+    expect(buildSimilarLettersWordQueue(GROUPS, [], normalWords, 8, seededRng(3)).length).toBe(8)
+  })
+})
+
+describe('buildSimilarLettersTargetQueue round-length guarantee', () => {
+  it('always returns exactly `count` items, even with an empty normal pool', () => {
+    expect(buildSimilarLettersTargetQueue(GROUPS, [], 15, seededRng(1)).length).toBe(15)
+    expect(buildSimilarLettersTargetQueue(GROUPS, [], 8, seededRng(2)).length).toBe(8)
+  })
 })
 
 describe('getGroupMates', () => {
@@ -147,6 +160,24 @@ describe('pickSimilarLettersDistractorCharIds', () => {
     const distractors = pickSimilarLettersDistractorCharIds(['shi'], GROUPS, pool, 3, seededRng(1))
     expect(distractors).not.toContain('shi')
   })
+
+  it('prioritizes: own group mate, then other confusion-group characters, then normal characters', () => {
+    const pool = ['shi', 'tsu', 'su', 'nu', 'ko', 'yu', 'normal-1', 'normal-2']
+    const distractors = pickSimilarLettersDistractorCharIds(['shi'], GROUPS, pool, 3, seededRng(5))
+    // Exactly 3 slots: the one mate (tsu) must come first-tier, then two
+    // other-group characters (su/nu/ko/yu) must fill before any normal char.
+    expect(distractors).toContain('tsu')
+    expect(distractors).not.toContain('normal-1')
+    expect(distractors).not.toContain('normal-2')
+  })
+
+  it('falls back to normal characters once mates and other-group characters are exhausted', () => {
+    const pool = ['shi', 'tsu', 'normal-1', 'normal-2']
+    const distractors = pickSimilarLettersDistractorCharIds(['shi'], GROUPS, pool, 3, seededRng(6))
+    expect(distractors).toContain('tsu')
+    expect(distractors).toContain('normal-1')
+    expect(distractors).toContain('normal-2')
+  })
 })
 
 describe('pickSimilarLettersDistractorWords', () => {
@@ -162,6 +193,17 @@ describe('pickSimilarLettersDistractorWords', () => {
     for (let seed = 0; seed < 20; seed++) {
       const [first] = pickSimilarLettersDistractorWords(target, GROUPS, candidates, 1, seededRng(seed))
       expect(first.id, `seed ${seed}`).toBe('w-tsu')
+    }
+  })
+
+  it('prioritizes: same-group word, then other-confusion-group word, then normal word', () => {
+    const withNormal: W[] = [...candidates, { id: 'w-ko', characterIds: ['ko'] }]
+    for (let seed = 0; seed < 10; seed++) {
+      const picks = pickSimilarLettersDistractorWords(target, GROUPS, withNormal, 2, seededRng(seed))
+      expect(picks.map((w) => w.id), `seed ${seed}`).toContain('w-tsu')
+      // The second slot must be an other-group word (w-su/w-ko), not the
+      // unrelated normal word, while both other-group options are present.
+      expect(picks.map((w) => w.id)).not.toContain('w-other')
     }
   })
 })

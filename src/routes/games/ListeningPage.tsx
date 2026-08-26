@@ -124,9 +124,11 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
   useEnterAdvance(answered && selectedId !== currentWord?.id, advance)
 
   // Recommended Path completion — see KanaQuizPage's identical comment.
+  // Similar Letters' synthetic row must never get a completion record (it's
+  // outside Recommended Path — see PracticeHubPage's showRecommendedPath).
   useEffect(() => {
-    if (finished && !isReview && rowId) markRowActivityCompleted(rowId, 'listening')
-  }, [finished, isReview, rowId, markRowActivityCompleted])
+    if (finished && !isReview && !isSimilarLetters && rowId) markRowActivityCompleted(rowId, 'listening')
+  }, [finished, isReview, isSimilarLetters, rowId, markRowActivityCompleted])
 
   const handleChoice = (choice: AnchorWord) => {
     if (answered || !currentWord) return

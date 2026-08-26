@@ -308,13 +308,33 @@ describe('LearnPage: Similar Letters', () => {
     expect(document.querySelector('img')).toBeNull()
   })
 
-  it('shows an accessible caption alongside the decorative red-pen SVG overlay for each character', () => {
+  it('shows a decorative red-pen SVG overlay (visual only, no caption text) for each character', () => {
     renderLearn('/learn/hiragana/hiragana-similar-letters')
-    // Group 1 is あ・お — see similarLetterAnnotations.ts.
-    expect(screen.getByText(/あ:.*closes into itself/)).toBeInTheDocument()
-    expect(screen.getByText(/お:.*tail stroke/)).toBeInTheDocument()
+    // Group 1 is あ・お — see similarLetterAnnotations.ts. No prose caption
+    // should be rendered anywhere — the marks are the only explanation.
+    expect(screen.queryByText(/closes into itself/)).toBeNull()
+    expect(screen.queryByText(/tail stroke/)).toBeNull()
+
     const svgs = document.querySelectorAll('svg[aria-hidden="true"]')
     expect(svgs.length).toBeGreaterThan(0)
+    svgs.forEach((svg) => {
+      expect(svg.getAttribute('class')).toMatch(/pointer-events-none/)
+    })
+    // Each character's overlay actually draws a mark (circle/line/arrow).
+    expect(document.querySelectorAll('svg[aria-hidden="true"] circle, svg[aria-hidden="true"] line').length).toBeGreaterThan(0)
+    // The real CharacterCard glyph markup is still used underneath, not a
+    // custom re-rendered glyph.
+    const glyphA = screen.getByText(CHARACTERS_BY_ID.a.kana)
+    expect(glyphA.className).toMatch(/font-kana/)
+  })
+
+  it('gives each card a unique arrowhead marker id so multiple cards on one page do not collide', () => {
+    renderLearn('/learn/hiragana/hiragana-similar-letters')
+    const markers = Array.from(document.querySelectorAll('marker'))
+    expect(markers.length).toBeGreaterThan(1)
+    const ids = markers.map((m) => m.id)
+    expect(new Set(ids).size).toBe(ids.length)
+    ids.forEach((id) => expect(id).toMatch(/^similar-letter-arrowhead-/))
   })
 
   it('Next steps through every group in order, and the final group shows "Done"', () => {
