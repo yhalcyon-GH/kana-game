@@ -1,7 +1,7 @@
 import { render } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID, ROWS, SOKUON_CATEGORY_ID } from '../data/curriculum'
+import { CHOUON_CATEGORY_ID, DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID, ROWS, SOKUON_CATEGORY_ID } from '../data/curriculum'
 import { useProgressStore } from '../store/progressStore'
 import { HomePage } from './HomePage'
 
@@ -98,6 +98,15 @@ describe('HomePage section Recommended (Issue #21)', () => {
     completeCategory(SOKUON_CATEGORY_ID)
     const { getByRole } = renderHome()
     expect(getByRole('link', { name: /Stop & Long Sound/ }).textContent).toMatch(/Recommended/)
+  })
+
+  it('recommends the Yōon card once both sokuon and chōon are done (Sokuon -> Chōon -> Yōon)', () => {
+    completeCategory(DEFAULT_CATEGORY_ID)
+    completeCategory(KATAKANA_CATEGORY_ID)
+    completeCategory(SOKUON_CATEGORY_ID)
+    completeCategory(CHOUON_CATEGORY_ID)
+    const { getByRole } = renderHome()
+    expect(getByRole('link', { name: /Yōon/ }).textContent).toMatch(/Recommended/)
   })
 
   it('no card is Recommended once every category is done', () => {

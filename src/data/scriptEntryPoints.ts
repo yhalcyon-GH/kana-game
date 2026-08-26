@@ -23,10 +23,13 @@ export type ScriptEntryPoint = { to: string; label: string; english: string; ico
 // on PracticeHubPage (see HubBreadcrumb.tsx) — the bundle entry covers
 // multiple categories, so it gets its own generic icon rather than
 // borrowing one category's.
+// Order here matches curriculum.ts's CATEGORIES declaration order (Hiragana
+// -> Katakana -> Sokuon -> Chōon -> Yōon), so this top-level entry order and
+// the Global Recommended Target's category-by-category progression always
+// agree (2026-08-26 — Stop & Long Sound moved ahead of Yōon to match).
 export const SCRIPT_ENTRY_POINTS: ScriptEntryPoint[] = [
   { to: '/hiragana', label: 'ひらがな', english: 'Hiragana', icon: 'category-icons/hiragana.webp', categoryIds: [DEFAULT_CATEGORY_ID] },
   { to: '/katakana', label: 'カタカナ', english: 'Katakana', icon: 'category-icons/katakana.webp', categoryIds: [KATAKANA_CATEGORY_ID] },
-  { to: '/youon', label: '○+ゃゅょ', english: 'Yōon', icon: 'category-icons/youon.webp', categoryIds: [YOUON_CATEGORY_ID] },
   {
     to: '/other',
     label: 'っ＆ー',
@@ -36,4 +39,5 @@ export const SCRIPT_ENTRY_POINTS: ScriptEntryPoint[] = [
     // into this one card — either being next-recommended recommends this card.
     categoryIds: [SOKUON_CATEGORY_ID, CHOUON_CATEGORY_ID],
   },
+  { to: '/youon', label: '○+ゃゅょ', english: 'Yōon', icon: 'category-icons/youon.webp', categoryIds: [YOUON_CATEGORY_ID] },
 ]
