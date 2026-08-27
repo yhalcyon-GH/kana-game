@@ -1,7 +1,15 @@
-import { render } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
-import { describe, expect, it } from 'vitest'
+import { fireEvent, render } from '@testing-library/react'
+import { MemoryRouter, useLocation } from 'react-router-dom'
+import { describe, expect, it, vi } from 'vitest'
 import { PracticeSummary } from './PracticeSummary'
+
+// Exposes the MemoryRouter's current pathname as text so a test can assert
+// on it directly — window.location.pathname is not updated by MemoryRouter,
+// so that global is not a reliable way to observe in-app navigation here.
+function LocationProbe() {
+  const location = useLocation()
+  return <div data-testid="location-probe">{location.pathname}</div>
+}
 
 // Item 9: Play Again / Continue order and styling.
 describe('PracticeSummary Play Again / Continue order (Item 9)', () => {
@@ -43,7 +51,7 @@ describe('PracticeSummary Play Again / Continue order (Item 9)', () => {
     expect(getByText('Back to hub')).toHaveAttribute('href', '/practice/hiragana/a-row')
   })
 
-  it('Review mistakes button still renders alongside the reordered pair when mistakes exist', () => {
+  it('Retry mistakes button still renders alongside the reordered pair when mistakes exist', () => {
     const { getByText } = render(
       <MemoryRouter>
         <PracticeSummary
@@ -53,12 +61,76 @@ describe('PracticeSummary Play Again / Continue order (Item 9)', () => {
           onRetry={() => {}}
           continueAction={{ label: 'Continue', to: '/practice/hiragana/a-row/kana-quiz' }}
           mistakes={[{ id: 'a', kana: 'あ', romaji: 'a' }]}
-          onReviewMistakes={() => {}}
+          onRetryMistakes={() => {}}
         />
       </MemoryRouter>,
     )
-    expect(getByText('Review 1 mistake')).toBeInTheDocument()
+    expect(getByText('Retry 1 mistake')).toBeInTheDocument()
     expect(getByText('Play Again')).toBeInTheDocument()
     expect(getByText('Continue')).toBeInTheDocument()
+  })
+})
+
+// Renaming "Review N mistakes" -> "Retry N mistake(s)" (see PR "fix: clarify
+// retry versus Review"): this immediate same-round retry is distinct from
+// the persistent, cross-session global Review feature. Behavior (which
+// callback fires, and that it only covers this round's distinct mistakes)
+// is unchanged — only the label and prop name changed.
+describe('PracticeSummary Retry mistakes button (retry vs Review clarity)', () => {
+  function renderWithMistakes(mistakeCount: number, onRetryMistakes = () => {}) {
+    const mistakes = Array.from({ length: mistakeCount }, (_, i) => ({
+      id: `m${i}`,
+      kana: 'あ',
+      romaji: 'a',
+    }))
+    return render(
+      <MemoryRouter>
+        <PracticeSummary
+          title="Session complete!"
+          stats={[{ label: 'Correct', value: 3 }]}
+          backHref="/practice/hiragana/a-row"
+          onRetry={() => {}}
+          mistakes={mistakes}
+          onRetryMistakes={onRetryMistakes}
+        />
+      </MemoryRouter>,
+    )
+  }
+
+  it('renders singular "Retry 1 mistake" for exactly one mistake', () => {
+    const { getByText, queryByText } = renderWithMistakes(1)
+    expect(getByText('Retry 1 mistake')).toBeInTheDocument()
+    expect(queryByText('Review 1 mistake')).toBeNull()
+  })
+
+  it('renders plural "Retry N mistakes" for two or more mistakes', () => {
+    const { getByText, queryByText } = renderWithMistakes(3)
+    expect(getByText('Retry 3 mistakes')).toBeInTheDocument()
+    expect(queryByText('Review 3 mistakes')).toBeNull()
+  })
+
+  it('clicking Retry invokes onRetryMistakes and does not navigate to the global Review route', () => {
+    const onRetryMistakes = vi.fn()
+    const mistakes = Array.from({ length: 2 }, (_, i) => ({ id: `m${i}`, kana: 'あ', romaji: 'a' }))
+    const { getByText, getByTestId } = render(
+      <MemoryRouter initialEntries={['/practice/hiragana/a-row/kana-quiz']}>
+        <PracticeSummary
+          title="Session complete!"
+          stats={[{ label: 'Correct', value: 3 }]}
+          backHref="/practice/hiragana/a-row"
+          onRetry={() => {}}
+          mistakes={mistakes}
+          onRetryMistakes={onRetryMistakes}
+        />
+        <LocationProbe />
+      </MemoryRouter>,
+    )
+
+    expect(getByTestId('location-probe')).toHaveTextContent('/practice/hiragana/a-row/kana-quiz')
+
+    fireEvent.click(getByText('Retry 2 mistakes'))
+
+    expect(onRetryMistakes).toHaveBeenCalledTimes(1)
+    expect(getByTestId('location-probe')).toHaveTextContent('/practice/hiragana/a-row/kana-quiz')
   })
 })

@@ -101,7 +101,7 @@ describe('routing', () => {
     useProgressStore.getState().markRowTaught('a-row')
     useProgressStore.getState().recordCharacterReviewResult('a', false)
     renderAt('/practice/review')
-    expect(screen.getByRole('heading', { name: 'Review — all learned rows' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Review' })).toBeInTheDocument()
   })
 
   it('/practice/review/kana-quiz renders the review-scoped Kana Quiz once a character is active in Review', () => {
