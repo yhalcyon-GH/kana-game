@@ -281,7 +281,7 @@ describe('KanaQuizPage mistake replay', () => {
       clickThroughRound(container)
     }
 
-    const mistakeButton = within(container).queryByRole('button', { name: /review \d+ mistake/i })
+    const mistakeButton = within(container).queryByRole('button', { name: /retry \d+ mistake/i })
     expect(mistakeButton).not.toBeNull()
     act(() => fireEvent.click(mistakeButton!))
 

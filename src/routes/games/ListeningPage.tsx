@@ -233,7 +233,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
         backHref={isReview ? '/practice/review' : `/practice/${categoryId}/${rowId}`}
         onRetry={() => setSessionAttempt((attempt) => attempt + 1)}
         mistakes={mistakes}
-        onReviewMistakes={() => startMistakeReview(mistakeIds)}
+        onRetryMistakes={() => startMistakeReview(mistakeIds)}
         mood={finishMood ?? undefined}
         comment={finishFeedback?.text}
         continueAction={!isReview ? { label: 'Continue', to: `/practice/${categoryId}/${rowId}/word-builder` } : undefined}

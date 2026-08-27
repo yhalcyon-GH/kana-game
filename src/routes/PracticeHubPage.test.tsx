@@ -283,7 +283,7 @@ describe('PracticeHubPage Review empty state (Issue #2)', () => {
     const { queryByText } = renderReviewHub()
 
     expect(queryByText('Kana Quiz')).not.toBeNull()
-    expect(queryByText('1 item need review')).not.toBeNull()
+    expect(queryByText('Practice saved kana and words that still need work (1 item)')).not.toBeNull()
   })
 })
 

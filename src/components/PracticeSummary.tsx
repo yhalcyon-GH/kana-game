@@ -15,10 +15,10 @@ type Props = {
   backHref: string
   onRetry: () => void
   // Every distinct item missed this session, and a callback to immediately
-  // start a fresh round covering just those — omitted (or empty) when
-  // nothing was missed.
+  // start a fresh round covering just those (ephemeral, not the persisted
+  // global Review pool) — omitted (or empty) when nothing was missed.
   mistakes?: MistakeEntry[]
-  onReviewMistakes?: () => void
+  onRetryMistakes?: () => void
   // Tamamizu's reaction to the whole session (see useAnswerFeedback's
   // onFinish/finishMood) — omitted for the ungraded games (Tracing), which
   // have no mistake count to react to.
@@ -39,7 +39,7 @@ export function PracticeSummary({
   backHref,
   onRetry,
   mistakes = [],
-  onReviewMistakes,
+  onRetryMistakes,
   mood,
   comment,
   continueAction,
@@ -109,13 +109,13 @@ export function PracticeSummary({
             Play again
           </button>
         )}
-        {mistakes.length > 0 && onReviewMistakes && (
+        {mistakes.length > 0 && onRetryMistakes && (
           <button
             type="button"
-            onClick={onReviewMistakes}
+            onClick={onRetryMistakes}
             className="rounded-full bg-amber-500 px-6 py-2 font-semibold text-white hover:bg-amber-600"
           >
-            Review {mistakes.length} mistake{mistakes.length === 1 ? '' : 's'}
+            Retry {mistakes.length} mistake{mistakes.length === 1 ? '' : 's'}
           </button>
         )}
         <Link

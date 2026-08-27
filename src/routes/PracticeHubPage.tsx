@@ -373,11 +373,11 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
     <div className="flex flex-col items-center gap-6">
       {!isReview && <HubBreadcrumb rowId={rowId} categoryId={categoryId!} />}
       <h1 className="text-2xl font-bold">
-        {isReview ? 'Review — all learned rows' : `${isSummary ? '⭐ ' : isSimilarLetters ? '🔍 ' : ''}${row!.label}`}
+        {isReview ? 'Review' : `${isSummary ? '⭐ ' : isSimilarLetters ? '🔍 ' : ''}${row!.label}`}
       </h1>
       {isReview && (
         <p className="text-sm text-neutral-500 dark:text-neutral-400">
-          {reviewCount} item{reviewCount === 1 ? '' : 's'} need review
+          Practice saved kana and words that still need work ({reviewCount} item{reviewCount === 1 ? '' : 's'})
         </p>
       )}
 

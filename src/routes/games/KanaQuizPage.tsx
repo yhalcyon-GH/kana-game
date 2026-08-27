@@ -210,7 +210,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
         backHref={hubHref}
         onRetry={startSession}
         mistakes={mistakes}
-        onReviewMistakes={() => startMistakeReview(mistakeIds)}
+        onRetryMistakes={() => startMistakeReview(mistakeIds)}
         mood={finishMood ?? undefined}
         comment={finishFeedback?.text}
         continueAction={!isReview ? { label: 'Continue', to: `${hubHref}/listening` } : undefined}

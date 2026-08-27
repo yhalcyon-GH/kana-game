@@ -57,6 +57,32 @@ describe('Review Guide (Issue #40)', () => {
     expect(reviewLink.querySelector('span')).toHaveClass('bg-orange-500', 'ring-orange-300')
   })
 
+  // Retry (this-round-only) vs Review (persistent, cross-session) are easy
+  // for beginners to conflate since both used to be labeled "Review" — the
+  // guide now spells out the difference in visible DOM copy. This is
+  // separate from, and never passed to, the spoken narration below.
+  it('explains Retry mistakes and Review as distinct concepts in visible copy', () => {
+    createFirstReviewTarget()
+    const summary = renderSummary()
+
+    expect(summary.getByText('Retry mistakes')).toBeInTheDocument()
+    expect(summary.getByText('Practice only the items you missed in this round.')).toBeInTheDocument()
+    expect(
+      summary.getByText('Missed kana and words are saved here so you can practice them again later.'),
+    ).toBeInTheDocument()
+  })
+
+  it('never passes the new visible Retry/Review explanation copy to speech', () => {
+    createFirstReviewTarget()
+    renderSummary()
+
+    expect(tts.speak).toHaveBeenCalledTimes(1)
+    const [, spokenText] = tts.speak.mock.calls[0]
+    expect(spokenText).toBe(content.speechText)
+    expect(spokenText).not.toContain('Practice only the items you missed in this round.')
+    expect(spokenText).not.toContain('Missed kana and words are saved here')
+  })
+
   it('dismisses without navigating or changing the Review target', () => {
     createFirstReviewTarget()
     const before = useProgressStore.getState().characters.a
