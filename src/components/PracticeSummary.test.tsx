@@ -1,7 +1,15 @@
 import { fireEvent, render } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { PracticeSummary } from './PracticeSummary'
+
+// Exposes the MemoryRouter's current pathname as text so a test can assert
+// on it directly — window.location.pathname is not updated by MemoryRouter,
+// so that global is not a reliable way to observe in-app navigation here.
+function LocationProbe() {
+  const location = useLocation()
+  return <div data-testid="location-probe">{location.pathname}</div>
+}
 
 // Item 9: Play Again / Continue order and styling.
 describe('PracticeSummary Play Again / Continue order (Item 9)', () => {
@@ -103,9 +111,26 @@ describe('PracticeSummary Retry mistakes button (retry vs Review clarity)', () =
 
   it('clicking Retry invokes onRetryMistakes and does not navigate to the global Review route', () => {
     const onRetryMistakes = vi.fn()
-    const { getByText } = renderWithMistakes(2, onRetryMistakes)
+    const mistakes = Array.from({ length: 2 }, (_, i) => ({ id: `m${i}`, kana: 'あ', romaji: 'a' }))
+    const { getByText, getByTestId } = render(
+      <MemoryRouter initialEntries={['/practice/hiragana/a-row/kana-quiz']}>
+        <PracticeSummary
+          title="Session complete!"
+          stats={[{ label: 'Correct', value: 3 }]}
+          backHref="/practice/hiragana/a-row"
+          onRetry={() => {}}
+          mistakes={mistakes}
+          onRetryMistakes={onRetryMistakes}
+        />
+        <LocationProbe />
+      </MemoryRouter>,
+    )
+
+    expect(getByTestId('location-probe')).toHaveTextContent('/practice/hiragana/a-row/kana-quiz')
+
     fireEvent.click(getByText('Retry 2 mistakes'))
+
     expect(onRetryMistakes).toHaveBeenCalledTimes(1)
-    expect(window.location.pathname).not.toMatch(/\/review/)
+    expect(getByTestId('location-probe')).toHaveTextContent('/practice/hiragana/a-row/kana-quiz')
   })
 })
