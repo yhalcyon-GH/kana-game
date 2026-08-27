@@ -51,12 +51,19 @@ function completeRow(rowId: string) {
   useProgressStore.getState().markRowActivityCompleted(rowId, 'wordBuilder')
 }
 
+// Item 5: the Global Recommended Target no longer gets its own dedicated
+// section/card — it's now a ⭐ badge on whichever normal grid card is the
+// target. This counts how many such badges are on the page (0 or 1).
+function recommendedMarkerCount(container: HTMLElement) {
+  return container.querySelectorAll('[aria-label="Recommended"]').length
+}
+
 describe('Learn / Tracing Guide (Issue #33)', () => {
   it('shows the one-time guide on a fresh Hiragana あ〜お hub, highlighting both choices without covering them', () => {
-    const { getByRole, getByTestId } = renderRowHub('hiragana', 'a-row')
+    const { getByText, getByTestId, getByRole } = renderRowHub('hiragana', 'a-row')
 
-    const learn = getByRole('link', { name: /Learn/ })
-    const tracing = getByRole('link', { name: /Tracing/ })
+    const learn = getByText('Learn').closest('button, a, div')!
+    const tracing = getByText('Tracing').closest('button, a, div')!
     expect(learn).toHaveClass('ring-yellow-400')
     expect(tracing).toHaveClass('ring-yellow-400')
 
@@ -68,17 +75,19 @@ describe('Learn / Tracing Guide (Issue #33)', () => {
     expect(tracing.compareDocumentPosition(guide) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
   })
 
-  it('keeps Learn and Tracing inaccessible until Got it, then restores both links without changing learning progress', () => {
-    const { getByRole, getByText, queryByTestId } = renderRowHub('hiragana', 'a-row')
+  // Item 6: Learn/Tracing cards stay clickable while the Learn/Tracing
+  // Guide shows — clicking stops the guide's narration, ends the guide
+  // (marking it completed for this automatic first-time case), and
+  // navigates straight to the clicked activity, rather than the old
+  // behavior of being inert links until "Got it!" was clicked first.
+  it('Learn/Tracing cards are clickable while the guide shows (Item 6), and Got it! also still dismisses it normally', () => {
+    const { getByText, queryByTestId } = renderRowHub('hiragana', 'a-row')
 
-    const learnWhileGuided = getByRole('link', { name: /Learn/ })
-    const tracingWhileGuided = getByRole('link', { name: /Tracing/ })
-    expect(learnWhileGuided).toHaveAttribute('aria-disabled', 'true')
-    expect(tracingWhileGuided).toHaveAttribute('aria-disabled', 'true')
-    expect(learnWhileGuided).toHaveAttribute('tabindex', '-1')
-    expect(tracingWhileGuided).toHaveAttribute('tabindex', '-1')
-    expect(learnWhileGuided.tagName).not.toBe('A')
-    expect(tracingWhileGuided.tagName).not.toBe('A')
+    const learnWhileGuided = getByText('Learn').closest('button, a')!
+    const tracingWhileGuided = getByText('Tracing').closest('button, a')!
+    // Clickable now — not the old inert aria-disabled div.
+    expect(learnWhileGuided.tagName).toBe('BUTTON')
+    expect(tracingWhileGuided.tagName).toBe('BUTTON')
 
     fireEvent.click(getByText('Got it!'))
 
@@ -90,12 +99,57 @@ describe('Learn / Tracing Guide (Issue #33)', () => {
     expect(state.rowActivityCompletion).toEqual({})
     expect(state.characters).toEqual({})
     expect(state.words).toEqual({})
-    const learnAfterDismiss = getByRole('link', { name: /Learn/ })
-    const tracingAfterDismiss = getByRole('link', { name: /Tracing/ })
+    const learnAfterDismiss = getByText('Learn').closest('a')!
+    const tracingAfterDismiss = getByText('Tracing').closest('a')!
     expect(learnAfterDismiss).not.toHaveAttribute('aria-disabled')
     expect(tracingAfterDismiss).not.toHaveAttribute('aria-disabled')
     expect(learnAfterDismiss).toHaveAttribute('href', '/learn/hiragana/a-row')
     expect(tracingAfterDismiss).toHaveAttribute('href', '/practice/hiragana/a-row/tracing')
+  })
+
+  it('clicking Learn while the automatic Learn/Tracing Guide shows marks it completed and navigates to Learn (Item 6)', () => {
+    const { getByText } = render(
+      <MemoryRouter initialEntries={['/practice/hiragana/a-row']}>
+        <Routes>
+          <Route path="/practice/:categoryId/:rowId" element={<PracticeHubPage />} />
+          <Route path="/learn/hiragana/a-row" element={<div>LEARN PAGE</div>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    expect(useProgressStore.getState().hasCompletedLearnTracingGuide).toBe(false)
+    fireEvent.click(getByText('Learn'))
+    expect(useProgressStore.getState().hasCompletedLearnTracingGuide).toBe(true)
+    expect(getByText('LEARN PAGE')).toBeInTheDocument()
+  })
+
+  it('clicking Tracing while the automatic Learn/Tracing Guide shows marks it completed and navigates to Tracing (Item 6)', () => {
+    const { getByText } = render(
+      <MemoryRouter initialEntries={['/practice/hiragana/a-row']}>
+        <Routes>
+          <Route path="/practice/:categoryId/:rowId" element={<PracticeHubPage />} />
+          <Route path="/practice/hiragana/a-row/tracing" element={<div>TRACING PAGE</div>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    expect(useProgressStore.getState().hasCompletedLearnTracingGuide).toBe(false)
+    fireEvent.click(getByText('Tracing'))
+    expect(useProgressStore.getState().hasCompletedLearnTracingGuide).toBe(true)
+    expect(getByText('TRACING PAGE')).toBeInTheDocument()
+  })
+
+  it('clicking Learn during a manual Learn/Tracing Guide replay ends the replay without mutating the persisted flag, and navigates (Item 6)', () => {
+    useProgressStore.getState().setHasCompletedLearnTracingGuide(true)
+    const { getByText } = render(
+      <MemoryRouter initialEntries={['/practice/hiragana/a-row?guide=learnTracing']}>
+        <Routes>
+          <Route path="/practice/:categoryId/:rowId" element={<PracticeHubPage />} />
+          <Route path="/learn/hiragana/a-row" element={<div>LEARN PAGE</div>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    fireEvent.click(getByText('Learn'))
+    expect(useProgressStore.getState().hasCompletedLearnTracingGuide).toBe(true)
+    expect(getByText('LEARN PAGE')).toBeInTheDocument()
   })
 
   it('does not show again after completion or on any other row', () => {
@@ -134,34 +188,58 @@ describe('Practice Guide (Issue #35)', () => {
     afterTracing.unmount()
   })
 
-  it('highlights Recommended and disables every hub activity until Got it restores the links', () => {
+  it('highlights the Recommended card in-place (no separate section) and shows the Practice Guide until Got it restores the links', () => {
     useProgressStore.getState().setHasCompletedLearnTracingGuide(true)
     useProgressStore.getState().markRowTaught('a-row')
-    const { getAllByRole, getByTestId, getAllByText, getByText, getByRole } = renderRowHub('hiragana', 'a-row')
+    const { getAllByRole, getByTestId, getByText, getByRole, queryByText } = renderRowHub('hiragana', 'a-row')
 
     const guide = getByTestId('practice-guide')
-    const recommended = getByTestId('practice-guide-recommended')
-    expect(recommended).toHaveClass('ring-yellow-400')
-    expect(getByText('⭐ Recommended')).toHaveClass('font-bold', 'text-red-600')
-    expect(getAllByText('✨')).toHaveLength(2)
+    expect(queryByText('⭐ Recommended')).toBeNull()
+    expect(queryByText('practice-guide-recommended')).toBeNull()
+    const kanaQuizCard = getByText('Kana Quiz').closest('button, a')!
+    expect(kanaQuizCard).toHaveClass('ring-yellow-400')
+    expect(kanaQuizCard.querySelector('[aria-label="Recommended"]')).toHaveTextContent('⭐')
     expect(getByRole('img', { name: 'Tamamizu explains Practice and Recommended' })).toHaveAttribute('src', '/guide/practice-guide.webp')
     expect(getByText('Got it!')).toBeInTheDocument()
     expect(guide).not.toHaveTextContent('Now, let’s practice!')
 
-    const activityCards = () => getAllByRole('link').filter((card) => card.classList.contains('rounded-xl'))
-    expect(activityCards()).toHaveLength(7) // Recommended + Learn + Tracing + 3 Practice + Optional
-    for (const card of activityCards()) {
-      expect(card).toHaveAttribute('aria-disabled', 'true')
-      expect(card).toHaveAttribute('tabindex', '-1')
-      expect(card.tagName).not.toBe('A')
-    }
+    const activityCards = () =>
+      [...getAllByRole('link'), ...getAllByRole('button')].filter(
+        (card) => card.classList.contains('rounded-xl') && card.textContent !== 'Got it!',
+      )
+    expect(activityCards()).toHaveLength(6) // Learn + Tracing + 3 Practice + Optional, no duplicate Recommended card
+  })
 
-    fireEvent.click(getByText('Got it!'))
+  it('Item 6: clicking a Practice card while the automatic Practice Guide is showing stops the guide, marks it completed, and navigates', () => {
+    useProgressStore.getState().setHasCompletedLearnTracingGuide(true)
+    useProgressStore.getState().markRowTaught('a-row')
+    const { getByText } = render(
+      <MemoryRouter initialEntries={['/practice/hiragana/a-row']}>
+        <Routes>
+          <Route path="/practice/:categoryId/:rowId" element={<PracticeHubPage />} />
+          <Route path="/practice/hiragana/a-row/kana-quiz" element={<div>KANA QUIZ PAGE</div>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    expect(useProgressStore.getState().hasCompletedPracticeGuide).toBe(false)
+    fireEvent.click(getByText('Kana Quiz'))
+    expect(useProgressStore.getState().hasCompletedPracticeGuide).toBe(true)
+    expect(getByText('KANA QUIZ PAGE')).toBeInTheDocument()
+  })
 
-    for (const card of activityCards()) {
-      expect(card).not.toHaveAttribute('aria-disabled')
-      expect(card.tagName).toBe('A')
-    }
+  it('Item 6: clicking a Practice card during a manual Practice Guide replay ends the replay without mutating the persisted flag, and navigates', () => {
+    const { getByText } = render(
+      <MemoryRouter initialEntries={['/practice/hiragana/a-row?guide=practice']}>
+        <Routes>
+          <Route path="/practice/:categoryId/:rowId" element={<PracticeHubPage />} />
+          <Route path="/practice/hiragana/a-row/listening" element={<div>LISTENING PAGE</div>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    expect(useProgressStore.getState().hasCompletedPracticeGuide).toBe(false)
+    fireEvent.click(getByText('Listening'))
+    expect(useProgressStore.getState().hasCompletedPracticeGuide).toBe(false)
+    expect(getByText('LISTENING PAGE')).toBeInTheDocument()
   })
 
   it('does not show on another row after completing the first row', () => {
@@ -207,11 +285,11 @@ describe('PracticeHubPage Review empty state (Issue #2)', () => {
 
 describe('PracticeHubPage Recommended Path (Issue #11)', () => {
   it('an untaught character-set row shows "Choose how to learn" with Learn and Tracing, no ⭐ Recommended yet', () => {
-    const { queryByText } = renderRowHub('hiragana', 'ka-row')
+    const { queryByText, container } = renderRowHub('hiragana', 'ka-row')
     expect(queryByText('Choose how to learn')).not.toBeNull()
     expect(queryByText('Learn')).not.toBeNull()
     expect(queryByText('Tracing')).not.toBeNull()
-    expect(queryByText('⭐ Recommended')).toBeNull()
+    expect(recommendedMarkerCount(container)).toBe(0)
   })
 
   it('after Learn is completed, Recommended becomes Kana Quiz', () => {
@@ -220,8 +298,8 @@ describe('PracticeHubPage Recommended Path (Issue #11)', () => {
     // instead of moving to ka-row.
     completeRow('a-row')
     useProgressStore.getState().markRowTaught('ka-row')
-    const { queryByText, getAllByText } = renderRowHub('hiragana', 'ka-row')
-    expect(queryByText('⭐ Recommended')).not.toBeNull()
+    const { queryByText, getAllByText, container } = renderRowHub('hiragana', 'ka-row')
+    expect(recommendedMarkerCount(container)).toBe(1)
     expect(getAllByText('Kana Quiz').length).toBeGreaterThan(0)
     expect(queryByText('Choose how to learn')).toBeNull()
   })
@@ -229,8 +307,8 @@ describe('PracticeHubPage Recommended Path (Issue #11)', () => {
   it('after Tracing alone is completed (no markRowTaught), Recommended also becomes Kana Quiz', () => {
     completeRow('a-row')
     useProgressStore.getState().markRowActivityCompleted('ka-row', 'tracing')
-    const { queryByText, getAllByText } = renderRowHub('hiragana', 'ka-row')
-    expect(queryByText('⭐ Recommended')).not.toBeNull()
+    const { getAllByText, container } = renderRowHub('hiragana', 'ka-row')
+    expect(recommendedMarkerCount(container)).toBe(1)
     expect(getAllByText('Kana Quiz').length).toBeGreaterThan(0)
   })
 
@@ -336,11 +414,12 @@ describe('PracticeHubPage 4-section layout (Issue #15)', () => {
     return Array.from(grid.querySelectorAll('a')).map((a) => a.querySelector('.font-semibold')?.textContent?.replace('✓', '').trim())
   }
 
-  it('renders Learn, Practice, and Optional as separate sections (Recommended appears once introduced)', () => {
+  it('renders exactly Learn, Practice, and Optional sections — no separate Recommended section even once introduced (Item 5)', () => {
     completeRow('a-row')
     useProgressStore.getState().markRowTaught('ka-row')
     const { container } = renderRowHub('hiragana', 'ka-row')
-    expect(sectionHeadings(container)).toEqual(['⭐ Recommended', 'Learn', 'Practice', 'Optional'])
+    expect(sectionHeadings(container)).toEqual(['Learn', 'Practice', 'Optional'])
+    expect(recommendedMarkerCount(container)).toBe(1)
   })
 
   it('the Learn section lists Learn before Tracing', () => {
@@ -376,17 +455,18 @@ describe('PracticeHubPage 4-section layout (Issue #15)', () => {
     expect(grid.textContent).toMatch(/Type the word/)
   })
 
-  it('the Recommended card also appears as a normal card in its own section', () => {
+  it('the Recommended card is exactly its normal Practice-grid card — no duplicate elsewhere (Item 5)', () => {
     completeRow('a-row')
     useProgressStore.getState().markRowTaught('ka-row')
-    const { getAllByText } = renderRowHub('hiragana', 'ka-row')
-    // Kana Quiz is Recommended here, and must still show up in Practice too.
-    expect(getAllByText('Kana Quiz').length).toBe(2)
+    const { getAllByText, container } = renderRowHub('hiragana', 'ka-row')
+    // Kana Quiz is Recommended here — only one card, now with a ⭐ badge.
+    expect(getAllByText('Kana Quiz').length).toBe(1)
+    expect(recommendedMarkerCount(container)).toBe(1)
   })
 
-  it('an untaught row still has no ⭐ Recommended section, but does have Practice and Optional', () => {
-    const { queryByText, container } = renderRowHub('hiragana', 'ka-row')
-    expect(queryByText('⭐ Recommended')).toBeNull()
+  it('an untaught row still has no ⭐ Recommended marker, but does have Practice and Optional', () => {
+    const { container } = renderRowHub('hiragana', 'ka-row')
+    expect(recommendedMarkerCount(container)).toBe(0)
     expect(sectionHeadings(container)).toEqual(['Choose how to learn', 'Practice', 'Optional'])
   })
 
@@ -411,47 +491,48 @@ describe('PracticeHubPage 4-section layout (Issue #15)', () => {
 })
 
 // Issue #25: only the row that is currently the single Global Recommended
-// Target shows a ⭐ Recommended section — a row visited out of order never
-// shows its own, even though its own local per-row UI (Choose how to
-// learn/✓ marks/Lesson complete) still works normally either way.
+// Target shows a ⭐ marker — a row visited out of order never shows its
+// own, even though its own local per-row UI (Choose how to learn/✓
+// marks/Lesson complete) still works normally either way. Item 5: this is
+// now always a badge on a normal grid card, never a separate section.
 describe('PracticeHubPage Global Recommended Target (Issue #25)', () => {
-  it('a later row visited before an earlier row is finished shows no ⭐ Recommended section', () => {
+  it('a later row visited before an earlier row is finished shows no ⭐ marker', () => {
     // a-row (curriculum-first) is still untouched — ka-row is not the
     // global target no matter what's done on ka-row itself.
     useProgressStore.getState().markRowTaught('ka-row')
     useProgressStore.getState().markRowActivityCompleted('ka-row', 'kanaQuiz')
-    const { queryByText } = renderRowHub('hiragana', 'ka-row')
-    expect(queryByText('⭐ Recommended')).toBeNull()
+    const { container } = renderRowHub('hiragana', 'ka-row')
+    expect(recommendedMarkerCount(container)).toBe(0)
   })
 
   it('that later row still shows its own Lesson complete once its own path finishes, without ever being the global target', () => {
     completeRow('ka-row')
     // a-row was never touched, so ka-row is still not the global target —
     // but ka-row's OWN Lesson complete is about ka-row's own progress.
-    const { queryByText } = renderRowHub('hiragana', 'ka-row')
-    expect(queryByText('⭐ Recommended')).toBeNull()
+    const { queryByText, container } = renderRowHub('hiragana', 'ka-row')
+    expect(recommendedMarkerCount(container)).toBe(0)
     expect(queryByText('Lesson complete')).not.toBeNull()
   })
 
-  it('once the earlier row (a-row) is finished, the target moves to ka-row and its Recommended section appears', () => {
+  it('once the earlier row (a-row) is finished, the target moves to ka-row and its ⭐ marker appears', () => {
     completeRow('a-row')
     useProgressStore.getState().markRowTaught('ka-row')
-    const { queryByText } = renderRowHub('hiragana', 'ka-row')
-    expect(queryByText('⭐ Recommended')).not.toBeNull()
+    const { container } = renderRowHub('hiragana', 'ka-row')
+    expect(recommendedMarkerCount(container)).toBe(1)
   })
 
-  it('a-row itself still shows its own Recommended section for its own next step while it is the target', () => {
+  it('a-row itself still shows no ⭐ marker for its own intro step while it is the target', () => {
     const before = renderRowHub('hiragana', 'a-row')
     // a-row's intro (Learn/Tracing) is the target here — per the existing
-    // "Choose how to learn" design, that specific state shows no separate
-    // Recommended card (neither Learn nor Tracing is singled out).
+    // "Choose how to learn" design, that specific state shows no ⭐ marker
+    // (neither Learn nor Tracing is singled out).
     expect(before.queryByText('Choose how to learn')).not.toBeNull()
-    expect(before.queryByText('⭐ Recommended')).toBeNull()
+    expect(recommendedMarkerCount(before.container)).toBe(0)
     before.unmount()
 
     useProgressStore.getState().markRowTaught('a-row')
     const after = renderRowHub('hiragana', 'a-row')
-    expect(after.queryByText('⭐ Recommended')).not.toBeNull()
+    expect(recommendedMarkerCount(after.container)).toBe(1)
   })
 })
 
@@ -609,7 +690,7 @@ describe('Similar Letters Practice Hub', () => {
     const hub = renderRowHub('hiragana', 'a-row')
     // a-row (the real first row) is still Recommended — Similar Letters'
     // own "completion" never substitutes for it.
-    expect(hub.getByRole('link', { name: /Learn/ })).toBeInTheDocument()
+    expect(hub.getByText('Learn')).toBeInTheDocument()
     expect(useProgressStore.getState().unlockedRowIds).toEqual(before)
   })
 

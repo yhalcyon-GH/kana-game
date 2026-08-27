@@ -79,25 +79,36 @@ export function PracticeSummary({
       {showReviewGuide && <ReviewGuide />}
 
       <div className="flex flex-wrap justify-center gap-3">
-        {continueAction && (
-          <Link
-            to={continueAction.to}
+        {/* Item 9: when both actions exist, always [ Play Again ] [ Continue
+            ] in that literal DOM order, side by side in their own paired
+            row — Play Again secondary, Continue stays primary blue. With no
+            continueAction, Play Again alone keeps its previous primary
+            styling. */}
+        {continueAction ? (
+          <div className="flex flex-wrap justify-center gap-3">
+            <button
+              type="button"
+              onClick={onRetry}
+              className="rounded-full border border-neutral-300 px-6 py-2 font-semibold hover:border-blue-400 dark:border-neutral-600"
+            >
+              Play Again
+            </button>
+            <Link
+              to={continueAction.to}
+              className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
+            >
+              {continueAction.label}
+            </Link>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={onRetry}
             className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
           >
-            {continueAction.label}
-          </Link>
+            Play again
+          </button>
         )}
-        <button
-          type="button"
-          onClick={onRetry}
-          className={
-            continueAction
-              ? 'rounded-full border border-neutral-300 px-6 py-2 font-semibold hover:border-blue-400 dark:border-neutral-600'
-              : 'rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700'
-          }
-        >
-          Play again
-        </button>
         {mistakes.length > 0 && onReviewMistakes && (
           <button
             type="button"

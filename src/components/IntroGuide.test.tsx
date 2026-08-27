@@ -1,5 +1,5 @@
 import { fireEvent, render } from '@testing-library/react'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { INTRO_GUIDE_STEPS } from '../data/introGuide'
 import { DEFAULT_INTRO_GUIDE_LOCALE, INTRO_GUIDE_CONTENT } from '../data/introGuideContent'
 import { useProgressStore } from '../store/progressStore'
@@ -82,6 +82,22 @@ describe('IntroGuide (Issue #29/#31)', () => {
     useProgressStore.getState().setHasCompletedIntroGuide(false)
     rerender(<IntroGuide />)
     expect(getByText(locale.steps['intro.welcome'].subtitle)).toBeInTheDocument()
+  })
+
+  it('final subtitle has no blank line (single \\n, not \\n\\n)', () => {
+    const lastStep = INTRO_GUIDE_STEPS[INTRO_GUIDE_STEPS.length - 1]
+    expect(locale.steps[lastStep.id].subtitle).not.toContain('\n\n')
+  })
+
+  it('never falls back to Web Speech when static playback fails (jsdom audio.play() always rejects) — no synthesis is attempted, and Next still advances', () => {
+    // jsdom's HTMLMediaElement.play() always rejects ("not implemented"),
+    // so static playback fails on every step here — if IntroGuide still had
+    // a Web Speech fallback, this would trigger window.speechSynthesis.speak.
+    const synthSpeakSpy = 'speechSynthesis' in window ? vi.spyOn(window.speechSynthesis, 'speak') : null
+    const { getByText } = render(<IntroGuide />)
+    fireEvent.click(getByText(locale.nextLabel))
+    expect(getByText(locale.steps[INTRO_GUIDE_STEPS[1].id].subtitle)).toBeInTheDocument()
+    if (synthSpeakSpy) expect(synthSpeakSpy).not.toHaveBeenCalled()
   })
 
   it('does not touch unlock/taught/completion/Review/SRS/mastery state', () => {

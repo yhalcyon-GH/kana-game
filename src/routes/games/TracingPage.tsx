@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { BackToHubLink } from '../../components/BackToHubLink'
 import { PracticeSummary } from '../../components/PracticeSummary'
 import { StrokeOrderAnimation } from '../../components/StrokeOrderAnimation'
+import { WordImage } from '../../components/WordImage'
 import { CHARACTERS_BY_ID, getCharacterAudioId } from '../../data/characters'
 import { CATEGORIES_BY_ID, ROWS_BY_ID } from '../../data/curriculum'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
@@ -324,6 +325,7 @@ export function TracingPage() {
         </>
       ) : currentWord ? (
         <>
+          <WordImage word={currentWord} className="h-14 w-14" />
           <span className="text-lg font-semibold">{currentWord.meaning}</span>
           <span className="-mt-4 text-sm text-neutral-500 dark:text-neutral-400">{currentWord.romaji}</span>
           <div className="max-w-full overflow-x-auto">

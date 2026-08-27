@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { INTRO_GUIDE_STEPS } from '../data/introGuide'
 import { DEFAULT_INTRO_GUIDE_LOCALE, INTRO_GUIDE_CONTENT } from '../data/introGuideContent'
 import { useFocusTrap } from '../hooks/useFocusTrap'
@@ -16,9 +16,29 @@ import { useProgressStore } from '../store/progressStore'
 export function IntroGuide() {
   const completed = useProgressStore((s) => s.hasCompletedIntroGuide)
   const setCompleted = useProgressStore((s) => s.setHasCompletedIntroGuide)
-  const { speak, stop } = useTTS()
+  const audioEnabled = useProgressStore((s) => s.audioEnabled)
+  const { speakStaticOnly, stop } = useTTS()
   const [stepIndex, setStepIndex] = useState(0)
+  // True once static playback for the CURRENT step has failed (missing
+  // clip, or blocked by the browser's autoplay policy) — surfaces a manual
+  // retry control instead of ever falling back to a different (non-
+  // Tamamizu) Web Speech voice reading the narration.
+  const [playbackFailed, setPlaybackFailed] = useState(false)
   const containerRef = useFocusTrap<HTMLDivElement>(!completed)
+  // Guards against the step-change effect re-triggering playback for a
+  // step whose audio the Next-button handler already started as part of
+  // the same user gesture (advance() bumps stepIndex, which would
+  // otherwise cause the effect below to call speakStaticOnly a second
+  // time for that step).
+  const startedStepRef = useRef<string | null>(null)
+
+  const playStep = (stepId: string, audioKey: string, fallbackText: string, lang: string) => {
+    startedStepRef.current = stepId
+    setPlaybackFailed(false)
+    speakStaticOnly(audioKey, fallbackText, lang).then((started) => {
+      if (!started) setPlaybackFailed(true)
+    })
+  }
 
   // Settings' "View introduction again" flips `completed` back to false on
   // an instance that may already be past step 0 from a prior viewing —
@@ -34,7 +54,10 @@ export function IntroGuide() {
 
   useEffect(() => {
     if (completed) return
-    speak(stepContent.audioKey, stepContent.subtitle, locale.lang)
+    // Next's onClick already started this exact step's audio as part of
+    // the same user gesture — don't double-play it here.
+    if (startedStepRef.current === step.id) return
+    playStep(step.id, stepContent.audioKey, stepContent.subtitle, locale.lang)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [completed, step.id])
 
@@ -51,7 +74,19 @@ export function IntroGuide() {
       setCompleted(true)
       return
     }
-    setStepIndex((i) => i + 1)
+    const nextIndex = stepIndex + 1
+    const nextStep = INTRO_GUIDE_STEPS[nextIndex]
+    const nextContent = locale.steps[nextStep.id]
+    // This click IS a user gesture, so use it to start the next slide's
+    // static audio right away (helps it dodge autoplay blocking) — the
+    // step-change effect above sees startedStepRef already set and skips
+    // its own play() for this step.
+    playStep(nextStep.id, nextContent.audioKey, nextContent.subtitle, locale.lang)
+    setStepIndex(nextIndex)
+  }
+
+  const retryPlayback = () => {
+    playStep(step.id, stepContent.audioKey, stepContent.subtitle, locale.lang)
   }
 
   return (
@@ -91,6 +126,15 @@ export function IntroGuide() {
           />
         </div>
         <p className="max-w-sm shrink-0 text-center text-base whitespace-pre-line sm:text-lg">{stepContent.subtitle}</p>
+        {playbackFailed && audioEnabled && (
+          <button
+            type="button"
+            onClick={retryPlayback}
+            className="shrink-0 rounded-full border border-neutral-300 px-4 py-1.5 text-sm text-neutral-600 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
+          >
+            🔊 Play narration
+          </button>
+        )}
       </div>
 
       <button

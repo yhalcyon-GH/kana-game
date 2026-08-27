@@ -283,6 +283,59 @@ describe('LearnPage romaji (Issue #19)', () => {
   })
 })
 
+// Item 8: the final word page (step B) gets a third "Back to hub" button
+// alongside "Back"/"Continue" — it completes Learn the same way Continue
+// does (markRowTaught) but returns to the hub instead of the next
+// recommended activity.
+describe('LearnPage: "Back to hub" on the final word page (Item 8)', () => {
+  it('marks the row taught and navigates to the hub for a normal character-set row', () => {
+    renderLearn('/learn/hiragana/a-row')
+    fireEvent.click(screen.getByText('See them all'))
+    fireEvent.click(screen.getByText('See the words'))
+    expect(useProgressStore.getState().taughtRowIds).not.toContain('a-row')
+
+    fireEvent.click(screen.getByText('Back to hub'))
+
+    expect(useProgressStore.getState().taughtRowIds).toContain('a-row')
+    // Navigated to the hub route, not a game route.
+    expect(screen.queryByText('words you can already read', { exact: false })).toBeNull()
+  })
+
+  it("Continue's existing behavior (mark taught + go to the next recommended activity) is unaffected", () => {
+    renderLearn('/learn/hiragana/a-row')
+    fireEvent.click(screen.getByText('See them all'))
+    fireEvent.click(screen.getByText('See the words'))
+
+    fireEvent.click(screen.getByText('Continue'))
+
+    expect(useProgressStore.getState().taughtRowIds).toContain('a-row')
+  })
+
+  it('works the same for a contrast-pairs row (sokuon), which enters step B directly', () => {
+    renderLearn('/learn/sokuon/sokuon-row')
+    expect(useProgressStore.getState().taughtRowIds).not.toContain('sokuon-row')
+
+    fireEvent.click(screen.getByText('Back to hub'))
+
+    expect(useProgressStore.getState().taughtRowIds).toContain('sokuon-row')
+  })
+
+  it('Similar Letters Learn has no "Back to hub" button and never calls markRowTaught — its own "Done" behavior is unchanged', () => {
+    renderLearn('/learn/hiragana/hiragana-similar-letters')
+    expect(screen.queryByText('Back to hub')).toBeNull()
+    for (let i = 2; i <= 7; i++) fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText('Done'))
+    expect(useProgressStore.getState().taughtRowIds).not.toContain('hiragana-similar-letters')
+  })
+
+  it('a summary row\'s final "Done" step has no "Back to hub" button (Summary regression-free)', () => {
+    renderLearn('/learn/hiragana/hiragana-summary')
+    fireEvent.click(screen.getByText('See the words'))
+    expect(screen.queryByText('Back to hub')).toBeNull()
+    expect(screen.getByText('Done')).toBeInTheDocument()
+  })
+})
+
 // Similar Letters (see GojuonRow.isSimilarLetters) — a dedicated Learn
 // branch: 1 confusion group = 1 page, showing that group's kana cards
 // side-by-side (not one-by-one like the normal flashcard flow above).
