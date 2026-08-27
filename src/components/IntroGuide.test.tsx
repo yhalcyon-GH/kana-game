@@ -7,16 +7,19 @@ import { IntroGuide } from './IntroGuide'
 
 const locale = INTRO_GUIDE_CONTENT[DEFAULT_INTRO_GUIDE_LOCALE]
 
-const mockSpeakStaticOnly = vi.fn().mockResolvedValue(true)
+const mockSpeak = vi.fn()
+const mockSpeakStaticOnly = vi.fn()
 const mockStop = vi.fn()
 vi.mock('../hooks/useTTS', () => ({
-  useTTS: () => ({ speakStaticOnly: mockSpeakStaticOnly, stop: mockStop, speak: vi.fn(), supported: true }),
+  useTTS: () => ({ speak: mockSpeak, speakStaticOnly: mockSpeakStaticOnly, stop: mockStop, supported: true }),
 }))
 
 beforeEach(() => {
   useProgressStore.getState().resetProgress()
+  mockSpeak.mockClear()
   mockSpeakStaticOnly.mockClear()
   mockStop.mockClear()
+  mockSpeakStaticOnly.mockResolvedValue(true)
 })
 
 describe('IntroGuide replay narration (startedStepRef reset across viewing sessions)', () => {
@@ -140,15 +143,29 @@ describe('IntroGuide (Issue #29/#31)', () => {
     expect(locale.steps[lastStep.id].subtitle).not.toContain('\n\n')
   })
 
-  it('never falls back to Web Speech when static playback fails (jsdom audio.play() always rejects) — no synthesis is attempted, and Next still advances', () => {
-    // jsdom's HTMLMediaElement.play() always rejects ("not implemented"),
-    // so static playback fails on every step here — if IntroGuide still had
-    // a Web Speech fallback, this would trigger window.speechSynthesis.speak.
-    const synthSpeakSpy = 'speechSynthesis' in window ? vi.spyOn(window.speechSynthesis, 'speak') : null
-    const { getByText } = render(<IntroGuide />)
+  it('never falls back to Web Speech (generic speak()) when static playback fails, and Next still advances', async () => {
+    // Force the failure condition this test is actually about: static-only
+    // playback failing on the current step (missing clip / autoplay block).
+    mockSpeakStaticOnly.mockResolvedValue(false)
+
+    const { getByText, findByText } = render(<IntroGuide />)
+
+    // A: IntroGuide actually uses the static-only path at all.
+    expect(mockSpeakStaticOnly).toHaveBeenCalled()
+
+    // B: the retry control appears once static playback has failed.
+    await findByText('🔊 Play narration')
+
+    // C: the real regression guard — IntroGuide itself must never fall back
+    // to the generic (non-static-only) speak() on static failure.
+    expect(mockSpeak).not.toHaveBeenCalled()
+
+    // D: Next still advances to the next step despite the failure.
     fireEvent.click(getByText(locale.nextLabel))
     expect(getByText(locale.steps[INTRO_GUIDE_STEPS[1].id].subtitle)).toBeInTheDocument()
-    if (synthSpeakSpy) expect(synthSpeakSpy).not.toHaveBeenCalled()
+
+    // E: still no fallback after advancing.
+    expect(mockSpeak).not.toHaveBeenCalled()
   })
 
   it('does not touch unlock/taught/completion/Review/SRS/mastery state', () => {
