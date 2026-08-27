@@ -191,11 +191,15 @@ describe('Practice Guide (Issue #35)', () => {
   it('highlights the Recommended card in-place (no separate section) and shows the Practice Guide until Got it restores the links', () => {
     useProgressStore.getState().setHasCompletedLearnTracingGuide(true)
     useProgressStore.getState().markRowTaught('a-row')
-    const { getAllByRole, getByTestId, getByText, getByRole, queryByText } = renderRowHub('hiragana', 'a-row')
+    const { getAllByRole, getByTestId, getByText, getByRole, queryByText, queryByTestId } = renderRowHub('hiragana', 'a-row')
 
     const guide = getByTestId('practice-guide')
     expect(queryByText('⭐ Recommended')).toBeNull()
-    expect(queryByText('practice-guide-recommended')).toBeNull()
+    // This testid was the old (now-removed) duplicate Recommended section's
+    // own marker — asserting its absence here (not queryByText, which can
+    // never find a data-testid value) is what actually catches that
+    // section being reintroduced.
+    expect(queryByTestId('practice-guide-recommended')).toBeNull()
     const kanaQuizCard = getByText('Kana Quiz').closest('button, a')!
     expect(kanaQuizCard).toHaveClass('ring-yellow-400')
     expect(kanaQuizCard.querySelector('[aria-label="Recommended"]')).toHaveTextContent('⭐')
