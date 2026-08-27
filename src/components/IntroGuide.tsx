@@ -31,6 +31,16 @@ export function IntroGuide() {
   // otherwise cause the effect below to call speakStaticOnly a second
   // time for that step).
   const startedStepRef = useRef<string | null>(null)
+  // Set by the reset effect below when a replay session starts from a
+  // stale, non-zero `stepIndex` (the user previously exited past step 0).
+  // On that render, `step` below is still derived from the STALE index —
+  // the reset effect's `setStepIndex(0)` hasn't committed yet — so the
+  // audio-start effect would otherwise fire for the wrong (stale) step.
+  // This flag tells that one pass to skip playback entirely and let the
+  // very next render (with the corrected stepIndex 0) start step 0's audio
+  // instead. It's consumed (reset to false) the moment it's read, so it
+  // only ever suppresses the single stale-render's playback.
+  const skipResetAudioRef = useRef(false)
 
   const playStep = (stepId: string, audioKey: string, fallbackText: string, lang: string) => {
     startedStepRef.current = stepId
@@ -46,6 +56,14 @@ export function IntroGuide() {
   // local step state wouldn't otherwise reset on its own.
   useEffect(() => {
     if (!completed) {
+      // If we're resetting away from a non-zero step, this same commit's
+      // audio-start effect (below) still sees the OLD stepIndex (the
+      // setStepIndex(0) below hasn't been rendered yet) — flag that one
+      // pass so it skips playing the stale step's audio; the corrected
+      // stepIndex=0 render that follows will start step 0's audio instead.
+      if (stepIndex !== 0) {
+        skipResetAudioRef.current = true
+      }
       setStepIndex(0)
       // A fresh viewing session (e.g. Settings' "View introduction again")
       // may reuse this same mounted instance after a prior session already
@@ -55,6 +73,7 @@ export function IntroGuide() {
       startedStepRef.current = null
       setPlaybackFailed(false)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [completed])
 
   const locale = INTRO_GUIDE_CONTENT[DEFAULT_INTRO_GUIDE_LOCALE]
@@ -63,6 +82,14 @@ export function IntroGuide() {
 
   useEffect(() => {
     if (completed) return
+    // The reset effect above just flagged this pass as using a stale,
+    // pre-reset step (see skipResetAudioRef's declaration) — skip playing
+    // it; the next render's corrected stepIndex 0 will trigger this effect
+    // again for the real step 0.
+    if (skipResetAudioRef.current) {
+      skipResetAudioRef.current = false
+      return
+    }
     // Next's onClick already started this exact step's audio as part of
     // the same user gesture — don't double-play it here.
     if (startedStepRef.current === step.id) return

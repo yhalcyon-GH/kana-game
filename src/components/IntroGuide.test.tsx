@@ -46,9 +46,19 @@ describe('IntroGuide replay narration (startedStepRef reset across viewing sessi
     rerender(<IntroGuide />)
 
     // D: step 1's audio plays again on replay — total calls for that
-    // audioKey across the initial mount + replay is 2.
+    // audioKey across the initial mount + replay is 2 — and the STALE
+    // step 2 audio (from the pre-reset stepIndex, which was still 1/step 2
+    // at the moment `completed` flipped to false) must NOT have fired
+    // again during the reset: it stays at exactly 1 call total.
     expect(getByText(locale.steps['intro.welcome'].subtitle)).toBeInTheDocument()
     expect(callsFor(welcomeAudioKey)).toBe(2)
+    expect(callsFor(writingSystemsAudioKey)).toBe(1)
+
+    // F: clicking Next again in this new session advances to step 2 and
+    // plays its audio exactly once more (2 total) — confirming no
+    // double-play crept in on the new session either.
+    fireEvent.click(getByText(locale.nextLabel))
+    expect(callsFor(writingSystemsAudioKey)).toBe(2)
   })
 })
 
