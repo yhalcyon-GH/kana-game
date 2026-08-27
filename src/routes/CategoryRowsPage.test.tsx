@@ -4,6 +4,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHOUON_CATEGORY_ID, DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID, SOKUON_CATEGORY_ID, YOUON_CATEGORY_ID } from '../data/curriculum'
 import { INTRO_GUIDE_CONTENT, DEFAULT_INTRO_GUIDE_LOCALE } from '../data/introGuideContent'
 import { KANA_INTRO_EXCERPT_GUIDE_CONTENT, DEFAULT_KANA_INTRO_EXCERPT_GUIDE_LOCALE } from '../data/kanaIntroExcerptGuideContent'
+import {
+  ASK_TAMAMIZU_CHOUON,
+  ASK_TAMAMIZU_HIRAGANA,
+  ASK_TAMAMIZU_KATAKANA,
+  ASK_TAMAMIZU_SOKUON,
+  ASK_TAMAMIZU_YOUON,
+} from '../data/askTamamizu'
 import { useProgressStore } from '../store/progressStore'
 import { CategoryRowsPage } from './CategoryRowsPage'
 
@@ -78,34 +85,59 @@ function LocationDisplay() {
 }
 
 function renderSection(categoryId: string, title: string) {
+  const variant = categoryId === KATAKANA_CATEGORY_ID ? 'katakana' : 'hiragana'
   // Search-param changes (the replay target) don't change the matched
   // route, so LocationDisplay is rendered alongside the page directly
   // rather than via a separate wildcard Route.
   return render(
     <MemoryRouter initialEntries={['/section']}>
       <LocationDisplay />
-      <CategoryRowsPage title={title} description="" categoryIds={[categoryId]} showKanaIntroExcerptGuide />
+      <CategoryRowsPage title={title} description="" categoryIds={[categoryId]} askTamamizuKanaIntroVariant={variant} />
     </MemoryRouter>,
   )
 }
 
-// Issue #46: the Hiragana and Katakana section pages both get the same
-// always-available replay button for the two-step Introduction excerpt
-// ("kana represent sounds" -> "Hiragana vs Katakana usage"), reusing PR
-// #43's step data/copy/audio verbatim rather than a new standalone Guide.
+function askTamamizuAsset(categoryId: string) {
+  return categoryId === KATAKANA_CATEGORY_ID ? ASK_TAMAMIZU_KATAKANA : ASK_TAMAMIZU_HIRAGANA
+}
+
+// Issue #46 / Ask Tamamizu: the Hiragana and Katakana section pages both get
+// the same always-available "Ask Tamamizu" image button that replays the
+// two-step Introduction excerpt ("kana represent sounds" -> "Hiragana vs
+// Katakana usage"), reusing PR #43's step data/copy/audio verbatim rather
+// than a new standalone Guide. The old generic text button/label is gone —
+// the image itself (with distinct Hiragana/Katakana artwork) carries the
+// call to action, and its accessible name comes from aria-label alone.
 describe.each([
   ['Hiragana', DEFAULT_CATEGORY_ID],
   ['Katakana', KATAKANA_CATEGORY_ID],
-])('%s section Hiragana & Katakana Guide replay button (Issue #46)', (title, categoryId) => {
-  it('shows the replay button', () => {
-    const { getByText } = renderSection(categoryId, title)
-    expect(getByText(excerptLocale.buttonLabel)).toBeInTheDocument()
+])('%s section Ask Tamamizu kana-intro replay button (Issue #46)', (title, categoryId) => {
+  it('no longer shows the old generic "Hiragana & Katakana Guide" text button', () => {
+    const { queryByText } = renderSection(categoryId, title)
+    expect(queryByText(excerptLocale.buttonLabel)).toBeNull()
+  })
+
+  it('shows the Ask Tamamizu image button with the correct asset and aria-label', () => {
+    const asset = askTamamizuAsset(categoryId)
+    const { getByRole } = renderSection(categoryId, title)
+    const button = getByRole('button', { name: asset.ariaLabel })
+    expect(button).toBeInTheDocument()
+    const img = button.querySelector('img')
+    expect(img).toHaveAttribute('src', expect.stringContaining(asset.imageAsset))
+    expect(img).toHaveAttribute('alt', '')
+  })
+
+  it('does not render "Ask Tamamizu about..." as visible text outside the button aria-label', () => {
+    const asset = askTamamizuAsset(categoryId)
+    const { queryByText } = renderSection(categoryId, title)
+    expect(queryByText(asset.ariaLabel)).toBeNull()
   })
 
   it('replays exactly the kana-sounds then kana-usage Introduction steps, in order, and no other step', () => {
-    const { getByText, queryByText, getByTestId } = renderSection(categoryId, title)
+    const asset = askTamamizuAsset(categoryId)
+    const { getByRole, getByText, queryByText, getByTestId } = renderSection(categoryId, title)
 
-    fireEvent.click(getByText(excerptLocale.buttonLabel))
+    fireEvent.click(getByRole('button', { name: asset.ariaLabel }))
 
     expect(getByTestId('kana-intro-excerpt-guide')).toBeInTheDocument()
     expect(getByText(introLocale.steps['intro.kanaSounds'].subtitle)).toBeInTheDocument()
@@ -141,9 +173,10 @@ describe.each([
       unlockedRowIds: before.unlockedRowIds,
       lastStudied: before.lastStudied,
     }
-    const { getByText, queryByTestId } = renderSection(categoryId, title)
+    const asset = askTamamizuAsset(categoryId)
+    const { getByText, getByRole, queryByTestId } = renderSection(categoryId, title)
 
-    fireEvent.click(getByText(excerptLocale.buttonLabel))
+    fireEvent.click(getByRole('button', { name: asset.ariaLabel }))
     tts.stop.mockClear()
     fireEvent.click(getByText(excerptLocale.nextLabel))
     expect(tts.stop).toHaveBeenCalledOnce()
@@ -157,7 +190,7 @@ describe.each([
     expect(tts.stop).toHaveBeenCalled()
     expect(queryByTestId('kana-intro-excerpt-guide')).toBeNull()
 
-    fireEvent.click(getByText(excerptLocale.buttonLabel))
+    fireEvent.click(getByRole('button', { name: asset.ariaLabel }))
     tts.stop.mockClear()
     fireEvent.click(getByText(excerptLocale.closeLabel))
     expect(tts.stop).toHaveBeenCalled()
@@ -176,9 +209,10 @@ describe.each([
   })
 
   it('stops audio when the guide unmounts', () => {
-    const { getByText, unmount } = renderSection(categoryId, title)
+    const asset = askTamamizuAsset(categoryId)
+    const { getByRole, unmount } = renderSection(categoryId, title)
 
-    fireEvent.click(getByText(excerptLocale.buttonLabel))
+    fireEvent.click(getByRole('button', { name: asset.ariaLabel }))
     tts.stop.mockClear()
     unmount()
 
@@ -186,9 +220,10 @@ describe.each([
   })
 
   it('dismissing removes the replay target and restores the normal section, reload-safe', () => {
-    const { getByText, queryByTestId, getByTestId } = renderSection(categoryId, title)
+    const asset = askTamamizuAsset(categoryId)
+    const { getByText, getByRole, queryByTestId, getByTestId } = renderSection(categoryId, title)
 
-    fireEvent.click(getByText(excerptLocale.buttonLabel))
+    fireEvent.click(getByRole('button', { name: asset.ariaLabel }))
     expect(getByTestId('landed-path')).toHaveTextContent('/section?guide=kanaIntro')
 
     fireEvent.click(getByText(excerptLocale.closeLabel))
@@ -214,27 +249,41 @@ function renderOtherPage() {
   )
 }
 
-// Issue #46/Chōon Guide: the always-visible Sokuon and Chōon category
-// explanations are each replaced by an always-available "View X Guide"
-// button that opens the matching concept Guide on its real screen. The
-// underlying `explanation` data is left untouched in curriculum.ts.
+// Issue #46/Chōon Guide/Ask Tamamizu: the always-visible Sokuon and Chōon
+// category explanations, and their old "View X Guide" text buttons, are
+// each replaced by an always-available "Ask Tamamizu" image button that
+// opens the matching concept Guide on its real screen. The underlying
+// `explanation` data is left untouched in curriculum.ts.
 describe('Sokuon section Guide replay (Issue #46)', () => {
   it('no longer shows the old always-visible Sokuon explanation', () => {
     const { queryByText } = renderOtherPage()
     expect(queryByText(/Sokuon is a short pause/)).toBeNull()
   })
 
-  it('always shows the View Sokuon Guide button', () => {
+  it('no longer shows the old "View Sokuon Guide" text button', () => {
+    const { queryByText } = renderOtherPage()
+    expect(queryByText('View Sokuon Guide')).toBeNull()
+  })
+
+  it('always shows the Ask Tamamizu (small tsu) image button', () => {
     useProgressStore.getState().setHasCompletedSokuonGuide(true)
-    const { getByText } = renderOtherPage()
-    expect(getByText('View Sokuon Guide')).toBeInTheDocument()
+    const { getByRole } = renderOtherPage()
+    const button = getByRole('button', { name: ASK_TAMAMIZU_SOKUON.ariaLabel })
+    const img = button.querySelector('img')
+    expect(img).toHaveAttribute('src', expect.stringContaining(ASK_TAMAMIZU_SOKUON.imageAsset))
+    expect(img).toHaveAttribute('alt', '')
+  })
+
+  it('does not render "Ask Tamamizu about small tsu" as visible text outside the button aria-label', () => {
+    const { queryByText } = renderOtherPage()
+    expect(queryByText(ASK_TAMAMIZU_SOKUON.ariaLabel)).toBeNull()
   })
 
   it('opens the Sokuon Guide replay target on its real screen without changing hasCompletedSokuonGuide', () => {
     useProgressStore.getState().setHasCompletedSokuonGuide(true)
-    const { getByText, getByTestId } = renderOtherPage()
+    const { getByRole, getByTestId } = renderOtherPage()
 
-    fireEvent.click(getByText('View Sokuon Guide'))
+    fireEvent.click(getByRole('button', { name: ASK_TAMAMIZU_SOKUON.ariaLabel }))
 
     expect(getByTestId('landed-path')).toHaveTextContent('/practice/sokuon/sokuon-row?guide=sokuon')
     expect(useProgressStore.getState().hasCompletedSokuonGuide).toBe(true)
@@ -286,20 +335,47 @@ describe('Chōon section Guide replay', () => {
     expect(queryByText(/Chōon means a "long vowel"/)).toBeNull()
   })
 
-  it('always shows the View Chōon Guide button', () => {
+  it('no longer shows the old "View Chōon Guide" text button', () => {
+    const { queryByText } = renderOtherPage()
+    expect(queryByText('View Chōon Guide')).toBeNull()
+  })
+
+  it('always shows the Ask Tamamizu (long vowels) image button', () => {
     useProgressStore.getState().setHasCompletedChouonGuide(true)
-    const { getByText } = renderOtherPage()
-    expect(getByText('View Chōon Guide')).toBeInTheDocument()
+    const { getByRole } = renderOtherPage()
+    const button = getByRole('button', { name: ASK_TAMAMIZU_CHOUON.ariaLabel })
+    const img = button.querySelector('img')
+    expect(img).toHaveAttribute('src', expect.stringContaining(ASK_TAMAMIZU_CHOUON.imageAsset))
+    expect(img).toHaveAttribute('alt', '')
+  })
+
+  it('does not render "Ask Tamamizu about long vowels" as visible text outside the button aria-label', () => {
+    const { queryByText } = renderOtherPage()
+    expect(queryByText(ASK_TAMAMIZU_CHOUON.ariaLabel)).toBeNull()
   })
 
   it('opens the Chōon Guide replay target on its real screen without changing hasCompletedChouonGuide', () => {
     useProgressStore.getState().setHasCompletedChouonGuide(true)
-    const { getByText, getByTestId } = renderOtherPage()
+    const { getByRole, getByTestId } = renderOtherPage()
 
-    fireEvent.click(getByText('View Chōon Guide'))
+    fireEvent.click(getByRole('button', { name: ASK_TAMAMIZU_CHOUON.ariaLabel }))
 
     expect(getByTestId('landed-path')).toHaveTextContent('/practice/chouon/chouon-a-row?guide=chouon')
     expect(useProgressStore.getState().hasCompletedChouonGuide).toBe(true)
+  })
+})
+
+// Explicit cross-check (spec item F): every Ask Tamamizu entry point uses a
+// distinct image asset — guards against an accidental copy-paste mixup
+// between Sokuon/Chōon/Yōon (and separately, Hiragana/Katakana above).
+describe('Ask Tamamizu asset mapping (no copy-paste mixups)', () => {
+  it('Sokuon, Chōon, and Yōon use three distinct image assets', () => {
+    const assets = [ASK_TAMAMIZU_SOKUON.imageAsset, ASK_TAMAMIZU_CHOUON.imageAsset, ASK_TAMAMIZU_YOUON.imageAsset]
+    expect(new Set(assets).size).toBe(3)
+  })
+
+  it('Hiragana and Katakana use two distinct image assets', () => {
+    expect(ASK_TAMAMIZU_HIRAGANA.imageAsset).not.toBe(ASK_TAMAMIZU_KATAKANA.imageAsset)
   })
 })
 
@@ -314,26 +390,40 @@ function renderYouonPage() {
   )
 }
 
-// Issue #50: the always-visible Yōon category explanation duplicates the new
-// Yōon Guide's content, so it's replaced by an always-available "View Yōon
-// Guide" button, matching Sokuon's Issue #46 precedent.
+// Issue #50/Ask Tamamizu: the always-visible Yōon category explanation
+// duplicates the new Yōon Guide's content, so it's replaced by an
+// always-available "Ask Tamamizu" image button, matching Sokuon/Chōon's
+// Issue #46 precedent.
 describe('Yōon section Guide replay (Issue #50)', () => {
   it('no longer shows the old always-visible Yōon explanation', () => {
     const { queryByText } = renderYouonPage()
     expect(queryByText(/Yōon are contracted sounds/)).toBeNull()
   })
 
-  it('always shows the View Yōon Guide button', () => {
+  it('no longer shows the old "View Yōon Guide" text button', () => {
+    const { queryByText } = renderYouonPage()
+    expect(queryByText('View Yōon Guide')).toBeNull()
+  })
+
+  it('always shows the Ask Tamamizu (small youon) image button', () => {
     useProgressStore.getState().setHasCompletedYouonGuide(true)
-    const { getByText } = renderYouonPage()
-    expect(getByText('View Yōon Guide')).toBeInTheDocument()
+    const { getByRole } = renderYouonPage()
+    const button = getByRole('button', { name: ASK_TAMAMIZU_YOUON.ariaLabel })
+    const img = button.querySelector('img')
+    expect(img).toHaveAttribute('src', expect.stringContaining(ASK_TAMAMIZU_YOUON.imageAsset))
+    expect(img).toHaveAttribute('alt', '')
+  })
+
+  it('does not render "Ask Tamamizu about small ya yu yo sounds" as visible text outside the button aria-label', () => {
+    const { queryByText } = renderYouonPage()
+    expect(queryByText(ASK_TAMAMIZU_YOUON.ariaLabel)).toBeNull()
   })
 
   it('opens the Yōon Guide replay target on its real screen without changing hasCompletedYouonGuide', () => {
     useProgressStore.getState().setHasCompletedYouonGuide(true)
-    const { getByText, getByTestId } = renderYouonPage()
+    const { getByRole, getByTestId } = renderYouonPage()
 
-    fireEvent.click(getByText('View Yōon Guide'))
+    fireEvent.click(getByRole('button', { name: ASK_TAMAMIZU_YOUON.ariaLabel }))
 
     expect(getByTestId('landed-path')).toHaveTextContent('/practice/youon/youon-ka-row?guide=youon')
     expect(useProgressStore.getState().hasCompletedYouonGuide).toBe(true)
