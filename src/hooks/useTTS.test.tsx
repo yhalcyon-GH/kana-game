@@ -41,6 +41,7 @@ describe('useTTS (provider-level, PR #54 static-only regression guard)', () => {
     const started = await result.current.speakStaticOnly('characters/a', 'a')
 
     expect(started).toBe(false)
+    expect(staticSpeak).toHaveBeenCalledTimes(1)
     expect(webSpeechSpeak).not.toHaveBeenCalled()
   })
 
@@ -51,6 +52,7 @@ describe('useTTS (provider-level, PR #54 static-only regression guard)', () => {
     const started = await result.current.speakStaticOnly('characters/a', 'a')
 
     expect(started).toBe(true)
+    expect(staticSpeak).toHaveBeenCalledTimes(1)
     expect(webSpeechSpeak).not.toHaveBeenCalled()
   })
 
@@ -61,6 +63,7 @@ describe('useTTS (provider-level, PR #54 static-only regression guard)', () => {
 
     result.current.speak('characters/a', 'a')
 
+    expect(staticSpeak).toHaveBeenCalledTimes(1)
     await waitFor(() => expect(webSpeechSpeak).toHaveBeenCalledTimes(1))
   })
 
