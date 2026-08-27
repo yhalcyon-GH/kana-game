@@ -134,3 +134,44 @@ describe('RowMap row-selection presentation (Issue #38)', () => {
     expect(getByText('🔒 locked')).toBeInTheDocument()
   })
 })
+
+describe('RowMap Summary card icon', () => {
+  const summaryRow: GojuonRow = { ...row, id: 'summary-row', isSummary: true }
+  const similarLettersRow: GojuonRow = { ...row, id: 'similar-row', isSimilarLetters: true }
+
+  it('shows 📋 (not ⭐) for a Summary row', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <RowMap rows={[summaryRow]} isUnlocked={() => true} isTaught={() => true} isMastered={() => false} />
+      </MemoryRouter>,
+    )
+    const kanaLabel = container.querySelector('.font-kana')!
+    expect(kanaLabel.textContent).toContain('📋')
+    expect(kanaLabel.textContent).not.toContain('⭐')
+  })
+
+  it('leaves Similar Letters\' 🔍 icon unaffected', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <RowMap rows={[similarLettersRow]} isUnlocked={() => true} isTaught={() => true} isMastered={() => false} />
+      </MemoryRouter>,
+    )
+    const kanaLabel = container.querySelector('.font-kana')!
+    expect(kanaLabel.textContent).toContain('🔍')
+  })
+
+  it('keeps the Recommended ⭐ label intact and unaffected by the Summary icon change', () => {
+    const { getByText } = render(
+      <MemoryRouter>
+        <RowMap
+          rows={[summaryRow]}
+          isUnlocked={() => true}
+          isTaught={() => true}
+          isMastered={() => false}
+          isRecommended={() => true}
+        />
+      </MemoryRouter>,
+    )
+    expect(getByText('⭐ Recommended')).toBeInTheDocument()
+  })
+})

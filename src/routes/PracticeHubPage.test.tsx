@@ -705,3 +705,18 @@ describe('Similar Letters Practice Hub', () => {
     expect(after.rowActivityCompletion['a-row']).toBeUndefined()
   })
 })
+
+describe('PracticeHubPage Summary hub icon', () => {
+  it('shows 📋 (not ⭐) in the Summary hub heading', () => {
+    const hub = renderRowHub('hiragana', 'hiragana-summary')
+    const heading = hub.container.querySelector('h1')!
+    expect(heading.textContent).toContain('📋')
+    expect(heading.textContent).not.toContain('⭐')
+  })
+
+  it('Similar Letters hub heading still shows 🔍, unaffected', () => {
+    const hub = renderRowHub('hiragana', 'hiragana-similar-letters')
+    const heading = hub.container.querySelector('h1')!
+    expect(heading.textContent).toContain('🔍')
+  })
+})

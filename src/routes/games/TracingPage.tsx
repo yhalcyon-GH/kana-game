@@ -49,7 +49,7 @@ export function TracingPage() {
   // character (its "move to words phase" branch is guarded on
   // wordIds.length > 0).
   const isSimilarLetters = isSimilarLettersRow(rowId)
-  // ⭐ summary rows (see GojuonRow.isSummary) have no Tracing card on their
+  // 📋 summary rows (see GojuonRow.isSummary) have no Tracing card on their
   // hub — a category-wide word list isn't a meaningful "trace this row's
   // words" phase — but guard direct navigation too, same as Kana Quiz does
   // for contrast-pairs categories.
@@ -239,6 +239,29 @@ export function TracingPage() {
     setFinished(true)
   }, [roundIndex, queue.length, phase, wordIds])
 
+  // Pure UI navigation — the mirror image of advance() above, but it must
+  // NEVER touch markRowActivityCompleted/SRS/Review/any persisted state
+  // (see file header's completion-semantics comment: only reaching
+  // finished=true counts). Uses the same advanceLockedRef guard as advance()
+  // so a rapid double-click can't double-step; the existing
+  // `[phase, roundIndex]` effect above clears the lock the same way it does
+  // after advance() changes those, so Next remains responsive afterward.
+  const goBack = useCallback(() => {
+    if (advanceLockedRef.current) return
+    advanceLockedRef.current = true
+    if (roundIndex > 0) {
+      setRoundIndex((i) => i - 1)
+      return
+    }
+    if (phase === 'words' && !isContrastPairs && !isSimilarLetters && charPool.length > 0) {
+      setPhase('chars')
+      setQueue(charPool)
+      setRoundIndex(charPool.length - 1)
+      return
+    }
+    navigate(`/practice/${categoryId}/${rowId}`)
+  }, [roundIndex, phase, isContrastPairs, isSimilarLetters, charPool, navigate, categoryId, rowId])
+
   // Recommended Path completion — see KanaQuizPage's identical comment.
   // Finishing Tracing counts as "character introduction completed" exactly
   // like finishing Learn does — neither is required over the other, and
@@ -374,7 +397,14 @@ export function TracingPage() {
         />
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex flex-wrap justify-center gap-3">
+        <button
+          type="button"
+          onClick={goBack}
+          className="rounded-full border border-neutral-300 px-6 py-2 font-semibold hover:border-blue-400 dark:border-neutral-600"
+        >
+          Back
+        </button>
         <button
           type="button"
           onClick={drawGuide}

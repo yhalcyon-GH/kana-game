@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { GUIDE_CATALOG } from '../data/guideCatalog'
+import { TUTORIAL_CATALOG } from '../data/guideCatalog'
 import { buildGuideReplayHref } from '../hooks/useGuideReplay'
 import { useProgressStore } from '../store/progressStore'
 
@@ -61,9 +61,9 @@ export function SettingsPage() {
 
       <div className="flex w-full flex-col gap-2">
         <h2 className="self-start text-xs font-semibold tracking-wide text-neutral-400 uppercase dark:text-neutral-500">
-          Guides
+          Tutorials
         </h2>
-        {GUIDE_CATALOG.map((guide) => (
+        {TUTORIAL_CATALOG.map((guide) => (
           <button
             key={guide.id}
             type="button"

@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { GUIDE_CATALOG } from './guideCatalog'
+import { CONCEPT_GUIDE_CATALOG, GUIDE_CATALOG, TUTORIAL_CATALOG } from './guideCatalog'
 
-// Issue #46: Settings' Guides list is driven entirely by this catalog, kept
-// separate from SettingsPage so a future Guide is one more entry here.
-describe('GUIDE_CATALOG (Issue #46/#50/Chōon Guide)', () => {
+// Issue #46: Settings' Tutorials list is driven entirely by TUTORIAL_CATALOG
+// (a filtered view of this catalog), kept separate from SettingsPage so a
+// future Tutorial is one more entry here. Sokuon/Chōon/Yōon remain as
+// 'concept' entries — hidden from Settings but preserved intact for a
+// future PR to surface from within each curriculum section.
+describe('GUIDE_CATALOG (Issue #46/#50/Chōon Guide/Tutorials)', () => {
   it('lists exactly the seven currently-implemented Guides, in order', () => {
     expect(GUIDE_CATALOG.map((g) => g.id)).toEqual([
       'intro',
@@ -14,15 +17,21 @@ describe('GUIDE_CATALOG (Issue #46/#50/Chōon Guide)', () => {
       'chouon',
       'youon',
     ])
-    expect(GUIDE_CATALOG.map((g) => g.label)).toEqual([
-      'Introduction',
-      'Learn / Tracing',
-      'Practice',
-      'Review',
-      'Sokuon',
-      'Chōon',
-      'Yōon',
+  })
+
+  it('TUTORIAL_CATALOG holds exactly the 4 Settings-visible tutorial entries', () => {
+    expect(TUTORIAL_CATALOG.map((g) => g.id)).toEqual(['intro', 'learnTracing', 'practice', 'review'])
+    expect(TUTORIAL_CATALOG.map((g) => g.label)).toEqual([
+      'How does KanaGame work?',
+      'How do I learn & trace?',
+      'How does Practice work?',
+      'How does Review work?',
     ])
+  })
+
+  it('CONCEPT_GUIDE_CATALOG preserves Sokuon/Chōon/Yōon replay info intact, unsurfaced in Settings', () => {
+    expect(CONCEPT_GUIDE_CATALOG.map((g) => g.id)).toEqual(['sokuon', 'chouon', 'youon'])
+    expect(CONCEPT_GUIDE_CATALOG.map((g) => g.label)).toEqual(['Sokuon', 'Chōon', 'Yōon'])
   })
 
   it('Introduction replays via the existing global flag toggle, not navigation', () => {
