@@ -48,7 +48,7 @@ function App() {
                     title="ひらがな"
                     description="Learn hiragana one row at a time, paired with real everyday words."
                     categoryIds={[DEFAULT_CATEGORY_ID]}
-                    showKanaIntroExcerptGuide
+                    askTamamizuKanaIntroVariant="hiragana"
                   />
                 }
               />
@@ -59,7 +59,7 @@ function App() {
                     title="カタカナ"
                     description="Learn katakana one row at a time, paired with real everyday words."
                     categoryIds={[KATAKANA_CATEGORY_ID]}
-                    showKanaIntroExcerptGuide
+                    askTamamizuKanaIntroVariant="katakana"
                   />
                 }
               />
