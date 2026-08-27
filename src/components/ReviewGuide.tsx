@@ -43,6 +43,20 @@ export function ReviewGuide({ onDismiss }: Props = {}) {
         alt="Tamamizu explains Review"
         className="w-full max-w-xl object-contain"
       />
+      <dl className="w-full max-w-xs text-sm">
+        <div className="mb-2">
+          <dt className="font-semibold text-amber-600 dark:text-amber-400">Retry mistakes</dt>
+          <dd className="text-neutral-600 dark:text-neutral-400">
+            Practice only the items you missed in this round.
+          </dd>
+        </div>
+        <div>
+          <dt className="font-semibold text-orange-600 dark:text-orange-400">Review</dt>
+          <dd className="text-neutral-600 dark:text-neutral-400">
+            Missed kana and words are saved here so you can practice them again later.
+          </dd>
+        </div>
+      </dl>
       <button
         type="button"
         onClick={handleDismiss}

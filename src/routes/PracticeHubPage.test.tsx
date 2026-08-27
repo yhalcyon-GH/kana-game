@@ -283,7 +283,7 @@ describe('PracticeHubPage Review empty state (Issue #2)', () => {
     const { queryByText } = renderReviewHub()
 
     expect(queryByText('Kana Quiz')).not.toBeNull()
-    expect(queryByText('1 item need review')).not.toBeNull()
+    expect(queryByText('Practice saved kana and words that still need work (1 item)')).not.toBeNull()
   })
 })
 
@@ -703,5 +703,20 @@ describe('Similar Letters Practice Hub', () => {
     const after = useProgressStore.getState()
     expect(after.rowActivityCompletion['hiragana-similar-letters']?.kanaQuiz).toBe(true)
     expect(after.rowActivityCompletion['a-row']).toBeUndefined()
+  })
+})
+
+describe('PracticeHubPage Summary hub icon', () => {
+  it('shows 📋 (not ⭐) in the Summary hub heading', () => {
+    const hub = renderRowHub('hiragana', 'hiragana-summary')
+    const heading = hub.container.querySelector('h1')!
+    expect(heading.textContent).toContain('📋')
+    expect(heading.textContent).not.toContain('⭐')
+  })
+
+  it('Similar Letters hub heading still shows 🔍, unaffected', () => {
+    const hub = renderRowHub('hiragana', 'hiragana-similar-letters')
+    const heading = hub.container.querySelector('h1')!
+    expect(heading.textContent).toContain('🔍')
   })
 })

@@ -1,10 +1,17 @@
 import { useNavigate } from 'react-router-dom'
 import { KanaIntroExcerptGuide } from '../components/KanaIntroExcerptGuide'
+import { AskTamamizuButton } from '../components/AskTamamizuButton'
 import { CATEGORIES_BY_ID, CHOUON_CATEGORY_ID, SOKUON_CATEGORY_ID, YOUON_CATEGORY_ID } from '../data/curriculum'
 import { CHOUON_GUIDE } from '../data/chouonGuide'
 import { SOKUON_GUIDE } from '../data/sokuonGuide'
 import { YOUON_GUIDE } from '../data/youonGuide'
-import { DEFAULT_KANA_INTRO_EXCERPT_GUIDE_LOCALE, KANA_INTRO_EXCERPT_GUIDE_CONTENT } from '../data/kanaIntroExcerptGuideContent'
+import {
+  ASK_TAMAMIZU_CHOUON,
+  ASK_TAMAMIZU_HIRAGANA,
+  ASK_TAMAMIZU_KATAKANA,
+  ASK_TAMAMIZU_SOKUON,
+  ASK_TAMAMIZU_YOUON,
+} from '../data/askTamamizu'
 import { RowMap } from '../components/RowMap'
 import { useCurriculum } from '../hooks/useCurriculum'
 import { buildGuideReplayHref, useGuideReplay } from '../hooks/useGuideReplay'
@@ -22,22 +29,23 @@ type Props = {
   // (sokuon/chōon) into one page. See App.tsx for how each page
   // (hiragana/katakana/youon/other) instantiates this with a different list.
   categoryIds: string[]
-  // Only true for the dedicated /hiragana and /katakana pages (see App.tsx)
-  // — shows the always-available replay button for the two-step "kana
-  // represent sounds" / "Hiragana vs Katakana usage" Introduction excerpt
-  // (Issue #46). Not a new standalone Guide, so it's opt-in per page rather
-  // than inferred from `categoryIds`.
-  showKanaIntroExcerptGuide?: boolean
+  // Only set for the dedicated /hiragana and /katakana pages (see App.tsx)
+  // — shows the always-available "Ask Tamamizu" image button that replays
+  // the two-step "kana represent sounds" / "Hiragana vs Katakana usage"
+  // Introduction excerpt (Issue #46). Not a new standalone Guide, so it's
+  // opt-in per page rather than inferred from `categoryIds`. The variant
+  // only picks which Ask Tamamizu artwork to show (Hiragana vs Katakana) —
+  // both replay the exact same shared KanaIntroExcerptGuide.
+  askTamamizuKanaIntroVariant?: 'hiragana' | 'katakana'
 }
 
 // One row-map page per top-level script group (see App.tsx's four routes)
 // — replaces the single HomePage that used to show every category's rows
 // stacked in one page. HomePage itself is now just a chooser linking here.
-export function CategoryRowsPage({ title, description, categoryIds, showKanaIntroExcerptGuide = false }: Props) {
+export function CategoryRowsPage({ title, description, categoryIds, askTamamizuKanaIntroVariant }: Props) {
   const { rows, isRowUnlocked, isRowTaught, globalRecommendedTarget } = useCurriculum()
   const navigate = useNavigate()
   const kanaIntroExcerptGuide = useGuideReplay('kanaIntro')
-  const excerptLocale = KANA_INTRO_EXCERPT_GUIDE_CONTENT[DEFAULT_KANA_INTRO_EXCERPT_GUIDE_LOCALE]
   const isRowMastered = useProgressStore((s) => s.isRowMastered)
   const isRowRecommended = (rowId: string) => globalRecommendedTarget?.rowId === rowId
   // Subscribed so mastery badges refresh even when only `characters`
@@ -76,24 +84,25 @@ export function CategoryRowsPage({ title, description, categoryIds, showKanaIntr
     <div className="flex flex-col items-center gap-6">
       <h1 className="text-3xl font-bold">{title}</h1>
       <p className="max-w-md text-center text-neutral-500 dark:text-neutral-400">{description}</p>
-      {showKanaIntroExcerptGuide && (
-        <button
-          type="button"
+      {askTamamizuKanaIntroVariant && (
+        <AskTamamizuButton
+          imageSrc={`${import.meta.env.BASE_URL}${
+            askTamamizuKanaIntroVariant === 'hiragana' ? ASK_TAMAMIZU_HIRAGANA.imageAsset : ASK_TAMAMIZU_KATAKANA.imageAsset
+          }`}
+          ariaLabel={askTamamizuKanaIntroVariant === 'hiragana' ? ASK_TAMAMIZU_HIRAGANA.ariaLabel : ASK_TAMAMIZU_KATAKANA.ariaLabel}
           onClick={kanaIntroExcerptGuide.startReplay}
-          className="rounded-full border border-neutral-300 px-4 py-2 text-sm font-semibold hover:border-blue-400 dark:border-neutral-600"
-        >
-          {excerptLocale.buttonLabel}
-        </button>
+          testId={`ask-tamamizu-${askTamamizuKanaIntroVariant}`}
+        />
       )}
       {groups.length > 0 ? (
         groups.map(({ category, rows: groupRows }) => {
           // Sokuon's, Chōon's, and Yōon's category `explanation` used to
           // render unconditionally here; each is replaced by an
-          // always-available "View X Guide" button (Issue #46/#50/Chōon
-          // Guide) that opens the matching concept Guide on its real screen
-          // instead of duplicating its copy on this page. The underlying
-          // `explanation` data itself is left untouched in curriculum.ts —
-          // only what's rendered here changed.
+          // always-available "Ask Tamamizu" image button that opens the
+          // matching concept Guide on its real screen instead of duplicating
+          // its copy on this page. The underlying `explanation` data itself
+          // is left untouched in curriculum.ts — only what's rendered here
+          // changed.
           const isSokuonGroup = category?.id === SOKUON_CATEGORY_ID
           const isChouonGroup = category?.id === CHOUON_CATEGORY_ID
           const isYouonGroup = category?.id === YOUON_CATEGORY_ID
@@ -106,29 +115,26 @@ export function CategoryRowsPage({ title, description, categoryIds, showKanaIntr
                   '+'/'○' aren't in the hand-subsetted kana-only webfont. */}
               {groups.length > 1 && <h2 className="text-xl font-semibold">{category?.displayLabel ?? category?.label}</h2>}
               {isSokuonGroup ? (
-                <button
-                  type="button"
+                <AskTamamizuButton
+                  imageSrc={`${import.meta.env.BASE_URL}${ASK_TAMAMIZU_SOKUON.imageAsset}`}
+                  ariaLabel={ASK_TAMAMIZU_SOKUON.ariaLabel}
                   onClick={() => navigate(buildGuideReplayHref(SOKUON_TARGET_PATH, 'sokuon'))}
-                  className="rounded-full border border-neutral-300 px-4 py-2 text-sm font-semibold hover:border-blue-400 dark:border-neutral-600"
-                >
-                  View Sokuon Guide
-                </button>
+                  testId="ask-tamamizu-sokuon"
+                />
               ) : isChouonGroup ? (
-                <button
-                  type="button"
+                <AskTamamizuButton
+                  imageSrc={`${import.meta.env.BASE_URL}${ASK_TAMAMIZU_CHOUON.imageAsset}`}
+                  ariaLabel={ASK_TAMAMIZU_CHOUON.ariaLabel}
                   onClick={() => navigate(buildGuideReplayHref(CHOUON_TARGET_PATH, 'chouon'))}
-                  className="rounded-full border border-neutral-300 px-4 py-2 text-sm font-semibold hover:border-blue-400 dark:border-neutral-600"
-                >
-                  View Chōon Guide
-                </button>
+                  testId="ask-tamamizu-chouon"
+                />
               ) : isYouonGroup ? (
-                <button
-                  type="button"
+                <AskTamamizuButton
+                  imageSrc={`${import.meta.env.BASE_URL}${ASK_TAMAMIZU_YOUON.imageAsset}`}
+                  ariaLabel={ASK_TAMAMIZU_YOUON.ariaLabel}
                   onClick={() => navigate(buildGuideReplayHref(YOUON_TARGET_PATH, 'youon'))}
-                  className="rounded-full border border-neutral-300 px-4 py-2 text-sm font-semibold hover:border-blue-400 dark:border-neutral-600"
-                >
-                  View Yōon Guide
-                </button>
+                  testId="ask-tamamizu-youon"
+                />
               ) : (
                 category?.explanation && (
                   <p className="max-w-xl text-center text-sm text-neutral-500 dark:text-neutral-400">{category.explanation}</p>
