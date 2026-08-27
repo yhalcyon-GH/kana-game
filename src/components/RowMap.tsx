@@ -35,7 +35,7 @@ export function RowMap({ rows, isUnlocked, isTaught, isMastered, isRecommended }
             }`}
           >
             <span className={`font-kana font-semibold ${row.displayLines ? 'text-sm sm:text-lg' : 'text-lg'}`}>
-              {row.isSummary && '⭐ '}
+              {row.isSummary && '📋 '}
               {row.isSimilarLetters && '🔍 '}
               {row.displayLines
                 ? row.displayLines.map((line) => (

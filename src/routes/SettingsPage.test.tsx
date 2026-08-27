@@ -1,7 +1,7 @@
 import { fireEvent, render } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { GUIDE_CATALOG } from '../data/guideCatalog'
+import { TUTORIAL_CATALOG } from '../data/guideCatalog'
 import { useProgressStore } from '../store/progressStore'
 import { SettingsPage } from './SettingsPage'
 
@@ -49,32 +49,44 @@ describe('SettingsPage "Always show romaji hints" (Issue #19)', () => {
   })
 })
 
-// Issue #46: a data-driven Guides list replaces the standalone "View
-// introduction again" row, letting every currently-implemented Guide be
-// replayed from Settings.
-describe('SettingsPage Guides list (Issue #46/#50/Chōon Guide)', () => {
-  it('lists all seven implemented Guides', () => {
+// "Guides" was renamed to "Tutorials" and trimmed from 7 entries to 4 —
+// Sokuon/Chōon/Yōon are hidden here (their Guide data/replay
+// infrastructure stays intact in guideCatalog.ts's CONCEPT_GUIDE_CATALOG
+// for a future "Ask Tamamizu" PR to surface from within each curriculum
+// section).
+describe('SettingsPage Tutorials list', () => {
+  it('renders the "Tutorials" heading, not "Guides"', () => {
+    const { getByText, queryByText } = renderSettings()
+    expect(getByText('Tutorials')).toBeInTheDocument()
+    expect(queryByText('Guides')).not.toBeInTheDocument()
+  })
+
+  it('lists exactly the four tutorial entries', () => {
     const { getByText } = renderSettings()
-    for (const guide of GUIDE_CATALOG) {
+    for (const guide of TUTORIAL_CATALOG) {
       expect(getByText(guide.label)).toBeInTheDocument()
     }
-    expect(GUIDE_CATALOG.map((g) => g.label)).toEqual([
-      'Introduction',
-      'Learn / Tracing',
-      'Practice',
-      'Review',
-      'Sokuon',
-      'Chōon',
-      'Yōon',
+    expect(TUTORIAL_CATALOG.map((g) => g.label)).toEqual([
+      'How does KanaGame work?',
+      'How do I learn & trace?',
+      'How does Practice work?',
+      'How does Review work?',
     ])
   })
 
-  it('Introduction still replays from step 1 via the existing flag toggle', () => {
+  it('does not render Sokuon/Chōon/Yōon entries', () => {
+    const { queryByText } = renderSettings()
+    expect(queryByText('Sokuon')).not.toBeInTheDocument()
+    expect(queryByText('Chōon')).not.toBeInTheDocument()
+    expect(queryByText('Yōon')).not.toBeInTheDocument()
+  })
+
+  it('"How does KanaGame work?" replays the Introduction from step 1 via the existing flag toggle, without touching other progress', () => {
     useProgressStore.getState().setHasCompletedIntroGuide(true)
     useProgressStore.getState().markRowTaught('a-row')
     const { getByText } = renderSettings()
 
-    fireEvent.click(getByText('Introduction'))
+    fireEvent.click(getByText('How does KanaGame work?'))
 
     const state = useProgressStore.getState()
     expect(state.hasCompletedIntroGuide).toBe(false)
@@ -82,12 +94,9 @@ describe('SettingsPage Guides list (Issue #46/#50/Chōon Guide)', () => {
   })
 
   it.each([
-    ['Learn / Tracing', 'learnTracing', '/practice/hiragana/a-row'],
-    ['Practice', 'practice', '/practice/hiragana/a-row'],
-    ['Review', 'review', '/practice/review'],
-    ['Sokuon', 'sokuon', '/practice/sokuon/sokuon-row'],
-    ['Chōon', 'chouon', '/practice/chouon/chouon-a-row'],
-    ['Yōon', 'youon', '/practice/youon/youon-ka-row'],
+    ['How do I learn & trace?', 'learnTracing', '/practice/hiragana/a-row'],
+    ['How does Practice work?', 'practice', '/practice/hiragana/a-row'],
+    ['How does Review work?', 'review', '/practice/review'],
   ])('selecting %s navigates to its real screen with a %s replay target', (label, id, path) => {
     const { getByText, getByTestId } = renderSettings()
 
@@ -96,7 +105,7 @@ describe('SettingsPage Guides list (Issue #46/#50/Chōon Guide)', () => {
     expect(getByTestId('landed-path')).toHaveTextContent(`${path}?guide=${id}`)
   })
 
-  it.each(['Learn / Tracing', 'Practice', 'Review', 'Sokuon', 'Chōon', 'Yōon'] as const)(
+  it.each(['How do I learn & trace?', 'How does Practice work?', 'How does Review work?'] as const)(
     'selecting %s does not touch any Guide completed flag or learning/progress state',
     (label) => {
       useProgressStore.getState().markRowTaught('a-row')
