@@ -1,10 +1,10 @@
 // Static data for the "Ask Tamamizu" concept-help buttons (Hiragana,
 // Katakana, Sokuon, Chōon, Yōon). Each entry's finished artwork already IS
-// the full button UI, so this module only tracks the asset path + the
-// accessible name a screen reader needs (see AskTamamizuButton). Guide
-// replay ids/paths are pulled from CONCEPT_GUIDE_CATALOG (Sokuon/Chōon/
-// Yōon) rather than hardcoded, so this stays a thin presentation-data layer
-// on top of the existing Guide catalog/replay mechanism.
+// the full button UI, so this module only owns the Ask Tamamizu
+// presentation data (image asset + accessible label) — see
+// AskTamamizuButton. Guide replay targets remain owned by the existing
+// Guide data/replay mechanism (SOKUON_GUIDE/CHOUON_GUIDE/YOUON_GUIDE etc.
+// in CategoryRowsPage.tsx), not this module.
 export const ASK_TAMAMIZU_HIRAGANA = {
   imageAsset: 'guide/ask-tamamizu-hiragana.webp',
   ariaLabel: 'Ask Tamamizu about Hiragana',
