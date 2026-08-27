@@ -341,7 +341,7 @@ describe('buildSimilarLettersSpellingChoices', () => {
 
   it('every choice has the same kana length as the correct spelling (e)', () => {
     const choices = buildSimilarLettersSpellingChoices(okonomiyaki, HIRAGANA_GROUPS, kanaById, hiraganaPool, 4, seededRng(2))
-    choices.forEach((c) => expect(c.kana.length).toBe('おこのみやき'.length))
+    choices.forEach((c) => expect(Array.from(c.kana).length).toBe(Array.from('おこのみやき').length))
   })
 
   it('falls back to same-script random substitution when same-group candidates are insufficient (g)', () => {
@@ -392,5 +392,87 @@ describe('buildSimilarLettersSpellingChoices', () => {
     const a = buildSimilarLettersSpellingChoices(okonomiyaki, HIRAGANA_GROUPS, kanaById, hiraganaPool, 4, seededRng(77))
     const b = buildSimilarLettersSpellingChoices(okonomiyaki, HIRAGANA_GROUPS, kanaById, hiraganaPool, 4, seededRng(77))
     expect(a).toEqual(b)
+  })
+
+  // Regression: the Tier 3/4 fallback pool used to include composite yōon
+  // characters (きゃ/しゃ/キャ/シャ etc. — `kana` spanning more than one
+  // Unicode code point). Substituting one of those into a single-glyph
+  // position (or substituting a single-glyph candidate into a composite
+  // yōon position) changes the fabricated spelling's code-point length
+  // relative to the correct spelling, breaking the "same length as correct"
+  // invariant every choice must satisfy — e.g. の → きゃ turning "のみ" into
+  // "きゃみ". These tests force straight into tiers 3/4 (no confusion-group
+  // mates for any position) and assert no length-changing choice is ever
+  // produced, across many seeds.
+  describe('composite yōon exclusion from Tier 3/4 substitution (no confusion groups available)', () => {
+    it('Hiragana: target "のみ" with a pool containing あ/か/きゃ never produces a length-changing choice like "きゃみ"', () => {
+      const NOMI_KANA_BY_ID: Record<string, string> = {
+        no: 'の',
+        mi: 'み',
+        a: 'あ',
+        ka: 'か',
+        kya: 'きゃ',
+      }
+      const nomi = { id: 'fixture-nomi', characterIds: ['no', 'mi'] }
+      const pool = Object.keys(NOMI_KANA_BY_ID)
+      for (let seed = 0; seed < 50; seed++) {
+        const choices = buildSimilarLettersSpellingChoices(nomi, [], (id) => NOMI_KANA_BY_ID[id] ?? '', pool, 4, seededRng(seed))
+        const correctLength = Array.from('のみ').length
+        choices.forEach((c) => {
+          expect(c.kana).not.toBe('きゃみ')
+          expect(c.kana).not.toBe('のきゃ')
+          expect(Array.from(c.kana).length, `choice "${c.kana}" (seed ${seed})`).toBe(correctLength)
+        })
+      }
+    })
+
+    it('Katakana: target "ノミ" with a pool containing ア/カ/キャ never produces a length-changing choice like "キャミ"', () => {
+      const NOMI_KATAKANA_BY_ID: Record<string, string> = {
+        'katakana-no': 'ノ',
+        'katakana-mi': 'ミ',
+        'katakana-a': 'ア',
+        'katakana-ka': 'カ',
+        'katakana-kya': 'キャ',
+      }
+      const nomi = { id: 'fixture-katakana-nomi', characterIds: ['katakana-no', 'katakana-mi'] }
+      const pool = Object.keys(NOMI_KATAKANA_BY_ID)
+      for (let seed = 0; seed < 50; seed++) {
+        const choices = buildSimilarLettersSpellingChoices(
+          nomi,
+          [],
+          (id) => NOMI_KATAKANA_BY_ID[id] ?? '',
+          pool,
+          4,
+          seededRng(seed),
+        )
+        const correctLength = Array.from('ノミ').length
+        choices.forEach((c) => {
+          expect(c.kana).not.toBe('キャミ')
+          expect(c.kana).not.toBe('ノキャ')
+          expect(Array.from(c.kana).length, `choice "${c.kana}" (seed ${seed})`).toBe(correctLength)
+        })
+      }
+    })
+
+    it('never uses a composite yōon character from the "other Similar Letters" groups pool (Tier 3) as a substitution value', () => {
+      // A confusion group itself containing a composite character (should
+      // never happen by construction for real data, but exercised here
+      // defensively) must still never be substituted in for a single-glyph
+      // position.
+      const KANA_BY_ID: Record<string, string> = { no: 'の', mi: 'み', kya: 'きゃ', a: 'あ' }
+      const groupsWithComposite = [['kya', 'a']]
+      const nomi = { id: 'fixture-nomi-2', characterIds: ['no', 'mi'] }
+      for (let seed = 0; seed < 30; seed++) {
+        const choices = buildSimilarLettersSpellingChoices(
+          nomi,
+          groupsWithComposite,
+          (id) => KANA_BY_ID[id] ?? '',
+          Object.keys(KANA_BY_ID),
+          4,
+          seededRng(seed),
+        )
+        choices.forEach((c) => expect(Array.from(c.kana).length).toBe(Array.from('のみ').length))
+      }
+    })
   })
 })

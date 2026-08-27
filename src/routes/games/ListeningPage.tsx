@@ -119,12 +119,19 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
   // character of the target word's own script, excluding ー/っ/ッ and other
   // placeholder characters (identified by their `romaji: '-'` convention —
   // see characters.ts), so a fabricated wrong spelling never substitutes in
-  // an unnatural/no-sound-in-isolation character.
+  // an unnatural/no-sound-in-isolation character. Also excludes composite
+  // yōon characters (きゃ/しゃ/キャ/シャ etc. — anything whose `kana` is more
+  // than one Unicode code point): substituting one of those in for a
+  // single-glyph position (or vice versa) would change the fabricated
+  // spelling's code-point length relative to the correct spelling. The
+  // buildSimilarLettersSpellingChoices side additionally guards the
+  // REPLACEABLE POSITIONS the same way for tiers 3/4, so this pool-side
+  // filter and that position-side filter together fully close the gap.
   const sameScriptPool = useMemo(() => {
     if (!isSimilarLetters || !currentWord) return []
     const isKatakana = currentWord.characterIds.some((id) => id.startsWith('katakana-'))
     return Object.values(CHARACTERS_BY_ID)
-      .filter((c) => c.id.startsWith('katakana-') === isKatakana && c.romaji !== '-')
+      .filter((c) => c.id.startsWith('katakana-') === isKatakana && c.romaji !== '-' && Array.from(c.kana).length === 1)
       .map((c) => c.id)
   }, [isSimilarLetters, currentWord])
 
@@ -271,6 +278,8 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
               <button
                 key={choice.key}
                 type="button"
+                data-testid="spelling-choice"
+                data-correct={choice.isCorrect}
                 onClick={() => handleSpellingChoice(choice)}
                 disabled={answered}
                 className={`rounded-xl border-2 px-6 py-4 text-2xl font-bold transition ${

@@ -342,14 +342,24 @@ export function buildSimilarLettersSpellingChoices<T extends { id: string; chara
     }
   }
 
+  // Tiers 3 and 4 only ever substitute a SINGLE-GLYPH position with a
+  // SINGLE-GLYPH candidate — never a composite yōon character (きゃ/しゃ/
+  // キャ/シャ etc., i.e. `kana` spanning more than one Unicode code point) on
+  // either side of the substitution. Substituting a multi-glyph value in for
+  // a single-glyph one (or vice versa) would change the fabricated spelling's
+  // code-point length relative to the correct spelling, breaking the
+  // same-length invariant every choice must satisfy. Tiers 1/2 don't need
+  // this guard: confusion-group members are single-glyph by construction.
+  const isSingleGlyph = (kana: string) => Array.from(kana).length === 1
+
   // Tier 3: other-Similar-Letters substitution (a different confusion-group
   // character, not from the substituted position's own group).
   if (wrong.length < wrongCount) {
-    const allGroupIds = [...new Set(groups.flat())]
+    const allGroupIds = [...new Set(groups.flat())].filter((id) => isSingleGlyph(kanaById(id)))
     const positionOrder = shuffleWith(
       positions.map((_, idx) => idx),
       rng,
-    )
+    ).filter((idx) => isSingleGlyph(positions[idx].kana))
     for (const idx of positionOrder) {
       if (wrong.length >= wrongCount) break
       const ownGroupIds = new Set([positions[idx].charId, ...getGroupMates(groups, positions[idx].charId)])
@@ -369,11 +379,11 @@ export function buildSimilarLettersSpellingChoices<T extends { id: string; chara
     const positionOrder = shuffleWith(
       positions.map((_, idx) => idx),
       rng,
-    )
+    ).filter((idx) => isSingleGlyph(positions[idx].kana))
     for (const idx of positionOrder) {
       if (wrong.length >= wrongCount) break
       const candidates = shuffleWith(
-        sameScriptPool.filter((id) => id !== positions[idx].charId),
+        sameScriptPool.filter((id) => id !== positions[idx].charId && isSingleGlyph(kanaById(id))),
         rng,
       )
       for (const candidateId of candidates) {
