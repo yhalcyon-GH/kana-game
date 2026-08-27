@@ -58,10 +58,30 @@ export function useTTS() {
     [audioEnabled, audioVolume, audioSpeed, mascotVoiceEnabled, mascotVoiceVolume, staticProvider, webSpeechProvider],
   )
 
+  // Static-only variant for contexts (e.g. the Intro Guide) where falling
+  // back to a different voice reading the text would be jarring/wrong —
+  // e.g. Tamamizu's narration must never be replaced by a generic Web
+  // Speech voice. Resolves true if playback started, false otherwise
+  // (clip missing, or blocked by the browser's autoplay policy); callers
+  // are expected to surface their own retry UI on false rather than
+  // falling back to Web Speech.
+  const speakStaticOnly = useCallback(
+    (audioKey: string, fallbackText: string, lang?: string) => {
+      if (!audioEnabled) return Promise.resolve(false)
+      const request = { key: audioKey, text: fallbackText, lang }
+      const options = { volume: audioVolume, rate: audioSpeed }
+      return staticProvider
+        .speak(request, options)
+        .then(() => true)
+        .catch(() => false)
+    },
+    [audioEnabled, audioVolume, audioSpeed, staticProvider],
+  )
+
   const stop = useCallback(() => {
     staticProvider.stop()
     webSpeechProvider.stop()
   }, [staticProvider, webSpeechProvider])
 
-  return { speak, stop, supported: true }
+  return { speak, speakStaticOnly, stop, supported: true }
 }

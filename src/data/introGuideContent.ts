@@ -41,7 +41,7 @@ const EN: IntroGuideLocaleContent = {
       audioKey: 'guide/intro-kanji-meaning',
     },
     'intro.startHiragana': {
-      subtitle: "In this app, you'll learn Hiragana and Katakana.\n\nLet's start with Hiragana!",
+      subtitle: "In this app, you'll learn Hiragana and Katakana.\nLet's start with Hiragana!",
       audioKey: 'guide/intro-start-hiragana',
     },
   },

@@ -5,7 +5,6 @@ import { LearnTracingGuide } from '../components/LearnTracingGuide'
 import { Mascot } from '../components/Mascot'
 import { ConceptGuide } from '../components/ConceptGuide'
 import { PracticeGuide } from '../components/PracticeGuide'
-import { RecommendedFrame, RecommendedLabel } from '../components/Recommended'
 import { ReviewEmptyState } from '../components/ReviewEmptyState'
 import { ReviewGuide } from '../components/ReviewGuide'
 import { CATEGORIES_BY_ID, getNextRowId, ROWS_BY_ID } from '../data/curriculum'
@@ -46,24 +45,56 @@ type Activity = {
   completed?: boolean
   highlighted?: boolean
   disabled?: boolean
+  // Marks this card as the single app-wide Global Recommended Target
+  // (Issue #25) — see PracticeHubPage's isGlobalTarget/recommended below.
+  // Display-only: no card duplication/separate section, just a ⭐ badge on
+  // whichever normal grid card it is.
+  recommended?: boolean
 }
 
-function ActivityGrid({ activities, disabled = false }: { activities: Activity[]; disabled?: boolean }) {
+function ActivityGrid({
+  activities,
+  disabled = false,
+  onActivate,
+}: {
+  activities: Activity[]
+  disabled?: boolean
+  // When provided, a card that's disabled purely because an in-context
+  // Guide (Learn/Tracing Guide, Practice Guide) is currently showing stays
+  // clickable — invoking this instead of normal <Link> navigation, so the
+  // caller can stop the guide's narration/dismiss it first. Full-screen
+  // Guides (Sokuon/Chōon/Yōon) never pass this — their click-blocking is
+  // unchanged.
+  onActivate?: (path: string) => void
+}) {
   return (
     <div className="grid w-full max-w-md grid-cols-3 gap-3">
       {activities.map((activity) => {
         const isDisabled = disabled || activity.disabled
-        const className = `flex flex-col items-center gap-1 rounded-xl border bg-white p-4 text-center dark:bg-neutral-800 ${isDisabled ? 'cursor-not-allowed' : 'hover:border-blue-400'} ${activity.highlighted ? 'border-yellow-400 ring-2 ring-yellow-400 ring-offset-2 dark:border-yellow-300 dark:ring-yellow-300' : 'border-neutral-300 dark:border-neutral-600'}`
+        const className = `flex flex-col items-center gap-1 rounded-xl border bg-white p-4 text-center dark:bg-neutral-800 ${isDisabled && !onActivate ? 'cursor-not-allowed' : 'hover:border-blue-400'} ${activity.highlighted ? 'border-yellow-400 ring-2 ring-yellow-400 ring-offset-2 dark:border-yellow-300 dark:ring-yellow-300' : 'border-neutral-300 dark:border-neutral-600'}`
         const content = (
           <>
           <span className="text-3xl">{activity.emoji}</span>
           <span className="font-semibold">
             {activity.label}
             {activity.completed && <span className="ml-1 text-green-600 dark:text-green-400">✓</span>}
+            {activity.recommended && (
+              <span className="ml-1" aria-label="Recommended">
+                ⭐
+              </span>
+            )}
           </span>
           <span className="text-xs text-neutral-500 dark:text-neutral-400">{activity.description}</span>
           </>
         )
+
+        if (isDisabled && onActivate) {
+          return (
+            <button key={activity.path} type="button" onClick={() => onActivate(activity.path)} className={className}>
+              {content}
+            </button>
+          )
+        }
 
         return isDisabled ? (
           <div key={activity.path} role="link" aria-disabled="true" tabIndex={-1} className={className}>
@@ -102,7 +133,9 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   const rowActivityCompletion = useProgressStore((s) => s.rowActivityCompletion)
   const hasCompletedIntroGuide = useProgressStore((s) => s.hasCompletedIntroGuide)
   const hasCompletedLearnTracingGuide = useProgressStore((s) => s.hasCompletedLearnTracingGuide)
+  const setHasCompletedLearnTracingGuide = useProgressStore((s) => s.setHasCompletedLearnTracingGuide)
   const hasCompletedPracticeGuide = useProgressStore((s) => s.hasCompletedPracticeGuide)
+  const setHasCompletedPracticeGuide = useProgressStore((s) => s.setHasCompletedPracticeGuide)
   const hasCompletedSokuonGuide = useProgressStore((s) => s.hasCompletedSokuonGuide)
   const setHasCompletedSokuonGuide = useProgressStore((s) => s.setHasCompletedSokuonGuide)
   const hasCompletedChouonGuide = useProgressStore((s) => s.hasCompletedChouonGuide)
@@ -242,6 +275,23 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
       })
     : 'learn'
 
+  // Item 6: clicking Learn/Tracing while the automatic (or manually
+  // replayed) Learn/Tracing Guide is showing stops its narration, ends the
+  // guide — marking it completed for the automatic case, or just clearing
+  // the ephemeral replay target without touching the persisted flag for a
+  // manual Settings replay — then navigates to the activity that was
+  // clicked, rather than silently doing nothing.
+  const handleLearnTracingActivate = (path: string) => {
+    if (isLearnTracingReplay) dismissLearnTracingReplay()
+    else setHasCompletedLearnTracingGuide(true)
+    navigate(path)
+  }
+  const handlePracticeGuideActivate = (path: string) => {
+    if (isPracticeReplay) dismissPracticeReplay()
+    else setHasCompletedPracticeGuide(true)
+    navigate(path)
+  }
+
   const nextRowId = showRecommendedPath ? getNextRowId(rowId) : null
   const nextRowCategoryId = nextRowId ? ROWS_BY_ID[nextRowId]?.categoryId : undefined
 
@@ -283,32 +333,41 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
     listening: listeningCompleted,
     'word-builder': wordBuilderCompleted,
   }
+
+  // "⭐ Recommended" reflects the ONE app-wide Global Recommended Target
+  // (Issue #25, see useCurriculum's globalRecommendedTarget) — only when
+  // THIS row is currently that target, and then only its specific
+  // activity gets the ⭐ badge (display-only, on the normal grid card —
+  // see Item 5: no separate section/card duplication any more).
+  // `recommended` above (this row's own next step) still separately drives
+  // this row's OWN unrelated UI ("Choose how to learn"/✓ marks/"Lesson
+  // complete"), regardless of whether this row happens to be the global
+  // target right now.
+  const isGlobalTarget =
+    showRecommendedPath && globalRecommendedTarget?.categoryId === categoryId && globalRecommendedTarget?.rowId === rowId
+  const globalRecommendedActivityPath =
+    isGlobalTarget && globalRecommendedTarget && globalRecommendedTarget.activity !== 'learn'
+      ? `${hubBase}/${globalRecommendedTarget.activity}`
+      : undefined
+
   const practiceActivities: Activity[] = PRACTICE_GAMES.filter((game) => !(isContrastPairs && game.path === 'kana-quiz')).map(
-    (game) => ({
-      path: `${hubBase}/${game.path}`,
-      label: game.label,
-      emoji: game.emoji,
-      description: game.description,
-      completed: gameCompletion[game.path],
-    }),
+    (game) => {
+      const path = `${hubBase}/${game.path}`
+      const isRecommended = globalRecommendedActivityPath === path
+      return {
+        path,
+        label: game.label,
+        emoji: game.emoji,
+        description: game.description,
+        completed: gameCompletion[game.path],
+        recommended: isRecommended,
+        highlighted: isRecommended && showPracticeGuide,
+      }
+    },
   )
   const optionalActivities: Activity[] = [
     { path: `${hubBase}/${KANA_TYPING_GAME.path}`, label: KANA_TYPING_GAME.label, emoji: KANA_TYPING_GAME.emoji, description: KANA_TYPING_GAME.description },
   ]
-
-  // "⭐ Recommended" here reflects the ONE app-wide Global Recommended
-  // Target (Issue #25, see useCurriculum's globalRecommendedTarget) — this
-  // section only appears when THIS row is currently that target, and then
-  // only for its specific activity. `recommended` above (this row's own
-  // next step) still separately drives this row's OWN unrelated UI
-  // ("Choose how to learn"/✓ marks/"Lesson complete"), regardless of
-  // whether this row happens to be the global target right now.
-  const isGlobalTarget =
-    showRecommendedPath && globalRecommendedTarget?.categoryId === categoryId && globalRecommendedTarget?.rowId === rowId
-  const recommendedActivity: Activity | undefined =
-    isGlobalTarget && globalRecommendedTarget && globalRecommendedTarget.activity !== 'learn'
-      ? practiceActivities.find((a) => a.path === `${hubBase}/${globalRecommendedTarget.activity}`)
-      : undefined
 
   return (
     <div className="flex flex-col items-center gap-6">
@@ -338,20 +397,6 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
         </div>
       )}
 
-      {showRecommendedPath && recommendedActivity && (
-        <div
-          data-testid={showPracticeGuide ? 'practice-guide-recommended' : undefined}
-          className={`flex w-full max-w-md flex-col items-center gap-2 ${showPracticeGuide ? 'rounded-xl border-2 border-yellow-400 p-2 ring-2 ring-yellow-400 ring-offset-2 dark:border-yellow-300 dark:ring-yellow-300' : ''}`}
-        >
-          <h2 className="self-start text-sm">
-            <RecommendedLabel />
-          </h2>
-          <RecommendedFrame className="w-full">
-            <ActivityGrid activities={[recommendedActivity]} disabled={disableHubActivities} />
-          </RecommendedFrame>
-        </div>
-      )}
-
       {showPracticeGuide && <PracticeGuide onDismiss={isPracticeReplay ? dismissPracticeReplay : undefined} />}
 
       {showSokuonGuide && (
@@ -376,7 +421,11 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
         <h2 className="self-start text-xs font-semibold tracking-wide text-neutral-400 uppercase dark:text-neutral-500">
           {showRecommendedPath && !introCompleted ? 'Choose how to learn' : 'Learn'}
         </h2>
-        <ActivityGrid activities={learnActivities} disabled={disableHubActivities} />
+        <ActivityGrid
+          activities={learnActivities}
+          disabled={disableHubActivities}
+          onActivate={showLearnTracingGuide ? handleLearnTracingActivate : undefined}
+        />
       </div>
 
       {showLearnTracingGuide && (
@@ -387,7 +436,11 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
         <h2 className="self-start text-xs font-semibold tracking-wide text-neutral-400 uppercase dark:text-neutral-500">
           Practice
         </h2>
-        <ActivityGrid activities={practiceActivities} disabled={disableHubActivities} />
+        <ActivityGrid
+          activities={practiceActivities}
+          disabled={disableHubActivities}
+          onActivate={showPracticeGuide ? handlePracticeGuideActivate : undefined}
+        />
       </div>
 
       <div className="flex w-full max-w-md flex-col items-center gap-2">

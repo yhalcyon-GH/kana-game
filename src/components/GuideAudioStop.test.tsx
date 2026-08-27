@@ -8,7 +8,11 @@ import { LearnTracingGuide } from './LearnTracingGuide'
 import { PracticeGuide } from './PracticeGuide'
 import { ReviewGuide } from './ReviewGuide'
 
-const tts = vi.hoisted(() => ({ speak: vi.fn(), stop: vi.fn() }))
+const tts = vi.hoisted(() => ({
+  speak: vi.fn(),
+  speakStaticOnly: vi.fn(() => Promise.resolve(true)),
+  stop: vi.fn(),
+}))
 
 vi.mock('../hooks/useTTS', () => ({
   useTTS: () => tts,
@@ -19,6 +23,8 @@ const introLocale = INTRO_GUIDE_CONTENT[DEFAULT_INTRO_GUIDE_LOCALE]
 beforeEach(() => {
   useProgressStore.getState().resetProgress()
   tts.speak.mockReset()
+  tts.speakStaticOnly.mockReset()
+  tts.speakStaticOnly.mockResolvedValue(true)
   tts.stop.mockReset()
 })
 

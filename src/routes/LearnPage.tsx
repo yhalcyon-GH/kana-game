@@ -257,10 +257,22 @@ export function LearnPage() {
   // (Kana Quiz for character-set, Listening for contrast-pairs — no Kana
   // Quiz step there, see lib/recommendedPath.ts) instead of just returning
   // to the hub. markRowTaught still fires here exactly as before — this is
-  // the ONLY change to Learn's existing completion behavior.
-  const handleFinish = () => {
+  // the ONLY change to Learn's existing completion behavior. Shared by both
+  // "Continue" and "Back to hub" (Item 8) so the taught-marking logic isn't
+  // duplicated between the two.
+  const completeLearn = () => {
     markRowTaught(rowId)
+  }
+  const handleFinish = () => {
+    completeLearn()
     navigate(`/practice/${categoryId}/${rowId}/${isContrastPairs ? 'listening' : 'kana-quiz'}`)
+  }
+  // "Back to hub" (Item 8) — completes Learn exactly like Continue does,
+  // but returns to the hub instead of jumping into the next recommended
+  // activity, for a learner who wants to stop here for now.
+  const handleBackToHub = () => {
+    completeLearn()
+    navigate(`/practice/${categoryId}/${rowId}`)
   }
 
   if (step === 'A') {
@@ -400,6 +412,13 @@ export function LearnPage() {
           className="rounded-full border border-neutral-300 px-6 py-2 font-semibold hover:border-blue-400 dark:border-neutral-600"
         >
           Back
+        </button>
+        <button
+          type="button"
+          onClick={handleBackToHub}
+          className="rounded-full border border-neutral-300 px-6 py-2 font-semibold hover:border-blue-400 dark:border-neutral-600"
+        >
+          Back to hub
         </button>
         <button
           type="button"

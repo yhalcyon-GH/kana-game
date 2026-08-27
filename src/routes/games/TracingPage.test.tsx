@@ -52,6 +52,26 @@ describe('TracingPage', () => {
     const { getByText } = renderTracing()
     expect(getByText('a')).toBeInTheDocument()
   })
+
+  // Item 7: reuse WordImage to show the current word's illustration during
+  // the word phase only — never during the character phase.
+  it('shows a word illustration during the word phase but not the character phase', () => {
+    const { container, getByRole } = renderTracing()
+    expect(container.textContent).toMatch(/Trace each character/)
+    expect(container.querySelector('img[alt=""]')).toBeNull()
+
+    let guard = 0
+    while (!container.textContent?.includes('Trace each word') && guard < 20) {
+      act(() => fireEvent.click(getByRole('button', { name: 'Next' })))
+      guard += 1
+    }
+    expect(container.textContent).toMatch(/Trace each word/)
+    // WordImage renders either a real <img alt=""> or the 🖼️ placeholder.
+    const hasWordImage =
+      container.querySelector('img[alt=""]') !== null ||
+      Array.from(container.querySelectorAll('div[aria-hidden="true"]')).some((d) => d.textContent === '🖼️')
+    expect(hasWordImage).toBe(true)
+  })
 })
 
 describe('TracingPage Recommended Path completion (Issue #11)', () => {
