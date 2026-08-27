@@ -582,3 +582,41 @@ describe('Manual Guide replay (Issue #46)', () => {
     expect(hub.getByTestId('sokuon-guide')).toBeInTheDocument()
   })
 })
+
+// Similar Letters (see GojuonRow.isSimilarLetters) — a supplementary
+// comparison lesson, not part of the main curriculum progression.
+describe('Similar Letters Practice Hub', () => {
+  it('shows Learn, Tracing, Kana Quiz, Listening, Word Builder, and Kana Typing — the same activities as a normal hiragana row', () => {
+    const hub = renderRowHub('hiragana', 'hiragana-similar-letters')
+    expect(hub.getByRole('link', { name: /Learn/ })).toBeInTheDocument()
+    expect(hub.getByRole('link', { name: /Tracing/ })).toBeInTheDocument()
+    expect(hub.getByRole('link', { name: /Kana Quiz/ })).toBeInTheDocument()
+    expect(hub.getByRole('link', { name: /Listening/ })).toBeInTheDocument()
+    expect(hub.getByRole('link', { name: /Word Builder/ })).toBeInTheDocument()
+    expect(hub.getByRole('link', { name: /Kana Typing/ })).toBeInTheDocument()
+  })
+
+  it('never shows the Recommended Path chrome (⭐/"Choose how to learn")', () => {
+    const hub = renderRowHub('hiragana', 'hiragana-similar-letters')
+    expect(hub.queryByText('⭐ Recommended')).toBeNull()
+    expect(hub.queryByText('Choose how to learn')).toBeNull()
+    expect(hub.queryByText('Lesson complete')).toBeNull()
+  })
+
+  it('does not affect the Global Recommended Target, even after completing its own activities', () => {
+    const before = useProgressStore.getState().unlockedRowIds
+    completeRow('hiragana-similar-letters')
+    const hub = renderRowHub('hiragana', 'a-row')
+    // a-row (the real first row) is still Recommended — Similar Letters'
+    // own "completion" never substitutes for it.
+    expect(hub.getByRole('link', { name: /Learn/ })).toBeInTheDocument()
+    expect(useProgressStore.getState().unlockedRowIds).toEqual(before)
+  })
+
+  it("completing its own game activities records completion under ITS OWN row id only — never a real row's", () => {
+    useProgressStore.getState().markRowActivityCompleted('hiragana-similar-letters', 'kanaQuiz')
+    const after = useProgressStore.getState()
+    expect(after.rowActivityCompletion['hiragana-similar-letters']?.kanaQuiz).toBe(true)
+    expect(after.rowActivityCompletion['a-row']).toBeUndefined()
+  })
+})

@@ -167,6 +167,9 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   // TracingPage) — that only makes sense for a single row's small word
   // list, not Review's every-taught-row mix, so it's excluded there.
   const isSummary = !isReview && !!row?.isSummary
+  // Similar Letters (see GojuonRow.isSimilarLetters) — an optional
+  // supplementary lesson, not part of the main curriculum progression.
+  const isSimilarLetters = !isReview && !!row?.isSimilarLetters
   // Kana Quiz doesn't fit 'contrast-pairs' categories (促音/長音) — there's
   // no single isolated character to quiz a reading on the way there is for
   // a normal gojūon row (see docs/curriculum-extensibility.md and
@@ -181,7 +184,7 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   // repair" framing (reviewCount above), and a summary row's Learn/Practice
   // shape (every character/word in the category at once, no per-character
   // markRowTaught) doesn't fit this per-row completion model.
-  const showRecommendedPath = !isReview && !isSummary
+  const showRecommendedPath = !isReview && !isSummary && !isSimilarLetters
   const isLearnTracingTargetRoute =
     !isReview && categoryId === LEARN_TRACING_GUIDE.target.categoryId && rowId === LEARN_TRACING_GUIDE.target.rowId
   const isPracticeTargetRoute =
@@ -310,7 +313,9 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   return (
     <div className="flex flex-col items-center gap-6">
       {!isReview && <HubBreadcrumb rowId={rowId} categoryId={categoryId!} />}
-      <h1 className="text-2xl font-bold">{isReview ? 'Review — all learned rows' : `${isSummary ? '⭐ ' : ''}${row!.label}`}</h1>
+      <h1 className="text-2xl font-bold">
+        {isReview ? 'Review — all learned rows' : `${isSummary ? '⭐ ' : isSimilarLetters ? '🔍 ' : ''}${row!.label}`}
+      </h1>
       {isReview && (
         <p className="text-sm text-neutral-500 dark:text-neutral-400">
           {reviewCount} item{reviewCount === 1 ? '' : 's'} need review

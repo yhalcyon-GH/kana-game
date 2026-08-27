@@ -16,6 +16,10 @@ import { useTTS } from '../../hooks/useTTS'
 import { pickDistractorCharIds } from '../../lib/distractorPicker'
 import { buildQuizModePlan } from '../../lib/quizModePlan'
 import { shuffle } from '../../lib/shuffle'
+import {
+  buildSimilarLettersTargetQueue,
+  pickSimilarLettersDistractorCharIds,
+} from '../../lib/similarLettersSelection'
 import { useProgressStore } from '../../store/progressStore'
 
 const DISTRACTOR_COUNT = 3
@@ -45,7 +49,15 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
   const params = useParams<{ categoryId?: string; rowId?: string }>()
   const rowId = rowIdOverride ?? params.rowId
   const navigate = useNavigate()
-  const { isScopeReady, getScopeCharacterIds, getScopeQuizCharacterIds, isQuizzableCharacterId, getScopeRounds } = useCurriculum()
+  const {
+    isScopeReady,
+    getScopeCharacterIds,
+    getScopeQuizCharacterIds,
+    isQuizzableCharacterId,
+    getScopeRounds,
+    isSimilarLettersRow,
+    getConfusionGroups,
+  } = useCurriculum()
   const recordResult = useProgressStore((s) => s.recordResult)
   const recordCharacterReviewResult = useProgressStore((s) => s.recordCharacterReviewResult)
   const markRowActivityCompleted = useProgressStore((s) => s.markRowActivityCompleted)
@@ -87,8 +99,23 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
   )
   const getBox = useCallback((id: string) => characters[id]?.box ?? 0, [characters])
 
+  // Similar Letters mode (see similarLettersSelection.ts): 80% of a
+  // session's targets are its own confusion-group characters (group-
+  // balanced across every group), 20% are a normal character from the same
+  // script — instead of the normal weighted-by-box sampling over just
+  // quizCharacterIds. distractorPool (already the whole script, see above)
+  // doubles as the normal-pool source, excluding the target group itself.
+  const isSimilarLetters = isSimilarLettersRow(rowId)
+  const confusionGroups = useMemo(() => getConfusionGroups(rowId), [rowId, getConfusionGroups])
+  const buildQueue = useMemo(() => {
+    if (!isSimilarLetters) return undefined
+    const targetSet = new Set(quizCharacterIds)
+    const normalPoolIds = distractorPool.filter((id) => !targetSet.has(id))
+    return () => buildSimilarLettersTargetQueue(confusionGroups, normalPoolIds, rounds)
+  }, [isSimilarLetters, confusionGroups, distractorPool, quizCharacterIds, rounds])
+
   const { queue, roundIndex, correctCount, setCorrectCount, finished, startSession, startMistakeReview, advance } =
-    useGameSession({ ids: quizCharacterIds, weight: getBox, onFinish, resetSession, rounds, sessionKey: rowId })
+    useGameSession({ ids: quizCharacterIds, weight: getBox, onFinish, resetSession, rounds, sessionKey: rowId, buildQueue })
   const { schedule: scheduleAdvance } = useDelayedAction()
 
   // One Read/Recall mode per queue slot, built fresh every time `queue`
@@ -109,7 +136,9 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
 
   useEffect(() => {
     if (!currentCharId || !currentMode) return
-    const distractors = pickDistractorCharIds([currentCharId], distractorPool, DISTRACTOR_COUNT)
+    const distractors = isSimilarLetters
+      ? pickSimilarLettersDistractorCharIds([currentCharId], confusionGroups, distractorPool, DISTRACTOR_COUNT)
+      : pickDistractorCharIds([currentCharId], distractorPool, DISTRACTOR_COUNT)
     setChoices(shuffle([currentCharId, ...distractors]))
     setSelectedId(null)
     setAnswered(false)
@@ -135,9 +164,11 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
   // effect only re-runs when `finished` itself flips), only for a normal
   // row (never Review, a separate repair workflow that must not advance
   // Recommended Path state).
+  // Similar Letters' synthetic row must never get a completion record (it's
+  // outside Recommended Path — see PracticeHubPage's showRecommendedPath).
   useEffect(() => {
-    if (finished && !isReview && rowId) markRowActivityCompleted(rowId, 'kanaQuiz')
-  }, [finished, isReview, rowId, markRowActivityCompleted])
+    if (finished && !isReview && !isSimilarLetters && rowId) markRowActivityCompleted(rowId, 'kanaQuiz')
+  }, [finished, isReview, isSimilarLetters, rowId, markRowActivityCompleted])
 
   const handleChoice = (choiceId: string) => {
     if (answered || !currentCharId) return

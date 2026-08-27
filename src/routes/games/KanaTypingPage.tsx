@@ -16,6 +16,7 @@ import { useFrozenWordPool } from '../../hooks/useFrozenWordPool'
 import { useGameSession } from '../../hooks/useGameSession'
 import { useTTS } from '../../hooks/useTTS'
 import { isAnswerCorrect } from '../../lib/answerChecking'
+import { buildSimilarLettersWordQueue } from '../../lib/similarLettersSelection'
 import { useProgressStore } from '../../store/progressStore'
 
 // Types a whole word's exact printed kana — via any Japanese input method
@@ -35,7 +36,7 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
   const params = useParams<{ categoryId?: string; rowId?: string }>()
   const rowId = rowIdOverride ?? params.rowId
   const navigate = useNavigate()
-  const { isScopeReady, getScopeWords, getScopeRounds } = useCurriculum()
+  const { isScopeReady, getScopeWords, getScopeRounds, isSimilarLettersRow, getConfusionGroups } = useCurriculum()
   const recordWordReviewResult = useProgressStore((s) => s.recordWordReviewResult)
   const characters = useProgressStore((s) => s.characters)
   const { speak, supported } = useTTS()
@@ -77,8 +78,20 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
     [wordsById, characters],
   )
 
+  // Similar Letters mode (see similarLettersSelection.ts) — only target
+  // selection matters here (no distractors in a free-typing game).
+  const isSimilarLetters = isSimilarLettersRow(rowId)
+  const confusionGroups = useMemo(() => getConfusionGroups(rowId), [rowId, getConfusionGroups])
+  const buildQueue = useMemo(() => {
+    if (!isSimilarLetters) return undefined
+    const targetIds = new Set(confusionGroups.flat())
+    const targetWords = scopeWords.filter((w) => w.characterIds.some((id) => targetIds.has(id)))
+    const normalWords = scopeWords.filter((w) => !w.characterIds.some((id) => targetIds.has(id)))
+    return () => buildSimilarLettersWordQueue(confusionGroups, targetWords, normalWords, rounds)
+  }, [isSimilarLetters, confusionGroups, scopeWords, rounds])
+
   const { queue, roundIndex, correctCount, setCorrectCount, finished, startMistakeReview, advance } =
-    useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession, rounds, sessionKey })
+    useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession, rounds, sessionKey, buildQueue })
   const { schedule: scheduleAdvance } = useDelayedAction()
 
   const [input, setInput] = useState('')

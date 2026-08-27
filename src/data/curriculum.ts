@@ -1,3 +1,4 @@
+import { buildSimilarLettersRows } from './similarLetters'
 import type { GojuonRow, ScriptCategory } from './types'
 
 // Five categories exist (hiragana/katakana/sokuon/chōon/yōon) — see
@@ -603,7 +604,13 @@ const SUMMARY_ROWS: GojuonRow[] = [
   },
 ]
 
-export const ROWS: GojuonRow[] = [...REAL_ROWS, ...SUMMARY_ROWS]
+// Similar Letters (one synthetic row per script) — see similarLetters.ts's
+// GojuonRow.isSimilarLetters comment. Ordered right after REAL_ROWS and
+// before SUMMARY_ROWS so it renders immediately left of Summary wherever a
+// caller builds one combined "trailing" section (see CategoryRowsPage).
+const SIMILAR_LETTERS_ROWS: GojuonRow[] = buildSimilarLettersRows(DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID)
+
+export const ROWS: GojuonRow[] = [...REAL_ROWS, ...SIMILAR_LETTERS_ROWS, ...SUMMARY_ROWS]
 
 export const ROWS_BY_ID: Record<string, GojuonRow> = Object.fromEntries(
   ROWS.map((r) => [r.id, r]),

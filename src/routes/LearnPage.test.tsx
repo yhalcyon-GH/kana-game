@@ -282,3 +282,76 @@ describe('LearnPage romaji (Issue #19)', () => {
     expect(screen.getByText(CHARACTERS_BY_ID.a.romaji)).toBeInTheDocument()
   })
 })
+
+// Similar Letters (see GojuonRow.isSimilarLetters) — a dedicated Learn
+// branch: 1 confusion group = 1 page, showing that group's kana cards
+// side-by-side (not one-by-one like the normal flashcard flow above).
+describe('LearnPage: Similar Letters', () => {
+  it('hiragana has exactly 7 pages, one per confusion group, in the confirmed group order', () => {
+    renderLearn('/learn/hiragana/hiragana-similar-letters')
+    expect(screen.getByText('Group 1 / 7')).toBeInTheDocument()
+    // Group 1 is あ・お.
+    expect(screen.getByText(CHARACTERS_BY_ID.a.kana)).toBeInTheDocument()
+    expect(screen.getByText(CHARACTERS_BY_ID.o.kana)).toBeInTheDocument()
+    expect(screen.queryByText(CHARACTERS_BY_ID.ki.kana)).toBeNull()
+  })
+
+  it('katakana has exactly 8 pages', () => {
+    renderLearn('/learn/katakana/katakana-similar-letters')
+    expect(screen.getByText('Group 1 / 8')).toBeInTheDocument()
+  })
+
+  it('reuses the existing kana card (no separate image asset) — the same glyph markup as a normal row', () => {
+    renderLearn('/learn/hiragana/hiragana-similar-letters')
+    const glyph = screen.getByText(CHARACTERS_BY_ID.a.kana)
+    expect(glyph.className).toMatch(/font-kana/)
+    expect(document.querySelector('img')).toBeNull()
+  })
+
+  it('renders only the plain CharacterCard for each character in the group — no drawn-on annotation overlay', () => {
+    renderLearn('/learn/hiragana/hiragana-similar-letters')
+    // Group 1 is あ・お. No decorative SVG overlay of any kind should exist
+    // anymore — Learn just shows the live CharacterCards side by side.
+    expect(document.querySelector('svg')).toBeNull()
+    expect(document.querySelector('marker')).toBeNull()
+    expect(document.querySelector('circle')).toBeNull()
+    expect(document.querySelector('line[x1]')).toBeNull()
+
+    const glyphA = screen.getByText(CHARACTERS_BY_ID.a.kana)
+    const glyphO = screen.getByText(CHARACTERS_BY_ID.o.kana)
+    expect(glyphA.className).toMatch(/font-kana/)
+    expect(glyphO.className).toMatch(/font-kana/)
+    expect(document.querySelector('img')).toBeNull()
+  })
+
+  it('Next steps through every group in order, and the final group shows "Done"', () => {
+    renderLearn('/learn/hiragana/hiragana-similar-letters')
+    for (let i = 2; i <= 7; i++) {
+      fireEvent.click(screen.getByText('Next'))
+      expect(screen.getByText(`Group ${i} / 7`)).toBeInTheDocument()
+    }
+    expect(screen.getByText('Done')).toBeInTheDocument()
+  })
+
+  it('Back steps backward through groups, and Back on the first group returns to the Practice Hub', () => {
+    renderLearn('/learn/hiragana/hiragana-similar-letters')
+    fireEvent.click(screen.getByText('Next'))
+    expect(screen.getByText('Group 2 / 7')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Back'))
+    expect(screen.getByText('Group 1 / 7')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Back'))
+    // Landed on the Practice Hub (its own title carries the 🔍 badge too —
+    // see PracticeHubPage.tsx).
+    expect(screen.getByText(/🔍/)).toBeInTheDocument()
+  })
+
+  it('finishing the last group returns to the Practice Hub WITHOUT marking the row taught', () => {
+    renderLearn('/learn/hiragana/hiragana-similar-letters')
+    for (let i = 0; i < 6; i++) fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText('Done'))
+
+    expect(useProgressStore.getState().taughtRowIds).not.toContain('hiragana-similar-letters')
+    expect(screen.getByText(/🔍/)).toBeInTheDocument()
+  })
+})

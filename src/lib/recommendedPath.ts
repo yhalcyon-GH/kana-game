@@ -69,8 +69,11 @@ export function getGlobalRecommendedTarget(
   rowActivityCompletion: Record<string, RowActivityCompletion>,
 ): GlobalRecommendedTarget | null {
   for (const category of categories) {
+    // Similar Letters (see GojuonRow.isSimilarLetters) is an optional
+    // supplementary lesson, not a main-curriculum progression step — it must
+    // never become the Recommended target, same as Summary.
     const categoryRows = rows
-      .filter((row) => row.categoryId === category.id && !row.isSummary)
+      .filter((row) => row.categoryId === category.id && !row.isSummary && !row.isSimilarLetters)
       .sort((a, b) => a.order - b.order)
 
     for (const row of categoryRows) {

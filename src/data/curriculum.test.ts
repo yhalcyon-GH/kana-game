@@ -49,8 +49,10 @@ describe('curriculum content integrity', () => {
     // Summary rows (see GojuonRow.isSummary) don't have their own
     // WORDS_BY_ROW entry — their word pool is assembled at runtime from
     // every real row in their category (see useCurriculum.ts), not stored
-    // per-row, so this invariant doesn't apply to them.
-    for (const row of ROWS.filter((r) => !r.isSummary)) {
+    // per-row, so this invariant doesn't apply to them. Similar Letters rows
+    // (see GojuonRow.isSimilarLetters) are the same: their word pool is also
+    // assembled at runtime (see useCurriculum's getScopeWords).
+    for (const row of ROWS.filter((r) => !r.isSummary && !r.isSimilarLetters)) {
       expect((WORDS_BY_ROW[row.id] ?? []).length, `row "${row.id}" has too few words`).toBeGreaterThanOrEqual(4)
     }
   })

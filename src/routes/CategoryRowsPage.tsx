@@ -45,12 +45,19 @@ export function CategoryRowsPage({ title, description, categoryIds, showKanaIntr
   // unlockedRowIds/taughtRowIds, which isRowMastered doesn't itself track.
   useProgressStore((s) => s.characters)
 
-  const categoryRows = rows.filter((r) => categoryIds.includes(r.categoryId) && !r.isSummary)
+  const categoryRows = rows.filter((r) => categoryIds.includes(r.categoryId) && !r.isSummary && !r.isSimilarLetters)
+  // Similar Letters (🔍, see GojuonRow.isSimilarLetters) renders immediately
+  // to the LEFT of Summary, in that same trailing un-headed section — only
+  // hiragana/katakana ever have one, so simple concatenation (rather than
+  // per-category interleaving) already produces the right grid order even
+  // on a multi-category page like っ＆ー (which has neither).
+  const similarLettersRows = rows.filter((r) => categoryIds.includes(r.categoryId) && r.isSimilarLetters)
   // Summary rows (⭐, one per page — see GojuonRow.isSummary) render in
   // their own un-headed section below every category's rows, rather than
   // inside one category's group, since a multi-category page's summary
   // (その他's, combining 促音+長音) doesn't belong to just one of them.
   const summaryRows = rows.filter((r) => categoryIds.includes(r.categoryId) && r.isSummary)
+  const trailingRows = [...similarLettersRows, ...summaryRows]
 
   // Grouped by category (in categoryIds' given order) rather than one flat
   // grid, so a multi-category page like その他 (sokuon + chōon) can show
@@ -140,8 +147,8 @@ export function CategoryRowsPage({ title, description, categoryIds, showKanaIntr
       ) : (
         <p className="text-neutral-400 dark:text-neutral-500">まだ利用できるレッスンがありません。</p>
       )}
-      {summaryRows.length > 0 && (
-        <RowMap rows={summaryRows} isUnlocked={isRowUnlocked} isTaught={isRowTaught} isMastered={isRowMastered} />
+      {trailingRows.length > 0 && (
+        <RowMap rows={trailingRows} isUnlocked={isRowUnlocked} isTaught={isRowTaught} isMastered={isRowMastered} />
       )}
       {kanaIntroExcerptGuide.isReplaying && <KanaIntroExcerptGuide onDismiss={kanaIntroExcerptGuide.dismissReplay} />}
     </div>

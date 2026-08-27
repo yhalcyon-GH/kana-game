@@ -17,6 +17,32 @@ function isSummaryRow(rowId: string | undefined): boolean {
   return !!rowId && !!ROWS_BY_ID[rowId]?.isSummary
 }
 
+// See GojuonRow.isSimilarLetters — a supplementary comparison lesson, not
+// part of the main curriculum progression.
+function isSimilarLettersRow(rowId: string | undefined): boolean {
+  return !!rowId && !!ROWS_BY_ID[rowId]?.isSimilarLetters
+}
+
+// A Similar Letters row's `learnBatches` IS its list of confusion groups
+// (one batch = one group of visually-similar characters) — see
+// similarLetters.ts. Empty for any other row.
+function getConfusionGroups(rowId: string | undefined): string[][] {
+  if (!rowId || !isSimilarLettersRow(rowId)) return []
+  return ROWS_BY_ID[rowId]?.learnBatches ?? []
+}
+
+// The full real-word pool for a Similar Letters row's OWN script (every word
+// from every real, non-summary, non-similar-letters row in its category) —
+// used both as the Listening/Word Builder/Kana Typing candidate pool and as
+// the source `similarLettersSelection.ts` splits into "contains a target
+// character" vs. "normal" for its 80/20 sampling. Deliberately never mixes
+// hiragana and katakana words (see the Issue's "don't mix scripts" note).
+function getSimilarLettersCategoryWords(categoryId: string): AnchorWord[] {
+  return ROWS.filter((r) => !r.isSummary && !r.isSimilarLetters && r.categoryId === categoryId).flatMap(
+    (r) => WORDS_BY_ROW[r.id] ?? [],
+  )
+}
+
 // A summary row's own characterIds already hold the full aggregated
 // character list (built once in curriculum.ts) — but its WORDS aren't
 // stored per-row in words.ts (that would mean duplicating every word
@@ -87,8 +113,18 @@ export function useCurriculum() {
   // entire summary row — and therefore its whole category — as practiced.
   // A summary row can still reach reviewUnlockedRowIds via taughtRowIds
   // (finishing its own Learn/Practice legitimately unlocks everything).
+  // Similar Letters (see GojuonRow.isSimilarLetters) is excluded for the
+  // exact same reason Summary is: its characterIds is a curated collection
+  // spanning many real rows, not "this row's own new characters" — without
+  // this exclusion, practicing a single character (e.g. あ, which is also in
+  // Similar Letters' あ・お group) would mark the WHOLE Similar Letters row
+  // practiced, and therefore leak every OTHER character in its groups (e.g.
+  // か) into unlockedCharacterIds as if it had been practiced too.
   const practicedRowIds = useMemo(
-    () => ROWS.filter((r) => !r.isSummary && r.characterIds.some((id) => practicedCharacterIds.includes(id))).map((r) => r.id),
+    () =>
+      ROWS.filter(
+        (r) => !r.isSummary && !r.isSimilarLetters && r.characterIds.some((id) => practicedCharacterIds.includes(id)),
+      ).map((r) => r.id),
     [practicedCharacterIds],
   )
 
@@ -169,6 +205,11 @@ export function useCurriculum() {
     if (!rowId) return []
     if (rowId === REVIEW_SCOPE_ID) return weakWords
     if (isSummaryRow(rowId)) return getSummaryWords(rowId)
+    // Similar Letters has no WORDS_BY_ROW entry of its own — its Listening/
+    // Word Builder/Kana Typing pool is the row's whole script instead (see
+    // getSimilarLettersCategoryWords), and the 80/20 target-vs-normal split
+    // happens downstream in similarLettersSelection.ts, not here.
+    if (isSimilarLettersRow(rowId)) return getSimilarLettersCategoryWords(ROWS_BY_ID[rowId]?.categoryId ?? '')
     return WORDS_BY_ROW[rowId] ?? []
   }
 
@@ -242,5 +283,7 @@ export function useCurriculum() {
     isScopeReady,
     getScopeRounds,
     isSummaryRow,
+    isSimilarLettersRow,
+    getConfusionGroups,
   }
 }
