@@ -7,8 +7,49 @@ import { IntroGuide } from './IntroGuide'
 
 const locale = INTRO_GUIDE_CONTENT[DEFAULT_INTRO_GUIDE_LOCALE]
 
+const mockSpeakStaticOnly = vi.fn().mockResolvedValue(true)
+const mockStop = vi.fn()
+vi.mock('../hooks/useTTS', () => ({
+  useTTS: () => ({ speakStaticOnly: mockSpeakStaticOnly, stop: mockStop, speak: vi.fn(), supported: true }),
+}))
+
 beforeEach(() => {
   useProgressStore.getState().resetProgress()
+  mockSpeakStaticOnly.mockClear()
+  mockStop.mockClear()
+})
+
+describe('IntroGuide replay narration (startedStepRef reset across viewing sessions)', () => {
+  it('replays step 1 narration on a fresh viewing session after a prior completed session, without double-playing on a plain Next click', () => {
+    const speakStaticOnly = mockSpeakStaticOnly
+
+    const callsFor = (audioKey: string) => speakStaticOnly.mock.calls.filter((c) => c[0] === audioKey).length
+
+    // A: first mount plays step 1 (intro.welcome) narration once.
+    const { getByText, rerender } = render(<IntroGuide />)
+    const welcomeAudioKey = locale.steps['intro.welcome'].audioKey
+    expect(callsFor(welcomeAudioKey)).toBe(1)
+
+    // E: Next advances to step 2 and plays its audio exactly once (no
+    // double-play from both the click handler and the step-change effect).
+    const writingSystemsAudioKey = locale.steps['intro.writingSystems'].audioKey
+    fireEvent.click(getByText(locale.nextLabel))
+    expect(callsFor(writingSystemsAudioKey)).toBe(1)
+
+    // B: Skip completes the guide.
+    fireEvent.click(getByText(locale.skipLabel))
+    expect(useProgressStore.getState().hasCompletedIntroGuide).toBe(true)
+
+    // C: "View introduction again" from Settings flips completed back to
+    // false on the same mounted instance.
+    useProgressStore.getState().setHasCompletedIntroGuide(false)
+    rerender(<IntroGuide />)
+
+    // D: step 1's audio plays again on replay — total calls for that
+    // audioKey across the initial mount + replay is 2.
+    expect(getByText(locale.steps['intro.welcome'].subtitle)).toBeInTheDocument()
+    expect(callsFor(welcomeAudioKey)).toBe(2)
+  })
 })
 
 describe('IntroGuide (Issue #29/#31)', () => {

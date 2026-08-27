@@ -45,7 +45,16 @@ export function IntroGuide() {
   // this component stays mounted throughout (see App.tsx), so its own
   // local step state wouldn't otherwise reset on its own.
   useEffect(() => {
-    if (!completed) setStepIndex(0)
+    if (!completed) {
+      setStepIndex(0)
+      // A fresh viewing session (e.g. Settings' "View introduction again")
+      // may reuse this same mounted instance after a prior session already
+      // played step 0's audio and recorded it in startedStepRef — without
+      // clearing that here, the step-change effect below would see its
+      // guard already satisfied for step 0 and skip replaying its audio.
+      startedStepRef.current = null
+      setPlaybackFailed(false)
+    }
   }, [completed])
 
   const locale = INTRO_GUIDE_CONTENT[DEFAULT_INTRO_GUIDE_LOCALE]
