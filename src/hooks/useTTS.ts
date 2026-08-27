@@ -1,7 +1,38 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect } from 'react'
 import { StaticFileProvider } from '../audio/staticFileProvider'
 import { pickJapaneseVoice, WebSpeechProvider } from '../audio/webSpeechProvider'
 import { useProgressStore } from '../store/progressStore'
+
+// Module-level singletons: every useTTS() consumer (CharacterCard, WordCard,
+// LearnPage, the various Guides, etc.) shares ONE StaticFileProvider and ONE
+// WebSpeechProvider for the whole app, instead of each hook instance creating
+// its own via `useState(() => new X())`. StaticFileProvider lazily builds a
+// single <audio>/AudioContext/GainNode chain on first use and reuses it for
+// every subsequent clip (see its own comment) — but that only helps if there
+// really is only one instance. With many cards on screen each previously
+// getting its own provider, tapping enough different cards accumulated one
+// real browser audio graph per card ever tapped. Sharing one instance across
+// the app means there is always exactly one graph, no matter how many cards
+// exist or have been tapped.
+const staticProvider = new StaticFileProvider()
+const webSpeechProvider = new WebSpeechProvider()
+
+// The voiceschanged listener only needs to be registered once for the shared
+// webSpeechProvider, not once per component. Guarded at module scope (rather
+// than via a ref-counted subscribe/unsubscribe) so it's naturally safe against
+// StrictMode's double-invoke of effects and repeated test mount/unmount: the
+// listener itself is idempotent to re-add, but there's no reason to.
+let voiceListenerRegistered = false
+function ensureVoiceListener() {
+  if (voiceListenerRegistered) return
+  if (!('speechSynthesis' in window)) return
+  voiceListenerRegistered = true
+  const updateVoice = () => {
+    webSpeechProvider.voice = pickJapaneseVoice(window.speechSynthesis.getVoices())
+  }
+  updateVoice()
+  window.speechSynthesis.addEventListener('voiceschanged', updateVoice)
+}
 
 // The one place game code touches audio. Speaks in terms of a content key +
 // fallback text (see audio/types.ts's SpeechRequest) — never a specific
@@ -28,18 +59,9 @@ export function useTTS() {
   const mascotVoiceEnabled = useProgressStore((s) => s.mascotVoiceEnabled)
   const mascotVoiceVolume = useProgressStore((s) => s.mascotVoiceVolume)
 
-  const [staticProvider] = useState(() => new StaticFileProvider())
-  const [webSpeechProvider] = useState(() => new WebSpeechProvider())
-
   useEffect(() => {
-    if (!('speechSynthesis' in window)) return
-    const updateVoice = () => {
-      webSpeechProvider.voice = pickJapaneseVoice(window.speechSynthesis.getVoices())
-    }
-    updateVoice()
-    window.speechSynthesis.addEventListener('voiceschanged', updateVoice)
-    return () => window.speechSynthesis.removeEventListener('voiceschanged', updateVoice)
-  }, [webSpeechProvider])
+    ensureVoiceListener()
+  }, [])
 
   // audioKey identifies a pre-generated clip, e.g. "characters/a" or
   // "words/a-ai" (matching the folders scripts/generateAudioElevenLabs.ts
@@ -55,7 +77,7 @@ export function useTTS() {
         webSpeechProvider.speak(request, options).catch(() => {})
       })
     },
-    [audioEnabled, audioVolume, audioSpeed, mascotVoiceEnabled, mascotVoiceVolume, staticProvider, webSpeechProvider],
+    [audioEnabled, audioVolume, audioSpeed, mascotVoiceEnabled, mascotVoiceVolume],
   )
 
   // Static-only variant for contexts (e.g. the Intro Guide) where falling
@@ -75,13 +97,13 @@ export function useTTS() {
         .then(() => true)
         .catch(() => false)
     },
-    [audioEnabled, audioVolume, audioSpeed, staticProvider],
+    [audioEnabled, audioVolume, audioSpeed],
   )
 
   const stop = useCallback(() => {
     staticProvider.stop()
     webSpeechProvider.stop()
-  }, [staticProvider, webSpeechProvider])
+  }, [])
 
   return { speak, speakStaticOnly, stop, supported: true }
 }
