@@ -463,3 +463,43 @@ describe('ListeningPage — no Next-button flash across same-id consecutive roun
     expect(round2Buttons.every((b) => !b.disabled)).toBe(true)
   })
 })
+
+// Pre-answer mascot state (see "fix: show thinking mascot before
+// answering") — before the learner picks a choice, Tamamizu shows the
+// "thinking" artwork (mood 'normal' -> mascot/normal.webp); after
+// answering, the existing correct/incorrect reaction still takes over.
+describe('ListeningPage pre-answer mascot', () => {
+  beforeEach(() => {
+    useProgressStore.getState().resetProgress()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('shows the thinking mascot (mascot/normal.webp) before the learner answers', () => {
+    const { container } = renderRowListening()
+    const mascotImg = container.querySelector('img[src*="mascot"]') as HTMLImageElement
+    expect(mascotImg).not.toBeNull()
+    expect(mascotImg.src).toContain('mascot/normal.webp')
+  })
+
+  it('switches to a reaction mascot after answering, and back to normal on the next round', () => {
+    vi.useFakeTimers()
+    const { container } = renderRowListening()
+    const buttons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
+    act(() => fireEvent.click(buttons[0]))
+
+    const mascotAfterAnswer = container.querySelector('img[src*="mascot"]') as HTMLImageElement
+    expect(mascotAfterAnswer.src).not.toContain('mascot/normal.webp')
+
+    const next = within(container).queryByRole('button', { name: /^next$/i })
+    if (next) {
+      act(() => fireEvent.click(next))
+    } else {
+      act(() => vi.advanceTimersByTime(2000))
+    }
+    const mascotNextRound = container.querySelector('img[src*="mascot"]') as HTMLImageElement
+    expect(mascotNextRound.src).toContain('mascot/normal.webp')
+  })
+})

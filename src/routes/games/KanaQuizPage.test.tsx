@@ -72,6 +72,49 @@ function advanceUntilMode(container: HTMLElement, mode: 'read' | 'recall') {
   }
 }
 
+// Pre-answer mascot state (see "fix: show thinking mascot before
+// answering") — before the learner picks a choice, Tamamizu shows the
+// "thinking" artwork (mood 'normal' -> mascot/normal.webp); after
+// answering, the existing correct/incorrect reaction still takes over.
+describe('KanaQuizPage pre-answer mascot', () => {
+  it('shows the thinking mascot (mascot/normal.webp) before the learner answers', () => {
+    const { container } = renderRowQuiz()
+    const mascotImg = container.querySelector('img[src*="mascot"]') as HTMLImageElement
+    expect(mascotImg).not.toBeNull()
+    expect(mascotImg.src).toContain('mascot/normal.webp')
+  })
+
+  it('switches to the incorrect mascot after a wrong answer, and back to normal on the next round', () => {
+    vi.useFakeTimers()
+    const { container } = renderRowQuiz()
+    // Force a deterministic Read round (kana shown as the prompt) so the
+    // correct answer's label — and therefore a guaranteed-wrong choice —
+    // can be identified before clicking, instead of guessing with
+    // buttons[0] in a mode-agnostic way that could land on the correct
+    // answer by chance.
+    advanceUntilMode(container, 'read')
+    const buttons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
+    const kanaEl = container.querySelector('.font-kana.text-7xl')!
+    const targetId = Object.keys(CHARACTERS_BY_ID).find((id) => CHARACTERS_BY_ID[id].kana === kanaEl.textContent)!
+    const label = CHARACTERS_BY_ID[targetId].displayLabel ?? CHARACTERS_BY_ID[targetId].romaji
+    const wrongButton = buttons.find((b) => b.textContent !== label)!
+    act(() => fireEvent.click(wrongButton))
+
+    const mascotAfterAnswer = container.querySelector('img[src*="mascot"]') as HTMLImageElement
+    expect(mascotAfterAnswer.src).toContain('mascot/incorrect.webp')
+
+    const next = within(container).queryByRole('button', { name: /^next$/i })
+    if (next) {
+      act(() => fireEvent.click(next))
+    } else {
+      act(() => vi.advanceTimersByTime(2000))
+    }
+    const mascotNextRound = container.querySelector('img[src*="mascot"]') as HTMLImageElement
+    expect(mascotNextRound.src).toContain('mascot/normal.webp')
+    vi.useRealTimers()
+  })
+})
+
 describe('KanaQuizPage starts directly, no mode selector', () => {
   it('opening Kana Quiz shows a question immediately, with no Read/Recall selector', () => {
     const { container, queryByText } = renderRowQuiz()

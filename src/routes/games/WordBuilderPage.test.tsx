@@ -455,3 +455,54 @@ describe('WordBuilderPage romaji hint (Issue #19)', () => {
     expect(queryByText('Show romaji')).not.toBeNull()
   })
 })
+
+// Pre-answer mascot state (see "fix: show thinking mascot before
+// answering") — before the learner places every tile, Tamamizu shows the
+// "thinking" artwork (mood 'normal' -> mascot/normal.webp); after
+// answering, the existing correct/incorrect reaction still takes over.
+describe('WordBuilderPage pre-answer mascot', () => {
+  beforeEach(() => {
+    useProgressStore.getState().resetProgress()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('shows the thinking mascot (mascot/normal.webp) before the learner fills every slot', () => {
+    const { container } = renderRowWordBuilder()
+    const mascotImg = container.querySelector('img[src*="mascot"]') as HTMLImageElement
+    expect(mascotImg).not.toBeNull()
+    expect(mascotImg.src).toContain('mascot/normal.webp')
+  })
+
+  it('switches to a reaction mascot after answering, and back to normal on the next round', () => {
+    vi.useFakeTimers()
+    const { container } = renderRowWordBuilder()
+
+    const availableTrayButtons = () =>
+      Array.from(container.querySelectorAll('button.font-kana:not(.border-dashed):not([disabled])')) as HTMLButtonElement[]
+    const emptySlotCount = () =>
+      Array.from(container.querySelectorAll('button.border-dashed span.font-kana')).filter((s) => !s.textContent).length
+
+    let guard = 0
+    while (emptySlotCount() > 0 && guard < 10) {
+      const next = availableTrayButtons()[0]
+      if (!next) break
+      act(() => fireEvent.click(next))
+      guard += 1
+    }
+
+    const mascotAfterAnswer = container.querySelector('img[src*="mascot"]') as HTMLImageElement
+    expect(mascotAfterAnswer.src).not.toContain('mascot/normal.webp')
+
+    const next = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('Next'))
+    if (next) {
+      act(() => fireEvent.click(next))
+    } else {
+      act(() => vi.advanceTimersByTime(2000))
+    }
+    const mascotNextRound = container.querySelector('img[src*="mascot"]') as HTMLImageElement
+    expect(mascotNextRound.src).toContain('mascot/normal.webp')
+  })
+})

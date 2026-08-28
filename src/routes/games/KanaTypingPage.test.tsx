@@ -340,3 +340,43 @@ describe('KanaTypingPage result summary (correct/total count)', () => {
     expect(container.textContent).not.toMatch(/8問中/)
   })
 })
+
+// Pre-answer mascot state (see "fix: show thinking mascot before
+// answering") — before the learner submits an answer, Tamamizu shows the
+// "thinking" artwork (mood 'normal' -> mascot/normal.webp); after
+// answering, the existing correct/incorrect reaction still takes over.
+describe('KanaTypingPage pre-answer mascot', () => {
+  beforeEach(() => {
+    useProgressStore.getState().resetProgress()
+    useProgressStore.getState().markRowTaught('a-row')
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('shows the thinking mascot (mascot/normal.webp) before the learner answers', () => {
+    const { container } = renderRowTyping()
+    const mascotImg = container.querySelector('img[src*="mascot"]') as HTMLImageElement
+    expect(mascotImg).not.toBeNull()
+    expect(mascotImg.src).toContain('mascot/normal.webp')
+  })
+
+  it('switches to a reaction mascot after answering, and back to normal on the next round', () => {
+    vi.useFakeTimers()
+    const { container } = renderRowTyping()
+    const input = container.querySelector('input') as HTMLInputElement
+    act(() => {
+      fireEvent.change(input, { target: { value: 'definitely-wrong' } })
+      fireEvent.submit(container.querySelector('form')!)
+    })
+
+    const mascotAfterAnswer = container.querySelector('img[src*="mascot"]') as HTMLImageElement
+    expect(mascotAfterAnswer.src).toContain('mascot/incorrect.webp')
+
+    const next = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('Next'))!
+    act(() => fireEvent.click(next))
+    const mascotNextRound = container.querySelector('img[src*="mascot"]') as HTMLImageElement
+    expect(mascotNextRound.src).toContain('mascot/normal.webp')
+  })
+})
