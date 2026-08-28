@@ -66,10 +66,8 @@ describe('Review Guide (Issue #40)', () => {
     const summary = renderSummary()
 
     expect(summary.getByText('Retry mistakes')).toBeInTheDocument()
-    expect(summary.getByText('Practice only the items you missed in this round.')).toBeInTheDocument()
-    expect(
-      summary.getByText('Missed kana and words are saved here so you can practice them again later.'),
-    ).toBeInTheDocument()
+    expect(summary.getByText("Practice this round's mistakes.")).toBeInTheDocument()
+    expect(summary.getByText('Practice saved kana and words anytime.')).toBeInTheDocument()
   })
 
   it('never passes the new visible Retry/Review explanation copy to speech', () => {
@@ -79,8 +77,8 @@ describe('Review Guide (Issue #40)', () => {
     expect(tts.speak).toHaveBeenCalledTimes(1)
     const [, spokenText] = tts.speak.mock.calls[0]
     expect(spokenText).toBe(content.speechText)
-    expect(spokenText).not.toContain('Practice only the items you missed in this round.')
-    expect(spokenText).not.toContain('Missed kana and words are saved here')
+    expect(spokenText).not.toContain("Practice this round's mistakes.")
+    expect(spokenText).not.toContain('Practice saved kana and words anytime.')
   })
 
   it('dismisses without navigating or changing the Review target', () => {

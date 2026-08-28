@@ -83,7 +83,7 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
   return (
     <div className="flex flex-col items-center gap-6">
       <h1 className="text-3xl font-bold">{title}</h1>
-      <p className="max-w-md text-center text-neutral-500 dark:text-neutral-400">{description}</p>
+      <p className="max-w-md text-center text-base text-neutral-500 sm:text-lg dark:text-neutral-400">{description}</p>
       {askTamamizuKanaIntroVariant && (
         <AskTamamizuButton
           imageSrc={`${import.meta.env.BASE_URL}${

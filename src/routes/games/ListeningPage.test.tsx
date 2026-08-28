@@ -282,3 +282,41 @@ describe('ListeningPage romaji hint (Issue #19)', () => {
     expect(queryByText('Show romaji')).not.toBeNull()
   })
 })
+
+// Regression test for the mobile "Next button flash" bug — see
+// KanaQuizPage.test.tsx's identical describe block for the full root-cause
+// explanation. ListeningPage had the same stale `selectedId`-vs-new-
+// `currentWord.id` comparison; the fix adds `answeredForId`.
+describe('ListeningPage — no Next-button flash after a correct answer', () => {
+  beforeEach(() => {
+    useProgressStore.getState().resetProgress()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('never renders an actionable Next button across several correct-answer auto-advances in a row', () => {
+    vi.useFakeTimers()
+    const { container } = renderRowListening()
+
+    for (let round = 0; round < 4; round++) {
+      const meaning = container.querySelector('span.text-sm.text-neutral-500')!.textContent!.trim()
+      const targetKana = MEANING_TO_KANA[meaning]
+      const correctButton = Array.from(container.querySelectorAll('button')).find(
+        (b) => b.querySelector('.font-kana')?.textContent === targetKana,
+      ) as HTMLButtonElement
+      expect(correctButton).toBeDefined()
+
+      act(() => fireEvent.click(correctButton))
+      expect(within(container).queryByRole('button', { name: /^next$/i })).toBeNull()
+
+      act(() => vi.advanceTimersByTime(1000))
+      expect(within(container).queryByRole('button', { name: /^next$/i })).toBeNull()
+
+      act(() => vi.advanceTimersByTime(1000))
+      // Now on the next round entirely — still no stray Next button.
+      expect(within(container).queryByRole('button', { name: /^next$/i })).toBeNull()
+    }
+  })
+})

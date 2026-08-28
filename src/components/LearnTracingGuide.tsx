@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useLayoutEffect } from 'react'
 import { LEARN_TRACING_GUIDE } from '../data/learnTracingGuide'
 import { DEFAULT_LEARN_TRACING_GUIDE_LOCALE, LEARN_TRACING_GUIDE_CONTENT } from '../data/learnTracingGuideContent'
 import { useTTS } from '../hooks/useTTS'
@@ -20,7 +20,8 @@ export function LearnTracingGuide({ onDismiss }: Props = {}) {
   const { speak, stop } = useTTS()
   const content = LEARN_TRACING_GUIDE_CONTENT[DEFAULT_LEARN_TRACING_GUIDE_LOCALE]
 
-  useEffect(() => {
+  // useLayoutEffect, not useEffect — see ConceptGuide's identical comment.
+  useLayoutEffect(() => {
     speak(content.audioKey, content.speechText, content.lang)
     // Guide content is static for the component's one-time mount.
     return stop

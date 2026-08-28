@@ -46,7 +46,7 @@ function App() {
                 element={
                   <CategoryRowsPage
                     title="ひらがな"
-                    description="Learn hiragana one row at a time, paired with real everyday words."
+                    description="Learn hiragana with everyday words."
                     categoryIds={[DEFAULT_CATEGORY_ID]}
                     askTamamizuKanaIntroVariant="hiragana"
                   />
@@ -57,7 +57,7 @@ function App() {
                 element={
                   <CategoryRowsPage
                     title="カタカナ"
-                    description="Learn katakana one row at a time, paired with real everyday words."
+                    description="Learn katakana with everyday words."
                     categoryIds={[KATAKANA_CATEGORY_ID]}
                     askTamamizuKanaIntroVariant="katakana"
                   />
@@ -71,7 +71,7 @@ function App() {
                     // may not read any kana yet, let alone kanji, see
                     // ScriptCategory.displayLabel's comment.
                     title={CATEGORIES_BY_ID[YOUON_CATEGORY_ID].displayLabel!}
-                    description="Contracted sounds like きゃ/kya — one row per consonant group, hiragana then katakana."
+                    description="Learn small ゃゅょ sounds like きゃ / kya."
                     categoryIds={[YOUON_CATEGORY_ID]}
                   />
                 }
@@ -81,7 +81,7 @@ function App() {
                 element={
                   <CategoryRowsPage
                     title="っ＆ー"
-                    description="Two special marks: っ/ッ (a short pause) and ー (a long vowel)."
+                    description="Learn small っ/ッ and long vowel ー."
                     categoryIds={OTHER_CATEGORY_IDS}
                   />
                 }

@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useLayoutEffect } from 'react'
 import { REVIEW_GUIDE } from '../data/reviewGuide'
 import { DEFAULT_REVIEW_GUIDE_LOCALE, REVIEW_GUIDE_CONTENT } from '../data/reviewGuideContent'
 import { useTTS } from '../hooks/useTTS'
@@ -21,7 +21,11 @@ export function ReviewGuide({ onDismiss }: Props = {}) {
   const { speak, stop } = useTTS()
   const content = REVIEW_GUIDE_CONTENT[DEFAULT_REVIEW_GUIDE_LOCALE]
 
-  useEffect(() => {
+  // useLayoutEffect, not useEffect — see ConceptGuide's identical comment:
+  // this Guide mounts from PracticeSummary appearing after the user's last
+  // answer tap, and a passive effect can fire too late for mobile browsers'
+  // "recent user activation" window on <audio> playback.
+  useLayoutEffect(() => {
     setReviewGuideVisible(true)
     speak(content.audioKey, content.speechText, content.lang)
     return () => {
@@ -43,18 +47,14 @@ export function ReviewGuide({ onDismiss }: Props = {}) {
         alt="Tamamizu explains Review"
         className="w-full max-w-xl object-contain"
       />
-      <dl className="w-full max-w-xs text-sm">
+      <dl className="w-full max-w-xs text-base">
         <div className="mb-2">
           <dt className="font-semibold text-amber-600 dark:text-amber-400">Retry mistakes</dt>
-          <dd className="text-neutral-600 dark:text-neutral-400">
-            Practice only the items you missed in this round.
-          </dd>
+          <dd className="text-neutral-600 dark:text-neutral-400">Practice this round's mistakes.</dd>
         </div>
         <div>
           <dt className="font-semibold text-orange-600 dark:text-orange-400">Review</dt>
-          <dd className="text-neutral-600 dark:text-neutral-400">
-            Missed kana and words are saved here so you can practice them again later.
-          </dd>
+          <dd className="text-neutral-600 dark:text-neutral-400">Practice saved kana and words anytime.</dd>
         </div>
       </dl>
       <button

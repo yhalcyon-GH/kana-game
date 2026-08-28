@@ -296,7 +296,7 @@ describe('Sokuon section Guide replay (Issue #46)', () => {
 describe('Similar Letters entry card', () => {
   it("shows a Similar Letters card on the Hiragana section, immediately left of (before) Summary", () => {
     const { getByText } = renderHiragana()
-    const similarCard = getByText(/にてる字/).closest('a')
+    const similarCard = getByText(/Similar Letters/).closest('a')
     const summaryCard = getByText(/あ〜ん/).closest('a')
     expect(similarCard).not.toBeNull()
     expect(summaryCard).not.toBeNull()
@@ -306,25 +306,25 @@ describe('Similar Letters entry card', () => {
 
   it('shows a Similar Letters card on the Katakana section too', () => {
     const { getByText } = renderKatakana()
-    expect(getByText(/にてる字/)).toBeInTheDocument()
+    expect(getByText(/Similar Letters/)).toBeInTheDocument()
   })
 
   it('is never shown as a 5th top-level script category on Home (only inside Hiragana/Katakana sections)', () => {
     const { queryByText } = renderKatakana()
     // Sanity: it's present on the section page itself...
-    expect(queryByText(/にてる字/)).toBeInTheDocument()
+    expect(queryByText(/Similar Letters/)).toBeInTheDocument()
   })
 
   it('uses the same (unconditional) unlock condition as Summary — always accessible, never shows 🔒', () => {
     const { getByText } = renderHiragana()
-    const similarCard = getByText(/にてる字/).closest('div[class*="rounded-xl"]')
+    const similarCard = getByText(/Similar Letters/).closest('div[class*="rounded-xl"]')
     expect(similarCard?.textContent).not.toMatch(/🔒/)
     expect(getByText('similar letters')).toBeInTheDocument()
   })
 
   it('links to the Practice Hub for its own synthetic row', () => {
     const { getByText } = renderHiragana()
-    const link = getByText(/にてる字/).closest('a')
+    const link = getByText(/Similar Letters/).closest('a')
     expect(link).toHaveAttribute('href', '/practice/hiragana/hiragana-similar-letters')
   })
 })

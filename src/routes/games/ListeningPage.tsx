@@ -108,6 +108,10 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedSpellingKey, setSelectedSpellingKey] = useState<string | null>(null)
   const [answered, setAnswered] = useState(false)
+  // Which round's currentWord.id `answered`/`selectedId` actually describe
+  // — see KanaQuizPage's identical comment for the full root-cause
+  // explanation of the "Next" button flash this guards against.
+  const [answeredForId, setAnsweredForId] = useState<string | null>(null)
   // Per-question romaji hint (see RomajiHint) — reset every round below so
   // revealing it never carries over to the next word.
   const [romajiHintShown, setRomajiHintShown] = useState(false)
@@ -150,6 +154,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
     }
     setSelectedId(null)
     setAnswered(false)
+    setAnsweredForId(null)
     setRomajiHintShown(false)
     clear()
     speak(`words/${currentWord.id}`, currentWord.audioText ?? currentWord.kana)
@@ -202,6 +207,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
     if (answered || !currentWord) return
     setSelectedId(choice.id)
     setAnswered(true)
+    setAnsweredForId(currentWord.id)
     finishAnswer(choice.id === currentWord.id)
   }
 
@@ -213,6 +219,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
     if (answered || !currentWord) return
     setSelectedSpellingKey(choice.key)
     setAnswered(true)
+    setAnsweredForId(currentWord.id)
     finishAnswer(choice.isCorrect)
   }
 
@@ -332,6 +339,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
       <AnswerFeedbackRow feedback={feedback} mood={mood} />
 
       {answered &&
+        answeredForId === currentWord.id &&
         (isSimilarLetters
           ? !spellingChoices.find((c) => c.key === selectedSpellingKey)?.isCorrect
           : selectedId !== currentWord.id) && (

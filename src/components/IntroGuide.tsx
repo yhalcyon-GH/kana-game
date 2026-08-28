@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { INTRO_GUIDE_STEPS } from '../data/introGuide'
 import { DEFAULT_INTRO_GUIDE_LOCALE, INTRO_GUIDE_CONTENT } from '../data/introGuideContent'
 import { useFocusTrap } from '../hooks/useFocusTrap'
@@ -54,7 +54,7 @@ export function IntroGuide() {
   // an instance that may already be past step 0 from a prior viewing —
   // this component stays mounted throughout (see App.tsx), so its own
   // local step state wouldn't otherwise reset on its own.
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!completed) {
       // If we're resetting away from a non-zero step, this same commit's
       // audio-start effect (below) still sees the OLD stepIndex (the
@@ -80,7 +80,15 @@ export function IntroGuide() {
   const step = INTRO_GUIDE_STEPS[stepIndex]
   const stepContent = locale.steps[step.id]
 
-  useEffect(() => {
+  // useLayoutEffect, not useEffect — a cold-launch first appearance (no
+  // user gesture at all yet) still legitimately hits the browser's
+  // autoplay policy with nothing to do about it (see IntroGuide's own
+  // module comment / the PR description's "remaining unavoidable
+  // constraint"), but for every OTHER case — e.g. Settings' "View
+  // introduction again" flipping `completed` back to false from a button
+  // tap — this keeps the very first speakStaticOnly call in the same
+  // synchronous commit as that tap instead of a post-paint passive effect.
+  useLayoutEffect(() => {
     if (completed) return
     // The reset effect above just flagged this pass as using a stale,
     // pre-reset step (see skipResetAudioRef's declaration) — skip playing
@@ -144,16 +152,18 @@ export function IntroGuide() {
         </button>
       </div>
 
-      {/* min-h-0 on every flex ancestor down to the image is what lets the
-          slide actually grow to fill the remaining width AND height (object-
-          contain still preserves its aspect ratio, never crops) — a plain
-          flex-1 alone can't shrink an item below its content's natural size. */}
-      <div className="flex min-h-0 flex-1 flex-col items-center gap-3 py-2">
-        <div className="flex min-h-0 w-full flex-1 items-center justify-center">
+      {/* Slide -> small gap -> subtitle -> flexible remaining space -> button.
+          The image wrapper sizes to its own content (bounded by max-h on the
+          <img>, object-contain still preserves aspect ratio, never crops)
+          instead of a flex-1 box that would center it with dead space above/
+          below — the trailing flex-1 spacer (not the image wrapper) absorbs
+          whatever vertical space is left over on a tall screen. */}
+      <div className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto py-2">
+        <div className="flex w-full items-center justify-center">
           <img
             src={`${import.meta.env.BASE_URL}${step.slideAsset}`}
             alt=""
-            className="max-h-full max-w-full object-contain"
+            className="max-h-[48vh] max-w-full object-contain"
             // Degrade safely if the asset isn't shipped yet — never a
             // broken-image icon (see Issue #29's "missing assets" note).
             onError={(e) => {
@@ -161,16 +171,17 @@ export function IntroGuide() {
             }}
           />
         </div>
-        <p className="max-w-sm shrink-0 text-center text-base whitespace-pre-line sm:text-lg">{stepContent.subtitle}</p>
+        <p className="mt-3 max-w-sm shrink-0 text-center text-lg whitespace-pre-line sm:text-xl">{stepContent.subtitle}</p>
         {playbackFailed && audioEnabled && (
           <button
             type="button"
             onClick={retryPlayback}
-            className="shrink-0 rounded-full border border-neutral-300 px-4 py-1.5 text-sm text-neutral-600 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
+            className="mt-2 shrink-0 rounded-full border border-neutral-300 px-4 py-1.5 text-sm text-neutral-600 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
           >
             🔊 Play narration
           </button>
         )}
+        <div className="flex-1" />
       </div>
 
       <button

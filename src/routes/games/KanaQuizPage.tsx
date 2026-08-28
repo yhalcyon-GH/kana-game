@@ -130,6 +130,20 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
   const [choices, setChoices] = useState<string[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [answered, setAnswered] = useState(false)
+  // Which round's currentCharId `answered`/`selectedId` actually describe.
+  // advance() (called by the auto-advance timer right after a CORRECT
+  // answer, or by the manual Next button after a wrong one) bumps
+  // roundIndex, which re-renders with a NEW currentCharId — but `answered`/
+  // `selectedId` from the round that just ended aren't cleared until the
+  // per-round reset effect below runs (after this render commits). Without
+  // this guard, that one transitional render evaluates `selectedId !==
+  // currentCharId` against the stale selectedId vs. the brand-new target —
+  // almost always true — and the "Next" button below flashes on briefly
+  // even though the learner just answered correctly and never touched it.
+  // Gating on `answeredForId === currentCharId` makes that stale render
+  // read as "not answered for this round yet", hiding the button until the
+  // reset effect (or a real wrong answer) catches up.
+  const [answeredForId, setAnsweredForId] = useState<string | null>(null)
 
   const currentCharId = queue.length > 0 ? queue[roundIndex] : undefined
   const currentMode = roundModes[roundIndex]
@@ -142,6 +156,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
     setChoices(shuffle([currentCharId, ...distractors]))
     setSelectedId(null)
     setAnswered(false)
+    setAnsweredForId(null)
     clear()
     // Recall's prompt IS the audio — it must autoplay at round start. Read
     // never plays audio at all (see handleChoice).
@@ -174,6 +189,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
     if (answered || !currentCharId) return
     setSelectedId(choiceId)
     setAnswered(true)
+    setAnsweredForId(currentCharId)
     const isCorrect = choiceId === currentCharId
     recordResult(currentCharId, isCorrect)
     recordCharacterReviewResult(currentCharId, isCorrect)
@@ -282,7 +298,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
 
       <AnswerFeedbackRow feedback={feedback} mood={mood} />
 
-      {answered && selectedId !== currentCharId && (
+      {answered && answeredForId === currentCharId && selectedId !== currentCharId && (
         <button
           type="button"
           onClick={advance}

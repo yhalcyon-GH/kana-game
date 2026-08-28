@@ -27,11 +27,11 @@ import { useProgressStore } from '../store/progressStore'
 // (see KANA_TYPING_GAME below) — it never gates or advances the Recommended
 // Path, so it lives in its own "Optional" section instead of mixed in here.
 const PRACTICE_GAMES = [
-  { path: 'kana-quiz', label: 'Kana Quiz', emoji: '❓', description: 'Read a kana, pick its sound' },
-  { path: 'listening', label: 'Listening', emoji: '🎧', description: 'Pick the word you hear' },
-  { path: 'word-builder', label: 'Word Builder', emoji: '🧩', description: 'Spell the word from tiles' },
+  { path: 'kana-quiz', label: 'Kana Quiz', emoji: '❓', description: 'Pick the sound' },
+  { path: 'listening', label: 'Listening', emoji: '🎧', description: 'Pick what you hear' },
+  { path: 'word-builder', label: 'Word Builder', emoji: '🧩', description: 'Build the word' },
 ]
-const KANA_TYPING_GAME = { path: 'kana-typing', label: 'Kana Typing', emoji: '⌨️', description: 'Type the word — kana or romaji' }
+const KANA_TYPING_GAME = { path: 'kana-typing', label: 'Kana Typing', emoji: '⌨️', description: 'Type in kana or romaji' }
 
 type Activity = {
   path: string
@@ -84,7 +84,7 @@ function ActivityGrid({
               </span>
             )}
           </span>
-          <span className="text-xs text-neutral-500 dark:text-neutral-400">{activity.description}</span>
+          <span className="text-sm text-neutral-500 dark:text-neutral-400">{activity.description}</span>
           </>
         )
 
@@ -175,7 +175,7 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
       <div className="flex flex-col items-center gap-4 text-center">
         <Mascot mood="normal" />
         <h1 className="text-xl font-bold">Nothing to review yet</h1>
-        <p className="text-neutral-500 dark:text-neutral-400">Finish Learn for at least one row first, then come back here.</p>
+        <p className="text-neutral-500 dark:text-neutral-400">Finish one Learn lesson first.</p>
         <Link to="/" className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700">
           Go learn something
         </Link>
@@ -301,8 +301,8 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   // user's request (see ReviewMistakesPage).
   const learnActivities: Activity[] = isReview
     ? [
-        { path: `${hubBase}/learn-chars`, label: 'Weak Kana', emoji: '🔤', description: 'Review characters you keep missing' },
-        { path: `${hubBase}/learn-words`, label: 'Weak Words', emoji: '📚', description: 'Review words you keep missing' },
+        { path: `${hubBase}/learn-chars`, label: 'Weak Kana', emoji: '🔤', description: 'Practice kana you missed' },
+        { path: `${hubBase}/learn-words`, label: 'Weak Words', emoji: '📚', description: 'Practice words you missed' },
       ]
     : [
         {
@@ -376,8 +376,8 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
         {isReview ? 'Review' : `${isSummary ? '📋 ' : isSimilarLetters ? '🔍 ' : ''}${row!.label}`}
       </h1>
       {isReview && (
-        <p className="text-sm text-neutral-500 dark:text-neutral-400">
-          Practice saved kana and words that still need work ({reviewCount} item{reviewCount === 1 ? '' : 's'})
+        <p className="text-base text-neutral-500 dark:text-neutral-400">
+          Practice saved kana and words ({reviewCount} item{reviewCount === 1 ? '' : 's'})
         </p>
       )}
 

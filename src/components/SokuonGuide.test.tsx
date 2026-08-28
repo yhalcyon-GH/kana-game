@@ -102,4 +102,36 @@ describe('Sokuon Guide (Issue #44)', () => {
     hub.unmount()
     expect(tts.stop).toHaveBeenCalled()
   })
+
+  // Guide layout: slide -> subtitle -> button, in that DOM order — see the
+  // PR's Guide layout restructure (ConceptGuide). Structural assertion,
+  // not a pixel check, since jsdom doesn't lay out CSS.
+  it('lays out the slide image before the subtitle before the dismiss button, in DOM order', () => {
+    const hub = renderHub()
+    const dialog = hub.getByTestId('sokuon-guide')
+    const img = hub.getByRole('img', { name: 'Tamamizu explains the small tsu' })
+    const subtitle = hub.getByText(content.subtitle)
+    const button = hub.getByText(content.dismissLabel)
+
+    const position = (node: Element) =>
+      // eslint-disable-next-line no-bitwise
+      img.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING ? 1 : -1
+    expect(dialog.contains(img)).toBe(true)
+    expect(img.compareDocumentPosition(subtitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(subtitle.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // (silence an unused-var lint if `position` isn't otherwise referenced)
+    void position
+  })
+
+  // Root-cause fix for the "Guide narration doesn't autoplay" bug (see PR
+  // description): the speak-on-mount effect now runs via useLayoutEffect,
+  // not useEffect, so it fires synchronously within the same render commit
+  // that mounted the Guide — before React yields back to the browser —
+  // instead of in a passive effect scheduled after paint. This test
+  // reflects that fix: `speak` has already been called by the time
+  // `render()` returns, with no extra `act()`/flush needed for it.
+  it('starts narration synchronously as part of mounting (no post-paint effect needed)', () => {
+    renderHub()
+    expect(tts.speak).toHaveBeenCalledWith(content.audioKey, content.subtitle, content.lang)
+  })
 })

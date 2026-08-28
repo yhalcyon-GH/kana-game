@@ -46,7 +46,12 @@ export function buildSimilarLettersRows(hiraganaCategoryId: string, katakanaCate
     {
       id: HIRAGANA_SIMILAR_LETTERS_ROW_ID,
       categoryId: hiraganaCategoryId,
-      label: 'にてる字',
+      // Visible label unified to English "Similar Letters" everywhere this
+      // row's `label` is rendered (RowMap tile, hub heading, category-page
+      // card) — previously showed the Japanese にてる字 in some spots and
+      // the English `englishLabel` in others. Internal id/isSimilarLetters/
+      // sampling/progression are untouched.
+      label: 'Similar Letters',
       order: SIMILAR_LETTERS_ORDER,
       characterIds: HIRAGANA_SIMILAR_GROUPS.flat(),
       learnBatches: HIRAGANA_SIMILAR_GROUPS,
@@ -56,7 +61,7 @@ export function buildSimilarLettersRows(hiraganaCategoryId: string, katakanaCate
     {
       id: KATAKANA_SIMILAR_LETTERS_ROW_ID,
       categoryId: katakanaCategoryId,
-      label: 'にてる字',
+      label: 'Similar Letters',
       order: SIMILAR_LETTERS_ORDER,
       characterIds: KATAKANA_SIMILAR_GROUPS.flat(),
       learnBatches: KATAKANA_SIMILAR_GROUPS,

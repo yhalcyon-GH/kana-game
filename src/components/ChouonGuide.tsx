@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useLayoutEffect, useEffect, useState } from 'react'
 import { useFocusTrap } from '../hooks/useFocusTrap'
 import { useTTS } from '../hooks/useTTS'
 import { CHOUON_GUIDE_STEPS } from '../data/chouonGuide'
@@ -31,7 +31,8 @@ export function ChouonGuide({ onDismiss }: Props = {}) {
   const step = CHOUON_GUIDE_STEPS[stepIndex]
   const stepContent = locale.steps[step.id]
 
-  useEffect(() => {
+  // useLayoutEffect, not useEffect — see ConceptGuide's identical comment.
+  useLayoutEffect(() => {
     speak(stepContent.audioKey, stepContent.subtitle, locale.lang)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step.id])
@@ -76,18 +77,22 @@ export function ChouonGuide({ onDismiss }: Props = {}) {
         </button>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col items-center gap-3 py-2">
-        <div className="flex min-h-0 w-full flex-1 items-center justify-center">
+      {/* Slide -> small gap -> subtitle -> flexible remaining space -> button
+          — see ConceptGuide's identical comment for why the image wrapper
+          sizes to content instead of a flex-1 centering box. */}
+      <div className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto py-2">
+        <div className="flex w-full items-center justify-center">
           <img
             src={`${import.meta.env.BASE_URL}${step.slideAsset}`}
             alt="Tamamizu explains long vowels"
-            className="max-h-full max-w-full object-contain"
+            className="max-h-[48vh] max-w-full object-contain"
             onError={(e) => {
               e.currentTarget.style.display = 'none'
             }}
           />
         </div>
-        <p className="max-w-sm shrink-0 text-center text-base whitespace-pre-line sm:text-lg">{stepContent.subtitle}</p>
+        <p className="mt-3 max-w-sm shrink-0 text-center text-lg whitespace-pre-line sm:text-xl">{stepContent.subtitle}</p>
+        <div className="flex-1" />
       </div>
 
       <button
