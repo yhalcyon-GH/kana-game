@@ -60,8 +60,6 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
     onCorrect,
     onWrong,
     onFinish,
-    finishFeedback,
-    finishMood,
     clear,
     resetSession,
   } = useAnswerFeedback(rounds as QuestionMode)
@@ -260,8 +258,6 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
         onRetry={() => setSessionAttempt((attempt) => attempt + 1)}
         mistakes={mistakes}
         onRetryMistakes={() => startMistakeReview(mistakeIds)}
-        mood={finishMood ?? undefined}
-        comment={finishFeedback?.text}
         continueAction={
           !isReview && nextRowId && nextRowCategoryId
             ? { label: 'Continue → Next Row', to: `/practice/${nextRowCategoryId}/${nextRowId}` }

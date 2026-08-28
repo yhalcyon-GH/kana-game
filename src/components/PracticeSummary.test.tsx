@@ -148,7 +148,7 @@ describe('PracticeSummary Retry mistakes button (retry vs Review clarity)', () =
 // Graded Practice (Kana Quiz, Listening, Word Builder, Kana Typing) shows
 // Tamamizu + an explicit Japanese correct-answer count instead of an
 // Accuracy percentage — see "fix: improve practice result summary".
-describe('PracticeSummary graded result (score + Tamamizu)', () => {
+describe('PracticeSummary graded result (score image + X/Y score)', () => {
   function renderGraded(overrides: Partial<Parameters<typeof PracticeSummary>[0]> = {}) {
     return render(
       <MemoryRouter>
@@ -157,54 +157,65 @@ describe('PracticeSummary graded result (score + Tamamizu)', () => {
           backHref="/practice/hiragana/a-row"
           onRetry={() => {}}
           score={{ correct: 7, total: 8 }}
-          mood="correct"
-          comment="Great job!"
           {...overrides}
         />
       </MemoryRouter>,
     )
   }
 
-  it('renders the score exactly as "{total}問中{correct}問正解"', () => {
-    const { getByText } = renderGraded({ score: { correct: 7, total: 8 } })
-    expect(getByText('8問中7問正解')).toBeInTheDocument()
+  it('renders the score exactly as "{correct}/{total}"', () => {
+    const { getByText } = renderGraded({ score: { correct: 6, total: 8 } })
+    expect(getByText('6/8')).toBeInTheDocument()
   })
 
-  it('renders a perfect score exactly as "8問中8問正解"', () => {
+  it('renders a perfect score exactly as "8/8"', () => {
     const { getByText } = renderGraded({ score: { correct: 8, total: 8 } })
-    expect(getByText('8問中8問正解')).toBeInTheDocument()
+    expect(getByText('8/8')).toBeInTheDocument()
   })
 
-  it('renders a 15-question score exactly as "15問中12問正解"', () => {
-    const { getByText } = renderGraded({ score: { correct: 12, total: 15 } })
-    expect(getByText('15問中12問正解')).toBeInTheDocument()
+  it('renders a 15-question score exactly as "11/15"', () => {
+    const { getByText } = renderGraded({ score: { correct: 11, total: 15 } })
+    expect(getByText('11/15')).toBeInTheDocument()
   })
 
-  it('never shows an Accuracy percentage or a "N / M correct" fraction when score is supplied', () => {
+  it('never shows the old "{total}問中{correct}問正解" text, an Accuracy percentage, or encouragement comment text', () => {
     const { container, queryByText } = renderGraded()
+    expect(queryByText(/問中/)).toBeNull()
+    expect(queryByText(/問正解/)).toBeNull()
+    expect(queryByText(/その調子/)).toBeNull()
     expect(queryByText(/Accuracy/i)).toBeNull()
     expect(queryByText(/%/)).toBeNull()
     expect(container.textContent).not.toMatch(/\d+\s*\/\s*\d+\s*correct/i)
   })
 
-  it('shows Tamamizu (the Mascot) in the result area, directly below the title', () => {
+  it('shows a result image in the result row, directly below the title', () => {
     const { container } = renderGraded()
     const heading = container.querySelector('h2')!
-    const mascotImg = container.querySelector('img')
-    expect(mascotImg).not.toBeNull()
-    // The score text should also be present alongside it.
-    expect(container.textContent).toContain('8問中7問正解')
-    expect(heading.compareDocumentPosition(mascotImg!) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
+    const resultImg = container.querySelector('img')
+    expect(resultImg).not.toBeNull()
+    expect(container.textContent).toContain('7/8')
+    expect(heading.compareDocumentPosition(resultImg!) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
   })
 
-  it('Tamamizu appears exactly once, not duplicated below the action buttons', () => {
+  it('the result image appears exactly once, not duplicated below the action buttons', () => {
     const { container } = renderGraded()
     expect(container.querySelectorAll('img').length).toBe(1)
   })
 
-  it('preserves the existing finish comment alongside the new top result block', () => {
-    const { getByText } = renderGraded({ comment: 'Great job!' })
-    expect(getByText('Great job!')).toBeInTheDocument()
+  it.each([
+    [{ correct: 0, total: 8 }, 'summary-result-1.webp'], // 0% -> band 1
+    [{ correct: 1, total: 8 }, 'summary-result-1.webp'], // 12.5% -> band 1
+    [{ correct: 2, total: 8 }, 'summary-result-2.webp'], // 25% -> band 2
+    [{ correct: 3, total: 8 }, 'summary-result-2.webp'], // 37.5% -> band 2
+    [{ correct: 4, total: 8 }, 'summary-result-3.webp'], // 50% -> band 3
+    [{ correct: 5, total: 8 }, 'summary-result-3.webp'], // 62.5% -> band 3
+    [{ correct: 6, total: 8 }, 'summary-result-4.webp'], // 75% -> band 4
+    [{ correct: 7, total: 8 }, 'summary-result-4.webp'], // 87.5% -> band 4
+    [{ correct: 8, total: 8 }, 'summary-result-5.webp'], // 100% -> band 5
+  ])('selects %o -> %s', (score, expectedFile) => {
+    const { container } = renderGraded({ score })
+    const resultImg = container.querySelector('img') as HTMLImageElement
+    expect(resultImg.src).toContain(expectedFile)
   })
 
   it('generic stats still render when score is not supplied (ungraded flows like Tracing)', () => {

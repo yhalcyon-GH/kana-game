@@ -53,8 +53,6 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
     onCorrect,
     onWrong,
     onFinish,
-    finishFeedback,
-    finishMood,
     clear,
     resetSession,
   } = useAnswerFeedback(rounds as QuestionMode)
@@ -245,8 +243,6 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
         onRetry={() => setSessionAttempt((attempt) => attempt + 1)}
         mistakes={mistakes}
         onRetryMistakes={() => startMistakeReview(mistakeIds)}
-        mood={finishMood ?? undefined}
-        comment={finishFeedback?.text}
         continueAction={!isReview ? { label: 'Continue', to: `/practice/${categoryId}/${rowId}/word-builder` } : undefined}
       />
     )
