@@ -89,13 +89,13 @@ export function PracticeSummary({
             <button
               type="button"
               onClick={onRetry}
-              className="rounded-full border border-neutral-300 px-6 py-2 font-semibold hover:border-blue-400 dark:border-neutral-600"
+              className="min-w-[9rem] rounded-full border border-neutral-300 px-6 py-2 text-center font-semibold hover:border-blue-400 dark:border-neutral-600"
             >
               Play Again
             </button>
             <Link
               to={continueAction.to}
-              className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
+              className="min-w-[9rem] rounded-full bg-blue-600 px-6 py-2 text-center font-semibold text-white hover:bg-blue-700"
             >
               {continueAction.label}
             </Link>
@@ -104,7 +104,7 @@ export function PracticeSummary({
           <button
             type="button"
             onClick={onRetry}
-            className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
+            className="min-w-[9rem] rounded-full bg-blue-600 px-6 py-2 text-center font-semibold text-white hover:bg-blue-700"
           >
             Play again
           </button>
@@ -113,14 +113,14 @@ export function PracticeSummary({
           <button
             type="button"
             onClick={onRetryMistakes}
-            className="rounded-full bg-amber-500 px-6 py-2 font-semibold text-white hover:bg-amber-600"
+            className="min-w-[9rem] rounded-full bg-green-600 px-6 py-2 text-center font-semibold text-white hover:bg-green-700"
           >
-            Retry {mistakes.length} mistake{mistakes.length === 1 ? '' : 's'}
+            Retry
           </button>
         )}
         <Link
           to={backHref}
-          className="rounded-full border border-neutral-300 px-6 py-2 font-semibold hover:border-blue-400 dark:border-neutral-600"
+          className="min-w-[9rem] rounded-full border border-neutral-300 px-6 py-2 text-center font-semibold hover:border-blue-400 dark:border-neutral-600"
         >
           Back to hub
         </Link>

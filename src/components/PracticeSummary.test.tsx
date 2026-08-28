@@ -65,17 +65,18 @@ describe('PracticeSummary Play Again / Continue order (Item 9)', () => {
         />
       </MemoryRouter>,
     )
-    expect(getByText('Retry 1 mistake')).toBeInTheDocument()
+    expect(getByText('Retry')).toBeInTheDocument()
     expect(getByText('Play Again')).toBeInTheDocument()
     expect(getByText('Continue')).toBeInTheDocument()
   })
 })
 
-// Renaming "Review N mistakes" -> "Retry N mistake(s)" (see PR "fix: clarify
-// retry versus Review"): this immediate same-round retry is distinct from
-// the persistent, cross-session global Review feature. Behavior (which
-// callback fires, and that it only covers this round's distinct mistakes)
-// is unchanged — only the label and prop name changed.
+// Retry button label is a plain "Retry" (no mistake count in the text —
+// see PR "fix: polish practice summary buttons"). This immediate
+// same-round retry is distinct from the persistent, cross-session global
+// Review feature. Behavior (which callback fires, and that it only covers
+// this round's distinct mistakes) is unchanged — only the label/styling
+// changed.
 describe('PracticeSummary Retry mistakes button (retry vs Review clarity)', () => {
   function renderWithMistakes(mistakeCount: number, onRetryMistakes = () => {}) {
     const mistakes = Array.from({ length: mistakeCount }, (_, i) => ({
@@ -97,16 +98,25 @@ describe('PracticeSummary Retry mistakes button (retry vs Review clarity)', () =
     )
   }
 
-  it('renders singular "Retry 1 mistake" for exactly one mistake', () => {
+  it('renders exactly "Retry" regardless of mistake count', () => {
     const { getByText, queryByText } = renderWithMistakes(1)
-    expect(getByText('Retry 1 mistake')).toBeInTheDocument()
+    expect(getByText('Retry')).toBeInTheDocument()
+    expect(queryByText('Retry 1 mistake')).toBeNull()
     expect(queryByText('Review 1 mistake')).toBeNull()
   })
 
-  it('renders plural "Retry N mistakes" for two or more mistakes', () => {
+  it('does not include the mistake count in the button text for multiple mistakes', () => {
     const { getByText, queryByText } = renderWithMistakes(3)
-    expect(getByText('Retry 3 mistakes')).toBeInTheDocument()
+    expect(getByText('Retry')).toBeInTheDocument()
+    expect(queryByText('Retry 3 mistakes')).toBeNull()
     expect(queryByText('Review 3 mistakes')).toBeNull()
+  })
+
+  it('Retry button is styled green, not amber', () => {
+    const { getByText } = renderWithMistakes(2)
+    const retryButton = getByText('Retry')
+    expect(retryButton).toHaveClass('bg-green-600')
+    expect(retryButton).not.toHaveClass('bg-amber-500')
   })
 
   it('clicking Retry invokes onRetryMistakes and does not navigate to the global Review route', () => {
@@ -128,7 +138,7 @@ describe('PracticeSummary Retry mistakes button (retry vs Review clarity)', () =
 
     expect(getByTestId('location-probe')).toHaveTextContent('/practice/hiragana/a-row/kana-quiz')
 
-    fireEvent.click(getByText('Retry 2 mistakes'))
+    fireEvent.click(getByText('Retry'))
 
     expect(onRetryMistakes).toHaveBeenCalledTimes(1)
     expect(getByTestId('location-probe')).toHaveTextContent('/practice/hiragana/a-row/kana-quiz')
