@@ -6,6 +6,22 @@ import { REVIEW_SCOPE_ID } from '../../hooks/useCurriculum'
 import { useProgressStore } from '../../store/progressStore'
 import { ListeningPage } from './ListeningPage'
 
+// Lets one specific test force a queue with consecutive-duplicate ids (the
+// real queue builder deliberately never produces that whenever more than
+// one distinct id exists — see practiceSelection.ts's
+// arrangeNoConsecutiveRepeats), while every other test keeps the real
+// weighted-sampling behavior untouched (`queueOverride` defaults to
+// undefined, which falls through to the actual implementation).
+const { queueOverride } = vi.hoisted(() => ({ queueOverride: { current: undefined as string[] | undefined } }))
+vi.mock('../../lib/practiceSelection', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../lib/practiceSelection')>()
+  return {
+    ...actual,
+    buildWeightedQueue: (ids: string[], weight: (id: string) => number, count: number) =>
+      queueOverride.current ?? actual.buildWeightedQueue(ids, weight, count),
+  }
+})
+
 function renderRowListening() {
   return render(
     <MemoryRouter initialEntries={['/practice/hiragana/a-row/listening']}>
@@ -318,5 +334,64 @@ describe('ListeningPage — no Next-button flash after a correct answer', () => 
       // Now on the next round entirely — still no stray Next button.
       expect(within(container).queryByRole('button', { name: /^next$/i })).toBeNull()
     }
+  })
+})
+
+// Regression test for the SAME-ID-consecutive-rounds variant of the "Next
+// button flash" bug — see KanaQuizPage.test.tsx's identical describe block
+// for the full root-cause explanation. The original fix keyed staleness off
+// `answeredForId === currentWord.id`, which breaks down whenever the same
+// word id legitimately occupies two consecutive rounds. The fix replaces
+// that with `answeredForRoundIndex === roundIndex`.
+//
+// The real queue builder (buildWeightedQueue) deliberately never puts the
+// same id in two consecutive rounds once more than one distinct id exists
+// (see practiceSelection.ts), so this scenario can't be reached through
+// normal play on a multi-word row/pool — it only occurs, in production,
+// with a degenerate single-word pool (which then also has no distractors
+// to answer wrong with). To exercise the actual bug trigger deterministically
+// and with real wrong-answer choices available, `buildWeightedQueue` is
+// mocked (see queueOverride above) to force a same-id-consecutive queue on
+// a normal multi-word row, while the row's full word list still supplies
+// real distractor choices.
+describe('ListeningPage — no Next-button flash across same-id consecutive rounds', () => {
+  beforeEach(() => {
+    useProgressStore.getState().resetProgress()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    queueOverride.current = undefined
+  })
+
+  it('a wrong answer, followed by Next, into a new round with the SAME word id starts clean (not answered, no stray Next button)', () => {
+    vi.useFakeTimers()
+    const targetId = WORDS_BY_ROW['a-row'][0].id
+    queueOverride.current = [targetId, targetId, WORDS_BY_ROW['a-row'][1].id]
+    const { container } = renderRowListening()
+
+    const targetKana = WORDS_BY_ROW['a-row'][0].kana
+
+    // Round 1: answer wrong on purpose (any choice whose kana isn't the
+    // target's) so the manual Next button is the one under test.
+    const wrongButtonRound1 = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.querySelector('.font-kana')?.textContent && b.querySelector('.font-kana')?.textContent !== targetKana,
+    ) as HTMLButtonElement
+    expect(wrongButtonRound1).toBeDefined()
+    act(() => fireEvent.click(wrongButtonRound1))
+
+    // Wrong answer -> Next button IS actionable (regression guard: the
+    // round-identity fix must not suppress the legitimate case).
+    const nextButton = within(container).getByRole('button', { name: /^next$/i })
+    act(() => fireEvent.click(nextButton))
+
+    // Round 2: forced to the SAME word id as round 1. The new round must
+    // start genuinely fresh — no leftover actionable Next button carried
+    // over, and the choice buttons re-enabled.
+    expect(within(container).queryByRole('button', { name: /^next$/i })).toBeNull()
+    const round2Buttons = Array.from(container.querySelectorAll('button')).filter((b) =>
+      b.querySelector('.font-kana'),
+    ) as HTMLButtonElement[]
+    expect(round2Buttons.every((b) => !b.disabled)).toBe(true)
   })
 })
