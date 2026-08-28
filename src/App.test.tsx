@@ -454,3 +454,27 @@ describe('character-set learnStyle with yōon (multi-glyph, one-mora characters)
     expect(screen.getByText('Kana Quiz')).toBeInTheDocument()
   })
 })
+
+// Shortened category-page descriptions (mobile readability pass) — exact
+// replacement copy for all four script-group pages.
+describe('category page descriptions (shortened copy)', () => {
+  it('Hiragana page shows the shortened description', () => {
+    renderAt('/hiragana')
+    expect(screen.getByText('Learn hiragana with everyday words.')).toBeInTheDocument()
+  })
+
+  it('Katakana page shows the shortened description', () => {
+    renderAt('/katakana')
+    expect(screen.getByText('Learn katakana with everyday words.')).toBeInTheDocument()
+  })
+
+  it('Yōon page shows the shortened description', () => {
+    renderAt('/youon')
+    expect(screen.getByText('Learn small ゃゅょ sounds like きゃ / kya.')).toBeInTheDocument()
+  })
+
+  it('Sokuon/Chōon (っ＆ー) page shows the shortened description', () => {
+    renderAt('/other')
+    expect(screen.getByText('Learn small っ/ッ and long vowel ー.')).toBeInTheDocument()
+  })
+})

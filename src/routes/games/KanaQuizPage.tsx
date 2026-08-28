@@ -130,6 +130,27 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
   const [choices, setChoices] = useState<string[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [answered, setAnswered] = useState(false)
+  // Which round `answered`/`selectedId` actually describe, identified by
+  // roundIndex (NOT currentCharId — see below). advance() (called by the
+  // auto-advance timer right after a CORRECT answer, or by the manual Next
+  // button after a wrong one) bumps roundIndex, which re-renders with a NEW
+  // currentCharId — but `answered`/`selectedId` from the round that just
+  // ended aren't cleared until the per-round reset effect below runs (after
+  // this render commits). Without this guard, that one transitional render
+  // evaluates `selectedId !== currentCharId` against the stale selectedId
+  // vs. the brand-new target — almost always true — and the "Next" button
+  // below flashes on briefly even though the learner just answered
+  // correctly and never touched it.
+  // This was originally keyed on currentCharId (`answeredForId ===
+  // currentCharId`), but that's not a reliable round identity: a small pool
+  // (e.g. Review with very few weak items) can legitimately put the SAME
+  // character id in two consecutive rounds, in which case
+  // `answeredForId === currentCharId` stays true straight through the round
+  // transition even though it's now a genuinely new round — reintroducing
+  // the exact same stale-button flash. roundIndex, bumped exactly once per
+  // round by advance(), is a real per-round identity regardless of what
+  // character/word happens to occupy it.
+  const [answeredForRoundIndex, setAnsweredForRoundIndex] = useState<number | null>(null)
 
   const currentCharId = queue.length > 0 ? queue[roundIndex] : undefined
   const currentMode = roundModes[roundIndex]
@@ -142,6 +163,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
     setChoices(shuffle([currentCharId, ...distractors]))
     setSelectedId(null)
     setAnswered(false)
+    setAnsweredForRoundIndex(null)
     clear()
     // Recall's prompt IS the audio — it must autoplay at round start. Read
     // never plays audio at all (see handleChoice).
@@ -157,7 +179,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentCharId, roundIndex, currentMode])
 
-  useEnterAdvance(answered && selectedId !== currentCharId, advance)
+  useEnterAdvance(answered && answeredForRoundIndex === roundIndex && selectedId !== currentCharId, advance)
 
   // Recommended Path completion — see progressStore.ts's
   // markRowActivityCompleted. Fires exactly once per real session (the
@@ -174,6 +196,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
     if (answered || !currentCharId) return
     setSelectedId(choiceId)
     setAnswered(true)
+    setAnsweredForRoundIndex(roundIndex)
     const isCorrect = choiceId === currentCharId
     recordResult(currentCharId, isCorrect)
     recordCharacterReviewResult(currentCharId, isCorrect)
@@ -282,7 +305,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
 
       <AnswerFeedbackRow feedback={feedback} mood={mood} />
 
-      {answered && selectedId !== currentCharId && (
+      {answered && answeredForRoundIndex === roundIndex && selectedId !== currentCharId && (
         <button
           type="button"
           onClick={advance}

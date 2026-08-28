@@ -370,3 +370,111 @@ describe('KanaQuizPage Recommended Path completion (Issue #11)', () => {
     vi.useRealTimers()
   })
 })
+
+// Regression test for the mobile "Next button flash" bug (see PR
+// description): answering CORRECTLY schedules a 2000ms auto-advance and
+// must never render an actionable "Next" button at all — before, during,
+// or across the round transition it triggers. The underlying bug was that
+// `answered`/`selectedId` are round-local state that used to only get
+// reset by a per-round effect keyed on the new round's id — so for the one
+// render where roundIndex has already advanced but that reset effect
+// hasn't run yet, the OLD `selectedId` no longer equals the NEW
+// currentCharId, and the "Next" button's condition (`answered &&
+// selectedId !== currentCharId`) would spuriously read true. The fix adds
+// `answeredForId`, set alongside `answered`, so the button only ever shows
+// when the answered state genuinely belongs to the round currently on
+// screen.
+describe('KanaQuizPage — no Next-button flash after a correct answer', () => {
+  it('never renders an actionable Next button across several correct-answer auto-advances in a row', () => {
+    vi.useFakeTimers()
+    const { container } = renderRowQuiz()
+
+    for (let round = 0; round < 6; round++) {
+      const isRead = currentRoundMode(container) === 'read'
+      let correctButton: HTMLButtonElement
+      if (isRead) {
+        const kanaEl = container.querySelector('.font-kana.text-7xl')!
+        const targetId = Object.keys(CHARACTERS_BY_ID).find((id) => CHARACTERS_BY_ID[id].kana === kanaEl.textContent)!
+        const label = CHARACTERS_BY_ID[targetId].displayLabel ?? CHARACTERS_BY_ID[targetId].romaji
+        correctButton = Array.from(container.querySelectorAll('.grid button')).find(
+          (b) => b.textContent === label,
+        ) as HTMLButtonElement
+      } else {
+        // Recall: the target's kana isn't shown as a prompt, but the
+        // correct choice button is the one whose eventual green result
+        // state — determine it via the store's live audio target isn't
+        // exposed, so instead just answer with the FIRST choice and
+        // detect whether it was correct from the DOM after clicking; if
+        // wrong, immediately move past it with the resulting Next button
+        // (correctness itself is asserted by other tests) — this loop
+        // only cares that no button renders as "Next" during any correct
+        // auto-advance window.
+        correctButton = Array.from(container.querySelectorAll('.grid button'))[0] as HTMLButtonElement
+      }
+
+      act(() => fireEvent.click(correctButton))
+      // Immediately after answering, and at every point while the
+      // 2000ms auto-advance timer is pending, there must be no
+      // interactive Next button if the answer was correct.
+      const nextRightAfterAnswer = within(container).queryByRole('button', { name: /^next$/i })
+      const wasCorrect = nextRightAfterAnswer === null
+      if (wasCorrect) {
+        act(() => vi.advanceTimersByTime(1000))
+        expect(within(container).queryByRole('button', { name: /^next$/i })).toBeNull()
+        act(() => vi.advanceTimersByTime(1000))
+        // Now on the next round entirely — still no stray Next button.
+        expect(within(container).queryByRole('button', { name: /^next$/i })).toBeNull()
+      } else {
+        // A genuinely wrong answer's Next button IS actionable — clear it
+        // manually and move on, same as every other test in this file.
+        act(() => fireEvent.click(nextRightAfterAnswer!))
+      }
+    }
+    vi.useRealTimers()
+  })
+})
+
+// Regression test for the SAME-ID-consecutive-rounds variant of the "Next
+// button flash" bug: the original fix keyed staleness off `answeredForId
+// === currentCharId`, which breaks down whenever the same character id
+// legitimately occupies two consecutive rounds (a small pool, e.g. Review
+// with exactly one weak character) — `answeredForId` stays equal to the
+// (unchanged) `currentCharId` straight through the round transition, so the
+// stale Next button can flash again. The fix replaces that with
+// `answeredForRoundIndex === roundIndex`, a genuine per-round identity that
+// changes every round regardless of which character occupies it. Review
+// with a single weak character ('a') is used here specifically because it
+// deterministically repeats the same target id every round (see the
+// existing "Review scope" describe block above for the same setup), rather
+// than relying on random queue luck.
+describe('KanaQuizPage — no Next-button flash across same-id consecutive rounds', () => {
+  it('a wrong answer, followed by Next, into a new round with the SAME character id starts clean (not answered, no stray Next button)', () => {
+    vi.useFakeTimers()
+    useProgressStore.getState().markRowTaught('a-row')
+    useProgressStore.getState().recordCharacterReviewResult('a', false)
+    const { container } = renderReviewQuiz()
+
+    // Round 1: answer wrong on purpose (any non-target choice) so the
+    // character stays weak and the review queue keeps re-targeting 'a'.
+    const wrongButtonRound1 = Array.from(container.querySelectorAll('.grid button')).find(
+      (b) => b.textContent !== (CHARACTERS_BY_ID['a'].displayLabel ?? CHARACTERS_BY_ID['a'].romaji) && b.textContent !== 'あ',
+    ) as HTMLButtonElement
+    act(() => fireEvent.click(wrongButtonRound1))
+
+    // Wrong answer -> Next button IS actionable (regression guard: the
+    // round-identity fix must not suppress the legitimate case).
+    const nextButton = within(container).getByRole('button', { name: /^next$/i })
+    act(() => fireEvent.click(nextButton))
+
+    // Round 2: same character id ('a' is the only weak character). The new
+    // round must start in a genuinely fresh "not answered" state — no
+    // leftover actionable Next button carried over from round 1, and the
+    // choice buttons must be re-enabled (not stuck disabled from the
+    // previous round's `answered=true`).
+    expect(within(container).queryByRole('button', { name: /^next$/i })).toBeNull()
+    const round2Buttons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
+    expect(round2Buttons.every((b) => !b.disabled)).toBe(true)
+
+    vi.useRealTimers()
+  })
+})

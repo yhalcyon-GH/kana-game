@@ -49,36 +49,6 @@ export function SettingsPage() {
         />
       </label>
 
-      <label className="flex w-full items-center justify-between rounded-xl border border-neutral-300 bg-white px-4 py-3 dark:border-neutral-600 dark:bg-neutral-800">
-        <span>Always show romaji hints</span>
-        <input
-          type="checkbox"
-          checked={alwaysShowRomajiHints}
-          onChange={(e) => setAlwaysShowRomajiHints(e.target.checked)}
-          className="h-5 w-5"
-        />
-      </label>
-
-      <div className="flex w-full flex-col gap-2">
-        <h2 className="self-start text-xs font-semibold tracking-wide text-neutral-400 uppercase dark:text-neutral-500">
-          Tutorials
-        </h2>
-        {TUTORIAL_CATALOG.map((guide) => (
-          <button
-            key={guide.id}
-            type="button"
-            onClick={() => {
-              if (guide.kind === 'introFlag') setHasCompletedIntroGuide(false)
-              else navigate(buildGuideReplayHref(guide.path, guide.id))
-            }}
-            className="flex w-full items-center justify-between rounded-xl border border-neutral-300 bg-white px-4 py-3 text-left hover:border-blue-400 dark:border-neutral-600 dark:bg-neutral-800"
-          >
-            <span>{guide.label}</span>
-            <span className="text-blue-600 dark:text-blue-400">›</span>
-          </button>
-        ))}
-      </div>
-
       <div className="flex w-full flex-col gap-4 rounded-xl border border-neutral-300 bg-white px-4 py-3 dark:border-neutral-600 dark:bg-neutral-800">
         <label className="flex flex-col gap-1">
           <span className="flex justify-between text-sm">
@@ -132,6 +102,36 @@ export function SettingsPage() {
             className="w-full disabled:opacity-40"
           />
         </label>
+      </div>
+
+      <label className="flex w-full items-center justify-between rounded-xl border border-neutral-300 bg-white px-4 py-3 dark:border-neutral-600 dark:bg-neutral-800">
+        <span>Always show romaji hints</span>
+        <input
+          type="checkbox"
+          checked={alwaysShowRomajiHints}
+          onChange={(e) => setAlwaysShowRomajiHints(e.target.checked)}
+          className="h-5 w-5"
+        />
+      </label>
+
+      <div className="flex w-full flex-col gap-2">
+        <h2 className="self-start text-xs font-semibold tracking-wide text-neutral-400 uppercase dark:text-neutral-500">
+          Tutorials
+        </h2>
+        {TUTORIAL_CATALOG.map((guide) => (
+          <button
+            key={guide.id}
+            type="button"
+            onClick={() => {
+              if (guide.kind === 'introFlag') setHasCompletedIntroGuide(false)
+              else navigate(buildGuideReplayHref(guide.path, guide.id))
+            }}
+            className="flex w-full items-center justify-between rounded-xl border border-neutral-300 bg-white px-4 py-3 text-left hover:border-blue-400 dark:border-neutral-600 dark:bg-neutral-800"
+          >
+            <span>{guide.label}</span>
+            <span className="text-blue-600 dark:text-blue-400">›</span>
+          </button>
+        ))}
       </div>
     </div>
   )

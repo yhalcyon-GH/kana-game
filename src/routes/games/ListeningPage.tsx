@@ -108,6 +108,12 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedSpellingKey, setSelectedSpellingKey] = useState<string | null>(null)
   const [answered, setAnswered] = useState(false)
+  // Which round `answered`/`selectedId` actually describe, identified by
+  // roundIndex (not currentWord.id — a small pool, e.g. Review with very
+  // few weak words, can legitimately repeat the same word id across
+  // consecutive rounds) — see KanaQuizPage's identical comment for the full
+  // root-cause explanation of the "Next" button flash this guards against.
+  const [answeredForRoundIndex, setAnsweredForRoundIndex] = useState<number | null>(null)
   // Per-question romaji hint (see RomajiHint) — reset every round below so
   // revealing it never carries over to the next word.
   const [romajiHintShown, setRomajiHintShown] = useState(false)
@@ -150,6 +156,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
     }
     setSelectedId(null)
     setAnswered(false)
+    setAnsweredForRoundIndex(null)
     setRomajiHintShown(false)
     clear()
     speak(`words/${currentWord.id}`, currentWord.audioText ?? currentWord.kana)
@@ -162,7 +169,10 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
   }, [currentWord?.id, roundIndex])
 
   useEnterAdvance(
-    isSimilarLetters ? answered && !spellingChoices.find((c) => c.key === selectedSpellingKey)?.isCorrect : answered && selectedId !== currentWord?.id,
+    answered && answeredForRoundIndex === roundIndex &&
+      (isSimilarLetters
+        ? !spellingChoices.find((c) => c.key === selectedSpellingKey)?.isCorrect
+        : selectedId !== currentWord?.id),
     advance,
   )
 
@@ -202,6 +212,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
     if (answered || !currentWord) return
     setSelectedId(choice.id)
     setAnswered(true)
+    setAnsweredForRoundIndex(roundIndex)
     finishAnswer(choice.id === currentWord.id)
   }
 
@@ -213,6 +224,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
     if (answered || !currentWord) return
     setSelectedSpellingKey(choice.key)
     setAnswered(true)
+    setAnsweredForRoundIndex(roundIndex)
     finishAnswer(choice.isCorrect)
   }
 
@@ -332,6 +344,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
       <AnswerFeedbackRow feedback={feedback} mood={mood} />
 
       {answered &&
+        answeredForRoundIndex === roundIndex &&
         (isSimilarLetters
           ? !spellingChoices.find((c) => c.key === selectedSpellingKey)?.isCorrect
           : selectedId !== currentWord.id) && (

@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useLayoutEffect } from 'react'
 import { PRACTICE_GUIDE } from '../data/practiceGuide'
 import { DEFAULT_PRACTICE_GUIDE_LOCALE, PRACTICE_GUIDE_CONTENT } from '../data/practiceGuideContent'
 import { useTTS } from '../hooks/useTTS'
@@ -20,7 +20,8 @@ export function PracticeGuide({ onDismiss }: Props = {}) {
   const { speak, stop } = useTTS()
   const content = PRACTICE_GUIDE_CONTENT[DEFAULT_PRACTICE_GUIDE_LOCALE]
 
-  useEffect(() => {
+  // useLayoutEffect, not useEffect — see ConceptGuide's identical comment.
+  useLayoutEffect(() => {
     speak(content.audioKey, content.speechText, content.lang)
     // Guide content is static for the component's one-time mount.
     return stop

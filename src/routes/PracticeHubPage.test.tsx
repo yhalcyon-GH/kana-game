@@ -283,7 +283,7 @@ describe('PracticeHubPage Review empty state (Issue #2)', () => {
     const { queryByText } = renderReviewHub()
 
     expect(queryByText('Kana Quiz')).not.toBeNull()
-    expect(queryByText('Practice saved kana and words that still need work (1 item)')).not.toBeNull()
+    expect(queryByText('Practice saved kana and words (1 item)')).not.toBeNull()
   })
 })
 
@@ -456,7 +456,28 @@ describe('PracticeHubPage 4-section layout (Issue #15)', () => {
     // The heading itself is the only "Optional" text in that section — the
     // card shows its real description instead of repeating the word.
     expect(grid.textContent).not.toMatch(/Optional/)
-    expect(grid.textContent).toMatch(/Type the word/)
+    expect(grid.textContent).toMatch(/Type the kana/)
+  })
+
+  // Shortened Practice Hub activity descriptions (mobile readability pass)
+  // — exact replacement copy for all four activities.
+  it('shows the shortened description for each Practice/Optional activity', () => {
+    useProgressStore.getState().markRowTaught('ka-row')
+    const { container } = renderRowHub('hiragana', 'ka-row')
+    expect(container.textContent).toContain('Pick the sound')
+    expect(container.textContent).toContain('Pick what you hear')
+    expect(container.textContent).toContain('Build the word')
+    expect(container.textContent).toContain('Type the kana')
+  })
+
+  // Kana Typing's description is copy-only text; it must never claim romaji
+  // input specifically, and must not regress back to the old longer copy —
+  // whether romaji input is still accepted is a functional matter this test
+  // deliberately does not touch.
+  it('the Kana Typing card description never mentions romaji', () => {
+    useProgressStore.getState().markRowTaught('ka-row')
+    const { container } = renderRowHub('hiragana', 'ka-row')
+    expect(container.textContent).not.toMatch(/romaji/i)
   })
 
   it('the Recommended card is exactly its normal Practice-grid card — no duplicate elsewhere (Item 5)', () => {
@@ -491,6 +512,9 @@ describe('PracticeHubPage 4-section layout (Issue #15)', () => {
     expect(cardLabelsAfter(container, 'Learn')).toEqual(['Weak Kana', 'Weak Words'])
     expect(cardLabelsAfter(container, 'Practice')).toEqual(['Kana Quiz', 'Listening', 'Word Builder'])
     expect(cardLabelsAfter(container, 'Optional')).toEqual(['Kana Typing'])
+    // Shortened Weak Kana / Weak Words descriptive copy.
+    expect(container.textContent).toContain('Practice kana you missed')
+    expect(container.textContent).toContain('Practice words you missed')
   })
 })
 
@@ -718,5 +742,19 @@ describe('PracticeHubPage Summary hub icon', () => {
     const hub = renderRowHub('hiragana', 'hiragana-similar-letters')
     const heading = hub.container.querySelector('h1')!
     expect(heading.textContent).toContain('🔍')
+  })
+
+  // Visible label unification (see similarLetters.ts) — the hub heading
+  // used to show the Japanese にてる字 here while other places (e.g.
+  // LearnPage's `englishLabel ?? label`) already showed "Similar Letters",
+  // an inconsistent mix of visible labels for the same row. Internal
+  // row id / isSimilarLetters / sampling logic are untouched.
+  it('Similar Letters hub heading reads "Similar Letters" in English, not にてる字', () => {
+    const hiragana = renderRowHub('hiragana', 'hiragana-similar-letters')
+    expect(hiragana.container.querySelector('h1')!.textContent).toContain('Similar Letters')
+    expect(hiragana.container.querySelector('h1')!.textContent).not.toContain('にてる字')
+
+    const katakana = renderRowHub('katakana', 'katakana-similar-letters')
+    expect(katakana.container.querySelector('h1')!.textContent).toContain('Similar Letters')
   })
 })
