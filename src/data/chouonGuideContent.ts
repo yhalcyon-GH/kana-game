@@ -20,7 +20,7 @@ const EN: ChouonGuideLocaleContent = {
   steps: {
     'chouon.intro': {
       subtitle:
-        'Now let’s learn about long vowels, ちょうおん. A long vowel is a vowel sound held for an extra beat. In hiragana, write the extra sound with あ, い, う, え, or お. Don’t use ー. In katakana, use ー. For example, ラーメン.',
+        'Now let’s learn about long vowels. A long vowel is a vowel sound held for an extra beat. In hiragana, write the extra sound with あ, い, う, え, or お. Don’t use the long vowel mark ー. In katakana, use the long vowel mark ー. For example, ラーメン.',
       audioKey: 'guide/chouon-1',
     },
     'chouon.a': {
@@ -36,7 +36,7 @@ const EN: ChouonGuideLocaleContent = {
       audioKey: 'guide/chouon-4',
     },
     'chouon.e': {
-      subtitle: 'For a long え sound in hiragana, usually add い. For example, えいが and ゆうめい. But おねえさん use え instead.',
+      subtitle: 'For a long え sound in hiragana, usually add い. For example, えいが and ゆうめい. But おねえさん uses え instead.',
       audioKey: 'guide/chouon-5',
     },
     'chouon.o': {
