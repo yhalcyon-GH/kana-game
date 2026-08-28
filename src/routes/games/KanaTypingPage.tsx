@@ -50,8 +50,6 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
     onCorrect,
     onWrong,
     onFinish,
-    finishFeedback,
-    finishMood,
     clear,
     resetSession,
   } = useAnswerFeedback(rounds as QuestionMode)
@@ -152,8 +150,6 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
         onRetry={() => setSessionAttempt((attempt) => attempt + 1)}
         mistakes={mistakes}
         onRetryMistakes={() => startMistakeReview(mistakeIds)}
-        mood={finishMood ?? undefined}
-        comment={finishFeedback?.text}
       />
     )
   }

@@ -300,9 +300,9 @@ describe('WordBuilderPage Recommended Path completion (Issue #11)', () => {
 })
 
 // The completed-session summary shows the real played correct/total count
-// (see PracticeSummary's "{total}問中{correct}問正解") instead of a computed
-// Accuracy/"N / M correct" stat — see "fix: improve practice result
-// summary".
+// as a compact "{correct}/{total}" score (see PracticeSummary) instead of a
+// computed Accuracy/"N / M correct" stat or the old "{total}問中{correct}問
+// 正解" text — see "fix: redesign practice result summary".
 describe('WordBuilderPage result summary (correct/total count)', () => {
   afterEach(() => {
     vi.useRealTimers()
@@ -343,7 +343,10 @@ describe('WordBuilderPage result summary (correct/total count)', () => {
     vi.useFakeTimers()
     const { container } = renderRowWordBuilder()
     const correct = playSessionTallyingCorrectness(container, 8)
-    expect(container.textContent).toContain(`8問中${correct}問正解`)
+    expect(container.textContent).toContain(`${correct}/8`)
+    expect(container.textContent).not.toMatch(/問中/)
+    expect(container.textContent).not.toMatch(/問正解/)
+    expect(container.textContent).not.toMatch(/その調子/)
     expect(container.textContent).not.toMatch(/Accuracy/i)
     expect(container.textContent).not.toMatch(/%/)
     expect(container.textContent).not.toMatch(/\d+\s*\/\s*\d+\s*correct/i)
@@ -387,8 +390,8 @@ describe('WordBuilderPage result summary (correct/total count)', () => {
     }
 
     expect(container.textContent).toMatch(/complete!/)
-    expect(container.textContent).toMatch(new RegExp(`\\d問中${correct}問正解`))
-    expect(container.textContent).not.toMatch(/8問中/)
+    expect(container.textContent).toMatch(new RegExp(`${correct}/\\d`))
+    expect(container.textContent).not.toMatch(/\/8\b/)
   })
 })
 

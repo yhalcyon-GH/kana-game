@@ -266,8 +266,9 @@ describe('KanaTypingPage word-only Review (Issue #2)', () => {
 })
 
 // The completed-session summary shows the real played correct/total count
-// (see PracticeSummary's "{total}問中{correct}問正解") instead of a computed
-// Accuracy percentage — see "fix: improve practice result summary".
+// as a compact "{correct}/{total}" score (see PracticeSummary) instead of a
+// computed Accuracy percentage or the old "{total}問中{correct}問正解" text
+// — see "fix: redesign practice result summary".
 describe('KanaTypingPage result summary (correct/total count)', () => {
   beforeEach(() => {
     useProgressStore.getState().resetProgress()
@@ -293,7 +294,10 @@ describe('KanaTypingPage result summary (correct/total count)', () => {
       act(() => vi.advanceTimersByTime(2000))
     }
 
-    expect(container.textContent).toContain('8問中8問正解')
+    expect(container.textContent).toContain('8/8')
+    expect(container.textContent).not.toMatch(/問中/)
+    expect(container.textContent).not.toMatch(/問正解/)
+    expect(container.textContent).not.toMatch(/その調子/)
     expect(container.textContent).not.toMatch(/Accuracy/i)
     expect(container.textContent).not.toMatch(/%/)
   })
@@ -312,7 +316,7 @@ describe('KanaTypingPage result summary (correct/total count)', () => {
       act(() => fireEvent.click(next))
     }
 
-    expect(container.textContent).toContain('8問中0問正解')
+    expect(container.textContent).toContain('0/8')
   })
 
   it('a shorter Review session shows the actual (non-8) played total, not a fixed session length', () => {
@@ -336,8 +340,8 @@ describe('KanaTypingPage result summary (correct/total count)', () => {
     }
 
     expect(container.textContent).toMatch(/complete!/)
-    expect(container.textContent).toMatch(new RegExp(`\\d問中${correct}問正解`))
-    expect(container.textContent).not.toMatch(/8問中/)
+    expect(container.textContent).toMatch(new RegExp(`${correct}/\\d`))
+    expect(container.textContent).not.toMatch(/\/8\b/)
   })
 })
 

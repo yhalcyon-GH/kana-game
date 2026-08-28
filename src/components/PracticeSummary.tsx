@@ -1,19 +1,22 @@
 import { Link, useLocation } from 'react-router-dom'
 import { PARENTHESIZED_CHARACTER_IDS } from '../data/characters'
 import { useCurriculum } from '../hooks/useCurriculum'
+import { pickPracticeResultImage } from '../lib/practiceResultImage'
 import { useProgressStore } from '../store/progressStore'
-import { Mascot, type MascotMood } from './Mascot'
 import { ProgressBadge } from './ProgressBadge'
 import { ReviewGuide } from './ReviewGuide'
 
 type Stat = { label: string; value: string | number }
 type MistakeEntry = { id: string; kana: string; romaji: string }
 // Explicit correct/total counts for graded sessions (Kana Quiz, Listening,
-// Word Builder, Kana Typing) — rendered as "{total}問中{correct}問正解"
-// instead of a computed Accuracy percentage/fraction. The four graded game
-// routes pass the real played queue length as `total`, so Retry/Review
-// sessions (which can be shorter than a normal 8/15-question session) still
-// show the actual count played, never a fixed nominal length.
+// Word Builder, Kana Typing) — rendered as a compact "{correct}/{total}"
+// result row (a score illustration on the left, the big score on the
+// right — see pickPracticeResultImage) instead of a computed Accuracy
+// percentage/fraction or the Japanese "{total}問中{correct}問正解" text used
+// by the previous redesign. The four graded game routes pass the real
+// played queue length as `total`, so Retry/Review sessions (which can be
+// shorter than a normal 8/15-question session) still show the actual count
+// played, never a fixed nominal length.
 type Score = { correct: number; total: number }
 
 type Props = {
@@ -30,11 +33,6 @@ type Props = {
   // global Review pool) — omitted (or empty) when nothing was missed.
   mistakes?: MistakeEntry[]
   onRetryMistakes?: () => void
-  // Tamamizu's reaction to the whole session (see useAnswerFeedback's
-  // onFinish/finishMood) — omitted for the ungraded games (Tracing), which
-  // have no mistake count to react to.
-  mood?: MascotMood
-  comment?: string
   // Explicit correct/total count for graded Practice sessions — see Score's
   // comment above. Omitted for ungraded flows (Tracing).
   score?: Score
@@ -54,8 +52,6 @@ export function PracticeSummary({
   onRetry,
   mistakes = [],
   onRetryMistakes,
-  mood,
-  comment,
   score,
   continueAction,
 }: Props) {
@@ -68,18 +64,21 @@ export function PracticeSummary({
     <div className="flex flex-col items-center gap-6">
       <h2 className="text-2xl font-bold">{title}</h2>
 
-      {/* Tamamizu's session reaction, moved here from the bottom (below the
-          action buttons) so graded Practice reads title -> Tamamizu ->
-          score -> comment. Appears at most once per summary. */}
-      {(mood || score) && (
-        <div className="flex flex-col items-center gap-2">
-          {mood && <Mascot mood={mood} />}
-          {score && (
-            <p className="text-xl font-bold sm:text-2xl">
-              {score.total}問中{score.correct}問正解
-            </p>
-          )}
-          {comment && <p className="text-lg font-semibold">{comment}</p>}
+      {/* Compact visual result row for graded Practice: a score
+          illustration (chosen by accuracy, see pickPracticeResultImage) on
+          the left, the big "{correct}/{total}" score on the right —
+          replaces the previous "{total}問中{correct}問正解" text + Tamamizu
+          reaction block entirely. */}
+      {score && (
+        <div className="flex w-full max-w-xs items-center justify-between gap-3">
+          <img
+            src={`${import.meta.env.BASE_URL}${pickPracticeResultImage(score)}`}
+            alt=""
+            className="h-20 w-20 shrink-0 object-contain sm:h-24 sm:w-24"
+          />
+          <span className="text-4xl font-extrabold tabular-nums sm:text-5xl">
+            {score.correct}/{score.total}
+          </span>
         </div>
       )}
 

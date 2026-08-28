@@ -415,8 +415,9 @@ describe('KanaQuizPage Recommended Path completion (Issue #11)', () => {
 })
 
 // The completed-session summary shows the real played correct/total count
-// (see PracticeSummary's "{total}問中{correct}問正解") instead of a computed
-// Accuracy percentage — see "fix: improve practice result summary".
+// as a compact "{correct}/{total}" score (see PracticeSummary) instead of a
+// computed Accuracy percentage or the old "{total}問中{correct}問正解" text
+// — see "fix: redesign practice result summary".
 describe('KanaQuizPage result summary (correct/total count)', () => {
   // Clicks the FIRST choice every round (mode-agnostic) and tallies real
   // correctness from the DOM: a correct answer never shows an actionable
@@ -443,7 +444,10 @@ describe('KanaQuizPage result summary (correct/total count)', () => {
     vi.useFakeTimers()
     const { container } = renderRowQuiz()
     const correct = playSessionTallyingCorrectness(container, 8)
-    expect(container.textContent).toContain(`8問中${correct}問正解`)
+    expect(container.textContent).toContain(`${correct}/8`)
+    expect(container.textContent).not.toMatch(/問中/)
+    expect(container.textContent).not.toMatch(/問正解/)
+    expect(container.textContent).not.toMatch(/その調子/)
     expect(container.textContent).not.toMatch(/Accuracy/i)
     expect(container.textContent).not.toMatch(/%/)
     vi.useRealTimers()
@@ -473,8 +477,8 @@ describe('KanaQuizPage result summary (correct/total count)', () => {
     expect(container.textContent).toMatch(/complete!/)
     // Only one weak character was queued — the real played total must be
     // small, and must appear verbatim rather than a hardcoded 8.
-    expect(container.textContent).toMatch(new RegExp(`\\d問中${correct}問正解`))
-    expect(container.textContent).not.toMatch(/8問中/)
+    expect(container.textContent).toMatch(new RegExp(`${correct}/\\d`))
+    expect(container.textContent).not.toMatch(/\/8\b/)
     vi.useRealTimers()
   })
 })

@@ -73,8 +73,6 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
     onCorrect,
     onWrong,
     onFinish,
-    finishFeedback,
-    finishMood,
     clear,
     resetSession,
   } = useAnswerFeedback(rounds as QuestionMode)
@@ -233,8 +231,6 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
         onRetry={startSession}
         mistakes={mistakes}
         onRetryMistakes={() => startMistakeReview(mistakeIds)}
-        mood={finishMood ?? undefined}
-        comment={finishFeedback?.text}
         continueAction={!isReview ? { label: 'Continue', to: `${hubHref}/listening` } : undefined}
       />
     )
