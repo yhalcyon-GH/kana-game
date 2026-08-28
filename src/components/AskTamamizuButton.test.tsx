@@ -50,4 +50,16 @@ describe('AskTamamizuButton visible "Ask" CTA', () => {
     fireEvent.click(getByText('Ask'))
     expect(onClick).toHaveBeenCalledTimes(1)
   })
+
+  // Manual-review follow-up: the "Ask" pill was too high (top-anchored); it
+  // was moved so its bottom edge sits roughly flush with the artwork's
+  // bottom edge, which is naturally a bottom-anchored position rather than a
+  // top-percentage. Precise visual alignment can't be asserted from class
+  // strings, but the anchor direction is a meaningful, non-brittle check.
+  it('is positioned with a bottom anchor (not a top anchor) so its bottom edge tracks the artwork bottom', () => {
+    const { getByText } = render(<AskTamamizuButton imageSrc="/x.webp" ariaLabel="Ask Tamamizu about X" onClick={() => {}} />)
+    const label = getByText('Ask')
+    expect(label.className).toMatch(/bottom-\[/)
+    expect(label.className).not.toMatch(/top-\[/)
+  })
 })

@@ -28,12 +28,13 @@ export function AskTamamizuButton({ imageSrc, ariaLabel, onClick, testId }: Prop
       <img src={imageSrc} alt="" aria-hidden="true" className="block h-auto w-full" />
       {/* Positioned with percentages relative to the button (not fixed
           pixels), so it works uniformly across all 5 artworks' differing
-          aspect ratios without per-image tuning — below the speech bubble,
-          toward Tamamizu's right, reading as a primary CTA near the bubble
-          without ever overflowing a narrow mobile width. */}
+          aspect ratios without per-image tuning — anchored from the bottom
+          so the pill's bottom edge sits roughly flush with the artwork's
+          bottom edge, toward Tamamizu's right, without ever overflowing a
+          narrow mobile width. */}
       <span
         aria-hidden="true"
-        className="absolute top-[52%] right-[8%] rounded-full bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white shadow-md sm:text-base"
+        className="absolute bottom-[3%] right-[8%] rounded-full bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white shadow-md sm:text-base"
       >
         Ask
       </span>

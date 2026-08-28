@@ -323,7 +323,6 @@ describe('Similar Letters entry card', () => {
     const { getByText } = renderHiragana()
     const similarCard = getByText(/Similar Letters/).closest('div[class*="rounded-xl"]')
     expect(similarCard?.textContent).not.toMatch(/🔒/)
-    expect(getByText('similar letters')).toBeInTheDocument()
   })
 
   it('links to the Practice Hub for its own synthetic row', () => {

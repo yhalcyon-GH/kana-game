@@ -160,6 +160,42 @@ describe('RowMap Summary card icon', () => {
     expect(kanaLabel.textContent).toContain('🔍')
   })
 
+  it('renders the "🔍 Similar Letters" main label exactly once and suppresses its redundant secondary description', () => {
+    const labeledRow = { ...similarLettersRow, label: 'Similar Letters' }
+    const { container, queryAllByText, queryByText } = render(
+      <MemoryRouter>
+        <RowMap rows={[labeledRow]} isUnlocked={() => true} isTaught={() => true} isMastered={() => false} />
+      </MemoryRouter>,
+    )
+    const kanaLabel = container.querySelector('.font-kana')!
+    expect(kanaLabel.textContent).toBe('🔍 Similar Letters')
+    expect(queryAllByText(/Similar Letters/)).toHaveLength(1)
+    expect(queryByText('similar letters')).not.toBeInTheDocument()
+  })
+
+  it('does not affect other rows\' secondary status text (locked/learned/summary)', () => {
+    const { getByText: getByTextLocked } = render(
+      <MemoryRouter>
+        <RowMap rows={[row]} isUnlocked={() => false} isTaught={() => false} isMastered={() => false} />
+      </MemoryRouter>,
+    )
+    expect(getByTextLocked('🔒 locked')).toBeInTheDocument()
+
+    const { getByText: getByTextLearned } = render(
+      <MemoryRouter>
+        <RowMap rows={[row]} isUnlocked={() => true} isTaught={() => true} isMastered={() => false} />
+      </MemoryRouter>,
+    )
+    expect(getByTextLearned('📗 learned')).toBeInTheDocument()
+
+    const { getByText: getByTextSummary } = render(
+      <MemoryRouter>
+        <RowMap rows={[summaryRow]} isUnlocked={() => true} isTaught={() => true} isMastered={() => false} />
+      </MemoryRouter>,
+    )
+    expect(getByTextSummary('summary')).toBeInTheDocument()
+  })
+
   it('keeps the Recommended ⭐ label intact and unaffected by the Summary icon change', () => {
     const { getByText } = render(
       <MemoryRouter>
