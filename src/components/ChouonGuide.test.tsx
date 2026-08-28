@@ -72,7 +72,7 @@ describe('Chōon Guide content', () => {
       'For a long う sound in hiragana, add う. For example, ゆうき and くうき. Hold the う sound a little longer.',
     )
     expect(locale.steps['chouon.e'].subtitle).toBe(
-      'For a long え sound in hiragana, usually add い. For example, えいが and ゆうめい. But おねえさん uses え instead.',
+      'For a long え sound in hiragana, usually add い. For example, えいが and ゆうめい. But おねえさん use え instead.',
     )
     expect(locale.steps['chouon.o'].subtitle).toBe(
       'For a long お sound in hiragana, usually add う. For example, おはよう and いもうと. But some words use お instead, like とおい and こおり.',
@@ -85,10 +85,10 @@ describe('Chōon Guide content', () => {
     )
   })
 
-  it('the え-sound slide states the exception exactly as "But おねえさん uses え instead." — no paraphrase', () => {
-    expect(locale.steps['chouon.e'].subtitle).toMatch(/But おねえさん uses え instead\.$/)
+  it('the え-sound slide states the exception exactly as "But おねえさん use え instead." — no paraphrase', () => {
+    expect(locale.steps['chouon.e'].subtitle).toMatch(/But おねえさん use え instead\.$/)
     // Guards against silent rewording to "another exception"/"some words"/etc.
-    expect(locale.steps['chouon.e'].subtitle).not.toMatch(/another exception|some words use え/)
+    expect(locale.steps['chouon.e'].subtitle).not.toMatch(/another exception|some words use え|おねえさん uses え/)
   })
 
   it('the Quiz slide never reads out any answer', () => {
