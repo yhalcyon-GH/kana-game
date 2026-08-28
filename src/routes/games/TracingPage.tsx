@@ -184,6 +184,21 @@ export function TracingPage() {
     return { cellSize: CANVAS_SIZE, columns: 1, rows: 1 }
   }, [phase, charUnit, wordRows, availableWidth])
 
+  // Character-phase animation sizing (Step 25 bugfix): a normal (1-glyph)
+  // character's animation stays at StrokeOrderAnimation's default 160px —
+  // unchanged from before this fix, since a single writing cell always fits
+  // comfortably even at the narrowest supported viewport. A yōon (2-glyph)
+  // character's animation footprint is `size * 2`, but the writing canvas
+  // above it already shrinks its own per-cell size (`layout.cellSize`) to
+  // fit `availableWidth` — at a 320px viewport that's ~144px/cell, well
+  // under the animation's fixed 160px, so the animation could overflow past
+  // the canvas's own (correct) width. Capping at `Math.min(160,
+  // layout.cellSize)` mirrors the canvas's shrink without ever growing the
+  // animation past 160px on a wide viewport (layout.cellSize can exceed 160
+  // there, but Math.min keeps 160 as the ceiling).
+  const charAnimationCellSize =
+    charUnit && unitCellWidth(charUnit) > 1 ? Math.min(160, layout.cellSize) : 160
+
   // Resizing the canvas backing store (even to the same size) clears it AND
   // resets all context state (fillStyle/font/textAlign/etc. revert to their
   // defaults) — so the resize must happen *before* any style is set, not
@@ -301,7 +316,7 @@ export function TracingPage() {
     if (!ctx) return
     const { x, y } = getPoint(e)
     ctx.strokeStyle = '#2563eb'
-    ctx.lineWidth = 10
+    ctx.lineWidth = 7
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
     ctx.beginPath()
@@ -437,7 +452,7 @@ export function TracingPage() {
       {phase === 'chars' && currentCharId && currentChar ? (
         <>
           <span className="text-lg text-neutral-500 dark:text-neutral-400">{currentChar.romaji}</span>
-          <TracingUnitAnimation characterId={currentCharId} playToken={animationToken} />
+          <TracingUnitAnimation characterId={currentCharId} playToken={animationToken} size={charAnimationCellSize} />
           <div className="flex gap-3">
             {supported && (
               <button

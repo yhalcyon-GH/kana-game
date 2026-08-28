@@ -413,6 +413,17 @@ describe('TracingPage responsive layout', () => {
     expect(canvasContext.moveTo).toHaveBeenCalledWith(10, 20)
     expect(canvasContext.lineTo).toHaveBeenCalledWith(15, 25)
   })
+
+  // L (Step 25): the user's blue tracing stroke was thinned from 10 to 7 CSS
+  // px — pointer-down is where lineWidth gets (re)set on the mocked 2D
+  // context for every new stroke.
+  it('L: pointer-down sets the user-stroke lineWidth to 7 (thinned from 10)', () => {
+    Element.prototype.setPointerCapture = vi.fn()
+    const { container } = renderRow('hiragana', 'a-row')
+    const canvas = container.querySelector('canvas') as HTMLCanvasElement
+    fireEvent.pointerDown(canvas, { clientX: 10, clientY: 20 })
+    expect((canvasContext as unknown as { lineWidth: number }).lineWidth).toBe(7)
+  })
 })
 
 // Step 24 bugfix coverage: the "TracingPage responsive layout" suite above
@@ -525,6 +536,59 @@ describe('TracingPage responsive layout — mocked real measurement (Step 24 bug
     expect(width).toBe(2 * height)
     expect(width).toBeLessThanOrEqual(availableWidth)
   })
+
+  // B2 (Step 25 bugfix): the character-phase ANIMATION for a yōon character
+  // must shrink to match the canvas's own already-correct shrunk cell size
+  // when space is tight (288px), never overflowing past it — but must stay
+  // at the normal fixed 160px/cell (StrokeOrderAnimation's default) once
+  // there's enough room, never growing past 160 even on a wide viewport.
+  it('B2: yōon character (きゃ) animation footprint fits within a mocked 288px available width, matching the canvas', () => {
+    mockAvailableWidth(288)
+    const { container } = renderRow('youon', 'youon-ka-row')
+    const { width: canvasWidth, height: canvasHeight } = canvasCssSize(container)
+    expect(canvasWidth).toBe(2 * canvasHeight)
+    expect(canvasWidth).toBeLessThanOrEqual(288)
+
+    // Character-phase animation renders as a bare `flex gap-0` wrapper
+    // (unlike the word phase's explicitly-width-styled row div), so its
+    // total footprint is the sum of its two TracingCell children's widths.
+    const animationWrapper = container.querySelectorAll('.flex.gap-0')[0] as HTMLElement
+    expect(animationWrapper).toBeTruthy()
+    const cells = animationWrapper.children
+    expect(cells).toHaveLength(2)
+    const cellWidth = parseFloat((cells[0] as HTMLElement).style.width)
+    const footprint = cellWidth * 2
+    expect(footprint).toBeLessThanOrEqual(288)
+    // Cell size must match what the canvas itself uses (both derive from
+    // the same shrunk layout.cellSize here, since 288/2 = 144 < 160).
+    expect(cellWidth).toBe(canvasHeight)
+    expect(cellWidth).toBeLessThan(160)
+
+    // Still exactly 2 glyphs (きゃ's base き + small ゃ) — grouping unaffected.
+    const svgs = animationWrapper.querySelectorAll('svg')
+    expect(svgs).toHaveLength(2)
+    // The small ゃ glyph keeps its existing ~65% scale relative to the base
+    // glyph's (now-shrunk) cell size — unaffected by this sizing fix.
+    const baseSvgWidth = parseFloat(svgs[0].getAttribute('width') ?? '0')
+    const smallSvgWidth = parseFloat(svgs[1].getAttribute('width') ?? '0')
+    expect(baseSvgWidth).toBe(cellWidth)
+    expect(smallSvgWidth).toBe(Math.round(cellWidth * 0.65))
+  })
+
+  // B3: at each of the wider mocked viewport widths, the yōon character
+  // animation must never shrink below 160px/cell when there's room for it
+  // (160 * 2 = 320 fits within all of 328/358/398), and must never exceed
+  // 160px/cell (no upsizing) — 160 is a ceiling, not a target.
+  it.each(AVAILABLE_WIDTHS.filter((w) => w >= 320))(
+    'B3: yōon character (きゃ) animation stays at the normal 160px/cell once a mocked %ipx available width has room',
+    (availableWidth) => {
+      mockAvailableWidth(availableWidth)
+      const { container } = renderRow('youon', 'youon-ka-row')
+      const animationWrapper = container.querySelectorAll('.flex.gap-0')[0] as HTMLElement
+      const cellWidth = parseFloat((animationWrapper.children[0] as HTMLElement).style.width)
+      expect(cellWidth).toBe(160)
+    },
+  )
 
   it.each(AVAILABLE_WIDTHS)(
     'C: きゃく (word phase) — BOTH the animation and the canvas footprint fit within a mocked %ipx available width',
