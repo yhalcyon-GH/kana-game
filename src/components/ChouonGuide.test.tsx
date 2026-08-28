@@ -60,7 +60,7 @@ describe('Chōon Guide content', () => {
 
   it('uses the exact confirmed narration/subtitle script for every step, verbatim', () => {
     expect(locale.steps['chouon.intro'].subtitle).toBe(
-      'Now let’s learn about long vowels, ちょうおん. A long vowel is a vowel sound held for an extra beat. In hiragana, write the extra sound with あ, い, う, え, or お. Don’t use ー. In katakana, use ー. For example, ラーメン.',
+      'Now let’s learn about long vowels. A long vowel is a vowel sound held for an extra beat. In hiragana, write the extra sound with あ, い, う, え, or お. Don’t use the long vowel mark ー. In katakana, use the long vowel mark ー. For example, ラーメン.',
     )
     expect(locale.steps['chouon.a'].subtitle).toBe(
       'For a long あ sound in hiragana, add あ. For example, おかあさん and おばあさん. Hold the あ sound a little longer.',
@@ -72,7 +72,7 @@ describe('Chōon Guide content', () => {
       'For a long う sound in hiragana, add う. For example, ゆうき and くうき. Hold the う sound a little longer.',
     )
     expect(locale.steps['chouon.e'].subtitle).toBe(
-      'For a long え sound in hiragana, usually add い. For example, えいが and ゆうめい. But おねえさん use え instead.',
+      'For a long え sound in hiragana, usually add い. For example, えいが and ゆうめい. But おねえさん uses え instead.',
     )
     expect(locale.steps['chouon.o'].subtitle).toBe(
       'For a long お sound in hiragana, usually add う. For example, おはよう and いもうと. But some words use お instead, like とおい and こおり.',
@@ -85,10 +85,10 @@ describe('Chōon Guide content', () => {
     )
   })
 
-  it('the え-sound slide states the exception exactly as "But おねえさん use え instead." — no paraphrase', () => {
-    expect(locale.steps['chouon.e'].subtitle).toMatch(/But おねえさん use え instead\.$/)
+  it('the え-sound slide states the exception exactly as "But おねえさん uses え instead." — no paraphrase', () => {
+    expect(locale.steps['chouon.e'].subtitle).toMatch(/But おねえさん uses え instead\.$/)
     // Guards against silent rewording to "another exception"/"some words"/etc.
-    expect(locale.steps['chouon.e'].subtitle).not.toMatch(/another exception|some words use え|おねえさん uses え/)
+    expect(locale.steps['chouon.e'].subtitle).not.toMatch(/another exception|some words use え/)
   })
 
   it('the Quiz slide never reads out any answer', () => {
