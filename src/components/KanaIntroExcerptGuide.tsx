@@ -54,6 +54,12 @@ export function KanaIntroExcerptGuide({ onDismiss }: Props) {
     onDismiss()
   }
 
+  const goBack = () => {
+    if (stepIndex === 0) return
+    stop()
+    setStepIndex((i) => i - 1)
+  }
+
   return (
     <div
       ref={containerRef}
@@ -92,13 +98,23 @@ export function KanaIntroExcerptGuide({ onDismiss }: Props) {
         <div className="flex-1" />
       </div>
 
-      <button
-        type="button"
-        onClick={advance}
-        className="mx-auto w-full max-w-xs shrink-0 rounded-full bg-blue-600 px-6 py-3 text-center font-semibold text-white hover:bg-blue-700"
-      >
-        {isLast ? excerptLocale.doneLabel : excerptLocale.nextLabel}
-      </button>
+      <div className="mx-auto flex w-full max-w-xs shrink-0 gap-3">
+        <button
+          type="button"
+          onClick={goBack}
+          disabled={stepIndex === 0}
+          className="flex-1 rounded-full border border-neutral-300 px-6 py-3 text-center font-semibold text-neutral-700 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent dark:border-neutral-600 dark:text-neutral-200 dark:hover:bg-neutral-800"
+        >
+          Back
+        </button>
+        <button
+          type="button"
+          onClick={advance}
+          className="flex-1 rounded-full bg-blue-600 px-6 py-3 text-center font-semibold text-white hover:bg-blue-700"
+        >
+          {isLast ? excerptLocale.doneLabel : excerptLocale.nextLabel}
+        </button>
+      </div>
     </div>
   )
 }

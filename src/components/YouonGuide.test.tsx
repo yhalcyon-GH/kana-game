@@ -160,6 +160,29 @@ describe('Yōon Guide navigation (Issue #50)', () => {
   })
 })
 
+describe('Yōon Guide Back navigation', () => {
+  it('advancing then Back returns one step', () => {
+    const hub = renderHub()
+    fireEvent.click(hub.getByText(locale.nextLabel))
+    expect(hub.getByText(locale.steps['youon.one'].subtitle)).toBeInTheDocument()
+
+    fireEvent.click(hub.getByText('Back'))
+    expect(hub.getByText(locale.steps['youon.intro'].subtitle)).toBeInTheDocument()
+  })
+
+  it('Back is disabled on the first step', () => {
+    const hub = renderHub()
+    expect(hub.getByText('Back')).toBeDisabled()
+  })
+
+  it('Back does not mark the Yōon Guide completed', () => {
+    const hub = renderHub()
+    fireEvent.click(hub.getByText(locale.nextLabel))
+    fireEvent.click(hub.getByText('Back'))
+    expect(useProgressStore.getState().hasCompletedYouonGuide).toBe(false)
+  })
+})
+
 describe('Yōon Guide state independence (Issue #50)', () => {
   it('dismissal disables hub activities until dismissed, then restores links without changing learning progress or other Guide flags', () => {
     const hub = renderHub()
