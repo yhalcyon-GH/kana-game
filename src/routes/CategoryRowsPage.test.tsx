@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHOUON_CATEGORY_ID, DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID, SOKUON_CATEGORY_ID, YOUON_CATEGORY_ID } from '../data/curriculum'
 import { INTRO_GUIDE_CONTENT, DEFAULT_INTRO_GUIDE_LOCALE } from '../data/introGuideContent'
 import { KANA_INTRO_EXCERPT_GUIDE_CONTENT, DEFAULT_KANA_INTRO_EXCERPT_GUIDE_LOCALE } from '../data/kanaIntroExcerptGuideContent'
+import { DEFAULT_CHOUON_GUIDE_LOCALE, CHOUON_GUIDE_CONTENT } from '../data/chouonGuideContent'
+import { DEFAULT_YOUON_GUIDE_LOCALE, YOUON_GUIDE_CONTENT } from '../data/youonGuideContent'
 import {
   ASK_TAMAMIZU_CHOUON,
   ASK_TAMAMIZU_HIRAGANA,
@@ -27,6 +29,8 @@ vi.mock('../hooks/useTTS', () => ({ useTTS: () => tts }))
 
 const introLocale = INTRO_GUIDE_CONTENT[DEFAULT_INTRO_GUIDE_LOCALE]
 const excerptLocale = KANA_INTRO_EXCERPT_GUIDE_CONTENT[DEFAULT_KANA_INTRO_EXCERPT_GUIDE_LOCALE]
+const chouonLocale = CHOUON_GUIDE_CONTENT[DEFAULT_CHOUON_GUIDE_LOCALE]
+const youonLocale = YOUON_GUIDE_CONTENT[DEFAULT_YOUON_GUIDE_LOCALE]
 
 beforeEach(() => {
   useProgressStore.getState().resetProgress()
@@ -394,6 +398,144 @@ function renderYouonPage() {
 // duplicates the new Yōon Guide's content, so it's replaced by an
 // always-available "Ask Tamamizu" image button, matching Sokuon/Chōon's
 // Issue #46 precedent.
+// Mobile QA polish round: each section auto-shows its first-time Guide on
+// entry (gated behind the global Introduction, per the app-wide "never show
+// two Guides at once" priority rule), independent of the always-available
+// manual Ask Tamamizu replay.
+describe('Hiragana/Katakana section auto-display of KanaIntroExcerptGuide', () => {
+  it('Hiragana: auto-shows on first visit, dismiss sets its own flag, and does not re-show on a later visit', () => {
+    useProgressStore.getState().setHasCompletedIntroGuide(true)
+    const first = renderSection(DEFAULT_CATEGORY_ID, 'Hiragana')
+    expect(first.getByTestId('kana-intro-excerpt-guide')).toBeInTheDocument()
+
+    fireEvent.click(first.getByText(excerptLocale.nextLabel))
+    fireEvent.click(first.getByText(excerptLocale.doneLabel))
+    expect(useProgressStore.getState().hasCompletedHiraganaSectionGuide).toBe(true)
+    first.unmount()
+
+    const second = renderSection(DEFAULT_CATEGORY_ID, 'Hiragana')
+    expect(second.queryByTestId('kana-intro-excerpt-guide')).toBeNull()
+  })
+
+  it('Katakana: independent flag — seeing it via Hiragana does not suppress Katakana’s own first-time show', () => {
+    useProgressStore.getState().setHasCompletedIntroGuide(true)
+    useProgressStore.getState().setHasCompletedHiraganaSectionGuide(true)
+
+    const katakana = renderSection(KATAKANA_CATEGORY_ID, 'Katakana')
+    expect(katakana.getByTestId('kana-intro-excerpt-guide')).toBeInTheDocument()
+  })
+
+  it('never auto-shows while the global Introduction is still outstanding', () => {
+    useProgressStore.getState().setHasCompletedIntroGuide(false)
+    const { queryByTestId } = renderSection(DEFAULT_CATEGORY_ID, 'Hiragana')
+    expect(queryByTestId('kana-intro-excerpt-guide')).toBeNull()
+  })
+
+  it('manual Ask Tamamizu replay still works unlimited times and never mutates the section flag', () => {
+    useProgressStore.getState().setHasCompletedIntroGuide(true)
+    useProgressStore.getState().setHasCompletedHiraganaSectionGuide(true)
+    const { getByRole, getByText, getByTestId, queryByTestId } = renderSection(DEFAULT_CATEGORY_ID, 'Hiragana')
+
+    // Already-completed flag means no auto-show; the manual button still
+    // works, and dismissing it must not flip the flag back to false or
+    // touch it at all.
+    expect(queryByTestId('kana-intro-excerpt-guide')).toBeNull()
+    fireEvent.click(getByRole('button', { name: ASK_TAMAMIZU_HIRAGANA.ariaLabel }))
+    expect(getByTestId('kana-intro-excerpt-guide')).toBeInTheDocument()
+    fireEvent.click(getByText(excerptLocale.nextLabel))
+    fireEvent.click(getByText(excerptLocale.doneLabel))
+
+    expect(useProgressStore.getState().hasCompletedHiraganaSectionGuide).toBe(true)
+  })
+})
+
+// Sokuon must auto-show first on /other; Chōon must not auto-show until
+// Sokuon's Recommended Path status is 'done' (same rule as
+// getRecommendedActivity/isRowRecommendedPathDone), and the two must never
+// show at once.
+describe('/other Sokuon-then-Chōon auto-display sequencing', () => {
+  it('Sokuon auto-shows on first entry; Chōon does not show at the same time', () => {
+    useProgressStore.getState().setHasCompletedIntroGuide(true)
+    const { getByTestId, queryByTestId } = renderOtherPage()
+    expect(getByTestId('sokuon-guide')).toBeInTheDocument()
+    expect(queryByTestId('chouon-guide')).toBeNull()
+  })
+
+  it('Chōon still does not auto-show while sokuon-row is not yet Recommended-Path done', () => {
+    useProgressStore.getState().setHasCompletedIntroGuide(true)
+    useProgressStore.getState().setHasCompletedSokuonGuide(true)
+    const { queryByTestId } = renderOtherPage()
+    expect(queryByTestId('chouon-guide')).toBeNull()
+  })
+
+  it('Chōon auto-shows once sokuon-row is done and hasCompletedChouonGuide is false', () => {
+    useProgressStore.getState().setHasCompletedIntroGuide(true)
+    useProgressStore.getState().setHasCompletedSokuonGuide(true)
+    useProgressStore.getState().markRowTaught('sokuon-row')
+    useProgressStore.getState().markRowActivityCompleted('sokuon-row', 'listening')
+    useProgressStore.getState().markRowActivityCompleted('sokuon-row', 'wordBuilder')
+
+    const { getByTestId } = renderOtherPage()
+    expect(getByTestId('chouon-guide')).toBeInTheDocument()
+  })
+
+  it('does not re-show Chōon automatically after it has been dismissed once', () => {
+    useProgressStore.getState().setHasCompletedIntroGuide(true)
+    useProgressStore.getState().setHasCompletedSokuonGuide(true)
+    useProgressStore.getState().markRowTaught('sokuon-row')
+    useProgressStore.getState().markRowActivityCompleted('sokuon-row', 'listening')
+    useProgressStore.getState().markRowActivityCompleted('sokuon-row', 'wordBuilder')
+
+    const first = renderOtherPage()
+    fireEvent.click(first.getByText(chouonLocale.skipLabel))
+    expect(useProgressStore.getState().hasCompletedChouonGuide).toBe(true)
+    first.unmount()
+
+    const second = renderOtherPage()
+    expect(second.queryByTestId('chouon-guide')).toBeNull()
+  })
+
+  it('manual Ask Tamamizu replay for Chōon does not mutate hasCompletedChouonGuide', () => {
+    useProgressStore.getState().setHasCompletedIntroGuide(true)
+    const { getByRole, getByTestId } = renderOtherPage()
+
+    fireEvent.click(getByRole('button', { name: ASK_TAMAMIZU_CHOUON.ariaLabel }))
+    expect(getByTestId('landed-path')).toHaveTextContent('/practice/chouon/chouon-a-row?guide=chouon')
+    expect(useProgressStore.getState().hasCompletedChouonGuide).toBe(false)
+  })
+})
+
+describe('/youon auto-display', () => {
+  it('auto-shows on first entry and does not re-show after dismissal', () => {
+    useProgressStore.getState().setHasCompletedIntroGuide(true)
+    const first = renderYouonPage()
+    expect(first.getByTestId('youon-guide')).toBeInTheDocument()
+
+    fireEvent.click(first.getByText(youonLocale.skipLabel))
+    expect(useProgressStore.getState().hasCompletedYouonGuide).toBe(true)
+    first.unmount()
+
+    const second = renderYouonPage()
+    expect(second.queryByTestId('youon-guide')).toBeNull()
+  })
+
+  it('manual Ask Tamamizu replay for Yōon does not mutate hasCompletedYouonGuide', () => {
+    useProgressStore.getState().setHasCompletedIntroGuide(true)
+    useProgressStore.getState().setHasCompletedYouonGuide(true)
+    const { getByRole, getByTestId } = renderYouonPage()
+
+    fireEvent.click(getByRole('button', { name: ASK_TAMAMIZU_YOUON.ariaLabel }))
+    expect(getByTestId('landed-path')).toHaveTextContent('/practice/youon/youon-ka-row?guide=youon')
+    expect(useProgressStore.getState().hasCompletedYouonGuide).toBe(true)
+  })
+
+  it('never auto-shows while the global Introduction is still outstanding', () => {
+    useProgressStore.getState().setHasCompletedIntroGuide(false)
+    const { queryByTestId } = renderYouonPage()
+    expect(queryByTestId('youon-guide')).toBeNull()
+  })
+})
+
 describe('Yōon section Guide replay (Issue #50)', () => {
   it('no longer shows the old always-visible Yōon explanation', () => {
     const { queryByText } = renderYouonPage()

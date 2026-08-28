@@ -1,9 +1,14 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { KanaIntroExcerptGuide } from '../components/KanaIntroExcerptGuide'
+import { ConceptGuide } from '../components/ConceptGuide'
+import { ChouonGuide } from '../components/ChouonGuide'
+import { YouonGuide } from '../components/YouonGuide'
 import { AskTamamizuButton } from '../components/AskTamamizuButton'
-import { CATEGORIES_BY_ID, CHOUON_CATEGORY_ID, SOKUON_CATEGORY_ID, YOUON_CATEGORY_ID } from '../data/curriculum'
+import { CATEGORIES_BY_ID, CHOUON_CATEGORY_ID, ROWS_BY_ID, SOKUON_CATEGORY_ID, YOUON_CATEGORY_ID } from '../data/curriculum'
 import { CHOUON_GUIDE } from '../data/chouonGuide'
 import { SOKUON_GUIDE } from '../data/sokuonGuide'
+import { DEFAULT_SOKUON_GUIDE_LOCALE, SOKUON_GUIDE_CONTENT } from '../data/sokuonGuideContent'
 import { YOUON_GUIDE } from '../data/youonGuide'
 import {
   ASK_TAMAMIZU_CHOUON,
@@ -15,6 +20,7 @@ import {
 import { RowMap } from '../components/RowMap'
 import { useCurriculum } from '../hooks/useCurriculum'
 import { buildGuideReplayHref, useGuideReplay } from '../hooks/useGuideReplay'
+import { isRowRecommendedPathDone } from '../lib/recommendedPath'
 import { useProgressStore } from '../store/progressStore'
 
 const SOKUON_TARGET_PATH = `/practice/${SOKUON_GUIDE.target.categoryId}/${SOKUON_GUIDE.target.rowId}`
@@ -53,6 +59,72 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
   // unlockedRowIds/taughtRowIds, which isRowMastered doesn't itself track.
   useProgressStore((s) => s.characters)
 
+  // Section auto-Guide display (mobile QA polish round) — gated behind the
+  // global Introduction (Issue #10's priority rule: never auto-show a
+  // section Guide while IntroGuide is still outstanding) exactly like every
+  // existing PracticeHub auto-Guide condition. Each of these shares its
+  // flag with any other trigger for the same Guide (e.g. PracticeHubPage's
+  // own Sokuon/Chōon/Yōon auto-display), so setting the flag true from
+  // either place naturally prevents the other from also firing — no
+  // separate coordination needed.
+  const hasCompletedIntroGuide = useProgressStore((s) => s.hasCompletedIntroGuide)
+  const hasCompletedSokuonGuide = useProgressStore((s) => s.hasCompletedSokuonGuide)
+  const setHasCompletedSokuonGuide = useProgressStore((s) => s.setHasCompletedSokuonGuide)
+  const hasCompletedChouonGuide = useProgressStore((s) => s.hasCompletedChouonGuide)
+  const setHasCompletedChouonGuide = useProgressStore((s) => s.setHasCompletedChouonGuide)
+  const hasCompletedYouonGuide = useProgressStore((s) => s.hasCompletedYouonGuide)
+  const setHasCompletedYouonGuide = useProgressStore((s) => s.setHasCompletedYouonGuide)
+  const hasCompletedHiraganaSectionGuide = useProgressStore((s) => s.hasCompletedHiraganaSectionGuide)
+  const setHasCompletedHiraganaSectionGuide = useProgressStore((s) => s.setHasCompletedHiraganaSectionGuide)
+  const hasCompletedKatakanaSectionGuide = useProgressStore((s) => s.hasCompletedKatakanaSectionGuide)
+  const setHasCompletedKatakanaSectionGuide = useProgressStore((s) => s.setHasCompletedKatakanaSectionGuide)
+  const taughtRowIds = useProgressStore((s) => s.taughtRowIds)
+  const rowActivityCompletion = useProgressStore((s) => s.rowActivityCompletion)
+
+  const kanaIntroSectionCompletedFlag =
+    askTamamizuKanaIntroVariant === 'hiragana'
+      ? hasCompletedHiraganaSectionGuide
+      : askTamamizuKanaIntroVariant === 'katakana'
+        ? hasCompletedKatakanaSectionGuide
+        : true
+  const setKanaIntroSectionCompletedFlag =
+    askTamamizuKanaIntroVariant === 'hiragana' ? setHasCompletedHiraganaSectionGuide : setHasCompletedKatakanaSectionGuide
+  // Once dismissed (auto OR by starting a manual replay mid-page-visit),
+  // don't pop the automatic Guide right back up for the rest of this page
+  // instance even though the persisted flag stays false for a manual
+  // replay — manual replay must never mutate that flag (Ask Tamamizu stays
+  // replayable indefinitely), but re-showing automatically the instant a
+  // manual replay ends would defeat the point of "manual replay." This is
+  // purely local/ephemeral UI state, not persisted.
+  const [autoKanaIntroDismissedThisVisit, setAutoKanaIntroDismissedThisVisit] = useState(false)
+  // First-time auto-display, independent per section (Hiragana vs Katakana
+  // each have their OWN flag) — never fires while a manual replay of the
+  // same excerpt is already active, and never mutates the flag itself (only
+  // this automatic path does that; manual replay uses dismissReplay).
+  const showAutoKanaIntroExcerptGuide =
+    !!askTamamizuKanaIntroVariant &&
+    hasCompletedIntroGuide &&
+    !kanaIntroSectionCompletedFlag &&
+    !kanaIntroExcerptGuide.isReplaying &&
+    !autoKanaIntroDismissedThisVisit
+
+  const hasSokuonCategory = categoryIds.includes(SOKUON_CATEGORY_ID)
+  const hasChouonCategory = categoryIds.includes(CHOUON_CATEGORY_ID)
+  const hasYouonCategory = categoryIds.includes(YOUON_CATEGORY_ID)
+  const sokuonRow = ROWS_BY_ID[SOKUON_GUIDE.target.rowId]
+  const sokuonCategory = CATEGORIES_BY_ID[SOKUON_CATEGORY_ID]
+  const sokuonRowDone =
+    !!sokuonRow && !!sokuonCategory && isRowRecommendedPathDone(sokuonRow, sokuonCategory, taughtRowIds, rowActivityCompletion)
+  const showAutoSokuonGuide = hasSokuonCategory && hasCompletedIntroGuide && !hasCompletedSokuonGuide
+  // Chōon's auto-display timing (per the spec) is gated on Sokuon practice
+  // being done, using the SAME Recommended Path completion rule
+  // (isRowRecommendedPathDone / getRecommendedActivity) rather than a
+  // parallel check — and only fires once the Sokuon Guide isn't also about
+  // to show, so the two never appear together on the same /other visit.
+  const showAutoChouonGuide =
+    hasChouonCategory && hasCompletedIntroGuide && !hasCompletedChouonGuide && sokuonRowDone && !showAutoSokuonGuide
+  const showAutoYouonGuide = hasYouonCategory && hasCompletedIntroGuide && !hasCompletedYouonGuide
+
   const categoryRows = rows.filter((r) => categoryIds.includes(r.categoryId) && !r.isSummary && !r.isSimilarLetters)
   // Similar Letters (🔍, see GojuonRow.isSimilarLetters) renders immediately
   // to the LEFT of Summary, in that same trailing un-headed section — only
@@ -90,7 +162,10 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
             askTamamizuKanaIntroVariant === 'hiragana' ? ASK_TAMAMIZU_HIRAGANA.imageAsset : ASK_TAMAMIZU_KATAKANA.imageAsset
           }`}
           ariaLabel={askTamamizuKanaIntroVariant === 'hiragana' ? ASK_TAMAMIZU_HIRAGANA.ariaLabel : ASK_TAMAMIZU_KATAKANA.ariaLabel}
-          onClick={kanaIntroExcerptGuide.startReplay}
+          onClick={() => {
+            setAutoKanaIntroDismissedThisVisit(true)
+            kanaIntroExcerptGuide.startReplay()
+          }}
           testId={`ask-tamamizu-${askTamamizuKanaIntroVariant}`}
         />
       )}
@@ -156,7 +231,32 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
       {trailingRows.length > 0 && (
         <RowMap rows={trailingRows} isUnlocked={isRowUnlocked} isTaught={isRowTaught} isMastered={isRowMastered} />
       )}
-      {kanaIntroExcerptGuide.isReplaying && <KanaIntroExcerptGuide onDismiss={kanaIntroExcerptGuide.dismissReplay} />}
+      {(kanaIntroExcerptGuide.isReplaying || showAutoKanaIntroExcerptGuide) && (
+        <KanaIntroExcerptGuide
+          onDismiss={
+            kanaIntroExcerptGuide.isReplaying
+              ? kanaIntroExcerptGuide.dismissReplay
+              : () => {
+                  setAutoKanaIntroDismissedThisVisit(true)
+                  setKanaIntroSectionCompletedFlag(true)
+                }
+          }
+        />
+      )}
+
+      {showAutoSokuonGuide && (
+        <ConceptGuide
+          testId="sokuon-guide"
+          imageAsset={SOKUON_GUIDE.slideAsset}
+          imageAlt="Tamamizu explains the small tsu"
+          {...SOKUON_GUIDE_CONTENT[DEFAULT_SOKUON_GUIDE_LOCALE]}
+          onDismiss={() => setHasCompletedSokuonGuide(true)}
+        />
+      )}
+
+      {showAutoChouonGuide && <ChouonGuide onDismiss={() => setHasCompletedChouonGuide(true)} />}
+
+      {showAutoYouonGuide && <YouonGuide onDismiss={() => setHasCompletedYouonGuide(true)} />}
     </div>
   )
 }

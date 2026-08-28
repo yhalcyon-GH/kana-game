@@ -163,7 +163,7 @@ export function IntroGuide() {
           <img
             src={`${import.meta.env.BASE_URL}${step.slideAsset}`}
             alt=""
-            className="max-h-[48vh] max-w-full object-contain"
+            className="w-full h-auto max-w-full object-contain sm:w-auto sm:max-h-[60vh]"
             // Degrade safely if the asset isn't shipped yet — never a
             // broken-image icon (see Issue #29's "missing assets" note).
             onError={(e) => {

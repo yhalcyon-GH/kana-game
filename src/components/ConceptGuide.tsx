@@ -52,17 +52,23 @@ export function ConceptGuide({
       className="fixed inset-0 z-50 flex flex-col bg-white p-4 dark:bg-neutral-900"
     >
       {/* Slide -> small gap -> subtitle -> flexible remaining space -> button.
-          The image wrapper is sized to its OWN content (bounded by max-h on
-          the <img>, not a flex-1 box that would center it with dead space
-          above/below) so the subtitle sits close beneath the slide's real
-          bottom edge; the trailing flex-1 spacer (not the image wrapper)
-          absorbs whatever vertical space is left over on a tall screen. */}
+          The image wrapper is sized to its OWN content (not a flex-1 box
+          that would center it with dead space above/below) so the subtitle
+          sits close beneath the slide's real bottom edge; the trailing
+          flex-1 spacer (not the image wrapper) absorbs whatever vertical
+          space is left over on a tall screen.
+          Mobile-first: the slide prioritizes WIDTH (w-full h-auto, no
+          height cap) so it stays legibly large on real phones; only from
+          `sm:` up (desktop / unusually tall source images) does a
+          max-height constraint kick back in, since there's screen real
+          estate to spare there and full-bleed width would make some source
+          images comically huge. */}
       <div className="flex min-h-0 flex-1 flex-col items-center overflow-y-auto py-2">
         <div className="flex w-full items-center justify-center">
           <img
             src={`${import.meta.env.BASE_URL}${imageAsset}`}
             alt={imageAlt}
-            className="max-h-[48vh] max-w-full object-contain"
+            className="w-full h-auto max-w-full object-contain sm:w-auto sm:max-h-[60vh]"
             onError={(event) => {
               event.currentTarget.style.display = 'none'
             }}

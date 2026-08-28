@@ -456,7 +456,7 @@ describe('PracticeHubPage 4-section layout (Issue #15)', () => {
     // The heading itself is the only "Optional" text in that section — the
     // card shows its real description instead of repeating the word.
     expect(grid.textContent).not.toMatch(/Optional/)
-    expect(grid.textContent).toMatch(/Type in kana or romaji/)
+    expect(grid.textContent).toMatch(/Type the kana/)
   })
 
   // Shortened Practice Hub activity descriptions (mobile readability pass)
@@ -467,7 +467,17 @@ describe('PracticeHubPage 4-section layout (Issue #15)', () => {
     expect(container.textContent).toContain('Pick the sound')
     expect(container.textContent).toContain('Pick what you hear')
     expect(container.textContent).toContain('Build the word')
-    expect(container.textContent).toContain('Type in kana or romaji')
+    expect(container.textContent).toContain('Type the kana')
+  })
+
+  // Kana Typing's description is copy-only text; it must never claim romaji
+  // input specifically, and must not regress back to the old longer copy —
+  // whether romaji input is still accepted is a functional matter this test
+  // deliberately does not touch.
+  it('the Kana Typing card description never mentions romaji', () => {
+    useProgressStore.getState().markRowTaught('ka-row')
+    const { container } = renderRowHub('hiragana', 'ka-row')
+    expect(container.textContent).not.toMatch(/romaji/i)
   })
 
   it('the Recommended card is exactly its normal Practice-grid card — no duplicate elsewhere (Item 5)', () => {

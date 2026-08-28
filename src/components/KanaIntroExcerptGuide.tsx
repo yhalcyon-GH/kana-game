@@ -82,7 +82,7 @@ export function KanaIntroExcerptGuide({ onDismiss }: Props) {
           <img
             src={`${import.meta.env.BASE_URL}${step.slideAsset}`}
             alt=""
-            className="max-h-[48vh] max-w-full object-contain"
+            className="w-full h-auto max-w-full object-contain sm:w-auto sm:max-h-[60vh]"
             onError={(e) => {
               e.currentTarget.style.display = 'none'
             }}

@@ -31,7 +31,7 @@ const PRACTICE_GAMES = [
   { path: 'listening', label: 'Listening', emoji: '🎧', description: 'Pick what you hear' },
   { path: 'word-builder', label: 'Word Builder', emoji: '🧩', description: 'Build the word' },
 ]
-const KANA_TYPING_GAME = { path: 'kana-typing', label: 'Kana Typing', emoji: '⌨️', description: 'Type in kana or romaji' }
+const KANA_TYPING_GAME = { path: 'kana-typing', label: 'Kana Typing', emoji: '⌨️', description: 'Type the kana' }
 
 type Activity = {
   path: string

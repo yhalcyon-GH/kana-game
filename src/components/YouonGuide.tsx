@@ -85,7 +85,7 @@ export function YouonGuide({ onDismiss }: Props = {}) {
           <img
             src={`${import.meta.env.BASE_URL}${YOUON_GUIDE.slideAsset}`}
             alt="Tamamizu explains small ya, yu, yo"
-            className="max-h-[48vh] max-w-full object-contain"
+            className="w-full h-auto max-w-full object-contain sm:w-auto sm:max-h-[60vh]"
             onError={(e) => {
               e.currentTarget.style.display = 'none'
             }}

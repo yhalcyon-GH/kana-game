@@ -45,6 +45,32 @@ export const RECOMMENDED_ACTIVITY_LABELS: Record<Exclude<RecommendedActivity, 'd
   'word-builder': 'Word Builder',
 }
 
+// Single-row version of the same completion check used by
+// getGlobalRecommendedTarget below — reused (not reimplemented) wherever a
+// screen needs "is THIS ROW's Recommended Path finished?" for a specific
+// row, e.g. gating the Chōon Guide's auto-display on Sokuon practice being
+// done (see CategoryRowsPage). Deliberately the exact same rule as the
+// Recommended Path itself: character introduction (Learn or Tracing),
+// Listening, Word Builder — no Kana Quiz for 'contrast-pairs' rows.
+export function isRowRecommendedPathDone(
+  row: GojuonRow,
+  category: ScriptCategory,
+  taughtRowIds: readonly string[],
+  rowActivityCompletion: Record<string, RowActivityCompletion>,
+): boolean {
+  const completion = rowActivityCompletion[row.id]
+  const introCompleted = taughtRowIds.includes(row.id) || completion?.tracing === true
+  return (
+    getRecommendedActivity({
+      learnStyle: category.learnStyle,
+      introCompleted,
+      kanaQuizCompleted: completion?.kanaQuiz === true,
+      listeningCompleted: completion?.listening === true,
+      wordBuilderCompleted: completion?.wordBuilder === true,
+    }) === 'done'
+  )
+}
+
 export type GlobalRecommendedTarget = {
   categoryId: string
   rowId: string
