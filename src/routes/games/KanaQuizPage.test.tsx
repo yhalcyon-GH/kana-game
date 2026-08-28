@@ -87,22 +87,21 @@ describe('KanaQuizPage pre-answer mascot', () => {
   it('switches to the incorrect mascot after a wrong answer, and back to normal on the next round', () => {
     vi.useFakeTimers()
     const { container } = renderRowQuiz()
+    // Force a deterministic Read round (kana shown as the prompt) so the
+    // correct answer's label — and therefore a guaranteed-wrong choice —
+    // can be identified before clicking, instead of guessing with
+    // buttons[0] in a mode-agnostic way that could land on the correct
+    // answer by chance.
+    advanceUntilMode(container, 'read')
     const buttons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
-    const kanaEl = container.querySelector('.font-kana.text-7xl')
-    let clicked: HTMLButtonElement
-    if (kanaEl) {
-      const targetId = Object.keys(CHARACTERS_BY_ID).find((id) => CHARACTERS_BY_ID[id].kana === kanaEl.textContent)!
-      const label = CHARACTERS_BY_ID[targetId].displayLabel ?? CHARACTERS_BY_ID[targetId].romaji
-      clicked = buttons.find((b) => b.textContent !== label)!
-    } else {
-      clicked = buttons[0]
-    }
-    act(() => fireEvent.click(clicked))
+    const kanaEl = container.querySelector('.font-kana.text-7xl')!
+    const targetId = Object.keys(CHARACTERS_BY_ID).find((id) => CHARACTERS_BY_ID[id].kana === kanaEl.textContent)!
+    const label = CHARACTERS_BY_ID[targetId].displayLabel ?? CHARACTERS_BY_ID[targetId].romaji
+    const wrongButton = buttons.find((b) => b.textContent !== label)!
+    act(() => fireEvent.click(wrongButton))
 
     const mascotAfterAnswer = container.querySelector('img[src*="mascot"]') as HTMLImageElement
-    // Either a wrong click (incorrect.webp) or, by chance, a correct one
-    // (correct.webp/streak.webp) — either way it must have left 'normal'.
-    expect(mascotAfterAnswer.src).not.toContain('mascot/normal.webp')
+    expect(mascotAfterAnswer.src).toContain('mascot/incorrect.webp')
 
     const next = within(container).queryByRole('button', { name: /^next$/i })
     if (next) {
