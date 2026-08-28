@@ -49,7 +49,7 @@ export function ReviewGuide({ onDismiss }: Props = {}) {
       />
       <dl className="w-full max-w-xs text-base">
         <div className="mb-2">
-          <dt className="font-semibold text-amber-600 dark:text-amber-400">Retry mistakes</dt>
+          <dt className="font-semibold text-green-600 dark:text-green-400">Retry</dt>
           <dd className="text-neutral-600 dark:text-neutral-400">Practice this round's mistakes.</dd>
         </div>
         <div>

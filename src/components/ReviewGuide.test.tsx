@@ -61,13 +61,22 @@ describe('Review Guide (Issue #40)', () => {
   // for beginners to conflate since both used to be labeled "Review" — the
   // guide now spells out the difference in visible DOM copy. This is
   // separate from, and never passed to, the spoken narration below.
-  it('explains Retry mistakes and Review as distinct concepts in visible copy', () => {
+  it('explains Retry and Review as distinct concepts in visible copy', () => {
     createFirstReviewTarget()
     const summary = renderSummary()
 
-    expect(summary.getByText('Retry mistakes')).toBeInTheDocument()
+    expect(summary.getByText('Retry')).toBeInTheDocument()
     expect(summary.getByText("Practice this round's mistakes.")).toBeInTheDocument()
     expect(summary.getByText('Practice saved kana and words anytime.')).toBeInTheDocument()
+  })
+
+  it('styles the Retry legend green, not amber', () => {
+    createFirstReviewTarget()
+    const summary = renderSummary()
+
+    const retryTerm = summary.getByText('Retry')
+    expect(retryTerm).toHaveClass('text-green-600', 'dark:text-green-400')
+    expect(retryTerm).not.toHaveClass('text-amber-600', 'dark:text-amber-400')
   })
 
   it('never passes the new visible Retry/Review explanation copy to speech', () => {
