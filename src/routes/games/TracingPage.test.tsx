@@ -200,6 +200,86 @@ describe('TracingPage — Similar Letters rows (PR #53 final review)', () => {
   })
 })
 
+// Similar Letters explanation images (シ・ツ, ソ・ン) — see
+// "fix: polish section labels and similar-letter support". Katakana Similar
+// Letters' character queue (row.characterIds, in KATAKANA_SIMILAR_GROUPS
+// order) is: ア,マ, タ,ク,ケ,ワ, メ,ナ, シ,ツ, ス,ヌ, カ,ヤ, コ,ユ, ソ,リ,ン —
+// so シ/ツ are rounds 9-10 and ソ/ン are rounds 17 and 19 (リ, round 18, has
+// no mapped image).
+describe('TracingPage — Similar Letters explanation images', () => {
+  beforeEach(() => {
+    useProgressStore.getState().resetProgress()
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(canvasContext as unknown as CanvasRenderingContext2D)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  function renderSimilarLettersTracing(categoryId: string, rowId: string) {
+    return render(
+      <MemoryRouter initialEntries={[`/practice/${categoryId}/${rowId}/tracing`]}>
+        <Routes>
+          <Route path="/practice/:categoryId/:rowId/tracing" element={<TracingPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+  }
+
+  function advanceRounds(getByRole: () => HTMLElement, count: number) {
+    for (let i = 0; i < count; i++) act(() => fireEvent.click(getByRole()))
+  }
+
+  it('shows the シ・ツ explanation image while tracing シ and ツ, and not on the round right before them', () => {
+    const { container, getByRole, getByText } = renderSimilarLettersTracing('katakana', 'katakana-similar-letters')
+    advanceRounds(() => getByRole('button', { name: 'Next' }), 7) // round 8: ナ
+    expect(getByText(/Round 8 \/ 19/)).toBeInTheDocument()
+    expect(container.querySelector('img')).toBeNull()
+
+    advanceRounds(() => getByRole('button', { name: 'Next' }), 1) // round 9: シ
+    expect(getByText(/Round 9 \/ 19/)).toBeInTheDocument()
+    let img = container.querySelector('img') as HTMLImageElement
+    expect(img).not.toBeNull()
+    expect(img.src).toContain('similar-letters/shi-tsu.webp')
+
+    advanceRounds(() => getByRole('button', { name: 'Next' }), 1) // round 10: ツ
+    expect(getByText(/Round 10 \/ 19/)).toBeInTheDocument()
+    img = container.querySelector('img') as HTMLImageElement
+    expect(img).not.toBeNull()
+    expect(img.src).toContain('similar-letters/shi-tsu.webp')
+  })
+
+  it('shows the ソ・ン explanation image on ソ and ン, but not on リ in between', () => {
+    const { container, getByRole, getByText } = renderSimilarLettersTracing('katakana', 'katakana-similar-letters')
+    advanceRounds(() => getByRole('button', { name: 'Next' }), 16) // round 17: ソ
+    expect(getByText(/Round 17 \/ 19/)).toBeInTheDocument()
+    let img = container.querySelector('img') as HTMLImageElement
+    expect(img).not.toBeNull()
+    expect(img.src).toContain('similar-letters/so-n.webp')
+
+    advanceRounds(() => getByRole('button', { name: 'Next' }), 1) // round 18: リ (no mapped image)
+    expect(getByText(/Round 18 \/ 19/)).toBeInTheDocument()
+    expect(container.querySelector('img')).toBeNull()
+
+    advanceRounds(() => getByRole('button', { name: 'Next' }), 1) // round 19: ン
+    expect(getByText(/Round 19 \/ 19/)).toBeInTheDocument()
+    img = container.querySelector('img') as HTMLImageElement
+    expect(img).not.toBeNull()
+    expect(img.src).toContain('similar-letters/so-n.webp')
+  })
+
+  it('never shows a Similar Letters explanation image outside the Similar Letters lesson (normal katakana sa-row, which also includes シ and ソ)', () => {
+    const { container } = render(
+      <MemoryRouter initialEntries={['/practice/katakana/katakana-sa-row/tracing']}>
+        <Routes>
+          <Route path="/practice/:categoryId/:rowId/tracing" element={<TracingPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    expect(container.querySelector('img')).toBeNull()
+  })
+})
+
 // New "Back" button (item-level previous character/word navigation) —
 // pure UI navigation, never touches markRowActivityCompleted/SRS/Review/any
 // persisted state (see TracingPage.tsx's goBack comment). MemoryRouter

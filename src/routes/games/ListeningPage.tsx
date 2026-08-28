@@ -5,6 +5,7 @@ import { GameRoundHeader } from '../../components/GameRoundHeader'
 import { PracticeSummary } from '../../components/PracticeSummary'
 import { ReviewEmptyState } from '../../components/ReviewEmptyState'
 import { RomajiHint } from '../../components/RomajiHint'
+import { UnbreakableKana } from '../../components/UnbreakableKana'
 import { WordImage } from '../../components/WordImage'
 import { CHARACTERS_BY_ID } from '../../data/characters'
 import { ROWS_BY_ID } from '../../data/curriculum'
@@ -299,7 +300,9 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
               >
                 {/* No romaji shown for fake spelling choices — they're
                     fabricated display-only strings, never real vocabulary. */}
-                <span className="font-kana block">{choice.kana}</span>
+                <span className="font-kana block">
+                  <UnbreakableKana kana={choice.kana} />
+                </span>
               </button>
             )
           })}
@@ -324,7 +327,9 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
                     : 'border-neutral-300 bg-white hover:border-blue-400 dark:border-neutral-600 dark:bg-neutral-800'
                 }`}
               >
-                <span className="font-kana block">{choice.kana}</span>
+                <span className="font-kana block">
+                  <UnbreakableKana kana={choice.kana} />
+                </span>
                 {answered && (
                   <span className="block text-sm font-normal text-neutral-500 dark:text-neutral-400">
                     {choice.romaji}

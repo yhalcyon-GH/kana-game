@@ -15,8 +15,8 @@ export type ScriptEntryPoint = { to: string; label: string; english: string; ico
 // explicit request). 拗音 and the そのほか-bundle entry additionally avoid
 // spelling out a Japanese TERM at all (拗音/その他 are kanji; even
 // ようおん/そのほか are kana a beginner may not read yet) — both instead use
-// a structural symbol naming what's actually inside: 拗音 is ○+ゃゅょ ("a
-// base kana plus a small ゃゅょ"), and the bundle entry is っ＆ー (its two
+// a structural symbol naming what's actually inside: 拗音 is ゃゅょ (its
+// small contracted-sound kana), and the bundle entry is っ・ー (its two
 // bundled categories' own marks: 促音's っ, 長音's ー). Icons match each
 // destination's ScriptCategory.icon (curriculum.ts) where there's a 1:1
 // category, so the same visual anchor carries through into the breadcrumb
@@ -32,12 +32,12 @@ export const SCRIPT_ENTRY_POINTS: ScriptEntryPoint[] = [
   { to: '/katakana', label: 'カタカナ', english: 'Katakana', icon: 'category-icons/katakana.webp', categoryIds: [KATAKANA_CATEGORY_ID] },
   {
     to: '/other',
-    label: 'っ＆ー',
+    label: 'っ・ー',
     english: 'Stop & Long Sound',
     icon: 'category-icons/other.webp',
     // Bundles both contrast-pairs categories (see App.tsx's OTHER_CATEGORY_IDS)
     // into this one card — either being next-recommended recommends this card.
     categoryIds: [SOKUON_CATEGORY_ID, CHOUON_CATEGORY_ID],
   },
-  { to: '/youon', label: '○+ゃゅょ', english: 'Yōon', icon: 'category-icons/youon.webp', categoryIds: [YOUON_CATEGORY_ID] },
+  { to: '/youon', label: 'ゃゅょ', english: 'Yōon', icon: 'category-icons/youon.webp', categoryIds: [YOUON_CATEGORY_ID] },
 ]

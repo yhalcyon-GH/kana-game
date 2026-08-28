@@ -408,3 +408,44 @@ describe('LearnPage: Similar Letters', () => {
     expect(screen.getByText(/🔍/)).toBeInTheDocument()
   })
 })
+
+// Similar Letters explanation images (シ・ツ, ソ・ン) — see
+// "fix: polish section labels and similar-letter support".
+describe('LearnPage: Similar Letters explanation images', () => {
+  it('shows the シ・ツ explanation image on the シ・ツ group (group 4), only there', () => {
+    renderLearn('/learn/katakana/katakana-similar-letters')
+    expect(screen.getByText('Group 1 / 8')).toBeInTheDocument()
+    expect(document.querySelector('img')).toBeNull() // group 1 (ア・マ) has no mapped image
+
+    for (let i = 0; i < 3; i++) fireEvent.click(screen.getByText('Next'))
+    expect(screen.getByText('Group 4 / 8')).toBeInTheDocument()
+    expect(screen.getByText(CHARACTERS_BY_ID['katakana-shi'].kana)).toBeInTheDocument()
+    expect(screen.getByText(CHARACTERS_BY_ID['katakana-tsu'].kana)).toBeInTheDocument()
+    const img = document.querySelector('img') as HTMLImageElement
+    expect(img).not.toBeNull()
+    expect(img.src).toContain('similar-letters/shi-tsu.webp')
+  })
+
+  it('shows the ソ・ン explanation image on the ソ・リ・ン group (group 8), only there', () => {
+    renderLearn('/learn/katakana/katakana-similar-letters')
+    for (let i = 0; i < 7; i++) fireEvent.click(screen.getByText('Next'))
+    expect(screen.getByText('Group 8 / 8')).toBeInTheDocument()
+    expect(screen.getByText(CHARACTERS_BY_ID['katakana-so'].kana)).toBeInTheDocument()
+    expect(screen.getByText(CHARACTERS_BY_ID['katakana-n'].kana)).toBeInTheDocument()
+    const img = document.querySelector('img') as HTMLImageElement
+    expect(img).not.toBeNull()
+    expect(img.src).toContain('similar-letters/so-n.webp')
+  })
+
+  it('does not show any explanation image on unrelated groups (e.g. ス・ヌ)', () => {
+    renderLearn('/learn/katakana/katakana-similar-letters')
+    for (let i = 0; i < 4; i++) fireEvent.click(screen.getByText('Next'))
+    expect(screen.getByText('Group 5 / 8')).toBeInTheDocument()
+    expect(document.querySelector('img')).toBeNull()
+  })
+
+  it('does not show a Similar Letters explanation image outside the Similar Letters lesson', () => {
+    renderLearn('/learn/katakana/katakana-sa-row')
+    expect(document.querySelector('img')).toBeNull()
+  })
+})

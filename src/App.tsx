@@ -80,7 +80,7 @@ function App() {
                 path="/other"
                 element={
                   <CategoryRowsPage
-                    title="っ＆ー"
+                    title="っ・ー"
                     description="Learn small っ/ッ and long vowel ー."
                     categoryIds={OTHER_CATEGORY_IDS}
                   />

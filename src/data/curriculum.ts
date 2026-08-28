@@ -88,7 +88,7 @@ export const CATEGORIES: ScriptCategory[] = [
     explanation:
       'Yōon are contracted sounds made from a consonant + い kana (き/し/ち/に/ひ/み/り, or their voiced forms) followed by a small ゃ/ゅ/ょ. Two characters, but only ONE syllable — きゃ isn\'t "ki-ya", it\'s one quick "kya".',
     icon: 'category-icons/youon.webp',
-    displayLabel: '○+ゃゅょ',
+    displayLabel: 'ゃゅょ',
   },
 ]
 

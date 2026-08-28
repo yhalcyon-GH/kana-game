@@ -507,3 +507,41 @@ describe('ListeningPage pre-answer mascot', () => {
     expect(mascotNextRound.src).toContain('mascot/normal.webp')
   })
 })
+
+// Yōon word choices must never allow a bad line break like 「き」「ゃ」 —
+// see "fix: polish section labels and similar-letter support". Each choice's
+// kana is rendered via UnbreakableKana, which keeps every yōon glyph pair in
+// its own single non-breaking span.
+describe('ListeningPage yōon choice rendering (no bad line breaks)', () => {
+  beforeEach(() => {
+    useProgressStore.getState().resetProgress()
+  })
+
+  function renderYouonListening() {
+    return render(
+      <MemoryRouter initialEntries={['/practice/youon/youon-ka-row/listening']}>
+        <Routes>
+          <Route path="/practice/:categoryId/:rowId/listening" element={<ListeningPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+  }
+
+  it('never renders a bare (non-nowrap) yōon glyph pair in a choice button', () => {
+    const { container } = renderYouonListening()
+    const smallKana = /[ゃゅょャュョ]/
+    for (const kanaSpan of Array.from(container.querySelectorAll('.font-kana'))) {
+      // Every direct child must be a nowrap span (from UnbreakableKana) —
+      // no raw text node containing a small ゃ/ゅ/ょ sits directly in the
+      // kana span unprotected.
+      for (const child of Array.from(kanaSpan.childNodes)) {
+        if (child.nodeType === Node.TEXT_NODE) {
+          expect(child.textContent).not.toMatch(smallKana)
+        }
+      }
+      for (const moraSpan of Array.from(kanaSpan.querySelectorAll('span'))) {
+        expect(moraSpan).toHaveClass('whitespace-nowrap')
+      }
+    }
+  })
+})

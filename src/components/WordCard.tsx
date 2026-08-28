@@ -2,6 +2,7 @@ import { ACCENT_PATTERNS } from '../data/accents'
 import type { AnchorWord } from '../data/types'
 import { useTTS } from '../hooks/useTTS'
 import { toMorae } from '../lib/mora'
+import { UnbreakableKana } from './UnbreakableKana'
 import { WordImage } from './WordImage'
 
 type Props = {
@@ -23,7 +24,11 @@ function AccentedKana({ kana, accent }: { kana: string; accent?: string }) {
   const n = chars.length
   const morae = toMorae(kana)
   if (!accent || accent.length !== morae.length) {
-    return <span className="font-kana text-2xl font-bold">{kana}</span>
+    return (
+      <span className="font-kana text-2xl font-bold">
+        <UnbreakableKana kana={kana} />
+      </span>
+    )
   }
   const HIGH_Y = 2
   const LOW_Y = 9
@@ -53,7 +58,7 @@ function AccentedKana({ kana, accent }: { kana: string; accent?: string }) {
           vectorEffect="non-scaling-stroke"
         />
       </svg>
-      {kana}
+      <UnbreakableKana kana={kana} />
     </span>
   )
 }
