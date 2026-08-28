@@ -47,7 +47,6 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
   const { speak, supported } = useTTS()
   const rounds = getScopeRounds(rowId)
   const {
-    feedback,
     mood,
     mistakes,
     mistakeIds,
@@ -341,7 +340,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
         </div>
       )}
 
-      <AnswerFeedbackRow feedback={feedback} mood={mood} />
+      <AnswerFeedbackRow mood={mood} />
 
       {answered &&
         answeredForRoundIndex === roundIndex &&
