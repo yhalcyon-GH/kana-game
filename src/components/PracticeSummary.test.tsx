@@ -144,3 +144,82 @@ describe('PracticeSummary Retry mistakes button (retry vs Review clarity)', () =
     expect(getByTestId('location-probe')).toHaveTextContent('/practice/hiragana/a-row/kana-quiz')
   })
 })
+
+// Graded Practice (Kana Quiz, Listening, Word Builder, Kana Typing) shows
+// Tamamizu + an explicit Japanese correct-answer count instead of an
+// Accuracy percentage — see "fix: improve practice result summary".
+describe('PracticeSummary graded result (score + Tamamizu)', () => {
+  function renderGraded(overrides: Partial<Parameters<typeof PracticeSummary>[0]> = {}) {
+    return render(
+      <MemoryRouter>
+        <PracticeSummary
+          title="Kana Quiz complete!"
+          backHref="/practice/hiragana/a-row"
+          onRetry={() => {}}
+          score={{ correct: 7, total: 8 }}
+          mood="correct"
+          comment="Great job!"
+          {...overrides}
+        />
+      </MemoryRouter>,
+    )
+  }
+
+  it('renders the score exactly as "{total}問中{correct}問正解"', () => {
+    const { getByText } = renderGraded({ score: { correct: 7, total: 8 } })
+    expect(getByText('8問中7問正解')).toBeInTheDocument()
+  })
+
+  it('renders a perfect score exactly as "8問中8問正解"', () => {
+    const { getByText } = renderGraded({ score: { correct: 8, total: 8 } })
+    expect(getByText('8問中8問正解')).toBeInTheDocument()
+  })
+
+  it('renders a 15-question score exactly as "15問中12問正解"', () => {
+    const { getByText } = renderGraded({ score: { correct: 12, total: 15 } })
+    expect(getByText('15問中12問正解')).toBeInTheDocument()
+  })
+
+  it('never shows an Accuracy percentage or a "N / M correct" fraction when score is supplied', () => {
+    const { container, queryByText } = renderGraded()
+    expect(queryByText(/Accuracy/i)).toBeNull()
+    expect(queryByText(/%/)).toBeNull()
+    expect(container.textContent).not.toMatch(/\d+\s*\/\s*\d+\s*correct/i)
+  })
+
+  it('shows Tamamizu (the Mascot) in the result area, directly below the title', () => {
+    const { container } = renderGraded()
+    const heading = container.querySelector('h2')!
+    const mascotImg = container.querySelector('img')
+    expect(mascotImg).not.toBeNull()
+    // The score text should also be present alongside it.
+    expect(container.textContent).toContain('8問中7問正解')
+    expect(heading.compareDocumentPosition(mascotImg!) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
+  })
+
+  it('Tamamizu appears exactly once, not duplicated below the action buttons', () => {
+    const { container } = renderGraded()
+    expect(container.querySelectorAll('img').length).toBe(1)
+  })
+
+  it('preserves the existing finish comment alongside the new top result block', () => {
+    const { getByText } = renderGraded({ comment: 'Great job!' })
+    expect(getByText('Great job!')).toBeInTheDocument()
+  })
+
+  it('generic stats still render when score is not supplied (ungraded flows like Tracing)', () => {
+    const { getByText, container } = render(
+      <MemoryRouter>
+        <PracticeSummary
+          title="Tracing complete!"
+          stats={[{ label: 'Characters traced', value: 5 }]}
+          backHref="/practice/hiragana/a-row"
+          onRetry={() => {}}
+        />
+      </MemoryRouter>,
+    )
+    expect(getByText('Characters traced')).toBeInTheDocument()
+    expect(getByText('5')).toBeInTheDocument()
+    expect(container.querySelectorAll('img').length).toBe(0)
+  })
+})

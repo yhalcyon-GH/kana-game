@@ -240,7 +240,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
     return (
       <PracticeSummary
         title="Listening complete!"
-        stats={[{ label: 'Accuracy', value: `${Math.round((correctCount / queue.length) * 100)}%` }]}
+        score={{ correct: correctCount, total: queue.length }}
         backHref={isReview ? '/practice/review' : `/practice/${categoryId}/${rowId}`}
         onRetry={() => setSessionAttempt((attempt) => attempt + 1)}
         mistakes={mistakes}

@@ -371,6 +371,71 @@ describe('KanaQuizPage Recommended Path completion (Issue #11)', () => {
   })
 })
 
+// The completed-session summary shows the real played correct/total count
+// (see PracticeSummary's "{total}問中{correct}問正解") instead of a computed
+// Accuracy percentage — see "fix: improve practice result summary".
+describe('KanaQuizPage result summary (correct/total count)', () => {
+  // Clicks the FIRST choice every round (mode-agnostic) and tallies real
+  // correctness from the DOM: a correct answer never shows an actionable
+  // Next button (it auto-advances after 2000ms — see the "Next button
+  // flash" regression tests above), a wrong one does. This gives a ground
+  // truth correct count without needing to know the target answer.
+  function playSessionTallyingCorrectness(container: HTMLElement, rounds: number): number {
+    let correct = 0
+    for (let round = 0; round < rounds; round++) {
+      const buttons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
+      act(() => fireEvent.click(buttons[0]))
+      const next = within(container).queryByRole('button', { name: /^next$/i })
+      if (next === null) {
+        correct += 1
+        act(() => vi.advanceTimersByTime(2000))
+      } else {
+        act(() => fireEvent.click(next))
+      }
+    }
+    return correct
+  }
+
+  it('shows the actual correct count out of the actual played total for a normal 8-question session', () => {
+    vi.useFakeTimers()
+    const { container } = renderRowQuiz()
+    const correct = playSessionTallyingCorrectness(container, 8)
+    expect(container.textContent).toContain(`8問中${correct}問正解`)
+    expect(container.textContent).not.toMatch(/Accuracy/i)
+    expect(container.textContent).not.toMatch(/%/)
+    vi.useRealTimers()
+  })
+
+  it('a shorter Review session shows the actual (non-8) played total, not a fixed session length', () => {
+    vi.useFakeTimers()
+    useProgressStore.getState().markRowTaught('a-row')
+    useProgressStore.getState().recordCharacterReviewResult('a', false)
+    const { container } = renderReviewQuiz()
+
+    let guard = 0
+    let correct = 0
+    while (!container.textContent?.includes('complete!') && guard < 20) {
+      const buttons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
+      act(() => fireEvent.click(buttons[0]))
+      const next = within(container).queryByRole('button', { name: /^next$/i })
+      if (next) {
+        act(() => fireEvent.click(next))
+      } else {
+        correct += 1
+        act(() => vi.advanceTimersByTime(2000))
+      }
+      guard += 1
+    }
+
+    expect(container.textContent).toMatch(/complete!/)
+    // Only one weak character was queued — the real played total must be
+    // small, and must appear verbatim rather than a hardcoded 8.
+    expect(container.textContent).toMatch(new RegExp(`\\d問中${correct}問正解`))
+    expect(container.textContent).not.toMatch(/8問中/)
+    vi.useRealTimers()
+  })
+})
+
 // Regression test for the mobile "Next button flash" bug (see PR
 // description): answering CORRECTLY schedules a 2000ms auto-advance and
 // must never render an actionable "Next" button at all — before, during,

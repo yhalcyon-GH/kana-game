@@ -264,3 +264,79 @@ describe('KanaTypingPage word-only Review (Issue #2)', () => {
     expect(Object.values(characters).every((c) => !c.reviewActive)).toBe(true)
   })
 })
+
+// The completed-session summary shows the real played correct/total count
+// (see PracticeSummary's "{total}問中{correct}問正解") instead of a computed
+// Accuracy percentage — see "fix: improve practice result summary".
+describe('KanaTypingPage result summary (correct/total count)', () => {
+  beforeEach(() => {
+    useProgressStore.getState().resetProgress()
+    useProgressStore.getState().markRowTaught('a-row')
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('shows the actual played total and a perfect correct count when every answer is right', () => {
+    vi.useFakeTimers()
+    const { container } = renderRowTyping()
+
+    for (let round = 0; round < 8; round++) {
+      const meaning = container.querySelector('.text-lg.font-semibold')!.textContent!.trim()
+      const kana = MEANING_TO_KANA[meaning]
+      const input = container.querySelector('input') as HTMLInputElement
+      act(() => {
+        fireEvent.change(input, { target: { value: kana } })
+        fireEvent.submit(container.querySelector('form')!)
+      })
+      act(() => vi.advanceTimersByTime(2000))
+    }
+
+    expect(container.textContent).toContain('8問中8問正解')
+    expect(container.textContent).not.toMatch(/Accuracy/i)
+    expect(container.textContent).not.toMatch(/%/)
+  })
+
+  it('shows a zero correct count when every answer is wrong', () => {
+    vi.useFakeTimers()
+    const { container } = renderRowTyping()
+
+    for (let round = 0; round < 8; round++) {
+      const input = container.querySelector('input') as HTMLInputElement
+      act(() => {
+        fireEvent.change(input, { target: { value: 'definitely-wrong' } })
+        fireEvent.submit(container.querySelector('form')!)
+      })
+      const next = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('Next'))!
+      act(() => fireEvent.click(next))
+    }
+
+    expect(container.textContent).toContain('8問中0問正解')
+  })
+
+  it('a shorter Review session shows the actual (non-8) played total, not a fixed session length', () => {
+    vi.useFakeTimers()
+    useProgressStore.getState().recordWordReviewResult('a-ai', false)
+    const { container } = renderReviewTyping()
+
+    let guard = 0
+    let correct = 0
+    while (!container.textContent?.includes('complete!') && guard < 20) {
+      const meaning = container.querySelector('.text-lg.font-semibold')!.textContent!.trim()
+      const kana = MEANING_TO_KANA[meaning]
+      const input = container.querySelector('input') as HTMLInputElement
+      act(() => {
+        fireEvent.change(input, { target: { value: kana } })
+        fireEvent.submit(container.querySelector('form')!)
+      })
+      correct += 1
+      act(() => vi.advanceTimersByTime(2000))
+      guard += 1
+    }
+
+    expect(container.textContent).toMatch(/complete!/)
+    expect(container.textContent).toMatch(new RegExp(`\\d問中${correct}問正解`))
+    expect(container.textContent).not.toMatch(/8問中/)
+  })
+})

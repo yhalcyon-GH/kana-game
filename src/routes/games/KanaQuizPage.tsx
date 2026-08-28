@@ -228,7 +228,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
     return (
       <PracticeSummary
         title="Kana Quiz complete!"
-        stats={[{ label: 'Accuracy', value: `${Math.round((correctCount / queue.length) * 100)}%` }]}
+        score={{ correct: correctCount, total: queue.length }}
         backHref={hubHref}
         onRetry={startSession}
         mistakes={mistakes}

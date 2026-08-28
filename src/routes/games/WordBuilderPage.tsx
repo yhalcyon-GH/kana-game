@@ -255,10 +255,7 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
     return (
       <PracticeSummary
         title="Word Builder complete!"
-        stats={[
-          { label: 'Correct', value: `${correctCount} / ${queue.length}` },
-          { label: 'Accuracy', value: `${Math.round((correctCount / queue.length) * 100)}%` },
-        ]}
+        score={{ correct: correctCount, total: queue.length }}
         backHref={isReview ? '/practice/review' : `/practice/${categoryId}/${rowId}`}
         onRetry={() => setSessionAttempt((attempt) => attempt + 1)}
         mistakes={mistakes}

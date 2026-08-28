@@ -299,6 +299,99 @@ describe('WordBuilderPage Recommended Path completion (Issue #11)', () => {
   })
 })
 
+// The completed-session summary shows the real played correct/total count
+// (see PracticeSummary's "{total}問中{correct}問正解") instead of a computed
+// Accuracy/"N / M correct" stat — see "fix: improve practice result
+// summary".
+describe('WordBuilderPage result summary (correct/total count)', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  // Fills every empty slot with tray tiles (mode-agnostic, like
+  // clickThroughWordBuilderRound) and tallies real correctness from the
+  // DOM: a correct round auto-advances (no actionable Next button — see
+  // this page's per-character-attribution tests above), a wrong one shows
+  // one.
+  function playSessionTallyingCorrectness(container: HTMLElement, rounds: number): number {
+    const availableTrayButtons = () =>
+      Array.from(container.querySelectorAll('button.font-kana:not(.border-dashed):not([disabled])')) as HTMLButtonElement[]
+    const emptySlotCount = () =>
+      Array.from(container.querySelectorAll('button.border-dashed span.font-kana')).filter((s) => !s.textContent).length
+
+    let correct = 0
+    for (let round = 0; round < rounds; round++) {
+      let guard = 0
+      while (emptySlotCount() > 0 && guard < 10) {
+        const next = availableTrayButtons()[0]
+        if (!next) break
+        act(() => fireEvent.click(next))
+        guard += 1
+      }
+      const nextButton = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('Next'))
+      if (nextButton) {
+        act(() => fireEvent.click(nextButton))
+      } else {
+        correct += 1
+        act(() => vi.advanceTimersByTime(2000))
+      }
+    }
+    return correct
+  }
+
+  it('shows the actual correct count out of the actual played total for a normal 8-question session', () => {
+    vi.useFakeTimers()
+    const { container } = renderRowWordBuilder()
+    const correct = playSessionTallyingCorrectness(container, 8)
+    expect(container.textContent).toContain(`8問中${correct}問正解`)
+    expect(container.textContent).not.toMatch(/Accuracy/i)
+    expect(container.textContent).not.toMatch(/%/)
+    expect(container.textContent).not.toMatch(/\d+\s*\/\s*\d+\s*correct/i)
+  })
+
+  it('a shorter Review session shows the actual (non-8) played total, not a fixed session length', () => {
+    vi.useFakeTimers()
+    useProgressStore.getState().markRowTaught('a-row')
+    useProgressStore.getState().recordWordReviewResult('a-ai', false)
+    const { container } = render(
+      <MemoryRouter initialEntries={['/practice/review/word-builder']}>
+        <Routes>
+          <Route path="/practice/review/word-builder" element={<WordBuilderPage rowIdOverride={REVIEW_SCOPE_ID} />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const availableTrayButtons = () =>
+      Array.from(container.querySelectorAll('button.font-kana:not(.border-dashed):not([disabled])')) as HTMLButtonElement[]
+    const emptySlotCount = () =>
+      Array.from(container.querySelectorAll('button.border-dashed span.font-kana')).filter((s) => !s.textContent).length
+
+    let guard = 0
+    let correct = 0
+    while (!container.textContent?.includes('complete!') && guard < 20) {
+      let fillGuard = 0
+      while (emptySlotCount() > 0 && fillGuard < 10) {
+        const next = availableTrayButtons()[0]
+        if (!next) break
+        act(() => fireEvent.click(next))
+        fillGuard += 1
+      }
+      const nextButton = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('Next'))
+      if (nextButton) {
+        act(() => fireEvent.click(nextButton))
+      } else {
+        correct += 1
+        act(() => vi.advanceTimersByTime(2000))
+      }
+      guard += 1
+    }
+
+    expect(container.textContent).toMatch(/complete!/)
+    expect(container.textContent).toMatch(new RegExp(`\\d問中${correct}問正解`))
+    expect(container.textContent).not.toMatch(/8問中/)
+  })
+})
+
 const A_ROW_MEANING_TO_ROMAJI: Record<string, string> = { love: 'ai', house: 'ie', 'up / above': 'ue', blue: 'ao' }
 
 describe('WordBuilderPage romaji hint (Issue #19)', () => {

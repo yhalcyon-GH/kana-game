@@ -8,10 +8,21 @@ import { ReviewGuide } from './ReviewGuide'
 
 type Stat = { label: string; value: string | number }
 type MistakeEntry = { id: string; kana: string; romaji: string }
+// Explicit correct/total counts for graded sessions (Kana Quiz, Listening,
+// Word Builder, Kana Typing) — rendered as "{total}問中{correct}問正解"
+// instead of a computed Accuracy percentage/fraction. The four graded game
+// routes pass the real played queue length as `total`, so Retry/Review
+// sessions (which can be shorter than a normal 8/15-question session) still
+// show the actual count played, never a fixed nominal length.
+type Score = { correct: number; total: number }
 
 type Props = {
   title: string
-  stats: Stat[]
+  // Generic labeled stats for ungraded flows (Tracing) that have no
+  // correct/total score to show — graded Practice should use `score`
+  // instead. Omitted (defaults to none) when a summary has nothing generic
+  // to show.
+  stats?: Stat[]
   backHref: string
   onRetry: () => void
   // Every distinct item missed this session, and a callback to immediately
@@ -24,6 +35,9 @@ type Props = {
   // have no mistake count to react to.
   mood?: MascotMood
   comment?: string
+  // Explicit correct/total count for graded Practice sessions — see Score's
+  // comment above. Omitted for ungraded flows (Tracing).
+  score?: Score
   // Recommended Path's primary next step (see lib/recommendedPath.ts) —
   // when present, becomes the prominent primary button and Play again
   // demotes to a secondary action alongside Back to hub. Omitted whenever
@@ -35,13 +49,14 @@ type Props = {
 // Shared end-of-session screen for all five mini-games.
 export function PracticeSummary({
   title,
-  stats,
+  stats = [],
   backHref,
   onRetry,
   mistakes = [],
   onRetryMistakes,
   mood,
   comment,
+  score,
   continueAction,
 }: Props) {
   const { reviewCount } = useCurriculum()
@@ -52,6 +67,22 @@ export function PracticeSummary({
   return (
     <div className="flex flex-col items-center gap-6">
       <h2 className="text-2xl font-bold">{title}</h2>
+
+      {/* Tamamizu's session reaction, moved here from the bottom (below the
+          action buttons) so graded Practice reads title -> Tamamizu ->
+          score -> comment. Appears at most once per summary. */}
+      {(mood || score) && (
+        <div className="flex flex-col items-center gap-2">
+          {mood && <Mascot mood={mood} />}
+          {score && (
+            <p className="text-xl font-bold sm:text-2xl">
+              {score.total}問中{score.correct}問正解
+            </p>
+          )}
+          {comment && <p className="text-lg font-semibold">{comment}</p>}
+        </div>
+      )}
+
       <div className="flex flex-wrap justify-center gap-3">
         {stats.map((s) => (
           <ProgressBadge key={s.label} label={s.label} value={s.value} />
@@ -125,15 +156,6 @@ export function PracticeSummary({
           Back to hub
         </Link>
       </div>
-
-      {/* Tamamizu's reaction sits at the bottom of the screen, below the
-          actions — moved here from the top at the user's explicit request. */}
-      {mood && (
-        <div className="flex flex-col items-center gap-2">
-          <Mascot mood={mood} />
-          {comment && <p className="text-lg font-semibold">{comment}</p>}
-        </div>
-      )}
     </div>
   )
 }
