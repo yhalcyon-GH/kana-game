@@ -67,7 +67,6 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
   const categoryId = isReview ? undefined : (params.categoryId ?? ROWS_BY_ID[rowId ?? '']?.categoryId)
   const rounds = getScopeRounds(rowId)
   const {
-    feedback,
     mood,
     mistakes,
     mistakeIds,
@@ -303,7 +302,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
         })}
       </div>
 
-      <AnswerFeedbackRow feedback={feedback} mood={mood} />
+      <AnswerFeedbackRow mood={mood} />
 
       {answered && answeredForRoundIndex === roundIndex && selectedId !== currentCharId && (
         <button

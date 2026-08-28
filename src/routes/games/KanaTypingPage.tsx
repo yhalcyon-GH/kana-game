@@ -44,7 +44,6 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
   const categoryId = isReview ? undefined : (params.categoryId ?? ROWS_BY_ID[rowId ?? '']?.categoryId)
   const rounds = getScopeRounds(rowId)
   const {
-    feedback,
     mood,
     mistakes,
     mistakeIds,
@@ -231,7 +230,6 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
       </form>
 
       <AnswerFeedbackRow
-        feedback={feedback}
         mood={mood}
         left={answered && !wasCorrect && <AnswerReveal characterIds={currentWord.characterIds} />}
       />

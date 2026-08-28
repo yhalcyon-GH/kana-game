@@ -14,8 +14,9 @@ const MOOD_IMAGE: Record<MascotMood, string> = {
 // Tamamizu, the app's fox-spirit mascot — sits in the bottom-right of the
 // graded mini-games' answer area and reacts to how the round went (see
 // useAnswerFeedback, which derives `mood` from the answer feedback +
-// consecutive-correct streak). Art is a bust/upper-body crop so the
-// expression reads clearly at this size.
+// consecutive-correct streak). The correct/incorrect/streak art already
+// bakes in the ○/✕ mark as a single combined illustration, so no separate
+// glyph is drawn alongside it; normal is a plain bust crop.
 export function Mascot({ mood }: Props) {
-  return <img src={`${import.meta.env.BASE_URL}${MOOD_IMAGE[mood]}`} alt="" className="h-24 w-24 shrink-0" />
+  return <img src={`${import.meta.env.BASE_URL}${MOOD_IMAGE[mood]}`} alt="" className="h-24 w-auto shrink-0 object-contain" />
 }

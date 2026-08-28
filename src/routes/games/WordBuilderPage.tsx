@@ -54,7 +54,6 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
   const isReview = rowId === REVIEW_SCOPE_ID
   const rounds = getScopeRounds(rowId)
   const {
-    feedback,
     mood,
     mistakes,
     mistakeIds,
@@ -325,7 +324,6 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
       </div>
 
       <AnswerFeedbackRow
-        feedback={feedback}
         mood={mood}
         left={status === 'wrong' && <AnswerReveal characterIds={currentWord.characterIds} />}
       />
