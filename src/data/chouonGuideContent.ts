@@ -36,7 +36,7 @@ const EN: ChouonGuideLocaleContent = {
       audioKey: 'guide/chouon-4',
     },
     'chouon.e': {
-      subtitle: 'For a long え sound in hiragana, usually add い. For example, えいが and ゆうめい. But おねえさん uses え instead.',
+      subtitle: 'For a long え sound in hiragana, usually add い. For example, えいが and ゆうめい. But おねえさん use え instead.',
       audioKey: 'guide/chouon-5',
     },
     'chouon.o': {
