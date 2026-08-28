@@ -16,7 +16,7 @@ export function AnswerReveal({ characterIds }: Props) {
         if (!char) return null
         return (
           <div key={i} className="flex flex-col items-center">
-            <span className="font-kana text-3xl font-bold text-red-500">{char.kana}</span>
+            <span className="font-kana text-3xl font-bold whitespace-nowrap text-red-500">{char.kana}</span>
             <span className="text-sm font-normal text-red-500">{char.romaji}</span>
           </div>
         )

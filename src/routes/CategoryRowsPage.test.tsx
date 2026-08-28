@@ -244,7 +244,7 @@ function renderOtherPage() {
         <Route
           path="/other"
           element={
-            <CategoryRowsPage title="っ＆ー" description="" categoryIds={[SOKUON_CATEGORY_ID, CHOUON_CATEGORY_ID]} />
+            <CategoryRowsPage title="っ・ー" description="" categoryIds={[SOKUON_CATEGORY_ID, CHOUON_CATEGORY_ID]} />
           }
         />
         <Route path="*" element={<LocationDisplay />} />

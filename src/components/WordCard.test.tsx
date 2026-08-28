@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render } from '@testing-library/react'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { ACCENT_PATTERNS } from '../data/accents'
 import { WORDS_BY_ID } from '../data/words'
@@ -23,8 +23,18 @@ describe('WordCard with a yōon word (2 glyphs, 1 character id, but mismatched m
   })
 
   it('renders without crashing and shows the full kana string', () => {
-    render(<WordCard word={YOUON_WORD} />)
-    expect(screen.getByText('きゃく')).toBeInTheDocument()
+    // Each mora renders in its own non-breaking span (see UnbreakableKana),
+    // so the full word is split across sibling elements rather than one
+    // plain text node — assert on the card's combined text content instead
+    // of a single getByText match.
+    const { container } = render(<WordCard word={YOUON_WORD} />)
+    expect(container.textContent).toContain('きゃく')
+  })
+
+  it('keeps the yōon glyph pair (きゃ) together in one non-breaking unit, never splitting き from ゃ', () => {
+    const { container } = render(<WordCard word={YOUON_WORD} />)
+    const moraSpans = Array.from(container.querySelectorAll('.font-kana .whitespace-nowrap'))
+    expect(moraSpans.map((el) => el.textContent)).toEqual(['きゃ', 'く'])
   })
 
   it('has a real ACCENT_PATTERNS entry, aligned by mora count (2) not glyph count (3)', () => {

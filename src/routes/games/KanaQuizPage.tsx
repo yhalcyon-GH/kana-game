@@ -251,7 +251,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
       <GameRoundHeader rowId={rowId} categoryId={categoryId} roundIndex={roundIndex} total={queue.length} />
       <div className="flex flex-col items-center gap-2">
         {currentMode === 'read' ? (
-          <span className="font-kana text-7xl font-bold">{currentChar.kana}</span>
+          <span className="font-kana text-7xl font-bold whitespace-nowrap">{currentChar.kana}</span>
         ) : (
           <span className="text-6xl" aria-hidden="true">
             🔊
@@ -292,7 +292,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
                   : 'border-neutral-300 bg-white hover:border-blue-400 dark:border-neutral-600 dark:bg-neutral-800'
               }`}
             >
-              {currentMode === 'recall' ? <span className="font-kana">{choice.kana}</span> : (choice.displayLabel ?? choice.romaji)}
+              {currentMode === 'recall' ? <span className="font-kana whitespace-nowrap">{choice.kana}</span> : (choice.displayLabel ?? choice.romaji)}
             </button>
           )
         })}

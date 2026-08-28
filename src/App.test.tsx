@@ -144,11 +144,11 @@ describe('script chooser pages', () => {
   // 拗音 now has its own page (see App.tsx's /youon route), separate from
   // そのほか — the user's explicit request, since it has enough rows
   // ("セッションがたくさんある") to deserve one. Its page title is
-  // ScriptCategory.displayLabel ('○+ゃゅょ'), not the kanji '拗音' — the
+  // ScriptCategory.displayLabel ('ゃゅょ'), not the kanji '拗音' — the
   // target audience may not read any kana yet, let alone kanji.
   it('/youon shows only yōon rows, with no category subheading (single-category page)', () => {
     renderAt('/youon')
-    expect(screen.getByRole('heading', { name: '○+ゃゅょ' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'ゃゅょ' })).toBeInTheDocument()
     expect(screen.getByText('きゃ・きゅ・きょ')).toBeInTheDocument()
     expect(screen.getByText('ぎゃ・ぎゅ・ぎょ')).toBeInTheDocument()
     expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument()
@@ -163,7 +163,7 @@ describe('script chooser pages', () => {
   // it bundles more than one.
   it('/other shows rows from 促音 and 長音, each under its own subheading, but not 拗音', () => {
     renderAt('/other')
-    expect(screen.getByRole('heading', { name: 'っ＆ー' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'っ・ー' })).toBeInTheDocument()
     expect(screen.queryByText('まだ利用できるレッスンがありません。')).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '○+っ' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '○+ー' })).toBeInTheDocument()
@@ -179,8 +179,8 @@ describe('script chooser pages', () => {
     renderAt('/')
     expect(screen.getByRole('link', { name: /ひらがな.*Hiragana/s })).toHaveAttribute('href', '/hiragana')
     expect(screen.getByRole('link', { name: /カタカナ.*Katakana/s })).toHaveAttribute('href', '/katakana')
-    expect(screen.getByRole('link', { name: /○\+ゃゅょ.*Yōon/s })).toHaveAttribute('href', '/youon')
-    expect(screen.getByRole('link', { name: /っ＆ー.*Stop & Long Sound/s })).toHaveAttribute('href', '/other')
+    expect(screen.getByRole('link', { name: /ゃゅょ.*Yōon/s })).toHaveAttribute('href', '/youon')
+    expect(screen.getByRole('link', { name: /っ・ー.*Stop & Long Sound/s })).toHaveAttribute('href', '/other')
   })
 })
 
@@ -345,7 +345,11 @@ describe('contrast-pairs learnStyle with zero new characters (chōon)', () => {
     // The word list itself must actually render real content, not an
     // empty grid — confirms an empty characterIds row doesn't also end up
     // with an empty word list.
-    expect(screen.getByText('ビル')).toBeInTheDocument()
+    // Rendered via UnbreakableKana (one non-breaking span per mora — see
+    // "fix: polish section labels and similar-letter support"), so the
+    // word's kana is split across sibling elements rather than one text
+    // node; assert on the page's combined text content instead.
+    expect(document.body.textContent).toContain('ビル')
   })
 
   it('/practice/chouon/chouon-katakana-row/tracing starts directly in the word phase, and does not crash despite an empty character pool', () => {
@@ -373,7 +377,9 @@ describe('contrast-pairs learnStyle with zero new characters (chōon)', () => {
     renderAt('/learn/chouon/chouon-a-row')
     expect(screen.getByText(/listen and compare/)).toBeInTheDocument()
     expect(screen.getByText(/①ア段/)).toBeInTheDocument()
-    expect(screen.getByText('おかあさん')).toBeInTheDocument()
+    // See the ビル assertion above for why this checks combined text content
+    // rather than getByText.
+    expect(document.body.textContent).toContain('おかあさん')
   })
 
   it('sokuon and hiragana/katakana behavior is unaffected by chouon existing (regression)', () => {
@@ -473,7 +479,7 @@ describe('category page descriptions (shortened copy)', () => {
     expect(screen.getByText('Learn small ゃゅょ sounds like きゃ / kya.')).toBeInTheDocument()
   })
 
-  it('Sokuon/Chōon (っ＆ー) page shows the shortened description', () => {
+  it('Sokuon/Chōon (っ・ー) page shows the shortened description', () => {
     renderAt('/other')
     expect(screen.getByText('Learn small っ/ッ and long vowel ー.')).toBeInTheDocument()
   })

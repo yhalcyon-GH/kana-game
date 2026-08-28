@@ -130,7 +130,7 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
   // to the LEFT of Summary, in that same trailing un-headed section — only
   // hiragana/katakana ever have one, so simple concatenation (rather than
   // per-category interleaving) already produces the right grid order even
-  // on a multi-category page like っ＆ー (which has neither).
+  // on a multi-category page like っ・ー (which has neither).
   const similarLettersRows = rows.filter((r) => categoryIds.includes(r.categoryId) && r.isSimilarLetters)
   // Summary rows (⭐, one per page — see GojuonRow.isSummary) render in
   // their own un-headed section below every category's rows, rather than

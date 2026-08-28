@@ -5,6 +5,7 @@ import { pickPracticeResultImage } from '../lib/practiceResultImage'
 import { useProgressStore } from '../store/progressStore'
 import { ProgressBadge } from './ProgressBadge'
 import { ReviewGuide } from './ReviewGuide'
+import { UnbreakableKana } from './UnbreakableKana'
 
 type Stat = { label: string; value: string | number }
 type MistakeEntry = { id: string; kana: string; romaji: string }
@@ -97,7 +98,13 @@ export function PracticeSummary({
             {mistakes.map((m) => (
               <li key={m.id} className="flex justify-between gap-3 text-neutral-600 dark:text-neutral-400">
                 <span className="font-kana font-semibold text-neutral-800 dark:text-neutral-200">
-                  {PARENTHESIZED_CHARACTER_IDS.has(m.id) ? `（${m.kana}）` : m.kana}
+                  {PARENTHESIZED_CHARACTER_IDS.has(m.id) ? (
+                    <>
+                      （<UnbreakableKana kana={m.kana} />）
+                    </>
+                  ) : (
+                    <UnbreakableKana kana={m.kana} />
+                  )}
                 </span>
                 <span>{m.romaji}</span>
               </li>

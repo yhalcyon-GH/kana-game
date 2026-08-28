@@ -5,6 +5,7 @@ import { CharacterGrid } from '../components/CharacterGrid'
 import { WordCard } from '../components/WordCard'
 import { CHARACTERS_BY_ID, getCharacterAudioId } from '../data/characters'
 import { CATEGORIES_BY_ID, ROWS_BY_ID } from '../data/curriculum'
+import { getSimilarLetterExplanationImage } from '../data/similarLetterExplanations'
 import { WORDS_BY_ROW } from '../data/words'
 import { useCurriculum } from '../hooks/useCurriculum'
 import { useTTS } from '../hooks/useTTS'
@@ -149,6 +150,11 @@ export function LearnPage() {
     const isLastGroup = groupIndex === groups.length - 1
     const currentGroup = groups[groupIndex] ?? []
     const currentGroupChars = currentGroup.map((id) => CHARACTERS_BY_ID[id])
+    // Explanation image for a look-alike pair/group this step covers (シ・ツ,
+    // ソ・ン) — every character in a matching group maps to the same image
+    // (see similarLetterExplanations.ts), so the first hit is enough; groups
+    // without a mapped character (e.g. あ・お) simply show none.
+    const explanationImage = currentGroup.map(getSimilarLetterExplanationImage).find(Boolean)
 
     const handlePrevGroup = () => {
       if (groupIndex > 0) setGroupIndex((i) => i - 1)
@@ -173,6 +179,13 @@ export function LearnPage() {
             <CharacterCard key={c.id} char={c} />
           ))}
         </div>
+        {explanationImage && (
+          <img
+            src={`${import.meta.env.BASE_URL}${explanationImage}`}
+            alt=""
+            className="w-full max-w-xs object-contain"
+          />
+        )}
         <div className="flex gap-3">
           <button
             type="button"

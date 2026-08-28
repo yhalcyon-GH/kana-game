@@ -7,6 +7,7 @@ import { TracingUnitAnimation } from '../../components/StrokeOrderAnimation'
 import { WordImage } from '../../components/WordImage'
 import { CHARACTERS_BY_ID, getCharacterAudioId } from '../../data/characters'
 import { CATEGORIES_BY_ID, ROWS_BY_ID } from '../../data/curriculum'
+import { getSimilarLetterExplanationImage } from '../../data/similarLetterExplanations'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
 import { useTTS } from '../../hooks/useTTS'
 import { buildTracingUnit, buildTracingUnits, packTracingRows, unitCellWidth } from '../../lib/tracingUnits'
@@ -423,6 +424,11 @@ export function TracingPage() {
   if (phase === 'words' && !currentWord) return null
 
   const currentChar = currentCharId ? CHARACTERS_BY_ID[currentCharId] : undefined
+  // Explanation image for a look-alike pair this character belongs to
+  // (シ・ツ, ソ・ン) — only shown in the Similar Letters lesson itself (see
+  // getSimilarLetterExplanationImage's comment); undefined for every other
+  // character/row.
+  const explanationImage = isSimilarLetters ? getSimilarLetterExplanationImage(currentCharId) : undefined
 
   return (
     // w-full min-w-0 max-w-full (Step 24 bugfix): <main> is `flex flex-col
@@ -533,6 +539,14 @@ export function TracingPage() {
           </div>
         </>
       ) : null}
+
+      {explanationImage && (
+        <img
+          src={`${import.meta.env.BASE_URL}${explanationImage}`}
+          alt=""
+          className="w-full max-w-xs object-contain"
+        />
+      )}
 
       {/* w-full so the ResizeObserver-measured width reflects the real
           available space (Step 12); overflow-x-auto is kept only as a
