@@ -415,6 +415,173 @@ describe('TracingPage responsive layout', () => {
   })
 })
 
+// Step 24 bugfix coverage: the "TracingPage responsive layout" suite above
+// only ever exercises the FALLBACK sizing (jsdom reports width 0 for every
+// element, so `availableWidth` never rises above 0 — see that suite's own
+// header comment). That leaves the actual responsive path — what happens
+// once ResizeObserver/getBoundingClientRect report a real, narrow
+// available width — completely untested, which is exactly how the
+// self-reinforcing overflow loop (bug 1) and the animation/canvas
+// footprint mismatch (bug 2) went unnoticed. This suite mocks
+// `getBoundingClientRect` to deterministically report specific available
+// widths (288/328/358/398 CSS px, modeling a 320/360/390/430px viewport
+// after <main>'s `px-4` = 16px padding on each side, e.g. 320 - 2*16 =
+// 288) so the real division-based sizing math in TracingPage's `layout`
+// memo actually runs under test.
+describe('TracingPage responsive layout — mocked real measurement (Step 24 bugfix)', () => {
+  const VIEWPORT_WIDTHS = [320, 360, 390, 430] as const
+  const AVAILABLE_WIDTHS = VIEWPORT_WIDTHS.map((w) => w - 32) // minus <main>'s px-4 (16px) each side
+
+  beforeEach(() => {
+    useProgressStore.getState().resetProgress()
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(canvasContext as unknown as CanvasRenderingContext2D)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  // getBoundingClientRect is mocked on HTMLElement.prototype (not just the
+  // canvas wrapper div) since that's the only measurement TracingPage takes
+  // (useContainerWidth's `el.getBoundingClientRect().width`, called
+  // synchronously on mount inside useLayoutEffect, before ResizeObserver
+  // ever fires) — no other code path in these tests depends on real
+  // getBoundingClientRect geometry.
+  function mockAvailableWidth(width: number) {
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue({
+      width,
+      height: 0,
+      top: 0,
+      left: 0,
+      right: width,
+      bottom: 0,
+      x: 0,
+      y: 0,
+      toJSON() {
+        return {}
+      },
+    } as DOMRect)
+  }
+
+  function renderRow(categoryId: string, rowId: string) {
+    return render(
+      <MemoryRouter initialEntries={[`/practice/${categoryId}/${rowId}/tracing`]}>
+        <Routes>
+          <Route path="/practice/:categoryId/:rowId/tracing" element={<TracingPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+  }
+
+  function canvasCssSize(container: HTMLElement) {
+    const canvas = container.querySelector('canvas') as HTMLCanvasElement
+    return { width: parseFloat(canvas.style.width), height: parseFloat(canvas.style.height) }
+  }
+
+  function advanceToText(container: HTMLElement, getByRole: () => HTMLElement, text: string, maxClicks = 25) {
+    let guard = 0
+    while (!container.textContent?.includes(text) && guard < maxClicks) {
+      fireEvent.click(getByRole())
+      guard += 1
+    }
+    expect(container.textContent).toContain(text)
+  }
+
+  // F: root width-constraining classes, plus a computed-width check under a
+  // narrow mocked available width — the fallback (390px, 3 x
+  // MAX_WORD_CELL_SIZE) must never be able to inflate this root past the
+  // real available width.
+  it('F: TracingPage root carries w-full/min-w-0/max-w-full so a fallback-sized child cannot inflate it', () => {
+    mockAvailableWidth(288)
+    const { container, getByRole } = renderRow('sokuon', 'sokuon-row')
+    const root = container.firstElementChild as HTMLElement
+    expect(root.className).toMatch(/\bw-full\b/)
+    expect(root.className).toMatch(/\bmin-w-0\b/)
+    expect(root.className).toMatch(/\bmax-w-full\b/)
+
+    // おっと (3 normal cells: お/っ/と) — the canvas must fit within the
+    // mocked 288px available width, not the 390px fallback.
+    fireEvent.click(getByRole('button', { name: 'Next' }))
+    const { width } = canvasCssSize(container)
+    expect(width).toBeLessThanOrEqual(288)
+  })
+
+  it.each(AVAILABLE_WIDTHS)(
+    'A: 3 normal cells (おっと) fit within a mocked %ipx available width',
+    (availableWidth) => {
+      mockAvailableWidth(availableWidth)
+      const { container, getByRole } = renderRow('sokuon', 'sokuon-row')
+      fireEvent.click(getByRole('button', { name: 'Next' })) // 2nd word: おっと
+      const { width, height } = canvasCssSize(container)
+      expect(width).toBe(3 * height)
+      expect(width).toBeLessThanOrEqual(availableWidth)
+    },
+  )
+
+  it.each(AVAILABLE_WIDTHS)('B: a yōon character (きゃ) 2-cell canvas fits within a mocked %ipx available width', (availableWidth) => {
+    mockAvailableWidth(availableWidth)
+    const { container } = renderRow('youon', 'youon-ka-row')
+    const { width, height } = canvasCssSize(container)
+    expect(width).toBe(2 * height)
+    expect(width).toBeLessThanOrEqual(availableWidth)
+  })
+
+  it.each(AVAILABLE_WIDTHS)(
+    'C: きゃく (word phase) — BOTH the animation and the canvas footprint fit within a mocked %ipx available width',
+    (availableWidth) => {
+      mockAvailableWidth(availableWidth)
+      const { container, getByRole, getByText } = renderRow('youon', 'youon-ka-row')
+      // Advance through all 6 characters (kya/kyu/kyo/gya/gyu/gyo) into the
+      // word phase; youon-ka-kyaku (きゃく) is the first word (see the
+      // existing "G + I" test above for the same scenario).
+      for (let i = 0; i < 6; i++) fireEvent.click(getByRole('button', { name: 'Next' }))
+      expect(getByText(/Round 1/)).toBeInTheDocument()
+
+      const { width: canvasWidth, height: canvasHeight } = canvasCssSize(container)
+      expect(canvasWidth).toBe(3 * canvasHeight)
+      expect(canvasWidth).toBeLessThanOrEqual(availableWidth)
+
+      // Animation footprint: one row div sized to cellSize * columns.
+      const rowDiv = container.querySelectorAll('.overflow-x-auto')[0]?.firstElementChild as HTMLElement
+      expect(rowDiv).toBeTruthy()
+      const animationWidth = parseFloat(rowDiv.style.width)
+      expect(animationWidth).toBe(canvasWidth)
+      expect(animationWidth).toBeLessThanOrEqual(availableWidth)
+      // 3 total glyph cells: き + ゃ (2 svgs) + く (1 svg).
+      expect(container.querySelectorAll('svg')).toHaveLength(3)
+    },
+  )
+
+  // D + E: a 4-normal-glyph word (ちかてつ / chikatetsu: chi/ka/te/tsu) packs
+  // as row1=3 cells, row2=1 cell LEFT-aligned (not centered) — for both the
+  // canvas and the animation, and the animation's row footprint (columns,
+  // total width) exactly matches the canvas's.
+  it('D + E: 4-normal-glyph word (ちかてつ) — row2 is a left-aligned single cell, matching the canvas exactly', () => {
+    mockAvailableWidth(358)
+    const { container, getByRole } = renderRow('hiragana', 'ta-row')
+    advanceToText(container, () => getByRole('button', { name: 'Next' }), 'subway')
+
+    const { width: canvasWidth, height: canvasHeight } = canvasCssSize(container)
+    // 3 columns wide, 2 rows tall (row1: 3 cells, row2: 1 cell).
+    expect(canvasWidth).toBe(3 * (canvasHeight / 2))
+
+    const animationRows = container.querySelectorAll('.overflow-x-auto')[0]?.children
+    expect(animationRows).toHaveLength(2)
+    const row1 = animationRows![0] as HTMLElement
+    const row2 = animationRows![1] as HTMLElement
+    // Both rows share the SAME fixed width (cellSize * columns) as the
+    // canvas — the animation's column/cell footprint exactly matches the
+    // canvas's (Step 24 bugfix requirement E).
+    expect(parseFloat(row1.style.width)).toBe(canvasWidth)
+    expect(parseFloat(row2.style.width)).toBe(canvasWidth)
+    // Row 2 has exactly one glyph cell (1 svg), left-aligned via
+    // justify-start inside its fixed-width row (never centered).
+    expect(row2.className).toMatch(/justify-start/)
+    expect(row2.querySelectorAll('svg')).toHaveLength(1)
+    expect(row1.querySelectorAll('svg')).toHaveLength(3)
+  })
+})
+
 describe('TracingPage Back button — Similar Letters row (characters-only, no words phase)', () => {
   beforeEach(() => {
     useProgressStore.getState().resetProgress()

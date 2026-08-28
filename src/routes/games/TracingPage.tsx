@@ -1,5 +1,5 @@
 import type { PointerEvent } from 'react'
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BackToHubLink } from '../../components/BackToHubLink'
 import { PracticeSummary } from '../../components/PracticeSummary'
@@ -22,17 +22,32 @@ const SMALL_GUIDE_SCALE = 0.65 // small ゃ/ゅ/ょ guide glyph size relative to
 // (Step 12) — window.innerWidth doesn't reliably reflect the actual space
 // left for the canvas after padding/sibling layout, and a ref-based
 // measurement stays correct across viewport resize/orientation change.
+//
+// A CALLBACK ref (Step 24 bugfix), not a plain ref + effect-with-empty-deps:
+// TracingPage's queue/currentCharId/currentWord start empty and are only
+// populated by a later effect (see startSession), so the canvas wrapper
+// `<div>` this measures does NOT exist on the component's very first
+// render — an object ref's `.current` would be null at that point. A plain
+// `useRef` + `useEffect(..., [])` only ever runs its attach/observe logic
+// once, at that first mount, so it would see `el === null`, do nothing, and
+// never retry — meaning ResizeObserver would never actually attach for the
+// entire lifetime of the component, and every render would silently fall
+// back to the CANVAS_SIZE/MAX_WORD_CELL_SIZE cap forever, regardless of
+// real viewport width. A callback ref re-runs exactly when React actually
+// attaches/detaches the DOM node, so it correctly (re)attaches even when
+// that first happens on a later render.
 function useContainerWidth<T extends HTMLElement>() {
-  const ref = useRef<T>(null)
   const [width, setWidth] = useState(0)
-  useLayoutEffect(() => {
-    const el = ref.current
+  const observerRef = useRef<ResizeObserver | null>(null)
+  const ref = useCallback((el: T | null) => {
+    observerRef.current?.disconnect()
+    observerRef.current = null
     if (!el) return
     const update = () => setWidth(el.getBoundingClientRect().width)
     update()
     const observer = new ResizeObserver(update)
     observer.observe(el)
-    return () => observer.disconnect()
+    observerRef.current = observer
   }, [])
   return [ref, width] as const
 }
@@ -395,7 +410,22 @@ export function TracingPage() {
   const currentChar = currentCharId ? CHARACTERS_BY_ID[currentCharId] : undefined
 
   return (
-    <div className="flex flex-col items-center gap-6">
+    // w-full min-w-0 max-w-full (Step 24 bugfix): <main> is `flex flex-col
+    // items-center`, which does NOT stretch cross-axis children to its
+    // width by default (align-items: center sizes children to their own
+    // content). Without an explicit width here, this root sized itself to
+    // its widest child's max-content width — including the word-phase
+    // canvas's pre-measurement fallback (3 cells x MAX_WORD_CELL_SIZE =
+    // 390px) — which then became the "available width" the canvas wrapper's
+    // own `w-full` resolved against, so ResizeObserver could never measure
+    // anything narrower than that fallback on a narrow viewport: a
+    // self-reinforcing loop that defeated the whole responsive fix. Forcing
+    // w-full here stretches this root to <main>'s real content-box width
+    // (max-w-3xl minus its px-4 padding) regardless of any child's
+    // fallback size; min-w-0 overrides flexbox's default min-width:auto
+    // (which would otherwise let a wide child's min-content size win
+    // anyway); max-w-full is a belt-and-suspenders cap.
+    <div className="flex w-full min-w-0 max-w-full flex-col items-center gap-6">
       <BackToHubLink rowId={rowId} categoryId={categoryId} />
       <h2 className="text-sm font-semibold text-neutral-600 dark:text-neutral-300">
         {phase === 'chars' ? 'Trace each character' : 'Trace each word'}
@@ -434,9 +464,27 @@ export function TracingPage() {
           <WordImage word={currentWord} className="h-14 w-14" />
           <span className="text-lg font-semibold">{currentWord.meaning}</span>
           <span className="-mt-4 text-sm text-neutral-500 dark:text-neutral-400">{currentWord.romaji}</span>
-          <div className="flex max-w-full flex-col items-center gap-1 overflow-x-auto">
+          {/* Row width is pinned to cellSize * columns — the SAME footprint
+              packTracingRows already reserves for the writing canvas below
+              (layout is the single shared model, see its comment) — with
+              `justify-start` so a partial final row's units sit flush left
+              inside that fixed-width row, exactly like the canvas's pixel
+              draws for a partial row start at column 0 rather than
+              centering. gap-0 everywhere (both between a yōon unit's own
+              two cells, inside TracingUnitAnimation, and between units in a
+              row) so total rendered width is exactly cellSize * columns on
+              the nose — any gap utility here would make 3 full-width cells
+              overflow availableWidth even when 3 * cellSize alone fits
+              (Step 24 bugfix). Each StrokeOrderAnimation SVG already has its
+              own visible border, so cell boundaries stay legible without a
+              gap. */}
+          <div className="flex w-full min-w-0 max-w-full flex-col items-center gap-0 overflow-x-auto">
             {wordRows.map((row, rowIndex) => (
-              <div key={rowIndex} className="flex gap-1">
+              <div
+                key={rowIndex}
+                className="flex justify-start gap-0"
+                style={{ width: layout.cellSize * layout.columns }}
+              >
                 {row.units.map((unit, i) => (
                   <TracingUnitAnimation
                     key={`${unit.characterId}-${rowIndex}-${i}`}
@@ -475,7 +523,7 @@ export function TracingPage() {
           available space (Step 12); overflow-x-auto is kept only as a
           last-resort safety net below the ~320px target width (Step 23) —
           the packed layout above is sized to need it. */}
-      <div ref={canvasWrapRef} className="w-full max-w-full overflow-x-auto">
+      <div ref={canvasWrapRef} className="w-full min-w-0 max-w-full overflow-x-auto">
         <canvas
           ref={canvasRef}
           style={{

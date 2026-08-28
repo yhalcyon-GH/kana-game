@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { useLayoutEffect, useRef } from 'react'
 import { STROKE_PATHS } from '../data/strokes'
 import { buildTracingUnit } from '../lib/tracingUnits'
@@ -109,6 +110,25 @@ export function StrokeOrderAnimation({ characterId, playToken, size = 160, strok
 // strokes play — never simultaneously (Step 18).
 const SMALL_GLYPH_SCALE = 0.65
 
+// Fixed-size "writing cell" wrapper — the animation's per-glyph footprint
+// must exactly equal `size` (one writing cell, matching the writing
+// canvas's packTracingRows model in TracingPage), regardless of whether the
+// glyph rendered inside is a full-size normal/base glyph or a small
+// ゃ/ゅ/ょ scaled down via SMALL_GLYPH_SCALE — the scaling only shrinks the
+// SVG content INSIDE the cell, never the cell slot itself, so a unit's
+// total rendered width is always exactly `glyphs.length * size` (Step 24
+// bugfix: previously a small glyph's own narrower SVG shrank the flex
+// item's width too, so total unit width was less than what
+// packTracingRows/unitCellWidth already reserves for it in the canvas,
+// misaligning the animation against the canvas grid).
+function TracingCell({ size, children }: { size: number; children: ReactNode }) {
+  return (
+    <div style={{ width: size, height: size }} className="flex shrink-0 items-end justify-center">
+      {children}
+    </div>
+  )
+}
+
 export function TracingUnitAnimation({
   characterId,
   playToken,
@@ -120,21 +140,29 @@ export function TracingUnitAnimation({
 }) {
   const unit = buildTracingUnit(characterId)
   if (unit.glyphs.length <= 1) {
-    return <StrokeOrderAnimation characterId={characterId} playToken={playToken} size={size} />
+    return (
+      <TracingCell size={size}>
+        <StrokeOrderAnimation characterId={characterId} playToken={playToken} size={size} />
+      </TracingCell>
+    )
   }
   const [base, small] = unit.glyphs
   const baseStrokeCount = STROKE_PATHS[base.strokeSourceId]?.length ?? 0
   const smallStartDelayMs = baseStrokeCount * (STROKE_MS + GAP_MS)
   return (
-    <div className="flex items-end gap-1">
-      <StrokeOrderAnimation characterId={characterId} strokeSourceId={base.strokeSourceId} playToken={playToken} size={size} />
-      <StrokeOrderAnimation
-        characterId={`${characterId}-small`}
-        strokeSourceId={small.strokeSourceId}
-        playToken={playToken}
-        size={Math.round(size * SMALL_GLYPH_SCALE)}
-        startDelayMs={smallStartDelayMs}
-      />
+    <div className="flex gap-0">
+      <TracingCell size={size}>
+        <StrokeOrderAnimation characterId={characterId} strokeSourceId={base.strokeSourceId} playToken={playToken} size={size} />
+      </TracingCell>
+      <TracingCell size={size}>
+        <StrokeOrderAnimation
+          characterId={`${characterId}-small`}
+          strokeSourceId={small.strokeSourceId}
+          playToken={playToken}
+          size={Math.round(size * SMALL_GLYPH_SCALE)}
+          startDelayMs={smallStartDelayMs}
+        />
+      </TracingCell>
     </div>
   )
 }
