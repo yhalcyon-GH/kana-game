@@ -25,6 +25,21 @@ async function main() {
   console.log('Fetching stroke data from KanjiVG...')
   const entries: [string, string[]][] = []
   for (const char of CHARACTERS) {
+    // Yōon characterIds (きゃ, キョ, ...) are 2 glyphs long — see
+    // data/characters.ts's yōon section comment. fetchStrokes() only ever
+    // fetches KanjiVG data for kana.codePointAt(0), i.e. the FIRST glyph
+    // only, so writing that under the yōon id here would mislabel a
+    // base-glyph-only entry as if it were the complete character's strokes.
+    // The small ゃ/ゅ/ょ half is intentionally never fetched at all — it's
+    // composed at render time from the already-fetched full-size
+    // や/ゆ/よ entries instead (see lib/tracingUnits.ts and
+    // StrokeOrderAnimation's TracingUnitAnimation). See also CLAUDE.md:
+    // "Do not run scripts/fetchStrokeData.ts for yōon or future multi-glyph
+    // character ids."
+    if ([...char.kana].length > 1) {
+      console.log(`  ${char.id} (${char.kana}): skipped (multi-glyph yōon id; composed at runtime instead)`)
+      continue
+    }
     const strokes = await fetchStrokes(char.kana)
     entries.push([char.id, strokes])
     console.log(`  ${char.id} (${char.kana}): ${strokes.length} strokes`)

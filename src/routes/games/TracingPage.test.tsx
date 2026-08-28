@@ -325,6 +325,96 @@ describe('TracingPage Back button — contrast-pairs row (sokuon-row: words phas
   })
 })
 
+// Responsive layout regression coverage (Steps A/B/C/G/I/J/K) — see
+// lib/tracingUnits.test.ts for the packing-algorithm-level coverage (D-H)
+// and StrokeOrderAnimation.test.tsx for the animation-composition coverage.
+// jsdom never computes real layout (getBoundingClientRect always reports 0
+// width), so the ResizeObserver-measured `availableWidth` stays 0 here and
+// TracingPage's layout memo falls back to its cap-sized value — that
+// fallback is still exercised, and the cell-count-driven WIDTH/HEIGHT ratio
+// (columns vs rows) is what these tests check, since that ratio holds
+// regardless of the absolute pixel cap.
+describe('TracingPage responsive layout', () => {
+  beforeEach(() => {
+    useProgressStore.getState().resetProgress()
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(canvasContext as unknown as CanvasRenderingContext2D)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  function renderRow(categoryId: string, rowId: string) {
+    return render(
+      <MemoryRouter initialEntries={[`/practice/${categoryId}/${rowId}/tracing`]}>
+        <Routes>
+          <Route path="/practice/:categoryId/:rowId/tracing" element={<TracingPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+  }
+
+  function canvasSize(container: HTMLElement) {
+    const canvas = container.querySelector('canvas') as HTMLCanvasElement
+    const width = parseFloat(canvas.style.width)
+    const height = parseFloat(canvas.style.height)
+    return { width, height }
+  }
+
+  it('A: normal single character (a-row, あ) — 1x1 cell canvas, no horizontal overflow implied', () => {
+    const { container } = renderRow('hiragana', 'a-row')
+    const { width, height } = canvasSize(container)
+    expect(width).toBe(height) // 1 column x 1 row
+  })
+
+  it('B: yōon character (きゃ) — wide 2-cell canvas, both glyphs fit (width = 2x height)', () => {
+    const { container } = renderRow('youon', 'youon-ka-row')
+    const { width, height } = canvasSize(container)
+    expect(width).toBe(2 * height)
+  })
+
+  it('C: katakana yōon character (キャ) — same 2-cell shape as hiragana yōon', () => {
+    const { container } = renderRow('youon', 'youon-katakana-ka-row')
+    const { width, height } = canvasSize(container)
+    expect(width).toBe(2 * height)
+  })
+
+  it('G + I: yōon word きゃく (kya + ku) packs as 2+1=3 cells in ONE row (a sokuon-like normal unit never splits きゃ apart)', () => {
+    const { container, getByRole, getByText } = renderRow('youon', 'youon-ka-row')
+    // Advance through all 6 characters (kya/kyu/kyo/gya/gyu/gyo) into the
+    // word phase; youon-ka-kyaku (きゃく) is the first word.
+    for (let i = 0; i < 6; i++) fireEvent.click(getByRole('button', { name: 'Next' }))
+    expect(getByText(/Round 1/)).toBeInTheDocument()
+    const { width, height } = canvasSize(container)
+    // 3 cells wide, 1 row tall.
+    expect(width).toBe(3 * height)
+    // The stroke-animation area must show BOTH きゃ's glyphs (2 svgs) plus
+    // く's (1 svg) = 3 total — never collapsing きゃ into just one.
+    expect(container.querySelectorAll('svg')).toHaveLength(3)
+  })
+
+  it('I/J: sokuon word (おっと, the 2nd word in this row) — っ is 1 normal writing cell, unchanged (3 cells: お/っ/と)', () => {
+    const { container, getByRole, getByText } = renderRow('sokuon', 'sokuon-row')
+    // sokuon-row's first word is the plain minimal-pair partner (おと, 2
+    // cells); おっと (with the actual っ) is the 2nd.
+    fireEvent.click(getByRole('button', { name: 'Next' }))
+    expect(getByText(/Round 2/)).toBeInTheDocument()
+    const { width, height } = canvasSize(container)
+    expect(width).toBe(3 * height)
+    expect(container.querySelectorAll('svg')).toHaveLength(3)
+  })
+
+  it('K: pointer coordinates stay aligned with CSS coordinates under dynamic sizing (DPR contract preserved)', () => {
+    Element.prototype.setPointerCapture = vi.fn()
+    const { container } = renderRow('hiragana', 'a-row')
+    const canvas = container.querySelector('canvas') as HTMLCanvasElement
+    fireEvent.pointerDown(canvas, { clientX: 10, clientY: 20 })
+    fireEvent.pointerMove(canvas, { clientX: 15, clientY: 25 })
+    expect(canvasContext.moveTo).toHaveBeenCalledWith(10, 20)
+    expect(canvasContext.lineTo).toHaveBeenCalledWith(15, 25)
+  })
+})
+
 describe('TracingPage Back button — Similar Letters row (characters-only, no words phase)', () => {
   beforeEach(() => {
     useProgressStore.getState().resetProgress()
