@@ -1,15 +1,28 @@
+import type { ReactNode } from 'react'
 import { useLayoutEffect, useRef } from 'react'
 import { STROKE_PATHS } from '../data/strokes'
+import { buildTracingUnit } from '../lib/tracingUnits'
 
 type Props = {
   characterId: string
   playToken: number
   size?: number
+  // Which STROKE_PATHS entry to animate. Defaults to `characterId` — only
+  // yōon's small ゃ/ゅ/ょ glyph passes a different id here (see
+  // TracingUnitAnimation), reusing や/ゆ/よ's full stroke data rather than
+  // any hand-authored/newly-fetched small-glyph path (see strokes.ts's
+  // generated-file header).
+  strokeSourceId?: string
+  // Delay (ms) before this glyph's first stroke starts, on top of each
+  // stroke's own per-index delay below — used by TracingUnitAnimation to
+  // sequence a yōon unit's small glyph after its base glyph finishes,
+  // rather than animating both simultaneously (Step 18).
+  startDelayMs?: number
 }
 
 const VIEWBOX_SIZE = 109 // KanjiVG's standard canvas size for every stroke path
-const STROKE_MS = 500
-const GAP_MS = 200
+export const STROKE_MS = 500
+export const GAP_MS = 200
 
 // Animates a character being drawn stroke-by-stroke over a faint full-glyph
 // guide — "here's how you write this" before the learner attempts it
@@ -24,8 +37,9 @@ const GAP_MS = 200
 // (state settles to its end value before the hidden state ever paints, so
 // nothing visibly animates). animate() always plays a real animation
 // regardless of paint timing.
-export function StrokeOrderAnimation({ characterId, playToken, size = 160 }: Props) {
-  const strokes = STROKE_PATHS[characterId] ?? []
+export function StrokeOrderAnimation({ characterId, playToken, size = 160, strokeSourceId, startDelayMs = 0 }: Props) {
+  const sourceId = strokeSourceId ?? characterId
+  const strokes = STROKE_PATHS[sourceId] ?? []
   const pathRefs = useRef<(SVGPathElement | null)[]>([])
 
   useLayoutEffect(() => {
@@ -41,14 +55,14 @@ export function StrokeOrderAnimation({ characterId, playToken, size = 160 }: Pro
       el.style.strokeDashoffset = String(length)
       return el.animate([{ strokeDashoffset: length }, { strokeDashoffset: 0 }], {
         duration: STROKE_MS,
-        delay: i * (STROKE_MS + GAP_MS),
+        delay: startDelayMs + i * (STROKE_MS + GAP_MS),
         easing: 'ease-in-out',
         fill: 'forwards',
       })
     })
     return () => animations.forEach((a) => a?.cancel())
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [characterId, playToken])
+  }, [sourceId, playToken, startDelayMs])
 
   return (
     <svg
@@ -81,5 +95,74 @@ export function StrokeOrderAnimation({ characterId, playToken, size = 160 }: Pro
         ))}
       </g>
     </svg>
+  )
+}
+
+// Yōon-aware wrapper around StrokeOrderAnimation, sharing the same
+// TracingUnit expansion TracingPage's writing canvas uses (see
+// lib/tracingUnits.ts) so the animation's visual arrangement never drifts
+// from the writing area's — a single-glyph characterId renders exactly as
+// StrokeOrderAnimation always has, and a yōon characterId renders its base
+// glyph followed by its small ゃ/ゅ/ょ glyph (borrowed や/ゆ/よ stroke data,
+// rendered at a reduced size — never a deformed/skewed one, since the SVG
+// viewBox is unchanged and only the rendered width/height shrinks) animated
+// in writing order: base glyph's strokes complete, THEN the small glyph's
+// strokes play — never simultaneously (Step 18).
+const SMALL_GLYPH_SCALE = 0.65
+
+// Fixed-size "writing cell" wrapper — the animation's per-glyph footprint
+// must exactly equal `size` (one writing cell, matching the writing
+// canvas's packTracingRows model in TracingPage), regardless of whether the
+// glyph rendered inside is a full-size normal/base glyph or a small
+// ゃ/ゅ/ょ scaled down via SMALL_GLYPH_SCALE — the scaling only shrinks the
+// SVG content INSIDE the cell, never the cell slot itself, so a unit's
+// total rendered width is always exactly `glyphs.length * size` (Step 24
+// bugfix: previously a small glyph's own narrower SVG shrank the flex
+// item's width too, so total unit width was less than what
+// packTracingRows/unitCellWidth already reserves for it in the canvas,
+// misaligning the animation against the canvas grid).
+function TracingCell({ size, children }: { size: number; children: ReactNode }) {
+  return (
+    <div style={{ width: size, height: size }} className="flex shrink-0 items-end justify-center">
+      {children}
+    </div>
+  )
+}
+
+export function TracingUnitAnimation({
+  characterId,
+  playToken,
+  size = 160,
+}: {
+  characterId: string
+  playToken: number
+  size?: number
+}) {
+  const unit = buildTracingUnit(characterId)
+  if (unit.glyphs.length <= 1) {
+    return (
+      <TracingCell size={size}>
+        <StrokeOrderAnimation characterId={characterId} playToken={playToken} size={size} />
+      </TracingCell>
+    )
+  }
+  const [base, small] = unit.glyphs
+  const baseStrokeCount = STROKE_PATHS[base.strokeSourceId]?.length ?? 0
+  const smallStartDelayMs = baseStrokeCount * (STROKE_MS + GAP_MS)
+  return (
+    <div className="flex gap-0">
+      <TracingCell size={size}>
+        <StrokeOrderAnimation characterId={characterId} strokeSourceId={base.strokeSourceId} playToken={playToken} size={size} />
+      </TracingCell>
+      <TracingCell size={size}>
+        <StrokeOrderAnimation
+          characterId={`${characterId}-small`}
+          strokeSourceId={small.strokeSourceId}
+          playToken={playToken}
+          size={Math.round(size * SMALL_GLYPH_SCALE)}
+          startDelayMs={smallStartDelayMs}
+        />
+      </TracingCell>
+    </div>
   )
 }

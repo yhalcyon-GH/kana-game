@@ -3,16 +3,54 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BackToHubLink } from '../../components/BackToHubLink'
 import { PracticeSummary } from '../../components/PracticeSummary'
-import { StrokeOrderAnimation } from '../../components/StrokeOrderAnimation'
+import { TracingUnitAnimation } from '../../components/StrokeOrderAnimation'
 import { WordImage } from '../../components/WordImage'
 import { CHARACTERS_BY_ID, getCharacterAudioId } from '../../data/characters'
 import { CATEGORIES_BY_ID, ROWS_BY_ID } from '../../data/curriculum'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
 import { useTTS } from '../../hooks/useTTS'
+import { buildTracingUnit, buildTracingUnits, packTracingRows, unitCellWidth } from '../../lib/tracingUnits'
+import type { PackedRow } from '../../lib/tracingUnits'
 import { useProgressStore } from '../../store/progressStore'
 
-const CANVAS_SIZE = 280 // CSS pixels, single-character phase
-const WORD_CHAR_SIZE = 130 // CSS pixels per character, word phase
+const CANVAS_SIZE = 280 // CSS pixels, single-character phase (normal 1-glyph characters — unchanged)
+const MAX_WORD_CELL_SIZE = 130 // CSS pixels per writing cell, upper bound — word phase and yōon char phase
+const MAX_ROW_CELLS = 3 // writing-cell cap per row before wrapping (Step 8) — a yōon unit counts as 2 cells
+const SMALL_GUIDE_SCALE = 0.65 // small ゃ/ゅ/ょ guide glyph size relative to a normal glyph (Step 15)
+
+// Measures a container element's content-box width live via ResizeObserver
+// (Step 12) — window.innerWidth doesn't reliably reflect the actual space
+// left for the canvas after padding/sibling layout, and a ref-based
+// measurement stays correct across viewport resize/orientation change.
+//
+// A CALLBACK ref (Step 24 bugfix), not a plain ref + effect-with-empty-deps:
+// TracingPage's queue/currentCharId/currentWord start empty and are only
+// populated by a later effect (see startSession), so the canvas wrapper
+// `<div>` this measures does NOT exist on the component's very first
+// render — an object ref's `.current` would be null at that point. A plain
+// `useRef` + `useEffect(..., [])` only ever runs its attach/observe logic
+// once, at that first mount, so it would see `el === null`, do nothing, and
+// never retry — meaning ResizeObserver would never actually attach for the
+// entire lifetime of the component, and every render would silently fall
+// back to the CANVAS_SIZE/MAX_WORD_CELL_SIZE cap forever, regardless of
+// real viewport width. A callback ref re-runs exactly when React actually
+// attaches/detaches the DOM node, so it correctly (re)attaches even when
+// that first happens on a later render.
+function useContainerWidth<T extends HTMLElement>() {
+  const [width, setWidth] = useState(0)
+  const observerRef = useRef<ResizeObserver | null>(null)
+  const ref = useCallback((el: T | null) => {
+    observerRef.current?.disconnect()
+    observerRef.current = null
+    if (!el) return
+    const update = () => setWidth(el.getBoundingClientRect().width)
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(el)
+    observerRef.current = observer
+  }, [])
+  return [ref, width] as const
+}
 
 // Free-form tracing practice: draw over a faint guide of the kana with a
 // finger/mouse/stylus. Deliberately NOT graded — competing apps' handwriting
@@ -110,6 +148,57 @@ export function TracingPage() {
   const currentCharId = phase === 'chars' && queue.length > 0 ? queue[roundIndex] : undefined
   const currentWord = phase === 'words' && queue.length > 0 ? wordsById[queue[roundIndex]] : undefined
 
+  const [canvasWrapRef, availableWidth] = useContainerWidth<HTMLDivElement>()
+
+  // The single shared layout model behind both the writing canvas and the
+  // stroke-order animation area (Step 16) — never computed twice
+  // independently. `unit` covers the character phase (1 unit, 1 or 2
+  // cells); `rows` covers the word phase (packed TracingUnits, a yōon unit
+  // never split across a row boundary — see packTracingRows). Falls back to
+  // an empty layout when there's nothing to draw yet.
+  const charUnit = useMemo(() => (currentCharId ? buildTracingUnit(currentCharId) : undefined), [currentCharId])
+  const wordUnits = useMemo(
+    () => (currentWord ? buildTracingUnits(currentWord.characterIds) : []),
+    [currentWord],
+  )
+  const wordRows = useMemo<PackedRow[]>(() => packTracingRows(wordUnits, MAX_ROW_CELLS), [wordUnits])
+
+  const layout = useMemo(() => {
+    // Before the container's first real ResizeObserver measurement (or in a
+    // test/no-layout environment such as jsdom, which never reports a
+    // nonzero getBoundingClientRect width), fall back to sizing at the cap
+    // rather than dividing by a bogus near-zero width — the resize effect
+    // recomputes the real value the moment a measurement does arrive.
+    if (phase === 'chars' && charUnit) {
+      const cellWidth = unitCellWidth(charUnit)
+      if (cellWidth <= 1) return { cellSize: CANVAS_SIZE, columns: 1, rows: 1 }
+      const cellSize = availableWidth > 0 ? Math.max(1, Math.min(CANVAS_SIZE, Math.floor(availableWidth / cellWidth))) : CANVAS_SIZE
+      return { cellSize, columns: cellWidth, rows: 1 }
+    }
+    if (phase === 'words' && wordRows.length > 0) {
+      const columns = Math.min(MAX_ROW_CELLS, Math.max(...wordRows.map((r) => r.cellCount)))
+      const cellSize =
+        availableWidth > 0 ? Math.max(1, Math.min(MAX_WORD_CELL_SIZE, Math.floor(availableWidth / columns))) : MAX_WORD_CELL_SIZE
+      return { cellSize, columns, rows: wordRows.length }
+    }
+    return { cellSize: CANVAS_SIZE, columns: 1, rows: 1 }
+  }, [phase, charUnit, wordRows, availableWidth])
+
+  // Character-phase animation sizing (Step 25 bugfix): a normal (1-glyph)
+  // character's animation stays at StrokeOrderAnimation's default 160px —
+  // unchanged from before this fix, since a single writing cell always fits
+  // comfortably even at the narrowest supported viewport. A yōon (2-glyph)
+  // character's animation footprint is `size * 2`, but the writing canvas
+  // above it already shrinks its own per-cell size (`layout.cellSize`) to
+  // fit `availableWidth` — at a 320px viewport that's ~144px/cell, well
+  // under the animation's fixed 160px, so the animation could overflow past
+  // the canvas's own (correct) width. Capping at `Math.min(160,
+  // layout.cellSize)` mirrors the canvas's shrink without ever growing the
+  // animation past 160px on a wide viewport (layout.cellSize can exceed 160
+  // there, but Math.min keeps 160 as the ceiling).
+  const charAnimationCellSize =
+    charUnit && unitCellWidth(charUnit) > 1 ? Math.min(160, layout.cellSize) : 160
+
   // Resizing the canvas backing store (even to the same size) clears it AND
   // resets all context state (fillStyle/font/textAlign/etc. revert to their
   // defaults) — so the resize must happen *before* any style is set, not
@@ -137,46 +226,59 @@ export function TracingPage() {
     if (!canvas || !ctx) return
     const dpr = window.devicePixelRatio || 1
     const token = ++drawTokenRef.current
+    const { cellSize, columns, rows } = layout
 
-    if (phase === 'chars' && currentCharId) {
-      canvas.width = CANVAS_SIZE * dpr
-      canvas.height = CANVAS_SIZE * dpr
+    // Draws one glyph centered in the writing cell at (col, row) — sized
+    // down (and nudged slightly lower, per Step 15) when it's a small
+    // ゃ/ゅ/ょ, so it's unambiguous at a glance which half of a yōon unit is
+    // which without deforming/cropping either glyph.
+    const drawGlyph = (kana: string, col: number, row: number, isSmall: boolean) => {
+      const fontSize = cellSize * 0.75 * (isSmall ? SMALL_GUIDE_SCALE : 1)
+      ctx.font = `${fontSize}px "Klee One", sans-serif`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillStyle = 'rgba(120, 120, 120, 0.3)'
+      const cx = cellSize * (col + 0.5)
+      const cy = cellSize * (row + 0.5) + cellSize * (isSmall ? 0.12 : 0.05)
+      ctx.fillText(kana, cx, cy)
+    }
+
+    if (phase === 'chars' && currentCharId && charUnit) {
+      canvas.width = cellSize * columns * dpr
+      canvas.height = cellSize * rows * dpr
       ctx.scale(dpr, dpr)
       const paint = () => {
         if (drawTokenRef.current !== token) return
-        ctx.font = `${CANVAS_SIZE * 0.75}px "Klee One", sans-serif`
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'middle'
-        ctx.fillStyle = 'rgba(120, 120, 120, 0.3)'
-        ctx.fillText(CHARACTERS_BY_ID[currentCharId].kana, CANVAS_SIZE / 2, CANVAS_SIZE / 2 + CANVAS_SIZE * 0.05)
+        charUnit.glyphs.forEach((glyph, i) => drawGlyph(glyph.kana, i, 0, glyph.isSmall))
       }
       if (document.fonts?.load) {
-        document.fonts.load(`${CANVAS_SIZE * 0.75}px "Klee One"`).then(paint, paint)
+        document.fonts.load(`${cellSize * 0.75}px "Klee One"`).then(paint, paint)
       } else {
         paint()
       }
-    } else if (phase === 'words' && currentWord) {
-      const chars = [...currentWord.kana]
-      canvas.width = WORD_CHAR_SIZE * chars.length * dpr
-      canvas.height = WORD_CHAR_SIZE * dpr
+    } else if (phase === 'words' && currentWord && wordRows.length > 0) {
+      canvas.width = cellSize * columns * dpr
+      canvas.height = cellSize * rows * dpr
       ctx.scale(dpr, dpr)
       const paint = () => {
         if (drawTokenRef.current !== token) return
-        ctx.font = `${WORD_CHAR_SIZE * 0.75}px "Klee One", sans-serif`
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'middle'
-        ctx.fillStyle = 'rgba(120, 120, 120, 0.3)'
-        chars.forEach((ch, i) => {
-          ctx.fillText(ch, WORD_CHAR_SIZE * (i + 0.5), WORD_CHAR_SIZE / 2 + WORD_CHAR_SIZE * 0.05)
+        wordRows.forEach((packedRow, rowIndex) => {
+          let col = 0
+          packedRow.units.forEach((unit) => {
+            unit.glyphs.forEach((glyph, glyphIndex) => {
+              drawGlyph(glyph.kana, col + glyphIndex, rowIndex, glyph.isSmall)
+            })
+            col += unitCellWidth(unit)
+          })
         })
       }
       if (document.fonts?.load) {
-        document.fonts.load(`${WORD_CHAR_SIZE * 0.75}px "Klee One"`).then(paint, paint)
+        document.fonts.load(`${cellSize * 0.75}px "Klee One"`).then(paint, paint)
       } else {
         paint()
       }
     }
-  }, [phase, currentCharId, currentWord])
+  }, [phase, currentCharId, currentWord, charUnit, wordRows, layout])
 
   useEffect(() => {
     if (phase === 'chars') {
@@ -191,6 +293,17 @@ export function TracingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, currentCharId, currentWord?.id])
 
+  // Redraws the guide (without re-triggering audio/Clear semantics) when
+  // the responsive layout itself changes — e.g. the container's first real
+  // measurement after mount, or a viewport resize/orientation change (Step
+  // 12) — so the canvas backing store and guide stay in sync with the
+  // latest `layout.cellSize`/`columns`/`rows` rather than a stale draw from
+  // before ResizeObserver reported the container's true width.
+  useEffect(() => {
+    if ((phase === 'chars' && currentCharId) || (phase === 'words' && currentWord)) drawGuide()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layout.cellSize, layout.columns, layout.rows])
+
   const getPoint = (e: PointerEvent<HTMLCanvasElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
     return { x: e.clientX - rect.left, y: e.clientY - rect.top }
@@ -203,7 +316,7 @@ export function TracingPage() {
     if (!ctx) return
     const { x, y } = getPoint(e)
     ctx.strokeStyle = '#2563eb'
-    ctx.lineWidth = 10
+    ctx.lineWidth = 7
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
     ctx.beginPath()
@@ -312,7 +425,22 @@ export function TracingPage() {
   const currentChar = currentCharId ? CHARACTERS_BY_ID[currentCharId] : undefined
 
   return (
-    <div className="flex flex-col items-center gap-6">
+    // w-full min-w-0 max-w-full (Step 24 bugfix): <main> is `flex flex-col
+    // items-center`, which does NOT stretch cross-axis children to its
+    // width by default (align-items: center sizes children to their own
+    // content). Without an explicit width here, this root sized itself to
+    // its widest child's max-content width — including the word-phase
+    // canvas's pre-measurement fallback (3 cells x MAX_WORD_CELL_SIZE =
+    // 390px) — which then became the "available width" the canvas wrapper's
+    // own `w-full` resolved against, so ResizeObserver could never measure
+    // anything narrower than that fallback on a narrow viewport: a
+    // self-reinforcing loop that defeated the whole responsive fix. Forcing
+    // w-full here stretches this root to <main>'s real content-box width
+    // (max-w-3xl minus its px-4 padding) regardless of any child's
+    // fallback size; min-w-0 overrides flexbox's default min-width:auto
+    // (which would otherwise let a wide child's min-content size win
+    // anyway); max-w-full is a belt-and-suspenders cap.
+    <div className="flex w-full min-w-0 max-w-full flex-col items-center gap-6">
       <BackToHubLink rowId={rowId} categoryId={categoryId} />
       <h2 className="text-sm font-semibold text-neutral-600 dark:text-neutral-300">
         {phase === 'chars' ? 'Trace each character' : 'Trace each word'}
@@ -324,7 +452,7 @@ export function TracingPage() {
       {phase === 'chars' && currentCharId && currentChar ? (
         <>
           <span className="text-lg text-neutral-500 dark:text-neutral-400">{currentChar.romaji}</span>
-          <StrokeOrderAnimation characterId={currentCharId} playToken={animationToken} />
+          <TracingUnitAnimation characterId={currentCharId} playToken={animationToken} size={charAnimationCellSize} />
           <div className="flex gap-3">
             {supported && (
               <button
@@ -351,12 +479,37 @@ export function TracingPage() {
           <WordImage word={currentWord} className="h-14 w-14" />
           <span className="text-lg font-semibold">{currentWord.meaning}</span>
           <span className="-mt-4 text-sm text-neutral-500 dark:text-neutral-400">{currentWord.romaji}</span>
-          <div className="max-w-full overflow-x-auto">
-            <div className="flex w-max gap-1">
-              {[...currentWord.characterIds].map((charId, i) => (
-                <StrokeOrderAnimation key={`${charId}-${i}`} characterId={charId} playToken={animationToken} size={WORD_CHAR_SIZE} />
-              ))}
-            </div>
+          {/* Row width is pinned to cellSize * columns — the SAME footprint
+              packTracingRows already reserves for the writing canvas below
+              (layout is the single shared model, see its comment) — with
+              `justify-start` so a partial final row's units sit flush left
+              inside that fixed-width row, exactly like the canvas's pixel
+              draws for a partial row start at column 0 rather than
+              centering. gap-0 everywhere (both between a yōon unit's own
+              two cells, inside TracingUnitAnimation, and between units in a
+              row) so total rendered width is exactly cellSize * columns on
+              the nose — any gap utility here would make 3 full-width cells
+              overflow availableWidth even when 3 * cellSize alone fits
+              (Step 24 bugfix). Each StrokeOrderAnimation SVG already has its
+              own visible border, so cell boundaries stay legible without a
+              gap. */}
+          <div className="flex w-full min-w-0 max-w-full flex-col items-center gap-0 overflow-x-auto">
+            {wordRows.map((row, rowIndex) => (
+              <div
+                key={rowIndex}
+                className="flex justify-start gap-0"
+                style={{ width: layout.cellSize * layout.columns }}
+              >
+                {row.units.map((unit, i) => (
+                  <TracingUnitAnimation
+                    key={`${unit.characterId}-${rowIndex}-${i}`}
+                    characterId={unit.characterId}
+                    playToken={animationToken}
+                    size={layout.cellSize}
+                  />
+                ))}
+              </div>
+            ))}
           </div>
           <div className="flex gap-3">
             {supported && (
@@ -381,15 +534,19 @@ export function TracingPage() {
         </>
       ) : null}
 
-      <div className="max-w-full overflow-x-auto">
+      {/* w-full so the ResizeObserver-measured width reflects the real
+          available space (Step 12); overflow-x-auto is kept only as a
+          last-resort safety net below the ~320px target width (Step 23) —
+          the packed layout above is sized to need it. */}
+      <div ref={canvasWrapRef} className="w-full min-w-0 max-w-full overflow-x-auto">
         <canvas
           ref={canvasRef}
           style={{
-            width: phase === 'chars' ? CANVAS_SIZE : WORD_CHAR_SIZE * [...(currentWord?.kana ?? '')].length,
-            height: phase === 'chars' ? CANVAS_SIZE : WORD_CHAR_SIZE,
+            width: layout.cellSize * layout.columns,
+            height: layout.cellSize * layout.rows,
             touchAction: 'none',
           }}
-          className="rounded-2xl border-2 border-neutral-300 bg-white dark:border-neutral-600 dark:bg-neutral-800"
+          className="mx-auto rounded-2xl border-2 border-neutral-300 bg-white dark:border-neutral-600 dark:bg-neutral-800"
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}

@@ -19,3 +19,19 @@ if (typeof window.SVGElement !== 'undefined') {
   // @ts-expect-error -- jsdom's SVGElement type doesn't declare this method
   window.SVGElement.prototype.getTotalLength = () => 100
 }
+
+// jsdom doesn't implement ResizeObserver at all (real browsers all do) —
+// TracingPage's useContainerWidth constructs one unconditionally once its
+// measured element actually mounts. This minimal stub only needs to satisfy
+// the constructor/observe/disconnect contract; tests that need a specific
+// measured width mock `getBoundingClientRect` and rely on
+// useContainerWidth's own synchronous initial `update()` call (made before
+// `observe()`), not on this stub ever firing a resize callback.
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  class ResizeObserverStub {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  globalThis.ResizeObserver = ResizeObserverStub
+}
