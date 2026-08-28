@@ -179,3 +179,40 @@ describe('IntroGuide (Issue #29/#31)', () => {
     expect(state.unlockedRowIds).toEqual(['a-row'])
   })
 })
+
+describe('IntroGuide Back navigation', () => {
+  it('Next then Back returns to the previous step', () => {
+    const { getByText } = render(<IntroGuide />)
+    fireEvent.click(getByText(locale.nextLabel))
+    expect(getByText(locale.steps['intro.writingSystems'].subtitle)).toBeInTheDocument()
+
+    fireEvent.click(getByText('Back'))
+    expect(getByText(locale.steps['intro.welcome'].subtitle)).toBeInTheDocument()
+  })
+
+  it('Back is disabled on the first step', () => {
+    const { getByText } = render(<IntroGuide />)
+    expect(getByText('Back')).toBeDisabled()
+  })
+
+  it('Back does not mark the Introduction completed', () => {
+    const { getByText } = render(<IntroGuide />)
+    fireEvent.click(getByText(locale.nextLabel))
+    fireEvent.click(getByText('Back'))
+    expect(useProgressStore.getState().hasCompletedIntroGuide).toBe(false)
+  })
+
+  it('narration for the returned step is started exactly once, not duplicated', () => {
+    const callsFor = (audioKey: string) => mockSpeakStaticOnly.mock.calls.filter((c) => c[0] === audioKey).length
+    const welcomeAudioKey = locale.steps['intro.welcome'].audioKey
+
+    const { getByText } = render(<IntroGuide />)
+    expect(callsFor(welcomeAudioKey)).toBe(1)
+
+    fireEvent.click(getByText(locale.nextLabel))
+    fireEvent.click(getByText('Back'))
+
+    expect(getByText(locale.steps['intro.welcome'].subtitle)).toBeInTheDocument()
+    expect(callsFor(welcomeAudioKey)).toBe(2)
+  })
+})

@@ -213,6 +213,29 @@ describe('Chōon Guide navigation', () => {
   })
 })
 
+describe('Chōon Guide Back navigation', () => {
+  it('advancing then Back returns one step', () => {
+    const hub = renderHub()
+    fireEvent.click(hub.getByText(locale.nextLabel))
+    expect(hub.getByText(locale.steps['chouon.a'].subtitle)).toBeInTheDocument()
+
+    fireEvent.click(hub.getByText('Back'))
+    expect(hub.getByText(locale.steps['chouon.intro'].subtitle)).toBeInTheDocument()
+  })
+
+  it('Back is disabled on the first step', () => {
+    const hub = renderHub()
+    expect(hub.getByText('Back')).toBeDisabled()
+  })
+
+  it('Back does not mark the Chōon Guide (Long Vowel Guide) completed', () => {
+    const hub = renderHub()
+    fireEvent.click(hub.getByText(locale.nextLabel))
+    fireEvent.click(hub.getByText('Back'))
+    expect(useProgressStore.getState().hasCompletedChouonGuide).toBe(false)
+  })
+})
+
 describe('Chōon Guide Quiz slide (slide 7)', () => {
   it('advancing from Quiz to Answers changes nothing but the Guide step — no learning/progress/SRS/Review state is touched', () => {
     const hub = renderHub()
