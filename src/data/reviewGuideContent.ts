@@ -7,7 +7,7 @@ export type ReviewGuideLocaleContent = {
 
 const EN: ReviewGuideLocaleContent = {
   lang: 'en-US',
-  speechText: 'Kana and words you miss go to Review. You can practice them again anytime!',
+  speechText: 'Retry lets you practice this round’s mistakes. Review saves tricky kana and words for later.',
   audioKey: 'guide/review-guide',
   dismissLabel: 'Got it!',
 }
