@@ -88,13 +88,13 @@ function LocationDisplay() {
   return <div data-testid="landed-path">{`${location.pathname}${location.search}`}</div>
 }
 
-function renderSection(categoryId: string, title: string) {
+function renderSection(categoryId: string, title: string, initialPath = '/section') {
   const variant = categoryId === KATAKANA_CATEGORY_ID ? 'katakana' : 'hiragana'
   // Search-param changes (the replay target) don't change the matched
   // route, so LocationDisplay is rendered alongside the page directly
   // rather than via a separate wildcard Route.
   return render(
-    <MemoryRouter initialEntries={['/section']}>
+    <MemoryRouter initialEntries={[initialPath]}>
       <LocationDisplay />
       <CategoryRowsPage title={title} description="" categoryIds={[categoryId]} askTamamizuKanaIntroVariant={variant} />
     </MemoryRouter>,
@@ -445,6 +445,19 @@ describe('Hiragana/Katakana section auto-display of KanaIntroExcerptGuide', () =
     fireEvent.click(getByText(excerptLocale.doneLabel))
 
     expect(useProgressStore.getState().hasCompletedHiraganaSectionGuide).toBe(true)
+  })
+
+  // Regression: a Particle Guide replay (deep link `?guide=particle`) and
+  // the section's own auto-shown KanaIntroExcerptGuide must never mount at
+  // once — only one Guide is ever visible at a time app-wide.
+  it('does not auto-show alongside an active Particle Guide replay (?guide=particle)', () => {
+    useProgressStore.getState().setHasCompletedIntroGuide(true)
+    useProgressStore.getState().setHasCompletedHiraganaSectionGuide(false)
+
+    const { getByTestId, queryByTestId } = renderSection(DEFAULT_CATEGORY_ID, 'Hiragana', '/section?guide=particle')
+
+    expect(getByTestId('particle-guide')).toBeInTheDocument()
+    expect(queryByTestId('kana-intro-excerpt-guide')).toBeNull()
   })
 })
 

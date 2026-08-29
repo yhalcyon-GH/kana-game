@@ -123,6 +123,13 @@ type ProgressState = {
   // replay.
   hasCompletedHiraganaSectionGuide: boolean
   hasCompletedKatakanaSectionGuide: boolean
+  // Tamamizu Guide (particle guide, は/へ/を pronunciation) — independent
+  // one-time flag for the "Ask Tamamizu about particles" button on the
+  // Hiragana page. No curriculum row triggers this automatically (see
+  // particleGuide.ts); set true only the first time a learner reaches the
+  // Guide's own final completion. A later manual replay of the same button
+  // must never reset it back to false or otherwise mutate progress state.
+  hasCompletedParticleGuide: boolean
 
   ensureCharacterInitialized: (charId: string) => void
   recordResult: (charId: string, correct: boolean) => void
@@ -163,6 +170,7 @@ type ProgressState = {
   setHasCompletedSpecialKatakanaGuide: (completed: boolean) => void
   setHasCompletedHiraganaSectionGuide: (completed: boolean) => void
   setHasCompletedKatakanaSectionGuide: (completed: boolean) => void
+  setHasCompletedParticleGuide: (completed: boolean) => void
   resetProgress: () => void
 }
 
@@ -293,6 +301,7 @@ export function mergePersistedProgress(persistedState: unknown, currentState: Pr
     ),
     hasCompletedHiraganaSectionGuide: booleanOr(persisted.hasCompletedHiraganaSectionGuide, currentState.hasCompletedHiraganaSectionGuide),
     hasCompletedKatakanaSectionGuide: booleanOr(persisted.hasCompletedKatakanaSectionGuide, currentState.hasCompletedKatakanaSectionGuide),
+    hasCompletedParticleGuide: booleanOr(persisted.hasCompletedParticleGuide, currentState.hasCompletedParticleGuide),
     mascotVoiceEnabled: booleanOr(persisted.mascotVoiceEnabled, currentState.mascotVoiceEnabled),
     mascotVoiceVolume: clampFiniteOr(persisted.mascotVoiceVolume, MIN_VOLUME, MAX_VOLUME, currentState.mascotVoiceVolume),
   }
@@ -323,6 +332,7 @@ export const useProgressStore = create<ProgressState>()(
       hasCompletedSpecialKatakanaGuide: false,
       hasCompletedHiraganaSectionGuide: false,
       hasCompletedKatakanaSectionGuide: false,
+      hasCompletedParticleGuide: false,
 
       ensureCharacterInitialized: (charId) => {
         if (get().characters[charId]) return
@@ -423,6 +433,7 @@ export const useProgressStore = create<ProgressState>()(
       setHasCompletedSpecialKatakanaGuide: (completed) => set({ hasCompletedSpecialKatakanaGuide: completed }),
       setHasCompletedHiraganaSectionGuide: (completed) => set({ hasCompletedHiraganaSectionGuide: completed }),
       setHasCompletedKatakanaSectionGuide: (completed) => set({ hasCompletedKatakanaSectionGuide: completed }),
+      setHasCompletedParticleGuide: (completed) => set({ hasCompletedParticleGuide: completed }),
       setMascotVoiceEnabled: (enabled) => set({ mascotVoiceEnabled: enabled }),
       setMascotVoiceVolume: (volume) => set({ mascotVoiceVolume: volume }),
 
@@ -450,6 +461,7 @@ export const useProgressStore = create<ProgressState>()(
           hasCompletedSpecialKatakanaGuide: false,
           hasCompletedHiraganaSectionGuide: false,
           hasCompletedKatakanaSectionGuide: false,
+          hasCompletedParticleGuide: false,
         }),
     }),
     {
