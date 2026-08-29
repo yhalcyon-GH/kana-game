@@ -3,7 +3,14 @@ import { ErrorBoundary } from './components/ErrorBoundary'
 import { GuideHighlightProvider } from './components/GuideHighlightProvider'
 import { IntroGuide } from './components/IntroGuide'
 import { NavBar } from './components/NavBar'
-import { CATEGORIES, CATEGORIES_BY_ID, DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID, YOUON_CATEGORY_ID } from './data/curriculum'
+import {
+  CATEGORIES,
+  CATEGORIES_BY_ID,
+  DEFAULT_CATEGORY_ID,
+  KATAKANA_CATEGORY_ID,
+  SPECIAL_KATAKANA_CATEGORY_ID,
+  YOUON_CATEGORY_ID,
+} from './data/curriculum'
 import { REVIEW_SCOPE_ID } from './hooks/useCurriculum'
 import { useTrackLastStudied } from './hooks/useTrackLastStudied'
 import { KanaQuizPage } from './routes/games/KanaQuizPage'
@@ -20,14 +27,17 @@ import { ReviewMistakesPage } from './routes/ReviewMistakesPage'
 import { ReviewPage } from './routes/ReviewPage'
 import { SettingsPage } from './routes/SettingsPage'
 
-// Every category that isn't hiragana/katakana/yōon gets bundled into one
-// 'そのほか' page rather than a new top-level page per category — computed
-// from CATEGORIES so a future category just appears here automatically once
-// its branch merges, no route change needed. 拗音 gets its own dedicated
-// page (below) rather than joining this bundle, at the user's explicit
-// request: it has enough rows ("セッションがたくさんある") to deserve one.
+// Every category that isn't hiragana/katakana/yōon/special-katakana gets
+// bundled into one 'そのほか' page rather than a new top-level page per
+// category — computed from CATEGORIES so a future category just appears
+// here automatically once its branch merges, no route change needed. 拗音
+// gets its own dedicated page (below) rather than joining this bundle, at
+// the user's explicit request: it has enough rows ("セッションがたくさんあ
+// る") to deserve one. Special Katakana is excluded the same way — it's
+// bundled onto the SAME /youon page as a continuation of Yōon, not here.
 const OTHER_CATEGORY_IDS = CATEGORIES.map((c) => c.id).filter(
-  (id) => id !== DEFAULT_CATEGORY_ID && id !== KATAKANA_CATEGORY_ID && id !== YOUON_CATEGORY_ID,
+  (id) =>
+    id !== DEFAULT_CATEGORY_ID && id !== KATAKANA_CATEGORY_ID && id !== YOUON_CATEGORY_ID && id !== SPECIAL_KATAKANA_CATEGORY_ID,
 )
 
 function App() {
@@ -72,7 +82,13 @@ function App() {
                     // ScriptCategory.displayLabel's comment.
                     title={CATEGORIES_BY_ID[YOUON_CATEGORY_ID].displayLabel!}
                     description="Learn small ゃゅょ sounds like きゃ / kya."
-                    categoryIds={[YOUON_CATEGORY_ID]}
+                    // Special Katakana (ファ/ティ/シェ/...) is presented as a
+                    // continuation of this SAME page, right after Yōon — see
+                    // curriculum.ts's SPECIAL_KATAKANA_CATEGORY_ID. Bundling
+                    // its rows on here (not a new top-level page/NavBar
+                    // entry) mirrors exactly how '/other' bundles Sokuon +
+                    // Chōon below.
+                    categoryIds={[YOUON_CATEGORY_ID, SPECIAL_KATAKANA_CATEGORY_ID]}
                   />
                 }
               />

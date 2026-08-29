@@ -26,11 +26,15 @@ import { useProgressStore } from '../../store/progressStore'
 
 const DISTRACTOR_COUNT = 3
 
-// Tiles are single KANA GLYPHS, not characterIds — most characters are 1
-// glyph already (charId and glyph coincide), but a yōon character like きゃ
-// is 2 glyphs/1 character id (see characters.ts's "one glyph = one mora"
-// note), and the learner should place き and ゃ as two separate tiles here
-// rather than one pre-combined きゃ tile, per the user's explicit request.
+// Tiles are one per learning-unit CHARACTER ID, not raw Unicode glyphs —
+// most characters are 1 glyph already (charId and glyph coincide), but a
+// 2-glyph character (yōon like きゃ, or Special Katakana like ファ — see
+// characters.ts's "one glyph = one mora" note) is ONE tile showing both
+// glyphs together, e.g. ティッシュ is built from [ティ][ッ][シュ], never
+// split further into [テ][ィ][ッ][シ][ュ] — per the Special Katakana spec's
+// explicit requirement (this reverses an earlier explicit request to split
+// yōon into separate single-glyph tiles; the mora unit is now used
+// everywhere, including existing yōon words).
 type TrayTile = { key: string; glyph: string; placed: boolean }
 
 type Props = {
@@ -109,21 +113,23 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
   // setupRound below so revealing it never carries over to the next word.
   const [romajiHintShown, setRomajiHintShown] = useState(false)
 
-  // Sets up a fresh tray/slots for a new word. Slots are sized to the word's
-  // GLYPH count (word.kana), not its characterId count — see TrayTile's
-  // comment. Distractor characters are also split into their own glyphs, so
-  // every tray tile is uniformly a single kana glyph regardless of whether
-  // it came from a 1-glyph or 2-glyph source character.
+  // Sets up a fresh tray/slots for a new word. Slots/tiles are sized to the
+  // word's CHARACTER-ID (learning-unit/mora) count, not its raw Unicode
+  // glyph count — see TrayTile's comment. A 2-glyph character (yōon like
+  // きゃ, or Special Katakana like ファ — see tracingUnits.ts's identical
+  // "one learning target = one mora" generalization) is ONE tile showing
+  // both glyphs together, never split into two single-glyph tiles: the
+  // learner places/reads it as the one unit it actually is.
   const setupRound = useCallback(
     (word: AnchorWord) => {
       const distractorCharIds = isSimilarLetters
         ? pickSimilarLettersDistractorCharIds(word.characterIds, confusionGroups, scopeCharacterIds, DISTRACTOR_COUNT)
         : pickDistractorCharIds(word.characterIds, scopeCharacterIds, DISTRACTOR_COUNT)
-      const targetGlyphs = [...word.kana]
-      const distractorGlyphs = distractorCharIds.flatMap((id) => [...(CHARACTERS_BY_ID[id]?.kana ?? '')])
-      const tileGlyphs = shuffle([...targetGlyphs, ...distractorGlyphs])
+      const targetTiles = word.characterIds.map((id) => CHARACTERS_BY_ID[id]?.kana ?? '')
+      const distractorTiles = distractorCharIds.map((id) => CHARACTERS_BY_ID[id]?.kana ?? '')
+      const tileGlyphs = shuffle([...targetTiles, ...distractorTiles])
       setTray(tileGlyphs.map((glyph, i) => ({ key: `${glyph}-${i}`, glyph, placed: false })))
-      setSlots(new Array(targetGlyphs.length).fill(null))
+      setSlots(new Array(targetTiles.length).fill(null))
       setStatus('playing')
       setRomajiHintShown(false)
       clear()
@@ -154,33 +160,27 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
     if (!currentWord || status !== 'playing') return
     if (slots.some((s) => s === null)) return
 
-    const placedGlyphs = slots.map((key) => tray.find((t) => t.key === key)?.glyph)
-    const targetGlyphs = [...currentWord.kana]
-    const isCorrect = placedGlyphs.every((glyph, i) => glyph === targetGlyphs[i])
+    const placedTiles = slots.map((key) => tray.find((t) => t.key === key)?.glyph)
+    const targetTiles = currentWord.characterIds.map((id) => CHARACTERS_BY_ID[id]?.kana ?? '')
+    const isCorrect = placedTiles.every((tile, i) => tile === targetTiles[i])
 
     // Record each character's OWN correctness, not the whole word's — a
-    // wrong glyph anywhere used to mark EVERY character in the word wrong,
+    // wrong tile anywhere used to mark EVERY character in the word wrong,
     // including ones the learner placed correctly. That was harmless back
     // when it only fed the SRS box, but now directly drives character
     // Review (see lib/srs.ts's applyReviewResult), so a misattributed
     // character would show up there as "kept missing" when it wasn't the
-    // problem. Walk characterIds consuming each one's own glyph span (most
-    // are 1 glyph; yōon like きゃ is 2) rather than assuming a 1:1 index
-    // with targetGlyphs. Word Builder has real per-character precision, so
+    // problem. Each tile is exactly one character's own mora now (see
+    // setupRound above), so this is a direct 1:1 walk — no glyph-span
+    // accounting needed. Word Builder has real per-character precision, so
     // ONLY the actually-wrong character(s) enter Review here — a correctly
     // placed character that wasn't already active stays untouched
     // (recordCharacterReviewResult is a no-op for a correct, inactive item).
-    let glyphOffset = 0
-    for (const charId of currentWord.characterIds) {
-      const glyphSpan = CHARACTERS_BY_ID[charId]?.kana.length ?? 1
-      let charCorrect = true
-      for (let i = 0; i < glyphSpan; i++) {
-        if (placedGlyphs[glyphOffset + i] !== targetGlyphs[glyphOffset + i]) charCorrect = false
-      }
+    currentWord.characterIds.forEach((charId, i) => {
+      const charCorrect = placedTiles[i] === targetTiles[i]
       recordResult(charId, charCorrect)
       recordCharacterReviewResult(charId, charCorrect)
-      glyphOffset += glyphSpan
-    }
+    })
     recordWordReviewResult(currentWord.id, isCorrect)
 
     if (isCorrect) {
@@ -305,7 +305,9 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
               onClick={() => handleSlotClick(i)}
               className="flex h-14 w-14 flex-col items-center justify-center rounded-xl border-2 border-dashed border-neutral-300 dark:border-neutral-600"
             >
-              <span className="font-kana text-2xl font-bold">{tile ? tile.glyph : ''}</span>
+              <span className={`font-kana font-bold whitespace-nowrap ${tile && [...tile.glyph].length > 1 ? 'text-base' : 'text-2xl'}`}>
+                {tile ? tile.glyph : ''}
+              </span>
               {status !== 'playing' && tile && (
                 <span className="text-xs font-normal text-neutral-500 dark:text-neutral-400">
                   {kanaToRomaji(tile.glyph)}

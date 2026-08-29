@@ -109,8 +109,24 @@ describe('HomePage section Recommended (Issue #21)', () => {
     expect(getByRole('link', { name: /Yōon/ }).textContent).toMatch(/Recommended/)
   })
 
-  it('no card is Recommended once every category is done', () => {
-    for (const categoryId of ['hiragana', 'katakana', 'sokuon', 'chouon', 'youon']) completeCategory(categoryId)
+  // Special Katakana (see curriculum.ts's SPECIAL_KATAKANA_CATEGORY_ID) is
+  // bundled onto the SAME /youon page/nav entry as Yōon — no separate
+  // top-level card — so the Yōon/ゃゅょ card is still the one that lights up
+  // as Recommended once the target moves past Yōon itself into it.
+  it('still recommends the Yōon/ゃゅょ card once yōon itself is done and Special Katakana is next', () => {
+    completeCategory(DEFAULT_CATEGORY_ID)
+    completeCategory(KATAKANA_CATEGORY_ID)
+    completeCategory(SOKUON_CATEGORY_ID)
+    completeCategory(CHOUON_CATEGORY_ID)
+    completeCategory('youon')
+    const { getByRole } = renderHome()
+    expect(getByRole('link', { name: /Yōon/ }).textContent).toMatch(/Recommended/)
+  })
+
+  it('no card is Recommended once every category, including Special Katakana, is done', () => {
+    for (const categoryId of ['hiragana', 'katakana', 'sokuon', 'chouon', 'youon', 'special-katakana']) {
+      completeCategory(categoryId)
+    }
     const { getAllByRole } = renderHome()
     const recommendedLinks = getAllByRole('link').filter((link) => link.textContent?.includes('Recommended'))
     expect(recommendedLinks).toHaveLength(0)

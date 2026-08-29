@@ -145,13 +145,24 @@ describe('script chooser pages', () => {
   // そのほか — the user's explicit request, since it has enough rows
   // ("セッションがたくさんある") to deserve one. Its page title is
   // ScriptCategory.displayLabel ('ゃゅょ'), not the kanji '拗音' — the
-  // target audience may not read any kana yet, let alone kanji.
-  it('/youon shows only yōon rows, with no category subheading (single-category page)', () => {
+  // target audience may not read any kana yet, let alone kanji. Special
+  // Katakana (see curriculum.ts's SPECIAL_KATAKANA_CATEGORY_ID) is now
+  // bundled onto this SAME page as a continuation of Yōon — a real second
+  // category, so it DOES get its own h2 subheading (like /other's ○+っ/○+ー
+  // below), unlike the old single-category shape this test used to cover.
+  it('/youon shows yōon rows AND Special Katakana rows, each under its own subheading', () => {
     renderAt('/youon')
-    expect(screen.getByRole('heading', { name: 'ゃゅょ' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'ゃゅょ', level: 1 })).toBeInTheDocument()
     expect(screen.getByText('きゃ・きゅ・きょ')).toBeInTheDocument()
     expect(screen.getByText('ぎゃ・ぎゅ・ぎょ')).toBeInTheDocument()
-    expect(screen.queryByRole('heading', { level: 2 })).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'ゃゅょ', level: 2 })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Special Katakana', level: 2 })).toBeInTheDocument()
+    expect(screen.getByText('Common sounds used in loanwords.')).toBeInTheDocument()
+    // Row cards show `displayLines`, not the raw `label` — see RowMap.tsx.
+    expect(screen.getByText('ファ・フィ・フェ・フォ')).toBeInTheDocument()
+    expect(screen.getByText('ティ・ディ')).toBeInTheDocument()
+    expect(screen.getByText('シェ・ジェ・チェ')).toBeInTheDocument()
+    expect(screen.getByText('ウィ・ウェ・ウォ')).toBeInTheDocument()
     expect(screen.queryByText('っ・ッ')).not.toBeInTheDocument()
     expect(screen.queryByText('あー')).not.toBeInTheDocument()
   })
@@ -436,19 +447,22 @@ describe('character-set learnStyle with yōon (multi-glyph, one-mora characters)
     expect(screen.getByText(/Round 1/)).toBeInTheDocument()
   })
 
-  // Word Builder splits a multi-glyph character like きゃ into two SEPARATE
-  // tiles (き, ゃ) rather than one pre-combined きゃ tile — see
-  // WordBuilderPage.tsx's TrayTile comment. Every word in youon-ka-row
-  // contains exactly one small ゃ/ゅ/ょ glyph, so regardless of which word
-  // the session picks, some button's accessible text should be exactly one
-  // of those three characters on its own — never paired with its base
-  // consonant in the same tile.
-  it('/practice/youon/youon-ka-row/word-builder splits combo characters into individual glyph tiles', () => {
+  // Word Builder keeps a multi-glyph character like きゃ as ONE pre-combined
+  // tile, never split into separate き/ゃ tiles — see WordBuilderPage.tsx's
+  // TrayTile comment (this reverses an earlier explicit request; the mora
+  // unit is now used everywhere, including existing yōon words — see the
+  // Special Katakana spec's explicit tile-unit requirement). Every word in
+  // youon-ka-row contains exactly one small ゃ/ゅ/ょ combo character, so
+  // regardless of which word the session picks, some button's accessible
+  // text should be exactly that 2-glyph combo — never split into a bare
+  // small ゃ/ゅ/ょ tile on its own.
+  it('/practice/youon/youon-ka-row/word-builder keeps yōon combo characters as one tile, never split into separate glyph tiles', () => {
     renderAt('/practice/youon/youon-ka-row/word-builder')
     const buttonTexts = screen.getAllByRole('button').map((b) => b.textContent)
-    expect(buttonTexts.some((t) => t === 'ゃ' || t === 'ゅ' || t === 'ょ')).toBe(true)
-    // Regression: no tile should show a full 2-glyph combo like きゃ/ぎょ.
-    expect(buttonTexts.some((t) => t != null && [...t].length === 2 && /[ぁ-ん]/.test(t))).toBe(false)
+    // Some tile shows a full 2-glyph combo like きゃ/ぎょ.
+    expect(buttonTexts.some((t) => t != null && [...t].length === 2 && /[ぁ-ん]/.test(t))).toBe(true)
+    // Regression: no tile should show a bare small ゃ/ゅ/ょ on its own.
+    expect(buttonTexts.some((t) => t === 'ゃ' || t === 'ゅ' || t === 'ょ')).toBe(false)
   })
 
   it('sokuon/chōon/hiragana/katakana behavior is unaffected by youon existing (regression)', () => {
