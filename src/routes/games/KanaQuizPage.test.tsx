@@ -445,12 +445,11 @@ describe('KanaQuizPage result summary (correct/total count)', () => {
     vi.useFakeTimers()
     const { container } = renderRowQuiz()
     const correct = playSessionTallyingCorrectness(container, 8)
-    expect(container.textContent).toContain(`${correct}/8`)
+    expect(container.textContent).toContain(`${correct} of 8 correct`)
     expect(container.textContent).not.toMatch(/問中/)
     expect(container.textContent).not.toMatch(/問正解/)
     expect(container.textContent).not.toMatch(/その調子/)
-    expect(container.textContent).not.toMatch(/Accuracy/i)
-    expect(container.textContent).not.toMatch(/%/)
+    expect(container.textContent).not.toMatch(/^Accuracy$/i)
     vi.useRealTimers()
   })
 
@@ -478,8 +477,8 @@ describe('KanaQuizPage result summary (correct/total count)', () => {
     expect(container.textContent).toMatch(/complete!/)
     // Only one weak character was queued — the real played total must be
     // small, and must appear verbatim rather than a hardcoded 8.
-    expect(container.textContent).toMatch(new RegExp(`${correct}/\\d`))
-    expect(container.textContent).not.toMatch(/\/8\b/)
+    expect(container.textContent).toMatch(new RegExp(`${correct} of \\d+ correct`))
+    expect(container.textContent).not.toMatch(/ of 8 correct/)
     vi.useRealTimers()
   })
 })

@@ -6,7 +6,7 @@ import { SaveCharacterToggle } from '../components/SaveCharacterToggle'
 import { SaveWordToggle } from '../components/SaveWordToggle'
 import { WordCard } from '../components/WordCard'
 import { CHARACTERS_BY_ID, getCharacterAudioId } from '../data/characters'
-import { CATEGORIES_BY_ID, ROWS_BY_ID } from '../data/curriculum'
+import { CATEGORIES_BY_ID, isSpecialKatakanaRowId, ROWS_BY_ID, SPECIAL_KATAKANA_CATEGORY_ID } from '../data/curriculum'
 import { getSimilarLetterExplanationImage } from '../data/similarLetterExplanations'
 import { WORDS_BY_ROW } from '../data/words'
 import { useCurriculum } from '../hooks/useCurriculum'
@@ -96,10 +96,20 @@ export function LearnPage() {
 
   if (row.isSummary) {
     if (summaryStep === 'chars') {
+      // youon-summary now aggregates Yōon + Special Katakana (see
+      // SUMMARY_ROW_SOURCE_CATEGORY_IDS) — split them so Yōon renders in
+      // the normal 五十音図-shaped grid and Special Katakana (which doesn't
+      // span all 5 vowel columns) renders as a compact flex-wrap with no
+      // empty placeholder slots (see CharacterGrid's `compact` prop and
+      // isSpecialKatakanaRowId). No extra explanatory heading needed
+      // between the two groups.
+      const specialChars = characters.filter((c) => isSpecialKatakanaRowId(c.rowId))
+      const nonSpecialChars = characters.filter((c) => !isSpecialKatakanaRowId(c.rowId))
       return (
         <div className="flex flex-col items-center gap-6">
           <h1 className="text-2xl font-bold">⭐ {row.label} — every character</h1>
-          <CharacterGrid characters={characters} />
+          {nonSpecialChars.length > 0 && <CharacterGrid characters={nonSpecialChars} />}
+          {specialChars.length > 0 && <CharacterGrid characters={specialChars} compact />}
           <div className="flex gap-3">
             <button
               type="button"
@@ -298,6 +308,12 @@ export function LearnPage() {
 
   if (step === 'A') {
     if (!char) return null
+    // Reuses the same Similar Letters explanation image/mapping (see
+    // similarLetterExplanations.ts) so シ・ツ・ソ・ン get the same shi-tsu /
+    // so-n comparison image during normal Learn, not just the dedicated
+    // Similar Letters lesson. リ is intentionally not mapped, so it shows
+    // nothing here — matching the dedicated lesson's own omission of it.
+    const explanationImage = getSimilarLetterExplanationImage(char.id)
     return (
       <div className="flex flex-col items-center gap-6">
         <h1 className="text-2xl font-bold">{row.label} — new characters</h1>
@@ -308,6 +324,13 @@ export function LearnPage() {
         </p>
         <CharacterCard char={char} />
         <SaveCharacterToggle characterId={char.id} kana={char.kana} />
+        {explanationImage && (
+          <img
+            src={`${import.meta.env.BASE_URL}${explanationImage}`}
+            alt=""
+            className="w-full max-w-xs object-contain"
+          />
+        )}
         {char.note && <p className="max-w-xs text-center text-sm font-semibold text-red-500">{char.note}</p>}
         <div className="flex gap-3">
           <button
@@ -367,7 +390,7 @@ export function LearnPage() {
           {row.label} — Set {batchIndex + 1} / {batches.length}
         </h1>
         <p className="text-sm text-neutral-500 dark:text-neutral-400">Tap any character to hear it again</p>
-        <CharacterGrid characters={currentBatchChars} />
+        <CharacterGrid characters={currentBatchChars} compact={row.categoryId === SPECIAL_KATAKANA_CATEGORY_ID} />
         <div className="flex gap-3">
           <button
             type="button"
@@ -393,7 +416,7 @@ export function LearnPage() {
       <div className="flex flex-col items-center gap-6">
         <h1 className="text-2xl font-bold">{row.label} — all together</h1>
         <p className="text-sm text-neutral-500 dark:text-neutral-400">Tap any character to hear it again</p>
-        <CharacterGrid characters={characters} />
+        <CharacterGrid characters={characters} compact={row.categoryId === SPECIAL_KATAKANA_CATEGORY_ID} />
         <div className="flex gap-3">
           <button
             type="button"

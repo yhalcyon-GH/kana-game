@@ -70,34 +70,45 @@ export function PracticeSummary({
           the left, the big "{correct}/{total}" score on the right —
           replaces the previous "{total}問中{correct}問正解" text + Tamamizu
           reaction block entirely. */}
-      {score && (
-        // Stacked (image above score) below the sm breakpoint, side-by-side
-        // from sm up — at the enlarged image size below, a narrow phone
-        // width doesn't have room for both side by side without cramming;
-        // stacking centered keeps the image at full size on every width
-        // instead of shrinking it back down to fit a row.
-        <div className="flex w-full max-w-xs flex-col items-center gap-2 sm:max-w-sm sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-          {/* Roughly doubled again from PR #83's h-28/w-28 sm:h-32/w-32 —
-              object-contain keeps aspect ratio and never crops the art. */}
-          <img
-            src={`${import.meta.env.BASE_URL}${pickPracticeResultImage(score)}`}
-            alt=""
-            className="h-56 w-56 shrink-0 object-contain sm:h-64 sm:w-64"
-          />
-          {/* "{correct}/{total} correct" instead of a bare fraction — the
-              raw "6/8" reads ambiguously (out of what?) at a glance,
-              especially to a learner unfamiliar with the convention. Stacked
-              (number line, then a smaller "correct" label) rather than
-              inline so it stays readable at the narrowest supported width
-              without the row wrapping or the image shrinking to compensate. */}
-          <div className="flex flex-col items-center sm:items-end">
-            <span className="text-4xl font-extrabold tabular-nums sm:text-5xl">
-              {score.correct}/{score.total}
-            </span>
-            <span className="text-sm font-medium text-neutral-500 dark:text-neutral-400">correct</span>
-          </div>
-        </div>
-      )}
+      {score &&
+        (() => {
+          // Guard total === 0 (no rounds played) — never divide by zero.
+          const percent = score.total > 0 ? Math.round((score.correct / score.total) * 100) : 0
+          return (
+            // Stacked (image above score) below the sm breakpoint, side-by-side
+            // from sm up — at the enlarged image size below, a narrow phone
+            // width doesn't have room for both side by side without cramming;
+            // stacking centered keeps the image at full size on every width
+            // instead of shrinking it back down to fit a row.
+            <div className="flex w-full max-w-xs flex-col items-center gap-2 sm:max-w-sm sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+              {/* Roughly doubled again from PR #83's h-28/w-28 sm:h-32/w-32 —
+                  object-contain keeps aspect ratio and never crops the art. */}
+              <img
+                src={`${import.meta.env.BASE_URL}${pickPracticeResultImage(score)}`}
+                alt=""
+                className="h-56 w-56 shrink-0 object-contain sm:h-64 sm:w-64"
+              />
+              {/* Large percentage, a thin progress bar, then "{correct} of
+                  {total} correct" — replaces the previous bare "6/8"
+                  fraction, which read ambiguously at a glance. */}
+              <div className="flex w-full max-w-[14rem] flex-col items-center gap-2 sm:items-end">
+                <span className="text-4xl font-extrabold tabular-nums sm:text-5xl">{percent}%</span>
+                <div
+                  role="progressbar"
+                  aria-valuenow={percent}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  className="h-1.5 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700"
+                >
+                  <div className="h-full rounded-full bg-blue-600 dark:bg-blue-500" style={{ width: `${percent}%` }} />
+                </div>
+                <span className="text-sm font-medium text-neutral-500 dark:text-neutral-400">
+                  {score.correct} of {score.total} correct
+                </span>
+              </div>
+            </div>
+          )
+        })()}
 
       <div className="flex flex-wrap justify-center gap-3">
         {stats.map((s) => (

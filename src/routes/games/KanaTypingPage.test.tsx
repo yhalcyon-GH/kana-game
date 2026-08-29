@@ -295,12 +295,12 @@ describe('KanaTypingPage result summary (correct/total count)', () => {
       act(() => vi.advanceTimersByTime(2000))
     }
 
-    expect(container.textContent).toContain('8/8')
+    expect(container.textContent).toContain('100%')
+    expect(container.textContent).toContain('8 of 8 correct')
     expect(container.textContent).not.toMatch(/問中/)
     expect(container.textContent).not.toMatch(/問正解/)
     expect(container.textContent).not.toMatch(/その調子/)
-    expect(container.textContent).not.toMatch(/Accuracy/i)
-    expect(container.textContent).not.toMatch(/%/)
+    expect(container.textContent).not.toMatch(/^Accuracy$/i)
   })
 
   it('shows a zero correct count when every answer is wrong', () => {
@@ -317,7 +317,8 @@ describe('KanaTypingPage result summary (correct/total count)', () => {
       act(() => fireEvent.click(next))
     }
 
-    expect(container.textContent).toContain('0/8')
+    expect(container.textContent).toContain('0%')
+    expect(container.textContent).toContain('0 of 8 correct')
   })
 
   it('a shorter Review session shows the actual (non-8) played total, not a fixed session length', () => {
@@ -341,8 +342,8 @@ describe('KanaTypingPage result summary (correct/total count)', () => {
     }
 
     expect(container.textContent).toMatch(/complete!/)
-    expect(container.textContent).toMatch(new RegExp(`${correct}/\\d`))
-    expect(container.textContent).not.toMatch(/\/8\b/)
+    expect(container.textContent).toMatch(new RegExp(`${correct} of \\d+ correct`))
+    expect(container.textContent).not.toMatch(/ of 8 correct/)
   })
 })
 

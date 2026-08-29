@@ -163,36 +163,50 @@ describe('PracticeSummary graded result (score image + X/Y score)', () => {
     )
   }
 
-  it('renders the score exactly as "{correct}/{total}"', () => {
+  it('renders the score as an integer percentage', () => {
     const { getByText } = renderGraded({ score: { correct: 6, total: 8 } })
-    expect(getByText('6/8')).toBeInTheDocument()
+    expect(getByText('75%')).toBeInTheDocument()
   })
 
-  it('renders a perfect score exactly as "8/8"', () => {
+  it('renders a perfect score as "100%"', () => {
     const { getByText } = renderGraded({ score: { correct: 8, total: 8 } })
-    expect(getByText('8/8')).toBeInTheDocument()
+    expect(getByText('100%')).toBeInTheDocument()
   })
 
-  it('renders a 15-question score exactly as "11/15"', () => {
-    const { getByText } = renderGraded({ score: { correct: 11, total: 15 } })
-    expect(getByText('11/15')).toBeInTheDocument()
+  it('rounds a 7/8 score to "88%"', () => {
+    const { getByText } = renderGraded({ score: { correct: 7, total: 8 } })
+    expect(getByText('88%')).toBeInTheDocument()
   })
 
-  it('never shows the old "{total}問中{correct}問正解" text, an Accuracy percentage, or encouragement comment text', () => {
+  it('never shows the old "{total}問中{correct}問正解" text, a bare fraction, an "Accuracy" heading, or encouragement comment text', () => {
     const { queryByText } = renderGraded()
     expect(queryByText(/問中/)).toBeNull()
     expect(queryByText(/問正解/)).toBeNull()
     expect(queryByText(/その調子/)).toBeNull()
-    expect(queryByText(/Accuracy/i)).toBeNull()
-    expect(queryByText(/%/)).toBeNull()
+    expect(queryByText(/^Accuracy$/i)).toBeNull()
+    expect(queryByText('7/8')).toBeNull()
   })
 
-  // A bare "6/8" reads ambiguously (out of what?) — a "correct" label next
-  // to the fraction makes the score self-explanatory at a glance.
-  it('labels the score fraction as "correct"', () => {
+  // "6 of 8 correct" text below the percentage/progress bar.
+  it('shows "{correct} of {total} correct" text', () => {
     const { getByText } = renderGraded({ score: { correct: 6, total: 8 } })
-    expect(getByText('6/8')).toBeInTheDocument()
-    expect(getByText('correct')).toBeInTheDocument()
+    expect(getByText('75%')).toBeInTheDocument()
+    expect(getByText('6 of 8 correct')).toBeInTheDocument()
+  })
+
+  it('renders a progress bar with correct ARIA attributes matching the percentage', () => {
+    const { getByRole } = renderGraded({ score: { correct: 6, total: 8 } })
+    const bar = getByRole('progressbar')
+    expect(bar).toHaveAttribute('aria-valuenow', '75')
+    expect(bar).toHaveAttribute('aria-valuemin', '0')
+    expect(bar).toHaveAttribute('aria-valuemax', '100')
+  })
+
+  it('handles score.total === 0 safely with no NaN and a 0% bar', () => {
+    const { getByText, getByRole } = renderGraded({ score: { correct: 0, total: 0 } })
+    expect(getByText('0%')).toBeInTheDocument()
+    expect(getByText('0 of 0 correct')).toBeInTheDocument()
+    expect(getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0')
   })
 
   it('shows a result image in the result row, directly below the title', () => {
@@ -200,7 +214,7 @@ describe('PracticeSummary graded result (score image + X/Y score)', () => {
     const heading = container.querySelector('h2')!
     const resultImg = container.querySelector('img')
     expect(resultImg).not.toBeNull()
-    expect(container.textContent).toContain('7/8')
+    expect(container.textContent).toContain('88%')
     expect(heading.compareDocumentPosition(resultImg!) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0)
   })
 
