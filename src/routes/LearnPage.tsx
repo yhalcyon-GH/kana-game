@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { CharacterCard } from '../components/CharacterCard'
 import { CharacterGrid } from '../components/CharacterGrid'
+import { SaveCharacterToggle } from '../components/SaveCharacterToggle'
+import { SaveWordToggle } from '../components/SaveWordToggle'
 import { WordCard } from '../components/WordCard'
 import { CHARACTERS_BY_ID, getCharacterAudioId } from '../data/characters'
 import { CATEGORIES_BY_ID, ROWS_BY_ID } from '../data/curriculum'
@@ -122,7 +124,10 @@ export function LearnPage() {
         <h1 className="text-2xl font-bold">⭐ {row.label} — every word</h1>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
           {getScopeWords(rowId).map((word) => (
-            <WordCard key={word.id} word={word} />
+            <div key={word.id} className="flex flex-col items-center gap-1">
+              <WordCard word={word} />
+              <SaveWordToggle wordId={word.id} kana={word.kana} />
+            </div>
           ))}
         </div>
         <div className="flex gap-3">
@@ -176,7 +181,10 @@ export function LearnPage() {
         </p>
         <div className="flex flex-wrap items-start justify-center gap-4">
           {currentGroupChars.map((c) => (
-            <CharacterCard key={c.id} char={c} />
+            <div key={c.id} className="flex flex-col items-center gap-1">
+              <CharacterCard char={c} />
+              <SaveCharacterToggle characterId={c.id} kana={c.kana} />
+            </div>
           ))}
         </div>
         {explanationImage && (
@@ -299,6 +307,7 @@ export function LearnPage() {
             : `${charIndexInBatch + 1} / ${currentBatchIds.length}`}
         </p>
         <CharacterCard char={char} />
+        <SaveCharacterToggle characterId={char.id} kana={char.kana} />
         {char.note && <p className="max-w-xs text-center text-sm font-semibold text-red-500">{char.note}</p>}
         <div className="flex gap-3">
           <button
@@ -415,7 +424,10 @@ export function LearnPage() {
       )}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         {words.map((word) => (
-          <WordCard key={word.id} word={word} />
+          <div key={word.id} className="flex flex-col items-center gap-1">
+            <WordCard word={word} />
+            <SaveWordToggle wordId={word.id} kana={word.kana} />
+          </div>
         ))}
       </div>
       <div className="flex gap-3">

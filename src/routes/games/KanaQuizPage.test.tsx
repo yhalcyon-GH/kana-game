@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHARACTERS_BY_ID } from '../../data/characters'
 import { REVIEW_SCOPE_ID } from '../../hooks/useCurriculum'
 import { useProgressStore } from '../../store/progressStore'
+import { useSavedItemsStore } from '../../store/savedItemsStore'
 import { KanaQuizPage } from './KanaQuizPage'
 
 beforeEach(() => {
@@ -587,6 +588,72 @@ describe('KanaQuizPage — no Next-button flash across same-id consecutive round
     const round2Buttons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
     expect(round2Buttons.every((b) => !b.disabled)).toBe(true)
 
+    vi.useRealTimers()
+  })
+})
+
+// Saved items (see savedItemsStore.ts) — Kana Quiz shows a Save checkbox for
+// the missed target character only after a wrong answer, never on a correct
+// one.
+describe('KanaQuizPage: Save checkbox on wrong answer only', () => {
+  beforeEach(() => {
+    useSavedItemsStore.setState({ savedCharacterIds: [], savedWordIds: [] })
+  })
+
+  it('does not show a Save checkbox before answering', () => {
+    const { queryByRole } = renderRowQuiz()
+    expect(queryByRole('checkbox')).toBeNull()
+  })
+
+  it('shows a Save checkbox for the target character after a wrong answer, and saving it updates savedItemsStore', () => {
+    vi.useFakeTimers()
+    const { container, getByRole } = renderRowQuiz()
+    advanceUntilMode(container, 'read')
+    const kanaEl = container.querySelector('.font-kana.text-7xl')!
+    const targetId = Object.keys(CHARACTERS_BY_ID).find((id) => CHARACTERS_BY_ID[id].kana === kanaEl.textContent)!
+    const label = CHARACTERS_BY_ID[targetId].displayLabel ?? CHARACTERS_BY_ID[targetId].romaji
+    const buttons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
+    const wrongButton = buttons.find((b) => b.textContent !== label)!
+    act(() => fireEvent.click(wrongButton))
+
+    const checkbox = getByRole('checkbox') as HTMLInputElement
+    expect(checkbox).not.toBeChecked()
+    act(() => fireEvent.click(checkbox))
+    expect(checkbox).toBeChecked()
+    expect(useSavedItemsStore.getState().isCharacterSaved(targetId)).toBe(true)
+    vi.useRealTimers()
+  })
+
+  it('does not show a Save checkbox after a correct answer', () => {
+    vi.useFakeTimers()
+    const { container, queryByRole } = renderRowQuiz()
+    advanceUntilMode(container, 'read')
+    const kanaEl = container.querySelector('.font-kana.text-7xl')!
+    const targetId = Object.keys(CHARACTERS_BY_ID).find((id) => CHARACTERS_BY_ID[id].kana === kanaEl.textContent)!
+    const label = CHARACTERS_BY_ID[targetId].displayLabel ?? CHARACTERS_BY_ID[targetId].romaji
+    const buttons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
+    const correctButton = buttons.find((b) => b.textContent === label)!
+    act(() => fireEvent.click(correctButton))
+
+    expect(queryByRole('checkbox')).toBeNull()
+    vi.useRealTimers()
+  })
+
+  it('saving a missed character does not change Review/SRS state', () => {
+    vi.useFakeTimers()
+    const { container, getByRole } = renderRowQuiz()
+    advanceUntilMode(container, 'read')
+    const kanaEl = container.querySelector('.font-kana.text-7xl')!
+    const targetId = Object.keys(CHARACTERS_BY_ID).find((id) => CHARACTERS_BY_ID[id].kana === kanaEl.textContent)!
+    const label = CHARACTERS_BY_ID[targetId].displayLabel ?? CHARACTERS_BY_ID[targetId].romaji
+    const buttons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
+    const wrongButton = buttons.find((b) => b.textContent !== label)!
+    act(() => fireEvent.click(wrongButton))
+
+    const reviewStateBefore = useProgressStore.getState().characters[targetId]
+    act(() => fireEvent.click(getByRole('checkbox')))
+    const reviewStateAfter = useProgressStore.getState().characters[targetId]
+    expect(reviewStateAfter).toEqual(reviewStateBefore)
     vi.useRealTimers()
   })
 })

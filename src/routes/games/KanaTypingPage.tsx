@@ -5,6 +5,7 @@ import { AnswerReveal } from '../../components/AnswerReveal'
 import { GameRoundHeader } from '../../components/GameRoundHeader'
 import { PracticeSummary } from '../../components/PracticeSummary'
 import { ReviewEmptyState } from '../../components/ReviewEmptyState'
+import { SaveWordToggle } from '../../components/SaveWordToggle'
 import { WordImage } from '../../components/WordImage'
 import { ROWS_BY_ID } from '../../data/curriculum'
 import type { QuestionMode } from '../../data/feedback'
@@ -229,6 +230,8 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
         mood={mood}
         left={answered && !wasCorrect && <AnswerReveal characterIds={currentWord.characterIds} />}
       />
+
+      {answered && !wasCorrect && <SaveWordToggle wordId={currentWord.id} kana={currentWord.kana} />}
 
       {answered && !wasCorrect && (
         <button

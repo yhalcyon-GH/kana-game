@@ -7,6 +7,7 @@ import { useCurriculum } from '../hooks/useCurriculum'
 import { resumeRowHref } from '../lib/lastStudied'
 import { RECOMMENDED_ACTIVITY_LABELS } from '../lib/recommendedPath'
 import { useProgressStore } from '../store/progressStore'
+import { useSavedItemsStore } from '../store/savedItemsStore'
 
 // "Continue" (Issue #23/#27) is deliberately separate from "⭐ Recommended":
 // Continue = go back to the ROW you were last studying (its Practice Hub —
@@ -30,6 +31,26 @@ function ContinueCard() {
       <span className="font-semibold">{section?.english ?? row.categoryId}</span>
       <span className="text-sm text-neutral-500 dark:text-neutral-400">{row.label}</span>
       <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">Continue</span>
+    </Link>
+  )
+}
+
+// Independent entry point into the learner's manually-Saved Characters/Words
+// (see savedItemsStore.ts) — deliberately styled like ContinueCard (quiet,
+// neutral border, no sparkles) rather than Recommended's ⭐ styling: Saved
+// isn't a curriculum category, isn't "next up," and isn't a resume target,
+// so it must not visually read as any of those three existing concepts.
+function SavedCard() {
+  const savedCount = useSavedItemsStore((s) => s.savedCharacterIds.length + s.savedWordIds.length)
+  return (
+    <Link
+      to="/saved"
+      className="flex w-full max-w-md flex-col items-center gap-1 rounded-xl border border-neutral-300 bg-white p-4 text-center hover:border-blue-400 dark:border-neutral-600 dark:bg-neutral-800"
+    >
+      <span className="font-semibold">🔖 Saved</span>
+      <span className="text-sm text-neutral-500 dark:text-neutral-400">
+        {savedCount} item{savedCount === 1 ? '' : 's'}
+      </span>
     </Link>
   )
 }
@@ -81,6 +102,7 @@ export function HomePage() {
         })}
       </div>
       <ContinueCard />
+      <SavedCard />
     </div>
   )
 }
