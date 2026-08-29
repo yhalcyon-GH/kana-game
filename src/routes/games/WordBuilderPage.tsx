@@ -7,6 +7,7 @@ import { KanaTile } from '../../components/KanaTile'
 import { PracticeSummary } from '../../components/PracticeSummary'
 import { ReviewEmptyState } from '../../components/ReviewEmptyState'
 import { RomajiHint } from '../../components/RomajiHint'
+import { SaveWordToggle } from '../../components/SaveWordToggle'
 import { WordImage } from '../../components/WordImage'
 import { CHARACTERS_BY_ID } from '../../data/characters'
 import { getNextRowId, ROWS_BY_ID } from '../../data/curriculum'
@@ -324,13 +325,16 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
       />
 
       {status === 'wrong' && (
-        <button
-          type="button"
-          onClick={advance}
-          className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
-        >
-          Next
-        </button>
+        <>
+          <SaveWordToggle wordId={currentWord.id} kana={currentWord.kana} />
+          <button
+            type="button"
+            onClick={advance}
+            className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
+          >
+            Next
+          </button>
+        </>
       )}
 
       <div className="flex flex-wrap justify-center gap-2">

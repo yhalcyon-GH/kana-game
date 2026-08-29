@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { REVIEW_SCOPE_ID } from '../../hooks/useCurriculum'
 import { useProgressStore } from '../../store/progressStore'
+import { useSavedItemsStore } from '../../store/savedItemsStore'
 import { KanaTypingPage } from './KanaTypingPage'
 
 const MEANING_TO_KANA: Record<string, string> = { love: 'あい', house: 'いえ', 'up / above': 'うえ', blue: 'あお' }
@@ -382,5 +383,55 @@ describe('KanaTypingPage pre-answer mascot', () => {
     act(() => fireEvent.click(next))
     const mascotNextRound = container.querySelector('img[src*="mascot"]') as HTMLImageElement
     expect(mascotNextRound.src).toContain('mascot/normal.webp')
+  })
+})
+
+// Saved items (see savedItemsStore.ts) — Kana Typing shows a Save checkbox
+// for the missed target word only after a wrong answer, never on a correct
+// one.
+describe('KanaTypingPage: Save checkbox on wrong answer only', () => {
+  beforeEach(() => {
+    useProgressStore.getState().resetProgress()
+    useProgressStore.getState().markRowTaught('a-row')
+    useSavedItemsStore.setState({ savedCharacterIds: [], savedWordIds: [] })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('does not show a Save checkbox before answering', () => {
+    const { queryByRole } = renderRowTyping()
+    expect(queryByRole('checkbox')).toBeNull()
+  })
+
+  it('shows a Save checkbox for the target word after a wrong answer, and saving it updates savedItemsStore', () => {
+    vi.useFakeTimers()
+    const { container, getByRole } = renderRowTyping()
+    const input = container.querySelector('input') as HTMLInputElement
+    act(() => {
+      fireEvent.change(input, { target: { value: 'definitely-wrong' } })
+      fireEvent.submit(container.querySelector('form')!)
+    })
+
+    const checkbox = getByRole('checkbox') as HTMLInputElement
+    expect(checkbox).not.toBeChecked()
+    act(() => fireEvent.click(checkbox))
+    expect(checkbox).toBeChecked()
+    expect(useSavedItemsStore.getState().savedWordIds.length).toBe(1)
+  })
+
+  it('does not show a Save checkbox after a correct answer', () => {
+    vi.useFakeTimers()
+    const { container, queryByRole } = renderRowTyping()
+    const meaning = container.querySelector('.text-lg.font-semibold')!.textContent!.trim()
+    const kana = MEANING_TO_KANA[meaning]
+    const input = container.querySelector('input') as HTMLInputElement
+    act(() => {
+      fireEvent.change(input, { target: { value: kana } })
+      fireEvent.submit(container.querySelector('form')!)
+    })
+
+    expect(queryByRole('checkbox')).toBeNull()
   })
 })

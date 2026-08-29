@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { CHOUON_CATEGORY_ID, DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID, ROWS, SOKUON_CATEGORY_ID } from '../data/curriculum'
 import { useProgressStore } from '../store/progressStore'
+import { useSavedItemsStore } from '../store/savedItemsStore'
 import { HomePage } from './HomePage'
 
 beforeEach(() => {
@@ -149,5 +150,34 @@ describe('HomePage Recommended shows row + activity (Issue #25)', () => {
     const hiraganaLink = getByRole('link', { name: /Hiragana/ })
     expect(hiraganaLink.textContent).toMatch(/あ〜お/)
     expect(hiraganaLink.textContent).toMatch(/Kana Quiz/)
+  })
+})
+
+describe('HomePage Saved entry', () => {
+  beforeEach(() => {
+    useSavedItemsStore.setState({ savedCharacterIds: [], savedWordIds: [] })
+  })
+
+  it('shows a Saved card linking to /saved with a 0-item count when nothing is saved', () => {
+    const { getByRole } = renderHome()
+    const savedLink = getByRole('link', { name: /Saved/ })
+    expect(savedLink).toHaveAttribute('href', '/saved')
+    expect(savedLink.textContent).toMatch(/0 items/)
+  })
+
+  it('shows a count equal to saved characters plus saved words', () => {
+    useSavedItemsStore.getState().toggleCharacter('a')
+    useSavedItemsStore.getState().toggleCharacter('ki')
+    useSavedItemsStore.getState().toggleWord('a-ai')
+    const { getByRole } = renderHome()
+    const savedLink = getByRole('link', { name: /Saved/ })
+    expect(savedLink.textContent).toMatch(/3 items/)
+  })
+
+  it('is not styled as Recommended or Continue (no ⭐, no "Continue" text)', () => {
+    const { getByRole } = renderHome()
+    const savedLink = getByRole('link', { name: /Saved/ })
+    expect(savedLink.textContent).not.toContain('⭐')
+    expect(savedLink.textContent).not.toContain('Continue')
   })
 })

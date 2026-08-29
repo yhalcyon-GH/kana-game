@@ -25,6 +25,7 @@ import { LearnPage } from './routes/LearnPage'
 import { PracticeHubPage } from './routes/PracticeHubPage'
 import { ReviewMistakesPage } from './routes/ReviewMistakesPage'
 import { ReviewPage } from './routes/ReviewPage'
+import { SavedPage } from './routes/SavedPage'
 import { SettingsPage } from './routes/SettingsPage'
 
 // Every category that isn't hiragana/katakana/yōon/special-katakana gets
@@ -122,6 +123,7 @@ function App() {
               <Route path="/practice/review/kana-quiz" element={<KanaQuizPage rowIdOverride={REVIEW_SCOPE_ID} />} />
               <Route path="/practice/review/kana-typing" element={<KanaTypingPage rowIdOverride={REVIEW_SCOPE_ID} />} />
               <Route path="/review" element={<ReviewPage />} />
+              <Route path="/saved" element={<SavedPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/about" element={<AboutPage />} />
             </Routes>

@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { AnswerFeedbackRow } from '../../components/AnswerFeedbackRow'
 import { GameRoundHeader } from '../../components/GameRoundHeader'
 import { PracticeSummary } from '../../components/PracticeSummary'
+import { SaveCharacterToggle } from '../../components/SaveCharacterToggle'
 import { ReviewEmptyState } from '../../components/ReviewEmptyState'
 import { CHARACTERS_BY_ID, getCharacterAudioId } from '../../data/characters'
 import { CATEGORIES_BY_ID, ROWS_BY_ID } from '../../data/curriculum'
@@ -301,13 +302,16 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
       <AnswerFeedbackRow mood={mood} />
 
       {answered && answeredForRoundIndex === roundIndex && selectedId !== currentCharId && (
-        <button
-          type="button"
-          onClick={advance}
-          className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
-        >
-          Next
-        </button>
+        <>
+          <SaveCharacterToggle characterId={currentCharId} kana={currentChar.kana} />
+          <button
+            type="button"
+            onClick={advance}
+            className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
+          >
+            Next
+          </button>
+        </>
       )}
     </div>
   )

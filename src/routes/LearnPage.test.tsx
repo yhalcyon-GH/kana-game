@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { CHARACTERS_BY_ID } from '../data/characters'
 import { useProgressStore } from '../store/progressStore'
+import { useSavedItemsStore } from '../store/savedItemsStore'
 import { LearnPage } from './LearnPage'
 import { PracticeHubPage } from './PracticeHubPage'
 
@@ -447,6 +448,68 @@ describe('LearnPage: Similar Letters explanation images', () => {
   it('does not show a Similar Letters explanation image outside the Similar Letters lesson', () => {
     renderLearn('/learn/katakana/katakana-sa-row')
     expect(document.querySelector('img')).toBeNull()
+  })
+})
+
+// Saved items (see savedItemsStore.ts) — Learn shows a Save checkbox
+// alongside each individual Character/Word it renders, outside/beside the
+// existing CharacterCard/WordCard (which stay the sole audio-playing
+// button), never nested inside them.
+describe('LearnPage: Save checkbox', () => {
+  beforeEach(() => {
+    useSavedItemsStore.setState({ savedCharacterIds: [], savedWordIds: [] })
+  })
+
+  it('shows an unchecked "Save" control for the character on step A, and saving it does not nest inside CharacterCard\'s own play button', () => {
+    renderLearn('/learn/hiragana/a-row')
+    const checkbox = screen.getByRole('checkbox', { name: /save あ/i })
+    expect(checkbox).not.toBeChecked()
+    // The checkbox must be a sibling of the play-audio button, never a
+    // descendant of it (no interactive-in-interactive nesting).
+    const playButton = screen.getByRole('button', { name: /play pronunciation/i })
+    expect(playButton.contains(checkbox)).toBe(false)
+
+    fireEvent.click(checkbox)
+    expect(checkbox).toBeChecked()
+    expect(useSavedItemsStore.getState().isCharacterSaved('a')).toBe(true)
+    expect(screen.getByText('Saved')).toBeInTheDocument()
+  })
+
+  it('unsaving via the Learn checkbox removes it from savedItemsStore', () => {
+    renderLearn('/learn/hiragana/a-row')
+    const checkbox = screen.getByRole('checkbox', { name: /save あ/i })
+    fireEvent.click(checkbox)
+    expect(useSavedItemsStore.getState().isCharacterSaved('a')).toBe(true)
+    fireEvent.click(checkbox)
+    expect(useSavedItemsStore.getState().isCharacterSaved('a')).toBe(false)
+  })
+
+  it('reflects an already-saved character as checked on load', () => {
+    useSavedItemsStore.getState().toggleCharacter('a')
+    renderLearn('/learn/hiragana/a-row')
+    expect(screen.getByRole('checkbox', { name: /saved あ/i })).toBeChecked()
+  })
+
+  it('shows a Save checkbox for each word on the "words you can already read" step, and saving one works', () => {
+    renderLearn('/learn/hiragana/a-row')
+    fireEvent.click(screen.getByText('See the words'))
+
+    const wordCheckboxes = screen.getAllByRole('checkbox', { name: /^save /i })
+    expect(wordCheckboxes.length).toBeGreaterThan(0)
+    fireEvent.click(wordCheckboxes[0])
+    expect(wordCheckboxes[0]).toBeChecked()
+    expect(
+      useSavedItemsStore.getState().savedWordIds.length === 1 && useSavedItemsStore.getState().savedWordIds[0],
+    ).toBeTruthy()
+  })
+
+  it('shows Save checkboxes for each character in a Similar Letters group', () => {
+    renderLearn('/learn/hiragana/hiragana-similar-letters')
+    // Group 1 is あ・お.
+    const checkboxes = screen.getAllByRole('checkbox', { name: /^save /i })
+    expect(checkboxes.length).toBe(2)
+    fireEvent.click(checkboxes[0])
+    expect(useSavedItemsStore.getState().savedCharacterIds).toEqual(['a'])
   })
 })
 

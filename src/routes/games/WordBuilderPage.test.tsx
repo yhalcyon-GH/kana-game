@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getNextRowId, ROWS } from '../../data/curriculum'
 import { REVIEW_SCOPE_ID } from '../../hooks/useCurriculum'
 import { useProgressStore } from '../../store/progressStore'
+import { useSavedItemsStore } from '../../store/savedItemsStore'
 import { WordBuilderPage } from './WordBuilderPage'
 
 beforeEach(() => {
@@ -507,5 +508,57 @@ describe('WordBuilderPage pre-answer mascot', () => {
     }
     const mascotNextRound = container.querySelector('img[src*="mascot"]') as HTMLImageElement
     expect(mascotNextRound.src).toContain('mascot/normal.webp')
+  })
+})
+
+// Saved items (see savedItemsStore.ts) — Word Builder shows a Save checkbox
+// for the target WORD (never an individual character) only after a wrong
+// answer, never on a correct one.
+describe('WordBuilderPage: Save checkbox on wrong answer only', () => {
+  beforeEach(() => {
+    useProgressStore.getState().resetProgress()
+    useSavedItemsStore.setState({ savedCharacterIds: [], savedWordIds: [] })
+  })
+
+  const glyphOf = (id: string) => ({ a: 'あ', i: 'い', u: 'う', e: 'え', o: 'お' })[id]!
+
+  it('does not show a Save checkbox before answering', () => {
+    const { queryByRole } = renderRowWordBuilder()
+    expect(queryByRole('checkbox')).toBeNull()
+  })
+
+  it('shows a Save checkbox for the target word after a wrong answer, and saving it saves only the word, not its individual characters', () => {
+    const { container, getByRole } = renderRowWordBuilder()
+    const meaning = container.querySelector('.text-lg.font-semibold')!.textContent!.trim()
+    const [target0, target1] = A_ROW_WORDS[meaning]
+
+    const trayButtons = () =>
+      Array.from(container.querySelectorAll('button.font-kana:not(.border-dashed):not([disabled])')) as HTMLButtonElement[]
+    const wrongTile = trayButtons().find((b) => b.textContent !== glyphOf(target0) && b.textContent !== glyphOf(target1))!
+    fireEvent.click(wrongTile)
+    const secondTile = trayButtons()[0]
+    fireEvent.click(secondTile)
+
+    const checkbox = getByRole('checkbox') as HTMLInputElement
+    expect(checkbox).not.toBeChecked()
+    fireEvent.click(checkbox)
+    expect(checkbox).toBeChecked()
+    expect(useSavedItemsStore.getState().savedWordIds.length).toBe(1)
+    // Word Builder tracks per-character correctness for Review, but Saved
+    // must only ever record the whole target word — never auto-add either
+    // of its individual characters.
+    expect(useSavedItemsStore.getState().savedCharacterIds).toEqual([])
+  })
+
+  it('does not show a Save checkbox after a correct answer', () => {
+    const { container, queryByRole } = renderRowWordBuilder()
+    const meaning = container.querySelector('.text-lg.font-semibold')!.textContent!.trim()
+    const [target0, target1] = A_ROW_WORDS[meaning]
+
+    const trayButtons = () => Array.from(container.querySelectorAll('button.font-kana:not(.border-dashed)')) as HTMLButtonElement[]
+    fireEvent.click(trayButtons().find((b) => b.textContent === glyphOf(target0))!)
+    fireEvent.click(trayButtons().find((b) => b.textContent === glyphOf(target1))!)
+
+    expect(queryByRole('checkbox')).toBeNull()
   })
 })

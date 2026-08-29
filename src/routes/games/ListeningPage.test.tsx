@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { WORDS_BY_ROW } from '../../data/words'
 import { REVIEW_SCOPE_ID } from '../../hooks/useCurriculum'
 import { useProgressStore } from '../../store/progressStore'
+import { useSavedItemsStore } from '../../store/savedItemsStore'
 import { ListeningPage } from './ListeningPage'
 
 // Lets one specific test force a queue with consecutive-duplicate ids (the
@@ -543,5 +544,52 @@ describe('ListeningPage yōon choice rendering (no bad line breaks)', () => {
         expect(moraSpan).toHaveClass('whitespace-nowrap')
       }
     }
+  })
+})
+
+// Saved items (see savedItemsStore.ts) — Listening shows a Save checkbox
+// for the missed target word only after a wrong answer, never on a correct
+// one.
+describe('ListeningPage: Save checkbox on wrong answer only', () => {
+  beforeEach(() => {
+    useProgressStore.getState().resetProgress()
+    useSavedItemsStore.setState({ savedCharacterIds: [], savedWordIds: [] })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('does not show a Save checkbox before answering', () => {
+    const { queryByRole } = renderRowListening()
+    expect(queryByRole('checkbox')).toBeNull()
+  })
+
+  it('shows a Save checkbox for the target word after a wrong answer, and saving it updates savedItemsStore', () => {
+    vi.useFakeTimers()
+    const { container, getByRole } = renderRowListening()
+    const meaning = container.querySelector('span.text-sm.text-neutral-500')!.textContent!.trim()
+    const targetKana = MEANING_TO_KANA[meaning]
+    const buttons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
+    const wrongButton = buttons.find((b) => b.querySelector('.font-kana')?.textContent !== targetKana)!
+    act(() => fireEvent.click(wrongButton))
+
+    const checkbox = getByRole('checkbox') as HTMLInputElement
+    expect(checkbox).not.toBeChecked()
+    act(() => fireEvent.click(checkbox))
+    expect(checkbox).toBeChecked()
+    expect(useSavedItemsStore.getState().savedWordIds.length).toBe(1)
+  })
+
+  it('does not show a Save checkbox after a correct answer', () => {
+    vi.useFakeTimers()
+    const { container, queryByRole } = renderRowListening()
+    const meaning = container.querySelector('span.text-sm.text-neutral-500')!.textContent!.trim()
+    const targetKana = MEANING_TO_KANA[meaning]
+    const buttons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
+    const correctButton = buttons.find((b) => b.querySelector('.font-kana')?.textContent === targetKana)!
+    act(() => fireEvent.click(correctButton))
+
+    expect(queryByRole('checkbox')).toBeNull()
   })
 })
