@@ -544,10 +544,7 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
   // ===== 特殊音 (Special Katakana) — fixed, confirmed 22-word vocabulary
   // (13 + 9), no more/fewer. `image` added 2026-08-29 from a ChatGPT-
   // sourced batch (see design/images/word-illustrations/
-  // special-katakana-chatgpt-2026-08-29/) for 21 of the 22 words — シェア
-  // (special-katakana-she-shea) has no illustration yet and is left
-  // without `image`; WordCard/the mini-games already render their normal
-  // no-image placeholder for it, same as any other word without art. No
+  // special-katakana-chatgpt-2026-08-29/) for all 22 words. No
   // `audioText`: like the rest of the katakana loanword vocabulary
   // elsewhere in this file, plain `kana` reads naturally on its own with
   // no lexical ambiguity to resolve.
@@ -568,7 +565,7 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
   ],
   'special-katakana-she-row': [
     { id: 'special-katakana-she-shefu', kana: 'シェフ', romaji: 'shefu', meaning: 'chef', image: 'word-icons/special-katakana-she-shefu.webp', characterIds: ['katakana-she', 'katakana-fu'] },
-    { id: 'special-katakana-she-shea', kana: 'シェア', romaji: 'shea', meaning: 'share', characterIds: ['katakana-she', 'katakana-a'] },
+    { id: 'special-katakana-she-shea', kana: 'シェア', romaji: 'shea', meaning: 'share', image: 'word-icons/special-katakana-she-shea.webp', characterIds: ['katakana-she', 'katakana-a'] },
     { id: 'special-katakana-she-jesuchaa', kana: 'ジェスチャー', romaji: 'jesuchā', meaning: 'gesture', image: 'word-icons/special-katakana-she-jesuchaa.webp', characterIds: ['katakana-je', 'katakana-su', 'katakana-cha', 'katakana-chouon'] },
     { id: 'special-katakana-she-purojekuto', kana: 'プロジェクト', romaji: 'purojekuto', meaning: 'project', image: 'word-icons/special-katakana-she-purojekuto.webp', characterIds: ['katakana-pu', 'katakana-ro', 'katakana-je', 'katakana-ku', 'katakana-to'] },
     { id: 'special-katakana-she-chekku', kana: 'チェック', romaji: 'chekku', meaning: 'check', image: 'word-icons/special-katakana-she-chekku.webp', characterIds: ['katakana-che', 'katakana-sokuon', 'katakana-ku'] },
