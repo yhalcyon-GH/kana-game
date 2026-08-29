@@ -112,6 +112,10 @@ type ProgressState = {
   // Tamamizu Guide (Issue #50) — independent one-time explanation shown
   // when the first Yōon lesson is opened. Pure UI state only.
   hasCompletedYouonGuide: boolean
+  // Tamamizu Guide — independent one-time explanation shown when Special
+  // Katakana's first session (special-katakana-fa-row) is first opened, NOT
+  // just from visiting the shared /youon page. Pure UI state only.
+  hasCompletedSpecialKatakanaGuide: boolean
   // KanaIntroExcerptGuide auto-display (mobile QA polish round) — one flag
   // per section (Hiragana/Katakana), each independent: seeing the excerpt
   // via one section must never suppress the other's own first-time
@@ -156,6 +160,7 @@ type ProgressState = {
   setHasCompletedSokuonGuide: (completed: boolean) => void
   setHasCompletedChouonGuide: (completed: boolean) => void
   setHasCompletedYouonGuide: (completed: boolean) => void
+  setHasCompletedSpecialKatakanaGuide: (completed: boolean) => void
   setHasCompletedHiraganaSectionGuide: (completed: boolean) => void
   setHasCompletedKatakanaSectionGuide: (completed: boolean) => void
   resetProgress: () => void
@@ -282,6 +287,10 @@ export function mergePersistedProgress(persistedState: unknown, currentState: Pr
     hasCompletedSokuonGuide: booleanOr(persisted.hasCompletedSokuonGuide, currentState.hasCompletedSokuonGuide),
     hasCompletedChouonGuide: booleanOr(persisted.hasCompletedChouonGuide, currentState.hasCompletedChouonGuide),
     hasCompletedYouonGuide: booleanOr(persisted.hasCompletedYouonGuide, currentState.hasCompletedYouonGuide),
+    hasCompletedSpecialKatakanaGuide: booleanOr(
+      persisted.hasCompletedSpecialKatakanaGuide,
+      currentState.hasCompletedSpecialKatakanaGuide,
+    ),
     hasCompletedHiraganaSectionGuide: booleanOr(persisted.hasCompletedHiraganaSectionGuide, currentState.hasCompletedHiraganaSectionGuide),
     hasCompletedKatakanaSectionGuide: booleanOr(persisted.hasCompletedKatakanaSectionGuide, currentState.hasCompletedKatakanaSectionGuide),
     mascotVoiceEnabled: booleanOr(persisted.mascotVoiceEnabled, currentState.mascotVoiceEnabled),
@@ -311,6 +320,7 @@ export const useProgressStore = create<ProgressState>()(
       hasCompletedSokuonGuide: false,
       hasCompletedChouonGuide: false,
       hasCompletedYouonGuide: false,
+      hasCompletedSpecialKatakanaGuide: false,
       hasCompletedHiraganaSectionGuide: false,
       hasCompletedKatakanaSectionGuide: false,
 
@@ -410,6 +420,7 @@ export const useProgressStore = create<ProgressState>()(
       setHasCompletedSokuonGuide: (completed) => set({ hasCompletedSokuonGuide: completed }),
       setHasCompletedChouonGuide: (completed) => set({ hasCompletedChouonGuide: completed }),
       setHasCompletedYouonGuide: (completed) => set({ hasCompletedYouonGuide: completed }),
+      setHasCompletedSpecialKatakanaGuide: (completed) => set({ hasCompletedSpecialKatakanaGuide: completed }),
       setHasCompletedHiraganaSectionGuide: (completed) => set({ hasCompletedHiraganaSectionGuide: completed }),
       setHasCompletedKatakanaSectionGuide: (completed) => set({ hasCompletedKatakanaSectionGuide: completed }),
       setMascotVoiceEnabled: (enabled) => set({ mascotVoiceEnabled: enabled }),
@@ -436,13 +447,14 @@ export const useProgressStore = create<ProgressState>()(
           hasCompletedSokuonGuide: false,
           hasCompletedChouonGuide: false,
           hasCompletedYouonGuide: false,
+          hasCompletedSpecialKatakanaGuide: false,
           hasCompletedHiraganaSectionGuide: false,
           hasCompletedKatakanaSectionGuide: false,
         }),
     }),
     {
       name: 'kana-game-progress',
-      version: 18,
+      version: 19,
       // v1 -> v2: the default pronunciation speed changed from 1x to 0.5x;
       // carry that new default into browsers that already persisted a v1
       // state (which would otherwise keep the old 1x forever).
@@ -489,6 +501,10 @@ export const useProgressStore = create<ProgressState>()(
       // per-section completion flag, same as Sokuon/Chōon/Yōon. Existing
       // learners default to false for both, so they see the excerpt once
       // more next time they open each section — intended, not a bug.
+      // v18 -> v19: adds hasCompletedSpecialKatakanaGuide (Special Katakana,
+      // presented as a continuation of the /youon page — see curriculum.ts's
+      // SPECIAL_KATAKANA_CATEGORY_ID) — same "new independent Guide flag,
+      // defaults false" treatment as Sokuon/Chōon/Yōon before it.
       migrate: (persistedState, version) => {
         const state = (isRecord(persistedState) ? persistedState : {}) as Partial<ProgressState>
         if (version < 2) {
@@ -604,6 +620,11 @@ export const useProgressStore = create<ProgressState>()(
         if (version < 18) {
           state.hasCompletedHiraganaSectionGuide = false
           state.hasCompletedKatakanaSectionGuide = false
+        }
+        if (version < 19) {
+          // New independent UI state. Existing learners see the explanation
+          // the next time they open Special Katakana's first session.
+          state.hasCompletedSpecialKatakanaGuide = false
         }
         return state
       },

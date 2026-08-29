@@ -512,3 +512,86 @@ describe('LearnPage: Save checkbox', () => {
     expect(useSavedItemsStore.getState().savedCharacterIds).toEqual(['a'])
   })
 })
+
+// Special Katakana (see curriculum.ts's SPECIAL_KATAKANA_CATEGORY_ID) —
+// reuses the existing character-set Learn flow (batches -> recap -> words),
+// no dedicated implementation. Session 1 (ファ〜ディ): 6 characters, 4+2
+// batches, 13 words. Session 2 (シェ〜ウォ): 6 characters, 3+3 batches, 9
+// words.
+describe('LearnPage: Special Katakana Session 1 (special-katakana-fa-row, 4+2 batches)', () => {
+  it('progresses batch 1 (4 chars) -> batch 1 recap -> batch 2 (2 chars) -> batch 2 recap -> full recap -> 13 words', () => {
+    renderLearn('/learn/special-katakana/special-katakana-fa-row')
+
+    expect(screen.getByText('Set 1 / 2 · 1 / 4')).toBeInTheDocument()
+    for (let i = 0; i < 3; i++) fireEvent.click(screen.getByText('Next'))
+    expect(screen.getByText('Set 1 / 2 · 4 / 4')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('See this set'))
+    expect(screen.queryByText('ティ')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('Next set'))
+    expect(screen.getByText('Set 2 / 2 · 1 / 2')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Next'))
+    expect(screen.getByText('Set 2 / 2 · 2 / 2')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('See this set'))
+    fireEvent.click(screen.getByText('See them all'))
+    expect(screen.getByText(/all together/)).toBeInTheDocument()
+    expect(screen.getByText('ファ')).toBeInTheDocument()
+    expect(screen.getByText('ディ')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('See the words'))
+    expect(screen.getByText(/words you can already read/)).toBeInTheDocument()
+    // 13 confirmed words for this session — spot-check a few, from each
+    // sub-group (ファ/フィ/フェ/フォ/ティ/ディ).
+    // Rendered via UnbreakableKana (one non-breaking span per mora — see
+    // "fix: polish section labels and similar-letter support"), so each
+    // word's kana is split across sibling elements; assert on the page's
+    // combined text content instead of a single getByText match.
+    expect(document.body.textContent).toContain('ファン')
+    expect(document.body.textContent).toContain('フィルム')
+    expect(document.body.textContent).toContain('カフェ')
+    expect(document.body.textContent).toContain('フォーク')
+    expect(document.body.textContent).toContain('ティッシュ')
+    expect(document.body.textContent).toContain('ディナー')
+  })
+})
+
+describe('LearnPage: Special Katakana Session 2 (special-katakana-she-row, 3+3 batches)', () => {
+  it('progresses batch 1 (3 chars) -> batch 1 recap -> batch 2 (3 chars) -> batch 2 recap -> full recap -> 9 words', () => {
+    renderLearn('/learn/special-katakana/special-katakana-she-row')
+
+    expect(screen.getByText('Set 1 / 2 · 1 / 3')).toBeInTheDocument()
+    for (let i = 0; i < 2; i++) fireEvent.click(screen.getByText('Next'))
+    expect(screen.getByText('Set 1 / 2 · 3 / 3')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('See this set'))
+    fireEvent.click(screen.getByText('Next set'))
+    expect(screen.getByText('Set 2 / 2 · 1 / 3')).toBeInTheDocument()
+    for (let i = 0; i < 2; i++) fireEvent.click(screen.getByText('Next'))
+    expect(screen.getByText('Set 2 / 2 · 3 / 3')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('See this set'))
+    fireEvent.click(screen.getByText('See them all'))
+    expect(screen.getByText('シェ')).toBeInTheDocument()
+    expect(screen.getByText('ウォ')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByText('See the words'))
+    expect(document.body.textContent).toContain('シェフ')
+    expect(document.body.textContent).toContain('ハロウィン')
+    expect(document.body.textContent).toContain('ウォーキング')
+  })
+
+  it('completing Learn (Continue) marks the row taught, same as any other row', () => {
+    renderLearn('/learn/special-katakana/special-katakana-she-row')
+    for (let i = 0; i < 2; i++) fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText('See this set'))
+    fireEvent.click(screen.getByText('Next set'))
+    for (let i = 0; i < 2; i++) fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText('See this set'))
+    fireEvent.click(screen.getByText('See them all'))
+    fireEvent.click(screen.getByText('See the words'))
+    fireEvent.click(screen.getByText('Continue'))
+    expect(useProgressStore.getState().taughtRowIds).toContain('special-katakana-she-row')
+  })
+})

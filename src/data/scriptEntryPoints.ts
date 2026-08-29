@@ -1,4 +1,11 @@
-import { CHOUON_CATEGORY_ID, DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID, SOKUON_CATEGORY_ID, YOUON_CATEGORY_ID } from './curriculum'
+import {
+  CHOUON_CATEGORY_ID,
+  DEFAULT_CATEGORY_ID,
+  KATAKANA_CATEGORY_ID,
+  SOKUON_CATEGORY_ID,
+  SPECIAL_KATAKANA_CATEGORY_ID,
+  YOUON_CATEGORY_ID,
+} from './curriculum'
 
 export type ScriptEntryPoint = { to: string; label: string; english: string; icon: string; categoryIds: string[] }
 
@@ -39,5 +46,16 @@ export const SCRIPT_ENTRY_POINTS: ScriptEntryPoint[] = [
     // into this one card — either being next-recommended recommends this card.
     categoryIds: [SOKUON_CATEGORY_ID, CHOUON_CATEGORY_ID],
   },
-  { to: '/youon', label: 'ゃゅょ', english: 'Yōon', icon: 'category-icons/youon.webp', categoryIds: [YOUON_CATEGORY_ID] },
+  {
+    to: '/youon',
+    label: 'ゃゅょ',
+    english: 'Yōon',
+    icon: 'category-icons/youon.webp',
+    // Special Katakana (see curriculum.ts's SPECIAL_KATAKANA_CATEGORY_ID) is
+    // bundled onto this SAME /youon page as a continuation of Yōon — no
+    // separate top-level entry — so it's included here too: whenever the
+    // Global Recommended Target moves into Special Katakana, this is still
+    // the one card that correctly lights up as Recommended and links there.
+    categoryIds: [YOUON_CATEGORY_ID, SPECIAL_KATAKANA_CATEGORY_ID],
+  },
 ]

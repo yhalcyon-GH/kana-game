@@ -532,7 +532,8 @@ describe('WordBuilderPage: Save checkbox on wrong answer only', () => {
     const meaning = container.querySelector('.text-lg.font-semibold')!.textContent!.trim()
     const [target0, target1] = A_ROW_WORDS[meaning]
 
-    const trayButtons = () => Array.from(container.querySelectorAll('button.font-kana:not(.border-dashed)')) as HTMLButtonElement[]
+    const trayButtons = () =>
+      Array.from(container.querySelectorAll('button.font-kana:not(.border-dashed):not([disabled])')) as HTMLButtonElement[]
     const wrongTile = trayButtons().find((b) => b.textContent !== glyphOf(target0) && b.textContent !== glyphOf(target1))!
     fireEvent.click(wrongTile)
     const secondTile = trayButtons()[0]

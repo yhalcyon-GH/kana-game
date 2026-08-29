@@ -422,3 +422,112 @@ describe('がくせい/せんせい/いもうと moved to chōon (Issue #13)', (
     expect(WORDS_BY_ROW['chouon-o-row']?.some((w) => w.id === 'chouon-o-imouto')).toBe(true)
   })
 })
+
+// Special Katakana (see curriculum.ts's SPECIAL_KATAKANA_CATEGORY_ID) —
+// own category, presented as a continuation of the SAME /youon page. See
+// App.test.tsx for the actual page-rendering coverage of the bundling
+// itself; this file covers the underlying data/helpers.
+describe('Special Katakana category (curriculum data)', () => {
+  it('is a character-set category depending on katakana + yōon + sokuon only (not hiragana or chōon)', () => {
+    const category = CATEGORIES_BY_ID['special-katakana']
+    expect(category).toBeDefined()
+    expect(category.learnStyle).toBe('character-set')
+    expect(category.dependsOnCategoryIds).toEqual(expect.arrayContaining(['katakana', 'youon', 'sokuon']))
+    expect(category.dependsOnCategoryIds).not.toContain('hiragana')
+    expect(category.dependsOnCategoryIds).not.toContain('chouon')
+  })
+
+  it('comes immediately after Yōon in CATEGORIES declaration order (Recommended Path walks this order)', () => {
+    const ids = CATEGORIES.map((c) => c.id)
+    const youonIndex = ids.indexOf('youon')
+    expect(ids[youonIndex + 1]).toBe('special-katakana')
+  })
+
+  it('has exactly 2 sessions (own order 0 and 1), 6 characters each', () => {
+    const rows = ROWS.filter((r) => r.categoryId === 'special-katakana' && !r.isSummary)
+    expect(rows).toHaveLength(2)
+    expect(rows.map((r) => r.order)).toEqual([0, 1])
+    for (const row of rows) expect(row.characterIds).toHaveLength(6)
+  })
+
+  it('has exactly 12 characters total, each a 2-glyph mora (one learning target = one mora, same as yōon)', () => {
+    const chars = CHARACTERS.filter((c) => c.rowId === 'special-katakana-fa-row' || c.rowId === 'special-katakana-she-row')
+    expect(chars).toHaveLength(12)
+    for (const c of chars) {
+      expect([...c.kana], `"${c.id}" (${c.kana}) should be exactly 2 glyphs`).toHaveLength(2)
+    }
+  })
+
+  it('has exactly 13 words in session 1 and 9 in session 2 (22 total, fixed scope)', () => {
+    expect(WORDS_BY_ROW['special-katakana-fa-row']).toHaveLength(13)
+    expect(WORDS_BY_ROW['special-katakana-she-row']).toHaveLength(9)
+  })
+
+  it('cumulative pool for session 1 includes katakana/yōon/sokuon characters it needs, but not hiragana', () => {
+    const cumulative = getCumulativeCharacterIds('special-katakana-fa-row')
+    expect(cumulative).toEqual(expect.arrayContaining(['katakana-a', 'katakana-gyu', 'sokuon', 'katakana-sokuon']))
+    expect(cumulative).not.toEqual(expect.arrayContaining(['a', 'ka'])) // no hiragana
+  })
+
+  it('session 2\'s cumulative pool includes session 1\'s own characters too (same-category, order-scoped)', () => {
+    const cumulative = getCumulativeCharacterIds('special-katakana-she-row')
+    expect(cumulative).toEqual(expect.arrayContaining(['katakana-fa', 'katakana-ti']))
+  })
+
+  it('katakana-special-wo (ウォ) is a distinct id from the existing katakana-wo (ヲ)', () => {
+    expect(CHARACTERS_BY_ID['katakana-special-wo']?.kana).toBe('ウォ')
+    expect(CHARACTERS_BY_ID['katakana-wo']?.kana).toBe('ヲ')
+    expect(CHARACTERS_BY_ID['katakana-special-wo']).not.toBe(CHARACTERS_BY_ID['katakana-wo'])
+  })
+
+  it('the existing All Yōon summary row is unchanged — still only aggregates the youon category, never special-katakana', () => {
+    const youonSummary = ROWS_BY_ID['youon-summary']
+    expect(youonSummary).toBeDefined()
+    // None of the 12 Special Katakana character ids leaked into "All Yōon".
+    const specialIds = CHARACTERS.filter(
+      (c) => c.rowId === 'special-katakana-fa-row' || c.rowId === 'special-katakana-she-row',
+    ).map((c) => c.id)
+    for (const id of specialIds) expect(youonSummary.characterIds).not.toContain(id)
+  })
+
+  it('getNextRowId crosses from Yōon\'s last row into Special Katakana session 1 (the one confirmed cross-category exception)', () => {
+    expect(getNextRowId('youon-katakana-ma-ra-row')).toBe('special-katakana-fa-row')
+    expect(getPreviousRowId('special-katakana-fa-row')).toBe('youon-katakana-ma-ra-row')
+  })
+
+  it('getNextRowId still stops at every OTHER category boundary (no general cross-category walk reopened)', () => {
+    // The true last row in each of these categories (summary rows included)
+    // still has no next row — no OTHER category boundary gained a jump.
+    expect(getNextRowId('katakana-summary')).toBeNull()
+    expect(getNextRowId('other-summary')).toBeNull()
+  })
+
+  it('session 1 -> session 2 is a normal same-category link', () => {
+    expect(getNextRowId('special-katakana-fa-row')).toBe('special-katakana-she-row')
+    expect(getPreviousRowId('special-katakana-she-row')).toBe('special-katakana-fa-row')
+  })
+
+  it('special-katakana-she-row (the last row) has no next row', () => {
+    expect(getNextRowId('special-katakana-she-row')).toBeNull()
+  })
+})
+
+// Vocabulary illustrations, added 2026-08-29 (see design/images/word-
+// illustrations/special-katakana-chatgpt-2026-08-29/) for 21 of the 22
+// Special Katakana words — シェア is intentionally still image-less.
+describe('Special Katakana word illustrations', () => {
+  it('21 of the 22 words have an image; special-katakana-she-shea does not', () => {
+    const words = [...WORDS_BY_ROW['special-katakana-fa-row'], ...WORDS_BY_ROW['special-katakana-she-row']]
+    expect(words).toHaveLength(22)
+    const withImage = words.filter((w) => !!w.image)
+    expect(withImage).toHaveLength(21)
+    expect(WORDS_BY_ID['special-katakana-she-shea'].image).toBeUndefined()
+  })
+
+  it('every image path points at word-icons/<own id>.webp', () => {
+    const words = [...WORDS_BY_ROW['special-katakana-fa-row'], ...WORDS_BY_ROW['special-katakana-she-row']]
+    for (const word of words.filter((w) => w.image)) {
+      expect(word.image).toBe(`word-icons/${word.id}.webp`)
+    }
+  })
+})

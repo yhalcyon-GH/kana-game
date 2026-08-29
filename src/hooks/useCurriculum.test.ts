@@ -6,6 +6,7 @@ import {
   KATAKANA_CATEGORY_ID,
   ROWS,
   SOKUON_CATEGORY_ID,
+  SPECIAL_KATAKANA_CATEGORY_ID,
   YOUON_CATEGORY_ID,
 } from '../data/curriculum'
 import { useProgressStore } from '../store/progressStore'
@@ -255,12 +256,23 @@ describe('useCurriculum', () => {
       expect(result.current.recommendedCategoryId).toBe(YOUON_CATEGORY_ID)
     })
 
-    it('recommends nothing once every category is done', () => {
+    it('moves to Special Katakana once yōon is also done', () => {
       completeCategory(DEFAULT_CATEGORY_ID)
       completeCategory(KATAKANA_CATEGORY_ID)
       completeCategory(SOKUON_CATEGORY_ID)
       completeCategory(CHOUON_CATEGORY_ID)
       completeCategory(YOUON_CATEGORY_ID)
+      const { result } = renderHook(() => useCurriculum())
+      expect(result.current.recommendedCategoryId).toBe(SPECIAL_KATAKANA_CATEGORY_ID)
+    })
+
+    it('recommends nothing once every category, including Special Katakana, is done', () => {
+      completeCategory(DEFAULT_CATEGORY_ID)
+      completeCategory(KATAKANA_CATEGORY_ID)
+      completeCategory(SOKUON_CATEGORY_ID)
+      completeCategory(CHOUON_CATEGORY_ID)
+      completeCategory(YOUON_CATEGORY_ID)
+      completeCategory(SPECIAL_KATAKANA_CATEGORY_ID)
       const { result } = renderHook(() => useCurriculum())
       expect(result.current.recommendedCategoryId).toBeNull()
     })

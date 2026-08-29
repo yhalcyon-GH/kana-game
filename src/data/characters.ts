@@ -341,6 +341,31 @@ export const CHARACTERS: KanaChar[] = [
   { id: 'katakana-rya', kana: 'リャ', romaji: 'rya', rowId: 'youon-katakana-ma-ra-row', type: 'base' },
   { id: 'katakana-ryu', kana: 'リュ', romaji: 'ryu', rowId: 'youon-katakana-ma-ra-row', type: 'base' },
   { id: 'katakana-ryo', kana: 'リョ', romaji: 'ryo', rowId: 'youon-katakana-ma-ra-row', type: 'base' },
+
+  // ===== 特殊音 (Special Katakana) — sounds Japanese borrowed for loanwords,
+  // written with a small vowel kana (ァィゥェォ) instead of small ゃゅょ.
+  // Same "one learning target = one mora, two glyphs" model as yōon above
+  // (see tracingUnits.ts/mora.ts, both generalized to cover this small-vowel
+  // family too) — these are NOT filed under the youon-* rowId prefix or the
+  // 'youon' category: Special Katakana is its own category
+  // (SPECIAL_KATAKANA_CATEGORY_ID, curriculum.ts) so its progression/
+  // Recommended Path/cumulative pool stay explicit and separate from all-
+  // Yōon, even though it's presented as a continuation of the same /youon
+  // page. katakana-special-wo (ウォ) is deliberately NOT named 'katakana-wo'
+  // — that id already exists for ヲ (katakana-ra-row), an unrelated
+  // character that happens to share the romaji "wo".
+  { id: 'katakana-fa', kana: 'ファ', romaji: 'fa', rowId: 'special-katakana-fa-row', type: 'base' },
+  { id: 'katakana-fi', kana: 'フィ', romaji: 'fi', rowId: 'special-katakana-fa-row', type: 'base' },
+  { id: 'katakana-fe', kana: 'フェ', romaji: 'fe', rowId: 'special-katakana-fa-row', type: 'base' },
+  { id: 'katakana-fo', kana: 'フォ', romaji: 'fo', rowId: 'special-katakana-fa-row', type: 'base' },
+  { id: 'katakana-ti', kana: 'ティ', romaji: 'ti', rowId: 'special-katakana-fa-row', type: 'base' },
+  { id: 'katakana-di', kana: 'ディ', romaji: 'di', rowId: 'special-katakana-fa-row', type: 'dakuten' },
+  { id: 'katakana-she', kana: 'シェ', romaji: 'she', rowId: 'special-katakana-she-row', type: 'base' },
+  { id: 'katakana-je', kana: 'ジェ', romaji: 'je', rowId: 'special-katakana-she-row', type: 'dakuten' },
+  { id: 'katakana-che', kana: 'チェ', romaji: 'che', rowId: 'special-katakana-she-row', type: 'base' },
+  { id: 'katakana-wi', kana: 'ウィ', romaji: 'wi', rowId: 'special-katakana-she-row', type: 'base' },
+  { id: 'katakana-we', kana: 'ウェ', romaji: 'we', rowId: 'special-katakana-she-row', type: 'base' },
+  { id: 'katakana-special-wo', kana: 'ウォ', romaji: 'wo', rowId: 'special-katakana-she-row', type: 'base' },
 ]
 
 export const CHARACTERS_BY_ID: Record<string, KanaChar> = Object.fromEntries(
