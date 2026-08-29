@@ -15,6 +15,7 @@ import { useEnterAdvance } from '../../hooks/useEnterAdvance'
 import { useGameSession } from '../../hooks/useGameSession'
 import { useTTS } from '../../hooks/useTTS'
 import { pickDistractorCharIds } from '../../lib/distractorPicker'
+import { isNearMissCharacterChoice } from '../../lib/nearMiss'
 import { buildQuizModePlan } from '../../lib/quizModePlan'
 import { shuffle } from '../../lib/shuffle'
 import {
@@ -207,11 +208,14 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
       onCorrect()
       scheduleAdvance(advance, 2000)
     } else {
-      onWrong({
-        id: currentCharId,
-        kana: CHARACTERS_BY_ID[currentCharId].kana,
-        romaji: CHARACTERS_BY_ID[currentCharId].romaji,
-      })
+      onWrong(
+        {
+          id: currentCharId,
+          kana: CHARACTERS_BY_ID[currentCharId].kana,
+          romaji: CHARACTERS_BY_ID[currentCharId].romaji,
+        },
+        isNearMissCharacterChoice(currentCharId, choiceId),
+      )
     }
   }
 

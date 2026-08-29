@@ -100,7 +100,7 @@ export const CHARACTERS: KanaChar[] = [
 
   // わ行 + ん (final row, no dakuten)
   { id: 'wa', kana: 'わ', romaji: 'wa', rowId: 'wa-row', type: 'base' },
-  { id: 'wo', kana: 'を', romaji: 'wo', rowId: 'wa-row', type: 'base', note: 'を → Usually pronounced "o" and used as a particle.' },
+  { id: 'wo', kana: 'を', romaji: 'wo', displayLabel: 'o/wo', rowId: 'wa-row', type: 'base', note: 'を → Usually pronounced "o" and used as a particle.' },
   { id: 'n', kana: 'ん', romaji: 'n', rowId: 'wa-row', type: 'base' },
 
   // ===== カタカナ (katakana) =====
@@ -216,7 +216,7 @@ export const CHARACTERS: KanaChar[] = [
   // completeness (see words.ts's katakana-ra-row comment for why, unlike
   // hiragana's を, it gets no vocabulary/phrase reinforcement).
   { id: 'katakana-wa', kana: 'ワ', romaji: 'wa', rowId: 'katakana-ra-row', type: 'base' },
-  { id: 'katakana-wo', kana: 'ヲ', romaji: 'wo', rowId: 'katakana-ra-row', type: 'base', note: 'ヲ → Rarely used.' },
+  { id: 'katakana-wo', kana: 'ヲ', romaji: 'wo', displayLabel: 'o/wo', rowId: 'katakana-ra-row', type: 'base', note: 'ヲ → Rarely used.' },
 
   // ===== 促音 (sokuon) =====
   // っ/ッ mark gemination — a held/doubled consonant, e.g. おと "oto" vs.

@@ -121,9 +121,18 @@ const SMALL_GLYPH_SCALE = 0.65
 // item's width too, so total unit width was less than what
 // packTracingRows/unitCellWidth already reserves for it in the canvas,
 // misaligning the animation against the canvas grid).
-function TracingCell({ size, children }: { size: number; children: ReactNode }) {
+// `align: 'start'` (used for the small glyph's cell only) pulls its content
+// to the cell's leading edge instead of centering it, so the small glyph
+// sits visually adjacent to the base glyph's cell rather than floating in
+// the middle of its own full-width cell with a large empty gap on the
+// base-glyph side (Step 25 — see the matching nudge in TracingPage's canvas
+// drawGlyph, which must stay visually consistent with this).
+function TracingCell({ size, children, align = 'center' }: { size: number; children: ReactNode; align?: 'center' | 'start' }) {
   return (
-    <div style={{ width: size, height: size }} className="flex shrink-0 items-end justify-center">
+    <div
+      style={{ width: size, height: size }}
+      className={`flex shrink-0 items-end ${align === 'start' ? 'justify-start' : 'justify-center'}`}
+    >
       {children}
     </div>
   )
@@ -154,7 +163,7 @@ export function TracingUnitAnimation({
       <TracingCell size={size}>
         <StrokeOrderAnimation characterId={characterId} strokeSourceId={base.strokeSourceId} playToken={playToken} size={size} />
       </TracingCell>
-      <TracingCell size={size}>
+      <TracingCell size={size} align="start">
         <StrokeOrderAnimation
           characterId={`${characterId}-small`}
           strokeSourceId={small.strokeSourceId}

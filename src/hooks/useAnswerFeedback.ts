@@ -45,10 +45,13 @@ export function useAnswerFeedback(mode: QuestionMode) {
     setFeedback({ ok: true, text })
   }
 
-  const onWrong = (mistake: Mistake) => {
+  // `isNearMiss` (see lib/nearMiss.ts) is optional and defaults to false —
+  // only a caller that has actually established the wrong answer was close
+  // should pass true; see pickIncorrectFeedback.
+  const onWrong = (mistake: Mistake, isNearMiss = false) => {
     streakRef.current = 0
     setStreak(0)
-    const { id, text } = pickIncorrectFeedback(lastWrongIdRef.current)
+    const { id, text } = pickIncorrectFeedback(lastWrongIdRef.current, isNearMiss)
     lastWrongIdRef.current = id
     speak(`feedback/${id}`, text)
     setFeedback({ ok: false, text })

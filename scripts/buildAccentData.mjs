@@ -297,15 +297,12 @@ const RESOLVED_BY_SOURCE_CONSENSUS = {
   'special-katakana-fa-firumu': 'HLL', // フィルム: 5 sources (OJAD/Wiktionary/NHK/Kanjium/Kishimoto Tsuneyo) vs 1 (OJAD)
   'special-katakana-she-purojekuto': 'LHLLL', // プロジェクト: 5 sources (OJAD/Wiktionary/NHK/Kanjium/Kishimoto Tsuneyo) vs 4 (OJAD/Wiktionary/NHK/Kanjium)
   // ウォーキング: the exact 5-mora spelling is a genuine 2-vs-2 tie
-  // (OJAD+Wiktionary on each side: LHHHH-H vs HLLLL-L). Resolved by the
-  // dataset's OWN corroborating record for the alternate 6-mora spelling
-  // ウオーキング (plain オ, not merged into ォ) — LHLLLL-L, backed by 3
-  // independent sources (NHK/Kanjium/Kishimoto Tsuneyo) — whose kana MERGES
-  // to our word's 5-mora reading by folding its mora 1+2 (ウ+オ, "LH") into
-  // one mora (ウォ) taking the second component's pitch ("H"), giving
-  // H,L,L,L,L = HLLLL, which matches one side of the tie. That side is thus
-  // backed by 5 sources in total across both spellings vs 2 for the other.
-  'special-katakana-she-wookingu': 'HLLLL',
+  // (OJAD+Wiktionary on each side: LHHHH-H vs HLLLL-L). The dataset's own
+  // corroborating record for the alternate 6-mora spelling ウオーキング
+  // (plain オ, not merged into ォ) would source-count-favor the HLLLL side
+  // (see git history for that reasoning) — but user-corrected 2026-08-29 to
+  // LHHHH, the other side of the tie, per their own pronunciation.
+  'special-katakana-she-wookingu': 'LHHHH',
 }
 
 // Words with NO accentjiten entry at all — supplied directly by the user

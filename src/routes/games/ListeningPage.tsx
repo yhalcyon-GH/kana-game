@@ -19,6 +19,7 @@ import { useFrozenWordPool } from '../../hooks/useFrozenWordPool'
 import { useGameSession } from '../../hooks/useGameSession'
 import { useTTS } from '../../hooks/useTTS'
 import { pickDistractorWords } from '../../lib/distractorPicker'
+import { isNearMissWordChoice } from '../../lib/nearMiss'
 import { shuffle } from '../../lib/shuffle'
 import {
   buildSimilarLettersSpellingChoices,
@@ -177,7 +178,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
     if (finished && !isReview && !isSimilarLetters && rowId) markRowActivityCompleted(rowId, 'listening')
   }, [finished, isReview, isSimilarLetters, rowId, markRowActivityCompleted])
 
-  const finishAnswer = (isCorrect: boolean) => {
+  const finishAnswer = (isCorrect: boolean, isNearMiss = false) => {
     if (!currentWord) return
     // Listening can only judge the whole word right/wrong, not which
     // character was the actual mistake — so it feeds the Leitner box per
@@ -198,7 +199,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
       onCorrect()
       scheduleAdvance(advance, 2000)
     } else {
-      onWrong({ id: currentWord.id, kana: currentWord.kana, romaji: currentWord.romaji })
+      onWrong({ id: currentWord.id, kana: currentWord.kana, romaji: currentWord.romaji }, isNearMiss)
     }
   }
 
@@ -207,7 +208,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
     setSelectedId(choice.id)
     setAnswered(true)
     setAnsweredForRoundIndex(roundIndex)
-    finishAnswer(choice.id === currentWord.id)
+    finishAnswer(choice.id === currentWord.id, isNearMissWordChoice(currentWord, choice))
   }
 
   // Similar Letters mode only — `choice.key` is a UI-only ephemeral id (see

@@ -7,10 +7,17 @@
 export type FeedbackLine = { id: string; text: string }
 
 // --- Per-answer: wrong. Random pick, never the same line twice in a row. ---
+// WRONG_OSHII ("close!") is reserved for a genuine near miss (see
+// lib/nearMiss.ts) — pickIncorrectFeedback only draws it from
+// NEAR_MISS_INCORRECT_LINES when the caller has established the wrong
+// answer was actually close; every other wrong answer draws from
+// NON_NEAR_MISS_INCORRECT_LINES instead, which excludes it.
 export const WRONG_OSHII: FeedbackLine = { id: 'wrong_oshii', text: '惜しい！' }
 export const WRONG_GANBARE: FeedbackLine = { id: 'wrong_ganbare', text: '頑張れ！' }
 export const WRONG_DAIJOUBU: FeedbackLine = { id: 'wrong_daijoubu', text: '大丈夫！' }
 export const INCORRECT_LINES: FeedbackLine[] = [WRONG_OSHII, WRONG_GANBARE, WRONG_DAIJOUBU]
+export const NEAR_MISS_INCORRECT_LINES: FeedbackLine[] = [WRONG_OSHII, WRONG_GANBARE, WRONG_DAIJOUBU]
+export const NON_NEAR_MISS_INCORRECT_LINES: FeedbackLine[] = [WRONG_GANBARE, WRONG_DAIJOUBU]
 
 // --- Per-answer: correct, no streak milestone hit. Same random-no-repeat rule. ---
 export const CORRECT_IINE: FeedbackLine = { id: 'correct_iine', text: 'いいね！' }

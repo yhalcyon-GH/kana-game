@@ -239,7 +239,13 @@ export function TracingPage() {
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillStyle = 'rgba(120, 120, 120, 0.3)'
-      const cx = cellSize * (col + 0.5)
+      // A small glyph is pulled toward the base glyph's cell (leading edge of
+      // its own cell) instead of centered in its full-width cell, matching
+      // StrokeOrderAnimation's TracingCell `align="start"` nudge — otherwise
+      // the shrunk glyph floats in the middle of unused cell space and reads
+      // as too far from the base glyph it's paired with (Step 25).
+      const smallNudge = isSmall ? cellSize * (1 - SMALL_GUIDE_SCALE) * 0.375 : 0
+      const cx = cellSize * (col + 0.5) - smallNudge
       const cy = cellSize * (row + 0.5) + cellSize * (isSmall ? 0.12 : 0.05)
       ctx.fillText(kana, cx, cy)
     }

@@ -17,6 +17,7 @@ import { useFrozenWordPool } from '../../hooks/useFrozenWordPool'
 import { useGameSession } from '../../hooks/useGameSession'
 import { useTTS } from '../../hooks/useTTS'
 import { isAnswerCorrect } from '../../lib/answerChecking'
+import { isNearMissTypedKana } from '../../lib/nearMiss'
 import { buildSimilarLettersWordQueue } from '../../lib/similarLettersSelection'
 import { useProgressStore } from '../../store/progressStore'
 
@@ -131,7 +132,7 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
       onCorrect()
       scheduleAdvance(advance, 2000)
     } else {
-      onWrong({ id: currentWord.id, kana: currentWord.kana, romaji: currentWord.romaji })
+      onWrong({ id: currentWord.id, kana: currentWord.kana, romaji: currentWord.romaji }, isNearMissTypedKana(input, currentWord.kana))
     }
   }
 

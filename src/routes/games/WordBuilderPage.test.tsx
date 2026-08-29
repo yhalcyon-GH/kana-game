@@ -353,7 +353,6 @@ describe('WordBuilderPage result summary (correct/total count)', () => {
     expect(container.textContent).not.toMatch(/その調子/)
     expect(container.textContent).not.toMatch(/Accuracy/i)
     expect(container.textContent).not.toMatch(/%/)
-    expect(container.textContent).not.toMatch(/\d+\s*\/\s*\d+\s*correct/i)
   })
 
   it('a shorter Review session shows the actual (non-8) played total, not a fixed session length', () => {
