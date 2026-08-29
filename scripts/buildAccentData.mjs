@@ -294,6 +294,18 @@ const RESOLVED_BY_SOURCE_CONSENSUS = {
   'katakana-ma-misu': 'HL', // 5 sources vs 1
   'katakana-ma-suimingu': 'LHLLL', // 4 sources vs 2
   'katakana-ra-booru': 'LHH', // 5 sources vs 3
+  'special-katakana-fa-firumu': 'HLL', // フィルム: 5 sources (OJAD/Wiktionary/NHK/Kanjium/Kishimoto Tsuneyo) vs 1 (OJAD)
+  'special-katakana-she-purojekuto': 'LHLLL', // プロジェクト: 5 sources (OJAD/Wiktionary/NHK/Kanjium/Kishimoto Tsuneyo) vs 4 (OJAD/Wiktionary/NHK/Kanjium)
+  // ウォーキング: the exact 5-mora spelling is a genuine 2-vs-2 tie
+  // (OJAD+Wiktionary on each side: LHHHH-H vs HLLLL-L). Resolved by the
+  // dataset's OWN corroborating record for the alternate 6-mora spelling
+  // ウオーキング (plain オ, not merged into ォ) — LHLLLL-L, backed by 3
+  // independent sources (NHK/Kanjium/Kishimoto Tsuneyo) — whose kana MERGES
+  // to our word's 5-mora reading by folding its mora 1+2 (ウ+オ, "LH") into
+  // one mora (ウォ) taking the second component's pitch ("H"), giving
+  // H,L,L,L,L = HLLLL, which matches one side of the tie. That side is thus
+  // backed by 5 sources in total across both spellings vs 2 for the other.
+  'special-katakana-she-wookingu': 'HLLLL',
 }
 
 // Words with NO accentjiten entry at all — supplied directly by the user
@@ -316,6 +328,20 @@ const MANUAL_OVERRIDES = {
   'youon-katakana-ka-kyuuri': 'HLL', // キュウリ (kyuuri) — 3 morae: kyu-u-ri
   'youon-katakana-ha-hyou': 'HL', // ヒョウ (hyou) — 2 morae: hyo-u
   'chouon-e-eiga': 'HLL', // えいが (eiga) — user-supplied, per their own pronunciation
+  // フォルダ has no accentjiten entry under its own exact kana, but the
+  // dataset's フォルダー entry (HLLL-L, unanimous across 3 independent
+  // sources: Wiktionary/Kanjium/Kishimoto Tsuneyo) explicitly lists フォルダ
+  // itself as a variant spelling of the SAME reading — so this is the
+  // pipeline's own data, just truncated from the chōon-final 4-mora
+  // spelling's HLLL to our chōon-less 3-mora spelling's HLL (same accent
+  // kernel, drop after mora 1 either way).
+  'special-katakana-fa-foruda': 'HLL',
+  // キャンディー likewise has no exact-kana entry, but the dataset's
+  // キャンディ entry (HLL-L, sole source Wiktionary, no competing accent on
+  // record) lists キャンディー itself as a variant spelling — extended from
+  // the 3-mora reading's HLL by continuing the final mora's L into the
+  // chōon, giving HLLL for our 4-mora spelling.
+  'special-katakana-fa-kyandii': 'HLLL',
 }
 
 const results = []

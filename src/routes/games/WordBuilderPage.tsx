@@ -6,7 +6,6 @@ import { GameRoundHeader } from '../../components/GameRoundHeader'
 import { KanaTile } from '../../components/KanaTile'
 import { PracticeSummary } from '../../components/PracticeSummary'
 import { ReviewEmptyState } from '../../components/ReviewEmptyState'
-import { RomajiHint } from '../../components/RomajiHint'
 import { SaveWordToggle } from '../../components/SaveWordToggle'
 import { WordImage } from '../../components/WordImage'
 import { CHARACTERS_BY_ID } from '../../data/characters'
@@ -23,19 +22,19 @@ import { pickDistractorCharIds } from '../../lib/distractorPicker'
 import { kanaToRomaji } from '../../lib/kanaToRomaji'
 import { shuffle } from '../../lib/shuffle'
 import { buildSimilarLettersWordQueue, pickSimilarLettersDistractorCharIds } from '../../lib/similarLettersSelection'
+import { buildFlatTargetTiles, type FlatTargetTile } from '../../lib/wordBuilderTiles'
 import { useProgressStore } from '../../store/progressStore'
 
 const DISTRACTOR_COUNT = 3
 
-// Tiles are one per learning-unit CHARACTER ID, not raw Unicode glyphs —
-// most characters are 1 glyph already (charId and glyph coincide), but a
-// 2-glyph character (yōon like きゃ, or Special Katakana like ファ — see
-// characters.ts's "one glyph = one mora" note) is ONE tile showing both
-// glyphs together, e.g. ティッシュ is built from [ティ][ッ][シュ], never
-// split further into [テ][ィ][ッ][シ][ュ] — per the Special Katakana spec's
-// explicit requirement (this reverses an earlier explicit request to split
-// yōon into separate single-glyph tiles; the mora unit is now used
-// everywhere, including existing yōon words).
+// A single tray/slot tile can be either a whole learning-unit CHARACTER ID's
+// kana (most characters, and yōon like きゃ — one glyph or 2-glyph digraph,
+// always ONE tile, e.g. ティッシュ's シュ stays whole) OR one HALF of a
+// Special Katakana character's kana, spelling-split for display purposes
+// only (ティッシュ's ティ splits into [テ][ィ]) — see
+// src/lib/wordBuilderTiles.ts's SPECIAL_KATAKANA_SPLIT_IDS/
+// buildFlatTargetTiles for the exact rule and FlatTargetTile for how a
+// split pair is still folded back into ONE combined Review/SRS target.
 type TrayTile = { key: string; glyph: string; placed: boolean }
 
 type Props = {
@@ -110,29 +109,34 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
   const [slots, setSlots] = useState<(string | null)[]>([])
   const [tray, setTray] = useState<TrayTile[]>([])
   const [status, setStatus] = useState<'playing' | 'correct' | 'wrong'>('playing')
-  // Per-question romaji hint (see RomajiHint) — reset every round in
-  // setupRound below so revealing it never carries over to the next word.
-  const [romajiHintShown, setRomajiHintShown] = useState(false)
+  // The flattened DISPLAY tiles for the current word's correct answer (see
+  // FlatTargetTile/buildFlatTargetTiles above) — one entry per tile slot,
+  // each still tagged with the owning learning-unit charId so the
+  // correctness effect below can attribute a wrong split-tile part back to
+  // its single combined Review/SRS target.
+  const [targetTiles, setTargetTiles] = useState<FlatTargetTile[]>([])
 
   // Sets up a fresh tray/slots for a new word. Slots/tiles are sized to the
-  // word's CHARACTER-ID (learning-unit/mora) count, not its raw Unicode
-  // glyph count — see TrayTile's comment. A 2-glyph character (yōon like
-  // きゃ, or Special Katakana like ファ — see tracingUnits.ts's identical
-  // "one learning target = one mora" generalization) is ONE tile showing
-  // both glyphs together, never split into two single-glyph tiles: the
-  // learner places/reads it as the one unit it actually is.
+  // word's DISPLAY-tile count: most characters render as one tile per
+  // learning unit (charId and glyph coincide), yōon (きゃ/しゃ/チャ etc.)
+  // stays ONE tile despite being 2 codepoints, and Special Katakana
+  // (ファ/フィ/ティ/シェ/... — see SPECIAL_KATAKANA_SPLIT_IDS) spelling-splits
+  // into TWO tiles (full kana + small vowel) even though it remains a single
+  // Review/SRS/recognition target. Distractor tiles are left as whole
+  // learning-unit tiles (never split) — only the correct word's own tiles
+  // need to model the real spelling.
   const setupRound = useCallback(
     (word: AnchorWord) => {
       const distractorCharIds = isSimilarLetters
         ? pickSimilarLettersDistractorCharIds(word.characterIds, confusionGroups, scopeCharacterIds, DISTRACTOR_COUNT)
         : pickDistractorCharIds(word.characterIds, scopeCharacterIds, DISTRACTOR_COUNT)
-      const targetTiles = word.characterIds.map((id) => CHARACTERS_BY_ID[id]?.kana ?? '')
+      const flatTarget = buildFlatTargetTiles(word.characterIds)
       const distractorTiles = distractorCharIds.map((id) => CHARACTERS_BY_ID[id]?.kana ?? '')
-      const tileGlyphs = shuffle([...targetTiles, ...distractorTiles])
+      const tileGlyphs = shuffle([...flatTarget.map((t) => t.glyph), ...distractorTiles])
       setTray(tileGlyphs.map((glyph, i) => ({ key: `${glyph}-${i}`, glyph, placed: false })))
-      setSlots(new Array(targetTiles.length).fill(null))
+      setTargetTiles(flatTarget)
+      setSlots(new Array(flatTarget.length).fill(null))
       setStatus('playing')
-      setRomajiHintShown(false)
       clear()
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -161,24 +165,37 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
     if (!currentWord || status !== 'playing') return
     if (slots.some((s) => s === null)) return
 
-    const placedTiles = slots.map((key) => tray.find((t) => t.key === key)?.glyph)
-    const targetTiles = currentWord.characterIds.map((id) => CHARACTERS_BY_ID[id]?.kana ?? '')
-    const isCorrect = placedTiles.every((tile, i) => tile === targetTiles[i])
+    const placedGlyphs = slots.map((key) => tray.find((t) => t.key === key)?.glyph)
+    const isCorrect = placedGlyphs.every((glyph, i) => glyph === targetTiles[i]?.glyph)
 
-    // Record each character's OWN correctness, not the whole word's — a
-    // wrong tile anywhere used to mark EVERY character in the word wrong,
-    // including ones the learner placed correctly. That was harmless back
-    // when it only fed the SRS box, but now directly drives character
-    // Review (see lib/srs.ts's applyReviewResult), so a misattributed
-    // character would show up there as "kept missing" when it wasn't the
-    // problem. Each tile is exactly one character's own mora now (see
-    // setupRound above), so this is a direct 1:1 walk — no glyph-span
-    // accounting needed. Word Builder has real per-character precision, so
-    // ONLY the actually-wrong character(s) enter Review here — a correctly
-    // placed character that wasn't already active stays untouched
-    // (recordCharacterReviewResult is a no-op for a correct, inactive item).
-    currentWord.characterIds.forEach((charId, i) => {
-      const charCorrect = placedTiles[i] === targetTiles[i]
+    // Record each CHARACTER's (learning-unit's) own correctness, not the
+    // whole word's — a wrong tile anywhere used to mark EVERY character in
+    // the word wrong, including ones the learner placed correctly. That was
+    // harmless back when it only fed the SRS box, but now directly drives
+    // character Review (see lib/srs.ts's applyReviewResult), so a
+    // misattributed character would show up there as "kept missing" when it
+    // wasn't the problem. A Special Katakana charId can now span TWO display
+    // tiles (see targetTiles/buildFlatTargetTiles above) — both parts are
+    // folded back into ONE correctness value per charId here (correct only
+    // if every one of its parts was placed correctly), so a miss on either
+    // half of e.g. フィ still records exactly one wrong result against
+    // katakana-fi, never a separate/nonexistent glyph target. Word Builder
+    // has real per-character precision, so ONLY the actually-wrong
+    // character(s) enter Review here — a correctly placed character that
+    // wasn't already active stays untouched (recordCharacterReviewResult is
+    // a no-op for a correct, inactive item).
+    const charIdOrder: string[] = []
+    const charIdCorrect = new Map<string, boolean>()
+    targetTiles.forEach((target, i) => {
+      const partCorrect = placedGlyphs[i] === target.glyph
+      if (!charIdCorrect.has(target.charId)) {
+        charIdCorrect.set(target.charId, true)
+        charIdOrder.push(target.charId)
+      }
+      if (!partCorrect) charIdCorrect.set(target.charId, false)
+    })
+    charIdOrder.forEach((charId) => {
+      const charCorrect = charIdCorrect.get(charId) ?? false
       recordResult(charId, charCorrect)
       recordCharacterReviewResult(charId, charCorrect)
     })
@@ -276,13 +293,8 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
       <div className="flex flex-col items-center gap-2">
         <WordImage word={currentWord} className="h-20 w-20" />
         <span className="text-lg font-semibold">{currentWord.meaning}</span>
-        {status === 'playing' && (
-          <RomajiHint
-            romaji={currentWord.romaji}
-            alwaysShow={alwaysShowRomajiHints}
-            revealed={romajiHintShown}
-            onReveal={() => setRomajiHintShown(true)}
-          />
+        {status === 'playing' && alwaysShowRomajiHints && (
+          <span className="text-sm text-neutral-500 dark:text-neutral-400">{currentWord.romaji}</span>
         )}
         {supported && (
           <button

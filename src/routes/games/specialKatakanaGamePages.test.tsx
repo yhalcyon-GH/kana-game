@@ -71,19 +71,15 @@ describe('Special Katakana — Listening', () => {
   })
 })
 
-describe('Special Katakana — Word Builder (mora-unit tiles, never split glyphs)', () => {
-  it('every tray/slot tile is a full learning-unit kana (2 glyphs for a Special Katakana character), never a bare small vowel', () => {
-    const { container } = renderGame(WordBuilderPage, 'special-katakana', SESSION_1_ROW, 'word-builder')
-    const trayButtons = Array.from(container.querySelectorAll('button.font-kana:not(.border-dashed)')) as HTMLButtonElement[]
-    expect(trayButtons.length).toBeGreaterThan(0)
-    for (const button of trayButtons) {
-      const text = button.textContent ?? ''
-      // No tile is a bare small vowel (ァィゥェォ) on its own.
-      expect(text).not.toMatch(/^[ァィゥェォ]$/)
-    }
-  })
-
-  it('placing all target tiles in order completes the word (2-tile word ファン: [ファ][ン])', () => {
+// Word Builder spelling-tile split (finish Special Katakana learning
+// polish, item 3): superseded the earlier "never split glyphs" design.
+// Special Katakana now SPELLING-splits into its two component glyphs in
+// Word Builder specifically (full kana + small vowel), while remaining ONE
+// combined Review/SRS/recognition target everywhere else (Kana Quiz/
+// Listening/Typing above, unchanged). See WordBuilderPage.tsx's
+// SPECIAL_KATAKANA_SPLIT_IDS.
+describe('Special Katakana — Word Builder (spelling-split tiles, combined Review target)', () => {
+  it('placing all target tiles in order completes the word (3-tile word ファン: [フ][ァ][ン])', () => {
     vi.useFakeTimers()
     const { container } = renderGame(WordBuilderPage, 'special-katakana', SESSION_1_ROW, 'word-builder')
     let guard = 0
@@ -104,22 +100,67 @@ describe('Special Katakana — Word Builder (mora-unit tiles, never split glyphs
     if (guard >= 20) return // couldn't land on ファン within budget — not a failure of this test's actual assertion below
 
     const slotsBefore = container.querySelectorAll('button.border-dashed').length
-    expect(slotsBefore).toBe(2) // ファ + ン = 2 tiles, never 3 (フ/ァ/ン)
+    expect(slotsBefore).toBe(3) // フ + ァ + ン = 3 display tiles for 2 characters (katakana-fa splits, katakana-n doesn't)
 
-    const fa = Array.from(container.querySelectorAll('button.font-kana:not(.border-dashed)')).find(
-      (b) => b.textContent === 'ファ',
+    const fu = Array.from(container.querySelectorAll('button.font-kana:not(.border-dashed)')).find(
+      (b) => b.textContent === 'フ',
+    ) as HTMLButtonElement
+    const a = Array.from(container.querySelectorAll('button.font-kana:not(.border-dashed)')).find(
+      (b) => b.textContent === 'ァ',
     ) as HTMLButtonElement
     const n = Array.from(container.querySelectorAll('button.font-kana:not(.border-dashed)')).find(
       (b) => b.textContent === 'ン',
     ) as HTMLButtonElement
-    expect(fa).toBeDefined()
+    expect(fu).toBeDefined()
+    expect(a).toBeDefined()
     expect(n).toBeDefined()
-    act(() => fireEvent.click(fa))
+    act(() => fireEvent.click(fu))
+    act(() => fireEvent.click(a))
     act(() => fireEvent.click(n))
     act(() => vi.advanceTimersByTime(2000))
-    // Correctly placed -> no character enters Review.
+    // Correctly placed -> no character enters Review — critically, this
+    // includes katakana-fa itself (the COMBINED target for both フ and ァ
+    // parts), not two separate glyph targets.
     expect(useProgressStore.getState().characters['katakana-fa']?.reviewActive ?? false).toBe(false)
     expect(useProgressStore.getState().characters['katakana-n']?.reviewActive ?? false).toBe(false)
+  })
+
+  it('a wrong placement on either split half of ファ records exactly one wrong result against katakana-fa, never a separate glyph target', () => {
+    vi.useFakeTimers()
+    const { container } = renderGame(WordBuilderPage, 'special-katakana', SESSION_1_ROW, 'word-builder')
+    let guard = 0
+    while (guard < 20) {
+      const meaning = container.querySelector('.text-lg.font-semibold')?.textContent?.trim()
+      if (meaning === 'fan (of a celebrity/show/etc.)') break
+      const trayButtons = Array.from(container.querySelectorAll('button.font-kana:not(.border-dashed)')) as HTMLButtonElement[]
+      act(() => fireEvent.click(trayButtons[0]))
+      const empty = Array.from(container.querySelectorAll('button.border-dashed span.font-kana')).filter((s) => !s.textContent)
+      if (empty.length === 0) {
+        const next = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('Next'))
+        if (next) act(() => fireEvent.click(next))
+        else act(() => vi.advanceTimersByTime(2000))
+      }
+      guard += 1
+    }
+    if (guard >= 20) return
+
+    // Deliberately place the WRONG glyph in slot 0 (anything but フ), then
+    // the correct ァ and ン in the remaining slots.
+    const availableTiles = () =>
+      Array.from(container.querySelectorAll('button.font-kana:not(.border-dashed):not([disabled])')) as HTMLButtonElement[]
+    const wrongTile = availableTiles().find((b) => b.textContent !== 'フ')!
+    act(() => fireEvent.click(wrongTile))
+    const a = availableTiles().find((b) => b.textContent === 'ァ')
+    if (a) act(() => fireEvent.click(a))
+    const n = availableTiles().find((b) => b.textContent === 'ン')
+    if (n) act(() => fireEvent.click(n))
+
+    const characters = useProgressStore.getState().characters
+    // Every reviewActive character id must be a REAL learning-unit id — the
+    // split must never leak a synthetic per-glyph id into Review/SRS.
+    for (const [id, state] of Object.entries(characters)) {
+      if (state?.reviewActive) expect(CHARACTERS_BY_ID[id]).toBeDefined()
+    }
   })
 })
 

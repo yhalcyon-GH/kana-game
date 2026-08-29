@@ -1,10 +1,13 @@
 import { act, fireEvent, render } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { CHARACTERS_BY_ID } from '../../data/characters'
+import { WORDS_BY_ID } from '../../data/words'
 import { getNextRowId, ROWS } from '../../data/curriculum'
 import { REVIEW_SCOPE_ID } from '../../hooks/useCurriculum'
 import { useProgressStore } from '../../store/progressStore'
 import { useSavedItemsStore } from '../../store/savedItemsStore'
+import { buildFlatTargetTiles, displayGlyphsForCharId } from '../../lib/wordBuilderTiles'
 import { WordBuilderPage } from './WordBuilderPage'
 
 beforeEach(() => {
@@ -403,30 +406,11 @@ describe('WordBuilderPage romaji hint (Issue #19)', () => {
     vi.useRealTimers()
   })
 
-  it('hides the target romaji at question start when alwaysShowRomajiHints is OFF', () => {
+  it('hides the target romaji at question start when alwaysShowRomajiHints is OFF, with no reveal button', () => {
     const { container, queryByText } = renderRowWordBuilder()
     const meaning = container.querySelector('.text-lg.font-semibold')!.textContent!.trim()
     expect(queryByText(A_ROW_MEANING_TO_ROMAJI[meaning])).toBeNull()
-    expect(queryByText('Show romaji')).not.toBeNull()
-  })
-
-  it('"Show romaji" reveals the current question\'s target romaji', () => {
-    const { container, getByText, queryByText } = renderRowWordBuilder()
-    const meaning = container.querySelector('.text-lg.font-semibold')!.textContent!.trim()
-    act(() => fireEvent.click(getByText('Show romaji')))
-    expect(queryByText(A_ROW_MEANING_TO_ROMAJI[meaning])).not.toBeNull()
     expect(queryByText('Show romaji')).toBeNull()
-  })
-
-  it('resets the hint on the next question', () => {
-    vi.useFakeTimers()
-    const { container, getByText, queryByText } = renderRowWordBuilder()
-    act(() => fireEvent.click(getByText('Show romaji')))
-    expect(queryByText('Show romaji')).toBeNull()
-
-    clickThroughWordBuilderRound(container)
-
-    expect(queryByText('Show romaji')).not.toBeNull()
   })
 
   it('shows the target romaji from the start when alwaysShowRomajiHints is ON, with no "Show romaji" button', () => {
@@ -437,14 +421,7 @@ describe('WordBuilderPage romaji hint (Issue #19)', () => {
     expect(queryByText('Show romaji')).toBeNull()
   })
 
-  it('using the hint does not affect Review state or score', () => {
-    const { getByText } = renderRowWordBuilder()
-    act(() => fireEvent.click(getByText('Show romaji')))
-    expect(Object.values(useProgressStore.getState().words).every((w) => !w.reviewActive)).toBe(true)
-    expect(Object.values(useProgressStore.getState().characters).every((c) => !c.reviewActive)).toBe(true)
-  })
-
-  it('the same hint rule applies to Review-scoped Word Builder', () => {
+  it('the same rule applies to Review-scoped Word Builder', () => {
     useProgressStore.getState().markRowTaught('a-row')
     useProgressStore.getState().recordWordReviewResult('a-ai', false)
     const { container, queryByText } = render(
@@ -456,7 +433,7 @@ describe('WordBuilderPage romaji hint (Issue #19)', () => {
     )
     const meaning = container.querySelector('.text-lg.font-semibold')!.textContent!.trim()
     expect(queryByText(A_ROW_MEANING_TO_ROMAJI[meaning])).toBeNull()
-    expect(queryByText('Show romaji')).not.toBeNull()
+    expect(queryByText('Show romaji')).toBeNull()
   })
 })
 
@@ -560,5 +537,130 @@ describe('WordBuilderPage: Save checkbox on wrong answer only', () => {
     fireEvent.click(trayButtons().find((b) => b.textContent === glyphOf(target1))!)
 
     expect(queryByRole('checkbox')).toBeNull()
+  })
+})
+
+// Special Katakana spelling-tile split (item 3 of "finish Special Katakana
+// learning polish") — the character id stays ONE Review/SRS/recognition
+// target, but Word Builder renders it as two display tiles (full kana +
+// small vowel). See SPECIAL_KATAKANA_SPLIT_IDS in WordBuilderPage.tsx.
+describe('WordBuilderPage Special Katakana spelling-tile split', () => {
+  const SPLIT_COMBOS: [string, [string, string]][] = [
+    ['katakana-fa', ['フ', 'ァ']],
+    ['katakana-fi', ['フ', 'ィ']],
+    ['katakana-fe', ['フ', 'ェ']],
+    ['katakana-fo', ['フ', 'ォ']],
+    ['katakana-ti', ['テ', 'ィ']],
+    ['katakana-di', ['デ', 'ィ']],
+    ['katakana-she', ['シ', 'ェ']],
+    ['katakana-je', ['ジ', 'ェ']],
+    ['katakana-che', ['チ', 'ェ']],
+    ['katakana-wi', ['ウ', 'ィ']],
+    ['katakana-we', ['ウ', 'ェ']],
+    ['katakana-special-wo', ['ウ', 'ォ']],
+  ]
+
+  it.each(SPLIT_COMBOS)('%s splits into its two component glyphs', (charId, expected) => {
+    expect(displayGlyphsForCharId(charId)).toEqual(expected)
+  })
+
+  it('yōon (キャ/シュ/チャ) stays a single unsplit tile', () => {
+    expect(displayGlyphsForCharId('katakana-kya')).toEqual(['キャ'])
+    expect(displayGlyphsForCharId('katakana-shu')).toEqual(['シュ'])
+    expect(displayGlyphsForCharId('katakana-cha')).toEqual(['チャ'])
+  })
+
+  it('ファン (fan) tiles as [フ][ァ][ン]', () => {
+    expect(buildFlatTargetTiles(WORDS_BY_ID['special-katakana-fa-fan'].characterIds).map((t) => t.glyph)).toEqual([
+      'フ',
+      'ァ',
+      'ン',
+    ])
+  })
+
+  it('ティッシュ (tissue) tiles as [テ][ィ][ッ][シュ]', () => {
+    expect(buildFlatTargetTiles(WORDS_BY_ID['special-katakana-fa-tisshu'].characterIds).map((t) => t.glyph)).toEqual([
+      'テ',
+      'ィ',
+      'ッ',
+      'シュ',
+    ])
+  })
+
+  it('キャンディー (candy) tiles as [キャ][ン][デ][ィ][ー] — キャ stays whole', () => {
+    expect(buildFlatTargetTiles(WORDS_BY_ID['special-katakana-fa-kyandii'].characterIds).map((t) => t.glyph)).toEqual([
+      'キャ',
+      'ン',
+      'デ',
+      'ィ',
+      'ー',
+    ])
+  })
+
+  it('ジェスチャー (gesture) tiles as [ジ][ェ][ス][チャ][ー] — チャ stays whole', () => {
+    expect(buildFlatTargetTiles(WORDS_BY_ID['special-katakana-she-jesuchaa'].characterIds).map((t) => t.glyph)).toEqual([
+      'ジ',
+      'ェ',
+      'ス',
+      'チャ',
+      'ー',
+    ])
+  })
+
+  it('ハロウィン (Halloween) tiles as [ハ][ロ][ウ][ィ][ン]', () => {
+    expect(buildFlatTargetTiles(WORDS_BY_ID['special-katakana-she-harowin'].characterIds).map((t) => t.glyph)).toEqual([
+      'ハ',
+      'ロ',
+      'ウ',
+      'ィ',
+      'ン',
+    ])
+  })
+
+  it('ウォーキング (walking) tiles as [ウ][ォ][ー][キ][ン][グ]', () => {
+    expect(buildFlatTargetTiles(WORDS_BY_ID['special-katakana-she-wookingu'].characterIds).map((t) => t.glyph)).toEqual([
+      'ウ',
+      'ォ',
+      'ー',
+      'キ',
+      'ン',
+      'グ',
+    ])
+  })
+
+  it('a wrong placement on either split half of a Special Katakana tile records exactly one wrong result against the combined charId', () => {
+    const { container } = render(
+      <MemoryRouter initialEntries={['/practice/special-katakana/special-katakana-fa-row/word-builder']}>
+        <Routes>
+          <Route path="/practice/:categoryId/:rowId/word-builder" element={<WordBuilderPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const trayButtons = () =>
+      Array.from(container.querySelectorAll('button.font-kana:not(.border-dashed):not([disabled])')) as HTMLButtonElement[]
+    const emptySlotCount = () =>
+      Array.from(container.querySelectorAll('button.border-dashed span.font-kana')).filter((s) => !s.textContent).length
+
+    // Fill every slot with whatever tile is available first — guaranteed to
+    // produce at least one wrong placement in a row with distractors, and we
+    // only assert the INVARIANT (never a bogus per-glyph target), not which
+    // specific character ends up wrong.
+    let guard = 0
+    while (emptySlotCount() > 0 && guard < 10) {
+      const next = trayButtons()[0]
+      if (!next) break
+      act(() => fireEvent.click(next))
+      guard += 1
+    }
+
+    const characters = useProgressStore.getState().characters
+    // Every reviewActive character id after this round must be a real,
+    // known learning-unit id (from CHARACTERS_BY_ID) — never a synthetic
+    // split-half id, which would mean the split leaked into Review/SRS
+    // attribution instead of being folded back into its combined charId.
+    for (const [id, state] of Object.entries(characters)) {
+      if (state?.reviewActive) expect(CHARACTERS_BY_ID[id]).toBeDefined()
+    }
   })
 })

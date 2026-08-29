@@ -68,3 +68,49 @@ describe('WordCard with a yōon word (2 glyphs, 1 character id, but mismatched m
     expect(container.querySelector('svg')).not.toBeInTheDocument()
   })
 })
+
+// Special Katakana vocabulary (finish Special Katakana learning polish,
+// item 4) — 22 words newly given ACCENT_PATTERNS entries. ファン (fan) is a
+// representative combo word: ファ is a Special Katakana combo that must
+// align as exactly ONE mora (not 2, per raw codepoint count) — see
+// src/lib/mora.ts's toMorae, unchanged by this work since it already
+// handled these combos correctly.
+describe('WordCard with a Special Katakana word (ファン)', () => {
+  const WORD = WORDS_BY_ID['special-katakana-fa-fan']
+
+  it('exists in the fixture', () => {
+    expect(WORD).toBeDefined()
+    expect(WORD.kana).toBe('ファン')
+  })
+
+  it('has an ACCENT_PATTERNS entry aligned by mora count (2: ファ, ン), not glyph count (3)', () => {
+    const accent = ACCENT_PATTERNS[WORD.id]
+    expect(accent).toBeDefined()
+    expect(accent).toHaveLength(2)
+  })
+
+  it('renders the accent-line svg (the red pitch-accent line) automatically once the pattern exists', () => {
+    const { container } = render(<WordCard word={WORD} />)
+    expect(container.querySelector('svg')).toBeInTheDocument()
+  })
+
+  it('keeps ファ together as one non-breaking mora unit, never splitting フ from ァ', () => {
+    const { container } = render(<WordCard word={WORD} />)
+    const moraSpans = Array.from(container.querySelectorAll('.font-kana .whitespace-nowrap'))
+    expect(moraSpans.map((el) => el.textContent)).toEqual(['ファ', 'ン'])
+  })
+})
+
+describe('WordCard — all 22 Special Katakana vocabulary words have valid accent data', () => {
+  const SPECIAL_KATAKANA_WORD_IDS = Object.keys(WORDS_BY_ID).filter((id) => id.startsWith('special-katakana-'))
+
+  it('covers exactly 22 words', () => {
+    expect(SPECIAL_KATAKANA_WORD_IDS).toHaveLength(22)
+  })
+
+  it.each(SPECIAL_KATAKANA_WORD_IDS)('%s has an ACCENT_PATTERNS entry and renders the accent-line svg', (id) => {
+    expect(ACCENT_PATTERNS[id]).toBeDefined()
+    const { container } = render(<WordCard word={WORDS_BY_ID[id]} />)
+    expect(container.querySelector('svg')).toBeInTheDocument()
+  })
+})

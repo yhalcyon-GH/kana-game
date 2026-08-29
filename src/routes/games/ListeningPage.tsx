@@ -4,7 +4,6 @@ import { AnswerFeedbackRow } from '../../components/AnswerFeedbackRow'
 import { GameRoundHeader } from '../../components/GameRoundHeader'
 import { PracticeSummary } from '../../components/PracticeSummary'
 import { ReviewEmptyState } from '../../components/ReviewEmptyState'
-import { RomajiHint } from '../../components/RomajiHint'
 import { SaveWordToggle } from '../../components/SaveWordToggle'
 import { UnbreakableKana } from '../../components/UnbreakableKana'
 import { WordImage } from '../../components/WordImage'
@@ -113,9 +112,6 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
   // consecutive rounds) — see KanaQuizPage's identical comment for the full
   // root-cause explanation of the "Next" button flash this guards against.
   const [answeredForRoundIndex, setAnsweredForRoundIndex] = useState<number | null>(null)
-  // Per-question romaji hint (see RomajiHint) — reset every round below so
-  // revealing it never carries over to the next word.
-  const [romajiHintShown, setRomajiHintShown] = useState(false)
 
   const currentWord = queue.length > 0 ? wordsById[queue[roundIndex]] : undefined
 
@@ -156,7 +152,6 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
     setSelectedId(null)
     setAnswered(false)
     setAnsweredForRoundIndex(null)
-    setRomajiHintShown(false)
     clear()
     speak(`words/${currentWord.id}`, currentWord.audioText ?? currentWord.kana)
     // Keyed on roundIndex too, not just currentWord.id — a small pool (e.g.
@@ -258,13 +253,8 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
       <div className="flex flex-col items-center gap-2">
         <WordImage word={currentWord} className="h-20 w-20" />
         <span className="text-sm text-neutral-500 dark:text-neutral-400">{currentWord.meaning}</span>
-        {!answered && (
-          <RomajiHint
-            romaji={currentWord.romaji}
-            alwaysShow={alwaysShowRomajiHints}
-            revealed={romajiHintShown}
-            onReveal={() => setRomajiHintShown(true)}
-          />
+        {!answered && alwaysShowRomajiHints && (
+          <span className="text-sm text-neutral-500 dark:text-neutral-400">{currentWord.romaji}</span>
         )}
         {supported && (
           <button
