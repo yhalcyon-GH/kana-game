@@ -1,5 +1,7 @@
+import { existsSync } from 'node:fs'
+import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { CHARACTERS, CHARACTERS_BY_ID } from './characters'
+import { CHARACTERS, CHARACTERS_BY_ID, getCharacterAudioId } from './characters'
 import { CATEGORIES, CATEGORIES_BY_ID, getCumulativeCharacterIds, getNextRowId, getPreviousRowId, ROWS, ROWS_BY_ID } from './curriculum'
 import { WORDS_BY_ID, WORDS_BY_ROW } from './words'
 
@@ -529,5 +531,59 @@ describe('Special Katakana word illustrations', () => {
     for (const word of words.filter((w) => w.image)) {
       expect(word.image).toBe(`word-icons/${word.id}.webp`)
     }
+  })
+})
+
+// Single-sound character audio for the 12 Special Katakana characters,
+// replaced with user-provided recordings (2026-08-29). getCharacterAudioId
+// intentionally does NOT remap these ids: 'fa'/'fi'/etc. don't exist as
+// separate hiragana/katakana character ids, so each stays as-is and routes
+// to its own public/audio/characters/<id>.wav file.
+describe('Special Katakana single-sound character audio', () => {
+  const SPECIAL_KATAKANA_AUDIO_IDS = [
+    'katakana-fa',
+    'katakana-fi',
+    'katakana-fe',
+    'katakana-fo',
+    'katakana-ti',
+    'katakana-di',
+    'katakana-she',
+    'katakana-je',
+    'katakana-che',
+    'katakana-wi',
+    'katakana-we',
+    'katakana-special-wo',
+  ]
+
+  it('all 12 character ids exist in CHARACTERS_BY_ID', () => {
+    for (const id of SPECIAL_KATAKANA_AUDIO_IDS) {
+      expect(CHARACTERS_BY_ID[id], `missing character id "${id}"`).toBeDefined()
+    }
+  })
+
+  it('getCharacterAudioId does not remap any of the 12 ids to a different id', () => {
+    for (const id of SPECIAL_KATAKANA_AUDIO_IDS) {
+      expect(getCharacterAudioId(id)).toBe(id)
+    }
+  })
+
+  it('katakana-special-wo (ウォ) is never aliased to katakana-wo (ヲ) by audio routing', () => {
+    expect(getCharacterAudioId('katakana-special-wo')).toBe('katakana-special-wo')
+    expect(getCharacterAudioId('katakana-wo')).toBe('wo') // ヲ shares hiragana を's audio, unaffected by this change
+    expect(getCharacterAudioId('katakana-special-wo')).not.toBe(getCharacterAudioId('katakana-wo'))
+  })
+
+  it('a WAV file exists on disk for each of the 12 audio ids', () => {
+    for (const id of SPECIAL_KATAKANA_AUDIO_IDS) {
+      const audioId = getCharacterAudioId(id)
+      const filePath = path.resolve(__dirname, '../../public/audio/characters', `${audioId}.wav`)
+      expect(existsSync(filePath), `missing audio file for "${id}" at ${filePath}`).toBe(true)
+    }
+  })
+
+  it('regular kana / yōon audio routing through getCharacterAudioId is unchanged', () => {
+    expect(getCharacterAudioId('katakana-a')).toBe('a') // shares hiragana あ's audio, as before
+    expect(getCharacterAudioId('katakana-chouon')).toBe('katakana-chouon') // no hiragana counterpart, no-op
+    expect(getCharacterAudioId('a')).toBe('a')
   })
 })
