@@ -27,17 +27,15 @@ import { useProgressStore } from '../../store/progressStore'
 
 const DISTRACTOR_COUNT = 3
 
-// Tiles are one per learning-unit CHARACTER ID, not raw Unicode glyphs —
-// most characters are 1 glyph already (charId and glyph coincide), but a
-// 2-glyph character (yōon like きゃ, or Special Katakana like ファ — see
-// characters.ts's "one glyph = one mora" note) is ONE tile showing both
-// glyphs together, e.g. ティッシュ is built from [ティ][ッ][シュ], never
-// split further into [テ][ィ][ッ][シ][ュ] — per the Special Katakana spec's
-// explicit requirement (this reverses an earlier explicit request to split
-// yōon into separate single-glyph tiles; the mora unit is now used
-// everywhere, including existing yōon words).
+// A single tray/slot tile can be either a whole learning-unit CHARACTER ID's
+// kana (most characters, and yōon like きゃ — one glyph or 2-glyph digraph,
+// always ONE tile, e.g. ティッシュ's シュ stays whole) OR one HALF of a
+// Special Katakana character's kana, spelling-split for display purposes
+// only (ティッシュ's ティ splits into [テ][ィ]) — see
+// src/lib/wordBuilderTiles.ts's SPECIAL_KATAKANA_SPLIT_IDS/
+// buildFlatTargetTiles for the exact rule and FlatTargetTile for how a
+// split pair is still folded back into ONE combined Review/SRS target.
 type TrayTile = { key: string; glyph: string; placed: boolean }
-
 
 type Props = {
   // Set only by the /practice/review/word-builder route — see REVIEW_SCOPE_ID.
