@@ -542,38 +542,40 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
   ],
 
   // ===== 特殊音 (Special Katakana) — fixed, confirmed 22-word vocabulary
-  // (13 + 9), no more/fewer. No `image` yet for any of these — vocabulary
-  // illustrations are intentionally deferred (see the PR that added this
-  // category); WordCard/the mini-games already render their normal
-  // no-image placeholder for a word with no `image` set, so this needs no
-  // new placeholder handling. No `audioText` either: like the rest of the
-  // katakana loanword vocabulary elsewhere in this file, plain `kana` reads
-  // naturally on its own with no lexical ambiguity to resolve.
+  // (13 + 9), no more/fewer. `image` added 2026-08-29 from a ChatGPT-
+  // sourced batch (see design/images/word-illustrations/
+  // special-katakana-chatgpt-2026-08-29/) for 21 of the 22 words — シェア
+  // (special-katakana-she-shea) has no illustration yet and is left
+  // without `image`; WordCard/the mini-games already render their normal
+  // no-image placeholder for it, same as any other word without art. No
+  // `audioText`: like the rest of the katakana loanword vocabulary
+  // elsewhere in this file, plain `kana` reads naturally on its own with
+  // no lexical ambiguity to resolve.
   'special-katakana-fa-row': [
-    { id: 'special-katakana-fa-fan', kana: 'ファン', romaji: 'fan', meaning: 'fan (of a celebrity/show/etc.)', characterIds: ['katakana-fa', 'katakana-n'] },
-    { id: 'special-katakana-fa-sofa', kana: 'ソファ', romaji: 'sofa', meaning: 'sofa', characterIds: ['katakana-so', 'katakana-fa'] },
-    { id: 'special-katakana-fa-firumu', kana: 'フィルム', romaji: 'firumu', meaning: 'film', characterIds: ['katakana-fi', 'katakana-ru', 'katakana-mu'] },
-    { id: 'special-katakana-fa-figyua', kana: 'フィギュア', romaji: 'figyua', meaning: 'figure (anime/character figure)', characterIds: ['katakana-fi', 'katakana-gyu', 'katakana-a'] },
-    { id: 'special-katakana-fa-kafe', kana: 'カフェ', romaji: 'kafe', meaning: 'café', characterIds: ['katakana-ka', 'katakana-fe'] },
-    { id: 'special-katakana-fa-feiku', kana: 'フェイク', romaji: 'feiku', meaning: 'fake', characterIds: ['katakana-fe', 'katakana-i', 'katakana-ku'] },
-    { id: 'special-katakana-fa-fooku', kana: 'フォーク', romaji: 'fōku', meaning: 'fork', characterIds: ['katakana-fo', 'katakana-chouon', 'katakana-ku'] },
-    { id: 'special-katakana-fa-foruda', kana: 'フォルダ', romaji: 'foruda', meaning: 'folder', characterIds: ['katakana-fo', 'katakana-ru', 'katakana-da'] },
-    { id: 'special-katakana-fa-tisshu', kana: 'ティッシュ', romaji: 'tisshu', meaning: 'tissue', characterIds: ['katakana-ti', 'katakana-sokuon', 'katakana-shu'] },
-    { id: 'special-katakana-fa-paatii', kana: 'パーティー', romaji: 'pātī', meaning: 'party', characterIds: ['katakana-pa', 'katakana-chouon', 'katakana-ti', 'katakana-chouon'] },
-    { id: 'special-katakana-fa-mirukutii', kana: 'ミルクティー', romaji: 'mirukutī', meaning: 'milk tea', characterIds: ['katakana-mi', 'katakana-ru', 'katakana-ku', 'katakana-ti', 'katakana-chouon'] },
-    { id: 'special-katakana-fa-dinaa', kana: 'ディナー', romaji: 'dinā', meaning: 'dinner', characterIds: ['katakana-di', 'katakana-na', 'katakana-chouon'] },
-    { id: 'special-katakana-fa-kyandii', kana: 'キャンディー', romaji: 'kyandī', meaning: 'candy', characterIds: ['katakana-kya', 'katakana-n', 'katakana-di', 'katakana-chouon'] },
+    { id: 'special-katakana-fa-fan', kana: 'ファン', romaji: 'fan', meaning: 'fan (of a celebrity/show/etc.)', image: 'word-icons/special-katakana-fa-fan.webp', characterIds: ['katakana-fa', 'katakana-n'] },
+    { id: 'special-katakana-fa-sofa', kana: 'ソファ', romaji: 'sofa', meaning: 'sofa', image: 'word-icons/special-katakana-fa-sofa.webp', characterIds: ['katakana-so', 'katakana-fa'] },
+    { id: 'special-katakana-fa-firumu', kana: 'フィルム', romaji: 'firumu', meaning: 'film', image: 'word-icons/special-katakana-fa-firumu.webp', characterIds: ['katakana-fi', 'katakana-ru', 'katakana-mu'] },
+    { id: 'special-katakana-fa-figyua', kana: 'フィギュア', romaji: 'figyua', meaning: 'figure (anime/character figure)', image: 'word-icons/special-katakana-fa-figyua.webp', characterIds: ['katakana-fi', 'katakana-gyu', 'katakana-a'] },
+    { id: 'special-katakana-fa-kafe', kana: 'カフェ', romaji: 'kafe', meaning: 'café', image: 'word-icons/special-katakana-fa-kafe.webp', characterIds: ['katakana-ka', 'katakana-fe'] },
+    { id: 'special-katakana-fa-feiku', kana: 'フェイク', romaji: 'feiku', meaning: 'fake', image: 'word-icons/special-katakana-fa-feiku.webp', characterIds: ['katakana-fe', 'katakana-i', 'katakana-ku'] },
+    { id: 'special-katakana-fa-fooku', kana: 'フォーク', romaji: 'fōku', meaning: 'fork', image: 'word-icons/special-katakana-fa-fooku.webp', characterIds: ['katakana-fo', 'katakana-chouon', 'katakana-ku'] },
+    { id: 'special-katakana-fa-foruda', kana: 'フォルダ', romaji: 'foruda', meaning: 'folder', image: 'word-icons/special-katakana-fa-foruda.webp', characterIds: ['katakana-fo', 'katakana-ru', 'katakana-da'] },
+    { id: 'special-katakana-fa-tisshu', kana: 'ティッシュ', romaji: 'tisshu', meaning: 'tissue', image: 'word-icons/special-katakana-fa-tisshu.webp', characterIds: ['katakana-ti', 'katakana-sokuon', 'katakana-shu'] },
+    { id: 'special-katakana-fa-paatii', kana: 'パーティー', romaji: 'pātī', meaning: 'party', image: 'word-icons/special-katakana-fa-paatii.webp', characterIds: ['katakana-pa', 'katakana-chouon', 'katakana-ti', 'katakana-chouon'] },
+    { id: 'special-katakana-fa-mirukutii', kana: 'ミルクティー', romaji: 'mirukutī', meaning: 'milk tea', image: 'word-icons/special-katakana-fa-mirukutii.webp', characterIds: ['katakana-mi', 'katakana-ru', 'katakana-ku', 'katakana-ti', 'katakana-chouon'] },
+    { id: 'special-katakana-fa-dinaa', kana: 'ディナー', romaji: 'dinā', meaning: 'dinner', image: 'word-icons/special-katakana-fa-dinaa.webp', characterIds: ['katakana-di', 'katakana-na', 'katakana-chouon'] },
+    { id: 'special-katakana-fa-kyandii', kana: 'キャンディー', romaji: 'kyandī', meaning: 'candy', image: 'word-icons/special-katakana-fa-kyandii.webp', characterIds: ['katakana-kya', 'katakana-n', 'katakana-di', 'katakana-chouon'] },
   ],
   'special-katakana-she-row': [
-    { id: 'special-katakana-she-shefu', kana: 'シェフ', romaji: 'shefu', meaning: 'chef', characterIds: ['katakana-she', 'katakana-fu'] },
+    { id: 'special-katakana-she-shefu', kana: 'シェフ', romaji: 'shefu', meaning: 'chef', image: 'word-icons/special-katakana-she-shefu.webp', characterIds: ['katakana-she', 'katakana-fu'] },
     { id: 'special-katakana-she-shea', kana: 'シェア', romaji: 'shea', meaning: 'share', characterIds: ['katakana-she', 'katakana-a'] },
-    { id: 'special-katakana-she-jesuchaa', kana: 'ジェスチャー', romaji: 'jesuchā', meaning: 'gesture', characterIds: ['katakana-je', 'katakana-su', 'katakana-cha', 'katakana-chouon'] },
-    { id: 'special-katakana-she-purojekuto', kana: 'プロジェクト', romaji: 'purojekuto', meaning: 'project', characterIds: ['katakana-pu', 'katakana-ro', 'katakana-je', 'katakana-ku', 'katakana-to'] },
-    { id: 'special-katakana-she-chekku', kana: 'チェック', romaji: 'chekku', meaning: 'check', characterIds: ['katakana-che', 'katakana-sokuon', 'katakana-ku'] },
-    { id: 'special-katakana-she-chesu', kana: 'チェス', romaji: 'chesu', meaning: 'chess', characterIds: ['katakana-che', 'katakana-su'] },
-    { id: 'special-katakana-she-harowin', kana: 'ハロウィン', romaji: 'harowin', meaning: 'Halloween', characterIds: ['katakana-ha', 'katakana-ro', 'katakana-wi', 'katakana-n'] },
-    { id: 'special-katakana-she-webusaito', kana: 'ウェブサイト', romaji: 'webusaito', meaning: 'website', characterIds: ['katakana-we', 'katakana-bu', 'katakana-sa', 'katakana-i', 'katakana-to'] },
-    { id: 'special-katakana-she-wookingu', kana: 'ウォーキング', romaji: 'wōkingu', meaning: 'walking', characterIds: ['katakana-special-wo', 'katakana-chouon', 'katakana-ki', 'katakana-n', 'katakana-gu'] },
+    { id: 'special-katakana-she-jesuchaa', kana: 'ジェスチャー', romaji: 'jesuchā', meaning: 'gesture', image: 'word-icons/special-katakana-she-jesuchaa.webp', characterIds: ['katakana-je', 'katakana-su', 'katakana-cha', 'katakana-chouon'] },
+    { id: 'special-katakana-she-purojekuto', kana: 'プロジェクト', romaji: 'purojekuto', meaning: 'project', image: 'word-icons/special-katakana-she-purojekuto.webp', characterIds: ['katakana-pu', 'katakana-ro', 'katakana-je', 'katakana-ku', 'katakana-to'] },
+    { id: 'special-katakana-she-chekku', kana: 'チェック', romaji: 'chekku', meaning: 'check', image: 'word-icons/special-katakana-she-chekku.webp', characterIds: ['katakana-che', 'katakana-sokuon', 'katakana-ku'] },
+    { id: 'special-katakana-she-chesu', kana: 'チェス', romaji: 'chesu', meaning: 'chess', image: 'word-icons/special-katakana-she-chesu.webp', characterIds: ['katakana-che', 'katakana-su'] },
+    { id: 'special-katakana-she-harowin', kana: 'ハロウィン', romaji: 'harowin', meaning: 'Halloween', image: 'word-icons/special-katakana-she-harowin.webp', characterIds: ['katakana-ha', 'katakana-ro', 'katakana-wi', 'katakana-n'] },
+    { id: 'special-katakana-she-webusaito', kana: 'ウェブサイト', romaji: 'webusaito', meaning: 'website', image: 'word-icons/special-katakana-she-webusaito.webp', characterIds: ['katakana-we', 'katakana-bu', 'katakana-sa', 'katakana-i', 'katakana-to'] },
+    { id: 'special-katakana-she-wookingu', kana: 'ウォーキング', romaji: 'wōkingu', meaning: 'walking', image: 'word-icons/special-katakana-she-wookingu.webp', characterIds: ['katakana-special-wo', 'katakana-chouon', 'katakana-ki', 'katakana-n', 'katakana-gu'] },
   ],
 }
 
