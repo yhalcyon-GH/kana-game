@@ -315,48 +315,22 @@ describe('ListeningPage romaji hint (Issue #19)', () => {
     vi.useRealTimers()
   })
 
-  it('hides the target romaji at question start when alwaysShowRomajiHints is OFF', () => {
+  it('hides the target romaji at question start when alwaysShowRomajiHints is OFF, with no reveal button', () => {
     const { container, queryByText } = renderRowListening()
     const meaning = container.querySelector('span.text-sm.text-neutral-500')!.textContent!.trim()
     expect(queryByText(MEANING_TO_ROMAJI[meaning])).toBeNull()
-    expect(queryByText('Show romaji')).not.toBeNull()
-  })
-
-  it('"Show romaji" reveals the current question\'s target romaji', () => {
-    const { container, getByText, queryByText } = renderRowListening()
-    const meaning = container.querySelector('span.text-sm.text-neutral-500')!.textContent!.trim()
-    act(() => fireEvent.click(getByText('Show romaji')))
-    expect(queryByText(MEANING_TO_ROMAJI[meaning])).not.toBeNull()
     expect(queryByText('Show romaji')).toBeNull()
-  })
-
-  it('resets the hint on the next question', () => {
-    vi.useFakeTimers()
-    const { container, getByText, queryByText } = renderRowListening()
-    act(() => fireEvent.click(getByText('Show romaji')))
-    expect(queryByText('Show romaji')).toBeNull()
-
-    clickThroughListeningRound(container)
-
-    expect(queryByText('Show romaji')).not.toBeNull()
   })
 
   it('shows the target romaji from the start when alwaysShowRomajiHints is ON, with no "Show romaji" button', () => {
     useProgressStore.getState().setAlwaysShowRomajiHints(true)
     const { container, queryByText } = renderRowListening()
-    const meaning = container.querySelector('span.text-sm.text-neutral-500')!.textContent!.trim()
+    const meaning = container.querySelectorAll('span.text-sm.text-neutral-500')[0]!.textContent!.trim()
     expect(queryByText(MEANING_TO_ROMAJI[meaning])).not.toBeNull()
     expect(queryByText('Show romaji')).toBeNull()
   })
 
-  it('using the hint does not affect Review state or score', () => {
-    const { getByText } = renderRowListening()
-    act(() => fireEvent.click(getByText('Show romaji')))
-    expect(Object.values(useProgressStore.getState().words).every((w) => !w.reviewActive)).toBe(true)
-    expect(Object.values(useProgressStore.getState().characters).every((c) => !c.reviewActive)).toBe(true)
-  })
-
-  it('the same hint rule applies to Review-scoped Listening', () => {
+  it('the same rule applies to Review-scoped Listening', () => {
     useProgressStore.getState().markRowTaught('a-row')
     useProgressStore.getState().recordWordReviewResult('a-ai', false)
     const { container, queryByText } = render(
@@ -368,7 +342,7 @@ describe('ListeningPage romaji hint (Issue #19)', () => {
     )
     const meaning = container.querySelector('span.text-sm.text-neutral-500')!.textContent!.trim()
     expect(queryByText(MEANING_TO_ROMAJI[meaning])).toBeNull()
-    expect(queryByText('Show romaji')).not.toBeNull()
+    expect(queryByText('Show romaji')).toBeNull()
   })
 })
 

@@ -15,6 +15,15 @@ import subsetFont from 'subset-font'
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 
+// Safety net: small kana vowels used in Special Katakana combos (ファ/フィ/
+// フェ/フォ/ティ/ディ/シェ/ジェ/チェ/ウィ/ウェ/ウォ etc.). These are usually
+// picked up automatically because they appear inside combo kana strings in
+// the scanned data files, but we require them explicitly so a future data
+// change (or a word list that happens not to use one of them, e.g. ゥ, which
+// the Guide still references) can never silently drop a glyph from the
+// subset again.
+const REQUIRED_KANA_GLYPHS = 'ァィゥェォ'
+
 async function extractChars() {
   const sources = await Promise.all(
     ['src/data/characters.ts', 'src/data/words.ts', 'src/data/curriculum.ts'].map((f) =>
@@ -27,6 +36,7 @@ async function extractChars() {
       for (const ch of m[1]) chars.add(ch)
     }
   }
+  for (const ch of REQUIRED_KANA_GLYPHS) chars.add(ch)
   return [...chars].sort().join('')
 }
 
