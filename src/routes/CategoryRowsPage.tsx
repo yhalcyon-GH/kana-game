@@ -5,16 +5,25 @@ import { ConceptGuide } from '../components/ConceptGuide'
 import { ChouonGuide } from '../components/ChouonGuide'
 import { YouonGuide } from '../components/YouonGuide'
 import { AskTamamizuButton } from '../components/AskTamamizuButton'
-import { CATEGORIES_BY_ID, CHOUON_CATEGORY_ID, ROWS_BY_ID, SOKUON_CATEGORY_ID, YOUON_CATEGORY_ID } from '../data/curriculum'
+import {
+  CATEGORIES_BY_ID,
+  CHOUON_CATEGORY_ID,
+  ROWS_BY_ID,
+  SOKUON_CATEGORY_ID,
+  SPECIAL_KATAKANA_CATEGORY_ID,
+  YOUON_CATEGORY_ID,
+} from '../data/curriculum'
 import { CHOUON_GUIDE } from '../data/chouonGuide'
 import { SOKUON_GUIDE } from '../data/sokuonGuide'
 import { DEFAULT_SOKUON_GUIDE_LOCALE, SOKUON_GUIDE_CONTENT } from '../data/sokuonGuideContent'
+import { SPECIAL_KATAKANA_GUIDE } from '../data/specialKatakanaGuide'
 import { YOUON_GUIDE } from '../data/youonGuide'
 import {
   ASK_TAMAMIZU_CHOUON,
   ASK_TAMAMIZU_HIRAGANA,
   ASK_TAMAMIZU_KATAKANA,
   ASK_TAMAMIZU_SOKUON,
+  ASK_TAMAMIZU_SPECIAL_KATAKANA,
   ASK_TAMAMIZU_YOUON,
 } from '../data/askTamamizu'
 import { RowMap } from '../components/RowMap'
@@ -26,6 +35,7 @@ import { useProgressStore } from '../store/progressStore'
 const SOKUON_TARGET_PATH = `/practice/${SOKUON_GUIDE.target.categoryId}/${SOKUON_GUIDE.target.rowId}`
 const CHOUON_TARGET_PATH = `/practice/${CHOUON_GUIDE.target.categoryId}/${CHOUON_GUIDE.target.rowId}`
 const YOUON_TARGET_PATH = `/practice/${YOUON_GUIDE.target.categoryId}/${YOUON_GUIDE.target.rowId}`
+const SPECIAL_KATAKANA_TARGET_PATH = `/practice/${SPECIAL_KATAKANA_GUIDE.target.categoryId}/${SPECIAL_KATAKANA_GUIDE.target.rowId}`
 
 type Props = {
   title: string
@@ -171,16 +181,17 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
       )}
       {groups.length > 0 ? (
         groups.map(({ category, rows: groupRows }) => {
-          // Sokuon's, Chōon's, and Yōon's category `explanation` used to
-          // render unconditionally here; each is replaced by an
-          // always-available "Ask Tamamizu" image button that opens the
-          // matching concept Guide on its real screen instead of duplicating
-          // its copy on this page. The underlying `explanation` data itself
-          // is left untouched in curriculum.ts — only what's rendered here
-          // changed.
+          // Sokuon's, Chōon's, Yōon's, and Special Katakana's category
+          // `explanation` used to render unconditionally here; each is
+          // replaced by an always-available "Ask Tamamizu" image button that
+          // opens the matching concept Guide on its real screen instead of
+          // duplicating its copy on this page. The underlying `explanation`
+          // data itself is left untouched in curriculum.ts — only what's
+          // rendered here changed.
           const isSokuonGroup = category?.id === SOKUON_CATEGORY_ID
           const isChouonGroup = category?.id === CHOUON_CATEGORY_ID
           const isYouonGroup = category?.id === YOUON_CATEGORY_ID
+          const isSpecialKatakanaGroup = category?.id === SPECIAL_KATAKANA_CATEGORY_ID
           return (
             <div key={category?.id} className="flex w-full flex-col items-center gap-4">
               {/* displayLabel (○+っ, ○+ー, ...) instead of the real kanji
@@ -209,6 +220,13 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
                   ariaLabel={ASK_TAMAMIZU_YOUON.ariaLabel}
                   onClick={() => navigate(buildGuideReplayHref(YOUON_TARGET_PATH, 'youon'))}
                   testId="ask-tamamizu-youon"
+                />
+              ) : isSpecialKatakanaGroup ? (
+                <AskTamamizuButton
+                  imageSrc={`${import.meta.env.BASE_URL}${ASK_TAMAMIZU_SPECIAL_KATAKANA.imageAsset}`}
+                  ariaLabel={ASK_TAMAMIZU_SPECIAL_KATAKANA.ariaLabel}
+                  onClick={() => navigate(buildGuideReplayHref(SPECIAL_KATAKANA_TARGET_PATH, 'specialKatakana'))}
+                  testId="ask-tamamizu-special-katakana"
                 />
               ) : (
                 category?.explanation && (

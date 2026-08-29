@@ -8,7 +8,6 @@ import { PracticeSummary } from '../../components/PracticeSummary'
 import { ReviewEmptyState } from '../../components/ReviewEmptyState'
 import { SaveWordToggle } from '../../components/SaveWordToggle'
 import { WordImage } from '../../components/WordImage'
-import { CHARACTERS_BY_ID } from '../../data/characters'
 import { getNextRowId, ROWS_BY_ID } from '../../data/curriculum'
 import type { QuestionMode } from '../../data/feedback'
 import type { AnchorWord } from '../../data/types'
@@ -22,7 +21,8 @@ import { pickDistractorCharIds } from '../../lib/distractorPicker'
 import { kanaToRomaji } from '../../lib/kanaToRomaji'
 import { shuffle } from '../../lib/shuffle'
 import { buildSimilarLettersWordQueue, pickSimilarLettersDistractorCharIds } from '../../lib/similarLettersSelection'
-import { buildFlatTargetTiles, type FlatTargetTile } from '../../lib/wordBuilderTiles'
+import { isNearMissWordBuilder } from '../../lib/nearMiss'
+import { buildFlatTargetTiles, displayGlyphsForCharId, type FlatTargetTile } from '../../lib/wordBuilderTiles'
 import { useProgressStore } from '../../store/progressStore'
 
 const DISTRACTOR_COUNT = 3
@@ -122,16 +122,23 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
   // stays ONE tile despite being 2 codepoints, and Special Katakana
   // (ファ/フィ/ティ/シェ/... — see SPECIAL_KATAKANA_SPLIT_IDS) spelling-splits
   // into TWO tiles (full kana + small vowel) even though it remains a single
-  // Review/SRS/recognition target. Distractor tiles are left as whole
-  // learning-unit tiles (never split) — only the correct word's own tiles
-  // need to model the real spelling.
+  // Review/SRS/recognition target. Distractor tiles apply the exact same
+  // split rule (via displayGlyphsForCharId) — a Special Katakana distractor
+  // must look the same whether it's drawn as the target or as a decoy, or
+  // the split would appear inconsistent from round to round.
   const setupRound = useCallback(
     (word: AnchorWord) => {
       const distractorCharIds = isSimilarLetters
         ? pickSimilarLettersDistractorCharIds(word.characterIds, confusionGroups, scopeCharacterIds, DISTRACTOR_COUNT)
         : pickDistractorCharIds(word.characterIds, scopeCharacterIds, DISTRACTOR_COUNT)
       const flatTarget = buildFlatTargetTiles(word.characterIds)
-      const distractorTiles = distractorCharIds.map((id) => CHARACTERS_BY_ID[id]?.kana ?? '')
+      // Spelling-split the same way the target tiles are (see
+      // displayGlyphsForCharId) — a Special Katakana distractor like
+      // katakana-fa must show as [フ][ァ] here too, not as one whole ファ
+      // tile, or the split would look inconsistent depending on whether a
+      // given round happened to draw that character as the target or as a
+      // distractor.
+      const distractorTiles = distractorCharIds.flatMap((id) => displayGlyphsForCharId(id))
       const tileGlyphs = shuffle([...flatTarget.map((t) => t.glyph), ...distractorTiles])
       setTray(tileGlyphs.map((glyph, i) => ({ key: `${glyph}-${i}`, glyph, placed: false })))
       setTargetTiles(flatTarget)
@@ -213,7 +220,11 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
     // learner to move on manually (see the "Next" button below), matching
     // how the other three games handle a wrong answer.
     setStatus('wrong')
-    onWrong({ id: currentWord.id, kana: currentWord.kana, romaji: currentWord.romaji })
+    const wrongUnitCount = charIdOrder.filter((id) => !charIdCorrect.get(id)).length
+    onWrong(
+      { id: currentWord.id, kana: currentWord.kana, romaji: currentWord.romaji },
+      isNearMissWordBuilder(wrongUnitCount, charIdOrder.length),
+    )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slots])
 

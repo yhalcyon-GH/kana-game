@@ -223,7 +223,7 @@ export const ACCENT_PATTERNS: Record<string, string> = {
   'special-katakana-she-shea': 'HL', // シェア (shea)
   'special-katakana-she-shefu': 'HL', // シェフ (shefu)
   'special-katakana-she-webusaito': 'LHHLL', // ウェブサイト (webusaito)
-  'special-katakana-she-wookingu': 'HLLLL', // ウォーキング (wōkingu)
+  'special-katakana-she-wookingu': 'LHHHH', // ウォーキング (wōkingu)
   'ta-chikatetsu': 'LHHH', // ちかてつ (chikatetsu)
   'ta-chizu': 'HL', // ちず (chizu)
   'ta-kutsu': 'LH', // くつ (kutsu)

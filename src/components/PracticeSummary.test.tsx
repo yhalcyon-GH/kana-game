@@ -179,13 +179,20 @@ describe('PracticeSummary graded result (score image + X/Y score)', () => {
   })
 
   it('never shows the old "{total}問中{correct}問正解" text, an Accuracy percentage, or encouragement comment text', () => {
-    const { container, queryByText } = renderGraded()
+    const { queryByText } = renderGraded()
     expect(queryByText(/問中/)).toBeNull()
     expect(queryByText(/問正解/)).toBeNull()
     expect(queryByText(/その調子/)).toBeNull()
     expect(queryByText(/Accuracy/i)).toBeNull()
     expect(queryByText(/%/)).toBeNull()
-    expect(container.textContent).not.toMatch(/\d+\s*\/\s*\d+\s*correct/i)
+  })
+
+  // A bare "6/8" reads ambiguously (out of what?) — a "correct" label next
+  // to the fraction makes the score self-explanatory at a glance.
+  it('labels the score fraction as "correct"', () => {
+    const { getByText } = renderGraded({ score: { correct: 6, total: 8 } })
+    expect(getByText('6/8')).toBeInTheDocument()
+    expect(getByText('correct')).toBeInTheDocument()
   })
 
   it('shows a result image in the result row, directly below the title', () => {

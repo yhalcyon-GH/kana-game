@@ -72,14 +72,25 @@ export function PracticeSummary({
           reaction block entirely. */}
       {score && (
         <div className="flex w-full max-w-xs items-center justify-between gap-3">
+          {/* Enlarged (was h-20/w-20 sm:h-24/w-24) so the result reaction
+              reads clearly on a small phone screen, not just desktop. */}
           <img
             src={`${import.meta.env.BASE_URL}${pickPracticeResultImage(score)}`}
             alt=""
-            className="h-20 w-20 shrink-0 object-contain sm:h-24 sm:w-24"
+            className="h-28 w-28 shrink-0 object-contain sm:h-32 sm:w-32"
           />
-          <span className="text-4xl font-extrabold tabular-nums sm:text-5xl">
-            {score.correct}/{score.total}
-          </span>
+          {/* "{correct}/{total} correct" instead of a bare fraction — the
+              raw "6/8" reads ambiguously (out of what?) at a glance,
+              especially to a learner unfamiliar with the convention. Stacked
+              (number line, then a smaller "correct" label) rather than
+              inline so it stays readable at the narrowest supported width
+              without the row wrapping or the image shrinking to compensate. */}
+          <div className="flex flex-col items-end">
+            <span className="text-4xl font-extrabold tabular-nums sm:text-5xl">
+              {score.correct}/{score.total}
+            </span>
+            <span className="text-sm font-medium text-neutral-500 dark:text-neutral-400">correct</span>
+          </div>
         </div>
       )}
 

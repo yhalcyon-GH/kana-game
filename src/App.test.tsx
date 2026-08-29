@@ -157,7 +157,9 @@ describe('script chooser pages', () => {
     expect(screen.getByText('ぎゃ・ぎゅ・ぎょ')).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'ゃゅょ', level: 2 })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Special Katakana', level: 2 })).toBeInTheDocument()
-    expect(screen.getByText('Common sounds used in loanwords.')).toBeInTheDocument()
+    // Special Katakana's `explanation` copy is replaced by an "Ask Tamamizu"
+    // image button (see CategoryRowsPage.tsx), same as Sokuon/Chōon/Yōon.
+    expect(screen.getByTestId('ask-tamamizu-special-katakana')).toBeInTheDocument()
     // Row cards show `displayLines`, not the raw `label` — see RowMap.tsx.
     expect(screen.getByText('ファ・フィ・フェ・フォ')).toBeInTheDocument()
     expect(screen.getByText('ティ・ディ')).toBeInTheDocument()

@@ -38,15 +38,28 @@ describe('pickCorrectFeedback', () => {
 })
 
 describe('pickIncorrectFeedback', () => {
-  it('picks from the wrong-answer pool', () => {
+  it('defaults (isNearMiss omitted) to the non-near-miss pool, never 惜しい', () => {
     for (let i = 0; i < 50; i++) {
-      expect(['wrong_oshii', 'wrong_ganbare', 'wrong_daijoubu']).toContain(pickIncorrectFeedback(null).id)
+      expect(['wrong_ganbare', 'wrong_daijoubu']).toContain(pickIncorrectFeedback(null).id)
     }
   })
 
-  it('never repeats the immediately-previous pick', () => {
+  it('isNearMiss: false explicitly also excludes 惜しい', () => {
     for (let i = 0; i < 50; i++) {
-      expect(pickIncorrectFeedback('wrong_oshii').id).not.toBe('wrong_oshii')
+      expect(['wrong_ganbare', 'wrong_daijoubu']).toContain(pickIncorrectFeedback(null, false).id)
+    }
+  })
+
+  it('isNearMiss: true includes 惜しい as a candidate', () => {
+    for (let i = 0; i < 50; i++) {
+      expect(['wrong_oshii', 'wrong_ganbare', 'wrong_daijoubu']).toContain(pickIncorrectFeedback(null, true).id)
+    }
+  })
+
+  it('never repeats the immediately-previous pick, in either pool', () => {
+    for (let i = 0; i < 50; i++) {
+      expect(pickIncorrectFeedback('wrong_daijoubu').id).not.toBe('wrong_daijoubu')
+      expect(pickIncorrectFeedback('wrong_oshii', true).id).not.toBe('wrong_oshii')
     }
   })
 })

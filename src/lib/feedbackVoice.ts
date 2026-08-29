@@ -2,8 +2,9 @@ import {
   CORRECT_SONOCHOUSHI,
   EVAL_FAITO,
   type FeedbackLine,
-  INCORRECT_LINES,
   KANPEKI,
+  NEAR_MISS_INCORRECT_LINES,
+  NON_NEAR_MISS_INCORRECT_LINES,
   NORMAL_CORRECT_LINES,
   type QuestionMode,
   STREAK_MILESTONES,
@@ -36,9 +37,14 @@ export function pickCorrectFeedback(streak: number, mode: QuestionMode, lastCorr
 }
 
 // Picks a random wrong-answer line, never repeating the immediately-
-// previous pick.
-export function pickIncorrectFeedback(lastWrongId: string | null): FeedbackClip {
-  return clipFor(pickWithoutImmediateRepeat(INCORRECT_LINES, lastWrongId))
+// previous pick. `isNearMiss` (see lib/nearMiss.ts's per-game checks) gates
+// whether 惜しい！("close!") is even a candidate this time — it must never
+// play for a wrong answer that wasn't established as a genuine near miss by
+// the caller, so an uncertain/default call (isNearMiss omitted) only ever
+// draws from 頑張れ！/大丈夫！.
+export function pickIncorrectFeedback(lastWrongId: string | null, isNearMiss = false): FeedbackClip {
+  const pool = isNearMiss ? NEAR_MISS_INCORRECT_LINES : NON_NEAR_MISS_INCORRECT_LINES
+  return clipFor(pickWithoutImmediateRepeat(pool, lastWrongId))
 }
 
 // Played once at session end, judged by accuracy (not rounded) rather than

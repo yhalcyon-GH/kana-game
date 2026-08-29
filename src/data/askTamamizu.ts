@@ -29,3 +29,8 @@ export const ASK_TAMAMIZU_YOUON = {
   imageAsset: 'guide/ask-tamamizu-small-youon.webp',
   ariaLabel: 'Ask Tamamizu about small ya yu yo sounds',
 } as const
+
+export const ASK_TAMAMIZU_SPECIAL_KATAKANA = {
+  imageAsset: 'guide/ask-tamamizu-special-katakana.webp',
+  ariaLabel: 'Ask Tamamizu about Special Katakana',
+} as const
