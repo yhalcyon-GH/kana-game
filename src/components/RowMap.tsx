@@ -45,17 +45,9 @@ export function RowMap({ rows, isUnlocked, isTaught, isMastered, isRecommended }
                   ))
                 : row.label}
             </span>
-            {!row.isSimilarLetters && (
+            {!row.isSimilarLetters && !row.isSummary && (
               <span className="text-xs text-neutral-500 dark:text-neutral-400">
-                {row.isSummary
-                  ? 'summary'
-                  : !unlocked
-                    ? '🔒 locked'
-                    : mastered
-                      ? '👍'
-                      : taught
-                        ? '📗 learned'
-                        : '📘 new'}
+                {!unlocked ? '🔒 locked' : mastered ? '👍' : taught ? '📗 learned' : '📘 new'}
               </span>
             )}
             {recommended && <RecommendedLabel />}

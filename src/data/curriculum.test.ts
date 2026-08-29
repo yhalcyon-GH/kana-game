@@ -482,14 +482,25 @@ describe('Special Katakana category (curriculum data)', () => {
     expect(CHARACTERS_BY_ID['katakana-special-wo']).not.toBe(CHARACTERS_BY_ID['katakana-wo'])
   })
 
-  it('the existing All Yōon summary row is unchanged — still only aggregates the youon category, never special-katakana', () => {
+  it('the youon-summary row aggregates both Yōon and Special Katakana (its synthetic review/practice scope)', () => {
     const youonSummary = ROWS_BY_ID['youon-summary']
     expect(youonSummary).toBeDefined()
-    // None of the 12 Special Katakana character ids leaked into "All Yōon".
+    expect(youonSummary.label).toBe('summary')
+    // All 12 Special Katakana character ids are included in the combined scope.
     const specialIds = CHARACTERS.filter(
       (c) => c.rowId === 'special-katakana-fa-row' || c.rowId === 'special-katakana-she-row',
     ).map((c) => c.id)
-    for (const id of specialIds) expect(youonSummary.characterIds).not.toContain(id)
+    for (const id of specialIds) expect(youonSummary.characterIds).toContain(id)
+    // Special Katakana stays its own category — this aggregation does not fold
+    // it into YOUON_CATEGORY_ID for progression/Review/SRS purposes.
+    expect(CATEGORIES_BY_ID['special-katakana']).toBeDefined()
+    expect(youonSummary.categoryId).toBe('youon')
+  })
+
+  it('other-summary label is "summary" and still only aggregates Sokuon+Chōon', () => {
+    const otherSummary = ROWS_BY_ID['other-summary']
+    expect(otherSummary).toBeDefined()
+    expect(otherSummary.label).toBe('summary')
   })
 
   it('getNextRowId crosses from Yōon\'s last row into Special Katakana session 1 (the one confirmed cross-category exception)', () => {

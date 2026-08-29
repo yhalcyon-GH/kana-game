@@ -347,12 +347,11 @@ describe('WordBuilderPage result summary (correct/total count)', () => {
     vi.useFakeTimers()
     const { container } = renderRowWordBuilder()
     const correct = playSessionTallyingCorrectness(container, 8)
-    expect(container.textContent).toContain(`${correct}/8`)
+    expect(container.textContent).toContain(`${correct} of 8 correct`)
     expect(container.textContent).not.toMatch(/問中/)
     expect(container.textContent).not.toMatch(/問正解/)
     expect(container.textContent).not.toMatch(/その調子/)
-    expect(container.textContent).not.toMatch(/Accuracy/i)
-    expect(container.textContent).not.toMatch(/%/)
+    expect(container.textContent).not.toMatch(/^Accuracy$/i)
   })
 
   it('a shorter Review session shows the actual (non-8) played total, not a fixed session length', () => {
@@ -393,8 +392,8 @@ describe('WordBuilderPage result summary (correct/total count)', () => {
     }
 
     expect(container.textContent).toMatch(/complete!/)
-    expect(container.textContent).toMatch(new RegExp(`${correct}/\\d`))
-    expect(container.textContent).not.toMatch(/\/8\b/)
+    expect(container.textContent).toMatch(new RegExp(`${correct} of \\d+ correct`))
+    expect(container.textContent).not.toMatch(/ of 8 correct/)
   })
 })
 

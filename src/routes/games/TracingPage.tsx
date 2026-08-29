@@ -448,10 +448,13 @@ export function TracingPage() {
 
   const currentChar = currentCharId ? CHARACTERS_BY_ID[currentCharId] : undefined
   // Explanation image for a look-alike pair this character belongs to
-  // (シ・ツ, ソ・ン) — only shown in the Similar Letters lesson itself (see
-  // getSimilarLetterExplanationImage's comment); undefined for every other
-  // character/row.
-  const explanationImage = isSimilarLetters ? getSimilarLetterExplanationImage(currentCharId) : undefined
+  // (シ・ツ, ソ・ン) — shown both in the dedicated Similar Letters lesson AND
+  // during normal Tracing's character phase for these same four characters
+  // (getSimilarLetterExplanationImage returns undefined for every other
+  // character, including リ, so this is a no-op everywhere else). Only
+  // currentCharId is checked (not phase) since it's only ever set during
+  // the character phase — word tracing never shows this image.
+  const explanationImage = getSimilarLetterExplanationImage(currentCharId)
 
   return (
     // w-full min-w-0 max-w-full (Step 24 bugfix): <main> is `flex flex-col

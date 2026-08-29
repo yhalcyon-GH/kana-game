@@ -102,9 +102,11 @@ export const CATEGORIES: ScriptCategory[] = [
   // CHOUON_CATEGORY_ID share '/other' — see CategoryRowsPage's multi-
   // category grouping), but kept as its OWN internal category — not folded
   // into YOUON_CATEGORY_ID — so its progression/cumulative pool/Review/
-  // Recommended Path stay explicit and never leak into "All Yōon" (the
-  // youon-summary row's aggregation is category-scoped and must not grow to
-  // include these 12 characters/22 words). Depends on katakana (base
+  // Recommended Path stay explicit and driven by category, not by the
+  // synthetic youon-summary row, which DOES aggregate both Yōon and
+  // Special Katakana for its Learn/Practice "summary" scope — see
+  // SUMMARY_ROW_SOURCE_CATEGORY_IDS — without folding Special Katakana
+  // into YOUON_CATEGORY_ID itself. Depends on katakana (base
   // glyphs), yōon (some words use small ゃゅょ combos like ギュ/シュ/キャ/
   // チャ), and sokuon (小さいッ, e.g. ティッシュ/チェック) — NOT hiragana or
   // chōon: no word here uses hiragana, and katakana's own long vowel ー
@@ -605,13 +607,16 @@ const REAL_ROWS: GojuonRow[] = [
 
 // Which real categories a summary row's Learn/Practice pool draws from —
 // almost always just its own category, EXCEPT other-summary, which covers
-// both categories bundled onto the '/other' page (促音+長音). Summary rows
-// themselves are excluded from their own aggregation (they contribute no
-// characters/words of their own).
+// both categories bundled onto the '/other' page (促音+長音), and
+// youon-summary, which bundles Yōon + Special Katakana (both rendered on
+// the '/youon' page). Summary rows themselves are excluded from their own
+// aggregation (they contribute no characters/words of their own). This is
+// purely a synthetic review/practice scope — Special Katakana remains its
+// own category for Review/SRS/progression purposes.
 export const SUMMARY_ROW_SOURCE_CATEGORY_IDS: Record<string, string[]> = {
   'hiragana-summary': [DEFAULT_CATEGORY_ID],
   'katakana-summary': [KATAKANA_CATEGORY_ID],
-  'youon-summary': [YOUON_CATEGORY_ID],
+  'youon-summary': [YOUON_CATEGORY_ID, SPECIAL_KATAKANA_CATEGORY_ID],
   'other-summary': [SOKUON_CATEGORY_ID, CHOUON_CATEGORY_ID],
 }
 
@@ -647,19 +652,19 @@ const SUMMARY_ROWS: GojuonRow[] = [
   {
     id: 'youon-summary',
     categoryId: YOUON_CATEGORY_ID,
-    label: 'すべて',
+    label: 'summary',
     order: 10,
     characterIds: summaryCharacterIds(SUMMARY_ROW_SOURCE_CATEGORY_IDS['youon-summary']),
-    englishLabel: 'All Yōon',
+    englishLabel: 'Summary',
     isSummary: true,
   },
   {
     id: 'other-summary',
     categoryId: SOKUON_CATEGORY_ID,
-    label: 'すべて',
+    label: 'summary',
     order: 1,
     characterIds: summaryCharacterIds(SUMMARY_ROW_SOURCE_CATEGORY_IDS['other-summary']),
-    englishLabel: 'All Other',
+    englishLabel: 'Summary',
     isSummary: true,
   },
 ]
@@ -678,6 +683,15 @@ export const ROWS_BY_ID: Record<string, GojuonRow> = Object.fromEntries(
 
 export function getRowOrder(rowId: string): number {
   return ROWS_BY_ID[rowId]?.order ?? -1
+}
+
+// Centralized "is this a Special Katakana character/word?" check, keyed off
+// its originating row's categoryId — so callers that need to split a
+// combined Yōon+Special Katakana list (e.g. the youon-summary recap grid,
+// see CharacterGrid's `compact` prop) don't each need their own ad-hoc
+// special-katakana id checks scattered around.
+export function isSpecialKatakanaRowId(rowId: string): boolean {
+  return ROWS_BY_ID[rowId]?.categoryId === SPECIAL_KATAKANA_CATEGORY_ID
 }
 
 // getPreviousRowId/getNextRowId both scope their search to the SAME category

@@ -2,11 +2,22 @@
 
 A snapshot of every vocabulary-word pronunciation clip as of 2026-08-17.
 The user has decided to keep using this AI-generated narrator voice for
-word audio going forward (2026-08-19) — only トースト
-(`katakana-ta-toosuto`) has been replaced with a real recording so far,
-see `words/katakana-ta-toosuto.mp3` (the AI-generated take is kept
-alongside it as `words/katakana-ta-toosuto.wav`, distinguished by
-extension). This archive is the reference copy of that decision: what's
+word audio going forward (2026-08-19). Two words have since been replaced
+with real recordings:
+
+- トースト (`katakana-ta-toosuto`) — `words/katakana-ta-toosuto.mp3`, AI
+  take kept alongside as `words/katakana-ta-toosuto.wav`.
+- ウォーキング (`special-katakana-she-wookingu`, added after this
+  snapshot's 2026-08-17 cutoff) — `words/special-katakana-she-wookingu.mp3`
+  is the user's own recording (converted to
+  `public/audio/words/special-katakana-she-wookingu.wav`: mono, 24kHz,
+  pcm_s16le, loudness-normalized like the rest of the archive, speech
+  otherwise untouched — no pitch/TTS processing), AI take kept alongside as
+  `words/special-katakana-she-wookingu.wav`.
+
+Same provenance pattern both times: the real recording lives as `.mp3`,
+the superseded AI-generated clip is kept as `.wav`, distinguished by
+extension. This archive is the reference copy of these decisions: what's
 actually live in `public/audio/words/` today, kept here as a
 snapshot/backup rather than relying on git history alone.
 

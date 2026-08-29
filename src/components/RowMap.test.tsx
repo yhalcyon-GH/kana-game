@@ -173,7 +173,7 @@ describe('RowMap Summary card icon', () => {
     expect(queryByText('similar letters')).not.toBeInTheDocument()
   })
 
-  it('does not affect other rows\' secondary status text (locked/learned/summary)', () => {
+  it('does not affect other rows\' secondary status text (locked/learned)', () => {
     const { getByText: getByTextLocked } = render(
       <MemoryRouter>
         <RowMap rows={[row]} isUnlocked={() => false} isTaught={() => false} isMastered={() => false} />
@@ -187,13 +187,15 @@ describe('RowMap Summary card icon', () => {
       </MemoryRouter>,
     )
     expect(getByTextLearned('📗 learned')).toBeInTheDocument()
+  })
 
-    const { getByText: getByTextSummary } = render(
+  it('suppresses the secondary status text entirely for a Summary card (no duplicate "summary" subtitle)', () => {
+    const { queryByText } = render(
       <MemoryRouter>
         <RowMap rows={[summaryRow]} isUnlocked={() => true} isTaught={() => true} isMastered={() => false} />
       </MemoryRouter>,
     )
-    expect(getByTextSummary('summary')).toBeInTheDocument()
+    expect(queryByText('summary')).not.toBeInTheDocument()
   })
 
   it('keeps the Recommended ⭐ label intact and unaffected by the Summary icon change', () => {
