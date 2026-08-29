@@ -4,6 +4,7 @@ import { KanaIntroExcerptGuide } from '../components/KanaIntroExcerptGuide'
 import { ConceptGuide } from '../components/ConceptGuide'
 import { ChouonGuide } from '../components/ChouonGuide'
 import { YouonGuide } from '../components/YouonGuide'
+import { ParticleGuide } from '../components/ParticleGuide'
 import { AskTamamizuButton } from '../components/AskTamamizuButton'
 import {
   CATEGORIES_BY_ID,
@@ -22,6 +23,7 @@ import {
   ASK_TAMAMIZU_CHOUON,
   ASK_TAMAMIZU_HIRAGANA,
   ASK_TAMAMIZU_KATAKANA,
+  ASK_TAMAMIZU_PARTICLE,
   ASK_TAMAMIZU_SOKUON,
   ASK_TAMAMIZU_SPECIAL_KATAKANA,
   ASK_TAMAMIZU_YOUON,
@@ -62,6 +64,7 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
   const { rows, isRowUnlocked, isRowTaught, globalRecommendedTarget } = useCurriculum()
   const navigate = useNavigate()
   const kanaIntroExcerptGuide = useGuideReplay('kanaIntro')
+  const particleGuide = useGuideReplay('particle')
   const isRowMastered = useProgressStore((s) => s.isRowMastered)
   const isRowRecommended = (rowId: string) => globalRecommendedTarget?.rowId === rowId
   // Subscribed so mastery badges refresh even when only `characters`
@@ -88,6 +91,8 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
   const setHasCompletedHiraganaSectionGuide = useProgressStore((s) => s.setHasCompletedHiraganaSectionGuide)
   const hasCompletedKatakanaSectionGuide = useProgressStore((s) => s.hasCompletedKatakanaSectionGuide)
   const setHasCompletedKatakanaSectionGuide = useProgressStore((s) => s.setHasCompletedKatakanaSectionGuide)
+  const hasCompletedParticleGuide = useProgressStore((s) => s.hasCompletedParticleGuide)
+  const setHasCompletedParticleGuide = useProgressStore((s) => s.setHasCompletedParticleGuide)
   const taughtRowIds = useProgressStore((s) => s.taughtRowIds)
   const rowActivityCompletion = useProgressStore((s) => s.rowActivityCompletion)
 
@@ -249,6 +254,18 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
       {trailingRows.length > 0 && (
         <RowMap rows={trailingRows} isUnlocked={isRowUnlocked} isTaught={isRowTaught} isMastered={isRowMastered} />
       )}
+      {/* Optional supplementary "Ask Tamamizu about particles" entry point
+          (は/へ/を pronunciation quirks) — Hiragana page only, deliberately
+          not a new Home category card, Recommended Path step, or curriculum
+          category/row (see particleGuide.ts). */}
+      {askTamamizuKanaIntroVariant === 'hiragana' && (
+        <AskTamamizuButton
+          imageSrc={`${import.meta.env.BASE_URL}${ASK_TAMAMIZU_PARTICLE.imageAsset}`}
+          ariaLabel={ASK_TAMAMIZU_PARTICLE.ariaLabel}
+          onClick={() => particleGuide.startReplay()}
+          testId="ask-tamamizu-particle"
+        />
+      )}
       {(kanaIntroExcerptGuide.isReplaying || showAutoKanaIntroExcerptGuide) && (
         <KanaIntroExcerptGuide
           onDismiss={
@@ -275,6 +292,18 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
       {showAutoChouonGuide && <ChouonGuide onDismiss={() => setHasCompletedChouonGuide(true)} />}
 
       {showAutoYouonGuide && <YouonGuide onDismiss={() => setHasCompletedYouonGuide(true)} />}
+
+      {particleGuide.isReplaying && (
+        <ParticleGuide
+          onDismiss={() => {
+            particleGuide.dismissReplay()
+            // Only the FIRST completion (ever) sets the flag — every later
+            // manual replay via the same button must never mutate progress
+            // state, so skip the setter entirely once it's already true.
+            if (!hasCompletedParticleGuide) setHasCompletedParticleGuide(true)
+          }}
+        />
+      )}
     </div>
   )
 }
