@@ -31,7 +31,7 @@ import { YOUON_GUIDE } from './youonGuide'
 export type GuideCatalogEntry =
   | { id: 'intro'; label: string; kind: 'introFlag'; category: 'tutorial' }
   | { id: 'learnTracing' | 'practice' | 'review'; label: string; kind: 'replay'; path: string; category: 'tutorial' }
-  | { id: 'sokuon' | 'chouon' | 'youon' | 'specialKatakana'; label: string; kind: 'replay'; path: string; category: 'concept' }
+  | { id: 'sokuon' | 'chouon' | 'youon' | 'specialKatakana' | 'particle'; label: string; kind: 'replay'; path: string; category: 'concept' }
 
 const learnTracingPath = `/practice/${LEARN_TRACING_GUIDE.target.categoryId}/${LEARN_TRACING_GUIDE.target.rowId}`
 const practicePath = `/practice/${PRACTICE_GUIDE.target.categoryId}/${PRACTICE_GUIDE.target.rowId}`
@@ -49,6 +49,7 @@ export const GUIDE_CATALOG: GuideCatalogEntry[] = [
   { id: 'chouon', label: 'Chōon', kind: 'replay', path: chouonPath, category: 'concept' },
   { id: 'youon', label: 'Yōon', kind: 'replay', path: youonPath, category: 'concept' },
   { id: 'specialKatakana', label: 'Special Katakana', kind: 'replay', path: specialKatakanaPath, category: 'concept' },
+  { id: 'particle', label: 'Particle', kind: 'replay', path: '/hiragana', category: 'concept' },
 ]
 
 // Settings' Tutorials list — exactly the tutorial-category entries above.

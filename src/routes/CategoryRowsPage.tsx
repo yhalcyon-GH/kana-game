@@ -121,6 +121,7 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
     hasCompletedIntroGuide &&
     !kanaIntroSectionCompletedFlag &&
     !kanaIntroExcerptGuide.isReplaying &&
+    !particleGuide.isReplaying &&
     !autoKanaIntroDismissedThisVisit
 
   const hasSokuonCategory = categoryIds.includes(SOKUON_CATEGORY_ID)

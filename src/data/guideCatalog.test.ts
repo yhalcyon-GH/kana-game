@@ -7,7 +7,7 @@ import { CONCEPT_GUIDE_CATALOG, GUIDE_CATALOG, TUTORIAL_CATALOG } from './guideC
 // 'concept' entries — hidden from Settings but preserved intact for a
 // future PR to surface from within each curriculum section.
 describe('GUIDE_CATALOG (Issue #46/#50/Chōon Guide/Tutorials)', () => {
-  it('lists exactly the eight currently-implemented Guides, in order', () => {
+  it('lists exactly the nine currently-implemented Guides, in order', () => {
     expect(GUIDE_CATALOG.map((g) => g.id)).toEqual([
       'intro',
       'learnTracing',
@@ -17,6 +17,7 @@ describe('GUIDE_CATALOG (Issue #46/#50/Chōon Guide/Tutorials)', () => {
       'chouon',
       'youon',
       'specialKatakana',
+      'particle',
     ])
   })
 
@@ -30,9 +31,15 @@ describe('GUIDE_CATALOG (Issue #46/#50/Chōon Guide/Tutorials)', () => {
     ])
   })
 
-  it('CONCEPT_GUIDE_CATALOG preserves Sokuon/Chōon/Yōon/Special Katakana replay info intact, unsurfaced in Settings', () => {
-    expect(CONCEPT_GUIDE_CATALOG.map((g) => g.id)).toEqual(['sokuon', 'chouon', 'youon', 'specialKatakana'])
-    expect(CONCEPT_GUIDE_CATALOG.map((g) => g.label)).toEqual(['Sokuon', 'Chōon', 'Yōon', 'Special Katakana'])
+  it('CONCEPT_GUIDE_CATALOG preserves Sokuon/Chōon/Yōon/Special Katakana/Particle replay info intact, unsurfaced in Settings', () => {
+    expect(CONCEPT_GUIDE_CATALOG.map((g) => g.id)).toEqual(['sokuon', 'chouon', 'youon', 'specialKatakana', 'particle'])
+    expect(CONCEPT_GUIDE_CATALOG.map((g) => g.label)).toEqual(['Sokuon', 'Chōon', 'Yōon', 'Special Katakana', 'Particle'])
+  })
+
+  it('Particle Guide is registered as a concept Guide targeting /hiragana, and is absent from TUTORIAL_CATALOG', () => {
+    const particle = GUIDE_CATALOG.find((g) => g.id === 'particle')!
+    expect(particle).toMatchObject({ id: 'particle', label: 'Particle', kind: 'replay', path: '/hiragana', category: 'concept' })
+    expect(TUTORIAL_CATALOG.map((g) => g.id)).not.toContain('particle')
   })
 
   it('Introduction replays via the existing global flag toggle, not navigation', () => {
@@ -42,7 +49,7 @@ describe('GUIDE_CATALOG (Issue #46/#50/Chōon Guide/Tutorials)', () => {
 
   it('every in-context Guide carries a real target route', () => {
     const inContext = GUIDE_CATALOG.filter((g) => g.kind === 'replay')
-    expect(inContext).toHaveLength(7)
+    expect(inContext).toHaveLength(8)
     for (const guide of inContext) {
       expect(guide.path).toMatch(/^\//)
     }
