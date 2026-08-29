@@ -511,3 +511,23 @@ describe('Special Katakana category (curriculum data)', () => {
     expect(getNextRowId('special-katakana-she-row')).toBeNull()
   })
 })
+
+// Vocabulary illustrations, added 2026-08-29 (see design/images/word-
+// illustrations/special-katakana-chatgpt-2026-08-29/) for 21 of the 22
+// Special Katakana words — シェア is intentionally still image-less.
+describe('Special Katakana word illustrations', () => {
+  it('21 of the 22 words have an image; special-katakana-she-shea does not', () => {
+    const words = [...WORDS_BY_ROW['special-katakana-fa-row'], ...WORDS_BY_ROW['special-katakana-she-row']]
+    expect(words).toHaveLength(22)
+    const withImage = words.filter((w) => !!w.image)
+    expect(withImage).toHaveLength(21)
+    expect(WORDS_BY_ID['special-katakana-she-shea'].image).toBeUndefined()
+  })
+
+  it('every image path points at word-icons/<own id>.webp', () => {
+    const words = [...WORDS_BY_ROW['special-katakana-fa-row'], ...WORDS_BY_ROW['special-katakana-she-row']]
+    for (const word of words.filter((w) => w.image)) {
+      expect(word.image).toBe(`word-icons/${word.id}.webp`)
+    }
+  })
+})
