@@ -1,19 +1,23 @@
 import { buildSimilarLettersRows } from './similarLetters'
 import type { GojuonRow, ScriptCategory } from './types'
 
-// Five categories exist (hiragana/katakana/sokuon/chōon/yōon) — see
-// docs/curriculum-extensibility.md for the full design and its "Progress"
-// section for how each landed. A sixth, 特殊音 (tokushuon, extended katakana
-// loanword digraphs like ファ/ティ/ヴ), was built and shipped once, then
-// deliberately removed at the user's request ("特殊音は今回なくていいです")
-// — the content isn't needed for this curriculum right now. Every row below
-// is tagged with a categoryId; nothing else in the app should hardcode the
-// string 'hiragana'.
+// Six categories exist (hiragana/katakana/sokuon/chōon/yōon/special
+// katakana) — see docs/curriculum-extensibility.md for the full design and
+// its "Progress" section for how each landed. 特殊音 (tokushuon, extended
+// katakana loanword digraphs like ファ/ティ) was built and shipped once,
+// then deliberately removed at the user's request ("特殊音は今回なくていい
+// です"), and has now been reintroduced under the English-first name
+// "Special Katakana" (SPECIAL_KATAKANA_CATEGORY_ID below) with a fixed,
+// confirmed 2-session/22-word scope — see that constant's own comment for
+// why it's a separate category from Yōon despite sharing its page. Every
+// row below is tagged with a categoryId; nothing else in the app should
+// hardcode the string 'hiragana'.
 export const DEFAULT_CATEGORY_ID = 'hiragana'
 export const KATAKANA_CATEGORY_ID = 'katakana'
 export const SOKUON_CATEGORY_ID = 'sokuon'
 export const CHOUON_CATEGORY_ID = 'chouon'
 export const YOUON_CATEGORY_ID = 'youon'
+export const SPECIAL_KATAKANA_CATEGORY_ID = 'special-katakana'
 
 export const CATEGORIES: ScriptCategory[] = [
   { id: DEFAULT_CATEGORY_ID, label: 'ひらがな', learnStyle: 'character-set', icon: 'category-icons/hiragana.webp' },
@@ -89,6 +93,29 @@ export const CATEGORIES: ScriptCategory[] = [
       'Yōon are contracted sounds made from a consonant + い kana (き/し/ち/に/ひ/み/り, or their voiced forms) followed by a small ゃ/ゅ/ょ. Two characters, but only ONE syllable — きゃ isn\'t "ki-ya", it\'s one quick "kya".',
     icon: 'category-icons/youon.webp',
     displayLabel: 'ゃゅょ',
+  },
+  // 特殊音 (Special Katakana) — real katakana-only loanword sounds (ファ/
+  // ティ/シェ/...) written with a small vowel kana (ァィゥェォ) instead of
+  // small ゃゅょ. Presented to the learner as a continuation of the SAME
+  // /youon page, right after Yōon (App.tsx bundles this category's rows
+  // onto that page's CategoryRowsPage, the same way SOKUON_CATEGORY_ID/
+  // CHOUON_CATEGORY_ID share '/other' — see CategoryRowsPage's multi-
+  // category grouping), but kept as its OWN internal category — not folded
+  // into YOUON_CATEGORY_ID — so its progression/cumulative pool/Review/
+  // Recommended Path stay explicit and never leak into "All Yōon" (the
+  // youon-summary row's aggregation is category-scoped and must not grow to
+  // include these 12 characters/22 words). Depends on katakana (base
+  // glyphs), yōon (some words use small ゃゅょ combos like ギュ/シュ/キャ/
+  // チャ), and sokuon (小さいッ, e.g. ティッシュ/チェック) — NOT hiragana or
+  // chōon: no word here uses hiragana, and katakana's own long vowel ー
+  // already lives in KATAKANA_CATEGORY_ID (katakana-a-row), not chōon.
+  {
+    id: SPECIAL_KATAKANA_CATEGORY_ID,
+    label: '特殊音',
+    learnStyle: 'character-set',
+    dependsOnCategoryIds: [KATAKANA_CATEGORY_ID, YOUON_CATEGORY_ID, SOKUON_CATEGORY_ID],
+    explanation: 'Common sounds used in loanwords.',
+    displayLabel: 'Special Katakana',
   },
 ]
 
@@ -541,6 +568,39 @@ const REAL_ROWS: GojuonRow[] = [
       ['katakana-rya', 'katakana-ryu', 'katakana-ryo'],
     ],
   },
+
+  // ===== 特殊音 (Special Katakana) — own order sequence, starting at 0 =====
+  // Own category (SPECIAL_KATAKANA_CATEGORY_ID), so — like Yōon before it —
+  // this restarts its `order` numbering at 0 (see getCumulativeCharacterIds/
+  // getNextRowId, both category-scoped). Exactly 2 sessions, a fixed
+  // confirmed scope (12 sounds / 22 words total) — not meant to grow the
+  // way a normal gojūon category would.
+  {
+    id: 'special-katakana-fa-row',
+    categoryId: SPECIAL_KATAKANA_CATEGORY_ID,
+    label: 'ファ〜ディ',
+    displayLines: ['ファ・フィ・フェ・フォ', 'ティ・ディ'],
+    order: 0,
+    characterIds: ['katakana-fa', 'katakana-fi', 'katakana-fe', 'katakana-fo', 'katakana-ti', 'katakana-di'],
+    englishLabel: 'Special Katakana: Fa–Di',
+    learnBatches: [
+      ['katakana-fa', 'katakana-fi', 'katakana-fe', 'katakana-fo'],
+      ['katakana-ti', 'katakana-di'],
+    ],
+  },
+  {
+    id: 'special-katakana-she-row',
+    categoryId: SPECIAL_KATAKANA_CATEGORY_ID,
+    label: 'シェ〜ウォ',
+    displayLines: ['シェ・ジェ・チェ', 'ウィ・ウェ・ウォ'],
+    order: 1,
+    characterIds: ['katakana-she', 'katakana-je', 'katakana-che', 'katakana-wi', 'katakana-we', 'katakana-special-wo'],
+    englishLabel: 'Special Katakana: She–Wo',
+    learnBatches: [
+      ['katakana-she', 'katakana-je', 'katakana-che'],
+      ['katakana-wi', 'katakana-we', 'katakana-special-wo'],
+    ],
+  },
 ]
 
 // Which real categories a summary row's Learn/Practice pool draws from —
@@ -626,15 +686,34 @@ export function getRowOrder(rowId: string): number {
 // comparisons would be meaningless ("next row after the last katakana row"
 // isn't a question these two answer — see getNextRowId('katakana-ra-row')
 // returning null, not the first sokuon row).
+//
+// ONE deliberate, explicit exception: Yōon's last row flows straight into
+// Special Katakana's first session. Special Katakana is presented as a
+// continuation of the SAME /youon page (see SPECIAL_KATAKANA_CATEGORY_ID's
+// comment), not a separate destination, so "Continue" after the last Yōon
+// row's Word Builder (WordBuilderPage) and the Practice Hub's prev/next
+// session links (HubBreadcrumb) must carry straight on into it instead of
+// stopping — same as this pair already can't answer "next row after the
+// last katakana row." An explicit one-entry map (not a general "walk
+// CATEGORIES in order" rule) keeps this narrowly scoped to the one
+// confirmed transition, rather than reopening the katakana->sokuon jump
+// this pair's design deliberately rejects.
+const CROSS_CATEGORY_NEXT_ROW: Record<string, string> = {
+  'youon-katakana-ma-ra-row': 'special-katakana-fa-row',
+}
+
 export function getPreviousRowId(rowId: string): string | null {
   const row = ROWS_BY_ID[rowId]
   if (!row) return null
+  const crossCategoryFrom = Object.entries(CROSS_CATEGORY_NEXT_ROW).find(([, to]) => to === rowId)?.[0]
+  if (crossCategoryFrom) return crossCategoryFrom
   return ROWS.find((r) => r.categoryId === row.categoryId && r.order === row.order - 1)?.id ?? null
 }
 
 export function getNextRowId(rowId: string): string | null {
   const row = ROWS_BY_ID[rowId]
   if (!row) return null
+  if (CROSS_CATEGORY_NEXT_ROW[rowId]) return CROSS_CATEGORY_NEXT_ROW[rowId]
   return ROWS.find((r) => r.categoryId === row.categoryId && r.order === row.order + 1)?.id ?? null
 }
 

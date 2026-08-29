@@ -41,11 +41,15 @@ const CHARACTER_ID_BY_SINGLE_GLYPH: Record<string, string> = Object.fromEntries(
 
 // Small ゃ/ゅ/ょ (and katakana ャ/ュ/ョ) each reuse the full-size や/ゆ/よ
 // stroke data, scaled down at render time (see StrokeOrderAnimation's
-// `scale` prop and TracingPage's small-glyph guide drawing) — this is the
-// ONLY set of small-kana glyphs yōon characters ever use, so a small,
-// explicit map is clearer here than reusing mora.ts's broader
-// small-combining-kana set (which also covers ぁぃぅぇぉ, never used by any
-// yōon characterId in this curriculum).
+// `scale` prop and TracingPage's small-glyph guide drawing) — a small,
+// explicit map is clearer here than reusing mora.ts's broader small-
+// combining-kana set (which also covers hiragana ぁぃぅぇぉ, never used by
+// any characterId in this curriculum). Special Katakana (ファ/ティ/シェ/...,
+// see curriculum.ts's SPECIAL_KATAKANA_CATEGORY_ID) reuses this exact same
+// mechanism for its small vowel kana (ァィゥェォ -> full-size アイウエオ) —
+// ゥ has no Special Katakana target today, but is included for completeness
+// alongside its four siblings rather than added only once something needs
+// it.
 const SMALL_YOON_BASE_ID: Record<string, string> = {
   ゃ: 'ya',
   ゅ: 'yu',
@@ -53,6 +57,11 @@ const SMALL_YOON_BASE_ID: Record<string, string> = {
   ャ: 'katakana-ya',
   ュ: 'katakana-yu',
   ョ: 'katakana-yo',
+  ァ: 'katakana-a',
+  ィ: 'katakana-i',
+  ゥ: 'katakana-u',
+  ェ: 'katakana-e',
+  ォ: 'katakana-o',
 }
 
 export function isYoonCharacterId(characterId: string): boolean {

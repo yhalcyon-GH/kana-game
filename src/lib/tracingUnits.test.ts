@@ -48,6 +48,48 @@ describe('buildTracingUnit', () => {
       { kana: 'ャ', strokeSourceId: 'katakana-ya', isSmall: true },
     ])
   })
+
+  // Special Katakana (see curriculum.ts's SPECIAL_KATAKANA_CATEGORY_ID) uses
+  // the same "one learning target = one mora, two glyphs" model as yōon
+  // above, generalized here to small VOWEL kana (ァィゥェォ) instead of
+  // small ゃゅょ — full-size アイウエオ stroke data reused, never new
+  // geometry.
+  it('Special Katakana ファ (katakana-fa): expands to フ + small ァ (katakana-a source)', () => {
+    const unit = buildTracingUnit('katakana-fa')
+    expect(unit.glyphs).toEqual([
+      { kana: 'フ', strokeSourceId: 'katakana-fu', isSmall: false },
+      { kana: 'ァ', strokeSourceId: 'katakana-a', isSmall: true },
+    ])
+  })
+
+  it('Special Katakana ティ (katakana-ti): expands to テ + small ィ (katakana-i source)', () => {
+    const unit = buildTracingUnit('katakana-ti')
+    expect(unit.glyphs).toEqual([
+      { kana: 'テ', strokeSourceId: 'katakana-te', isSmall: false },
+      { kana: 'ィ', strokeSourceId: 'katakana-i', isSmall: true },
+    ])
+  })
+
+  it('Special Katakana シェ (katakana-she): expands to シ + small ェ (katakana-e source)', () => {
+    const unit = buildTracingUnit('katakana-she')
+    expect(unit.glyphs).toEqual([
+      { kana: 'シ', strokeSourceId: 'katakana-shi', isSmall: false },
+      { kana: 'ェ', strokeSourceId: 'katakana-e', isSmall: true },
+    ])
+  })
+
+  it('Special Katakana ウォ (katakana-special-wo, NOT the existing katakana-wo/ヲ): expands to ウ + small ォ (katakana-o source)', () => {
+    const unit = buildTracingUnit('katakana-special-wo')
+    expect(unit.glyphs).toEqual([
+      { kana: 'ウ', strokeSourceId: 'katakana-u', isSmall: false },
+      { kana: 'ォ', strokeSourceId: 'katakana-o', isSmall: true },
+    ])
+  })
+
+  it('existing small ゃ/ゅ/ょ (yōon) tracing is unchanged by the Special Katakana small-vowel additions', () => {
+    expect(buildTracingUnit('kya').glyphs[1]).toEqual({ kana: 'ゃ', strokeSourceId: 'ya', isSmall: true })
+    expect(buildTracingUnit('katakana-kya').glyphs[1]).toEqual({ kana: 'ャ', strokeSourceId: 'katakana-ya', isSmall: true })
+  })
 })
 
 describe('unitCellWidth', () => {

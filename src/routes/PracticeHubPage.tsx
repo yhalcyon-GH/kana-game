@@ -16,6 +16,8 @@ import { CHOUON_GUIDE } from '../data/chouonGuide'
 import { ChouonGuide } from '../components/ChouonGuide'
 import { YOUON_GUIDE } from '../data/youonGuide'
 import { YouonGuide } from '../components/YouonGuide'
+import { SPECIAL_KATAKANA_GUIDE } from '../data/specialKatakanaGuide'
+import { SpecialKatakanaGuide } from '../components/SpecialKatakanaGuide'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../hooks/useCurriculum'
 import { useActiveGuideReplayId, useGuideReplay } from '../hooks/useGuideReplay'
 import { getRecommendedActivity } from '../lib/recommendedPath'
@@ -142,6 +144,8 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   const setHasCompletedChouonGuide = useProgressStore((s) => s.setHasCompletedChouonGuide)
   const hasCompletedYouonGuide = useProgressStore((s) => s.hasCompletedYouonGuide)
   const setHasCompletedYouonGuide = useProgressStore((s) => s.setHasCompletedYouonGuide)
+  const hasCompletedSpecialKatakanaGuide = useProgressStore((s) => s.hasCompletedSpecialKatakanaGuide)
+  const setHasCompletedSpecialKatakanaGuide = useProgressStore((s) => s.setHasCompletedSpecialKatakanaGuide)
 
   // Manual Guide replay (Issue #46) — a `?guide=<id>` ephemeral target that
   // forces exactly one Guide to display on its real screen, regardless of
@@ -153,6 +157,8 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   const { isReplaying: isSokuonReplay, dismissReplay: dismissSokuonReplay } = useGuideReplay('sokuon')
   const { isReplaying: isChouonReplay, dismissReplay: dismissChouonReplay } = useGuideReplay('chouon')
   const { isReplaying: isYouonReplay, dismissReplay: dismissYouonReplay } = useGuideReplay('youon')
+  const { isReplaying: isSpecialKatakanaReplay, dismissReplay: dismissSpecialKatakanaReplay } =
+    useGuideReplay('specialKatakana')
   const { isReplaying: isReviewReplay, dismissReplay: dismissReviewReplay } = useGuideReplay('review')
   const activeGuideReplayId = useActiveGuideReplayId()
 
@@ -228,6 +234,14 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
     !isReview && categoryId === CHOUON_GUIDE.target.categoryId && rowId === CHOUON_GUIDE.target.rowId
   const isYouonTargetRoute =
     !isReview && categoryId === YOUON_GUIDE.target.categoryId && rowId === YOUON_GUIDE.target.rowId
+  // Special Katakana's Guide auto-triggers only on its own first session's
+  // row (special-katakana-fa-row) — NOT from merely visiting the shared
+  // /youon page, unlike Sokuon/Chōon/Yōon's page-level auto-Guides (see
+  // CategoryRowsPage). This is the ONLY place it can show automatically.
+  const isSpecialKatakanaTargetRoute =
+    !isReview &&
+    categoryId === SPECIAL_KATAKANA_GUIDE.target.categoryId &&
+    rowId === SPECIAL_KATAKANA_GUIDE.target.rowId
   // A `?guide=` value only counts as "active here" when it names one of
   // THIS route's own Guides (e.g. hiragana/a-row hosts both Learn/Tracing
   // and Practice) — that's what lets a manual replay suppress this route's
@@ -242,7 +256,8 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
       (isPracticeTargetRoute && activeGuideReplayId === 'practice') ||
       (isSokuonTargetRoute && activeGuideReplayId === 'sokuon') ||
       (isChouonTargetRoute && activeGuideReplayId === 'chouon') ||
-      (isYouonTargetRoute && activeGuideReplayId === 'youon'))
+      (isYouonTargetRoute && activeGuideReplayId === 'youon') ||
+      (isSpecialKatakanaTargetRoute && activeGuideReplayId === 'specialKatakana'))
   const showLearnTracingGuide =
     isLearnTracingTargetRoute && (isLearnTracingReplay || (!isKnownReplayHere && !hasCompletedLearnTracingGuide))
   const tracingCompleted = showRecommendedPath && rowActivityCompletion[rowId]?.tracing === true
@@ -263,8 +278,12 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
     isChouonTargetRoute && (isChouonReplay || (!isKnownReplayHere && !hasCompletedChouonGuide && hasCompletedIntroGuide))
   const showYouonGuide =
     isYouonTargetRoute && (isYouonReplay || (!isKnownReplayHere && !hasCompletedYouonGuide && hasCompletedIntroGuide))
+  const showSpecialKatakanaGuide =
+    isSpecialKatakanaTargetRoute &&
+    (isSpecialKatakanaReplay || (!isKnownReplayHere && !hasCompletedSpecialKatakanaGuide && hasCompletedIntroGuide))
   const showReviewGuide = isReview && isReviewReplay
-  const disableHubActivities = showPracticeGuide || showSokuonGuide || showChouonGuide || showYouonGuide
+  const disableHubActivities =
+    showPracticeGuide || showSokuonGuide || showChouonGuide || showYouonGuide || showSpecialKatakanaGuide
   const recommended = showRecommendedPath
     ? getRecommendedActivity({
         learnStyle: isContrastPairs ? 'contrast-pairs' : 'character-set',
@@ -415,6 +434,12 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
 
       {showYouonGuide && (
         <YouonGuide onDismiss={isYouonReplay ? dismissYouonReplay : () => setHasCompletedYouonGuide(true)} />
+      )}
+
+      {showSpecialKatakanaGuide && (
+        <SpecialKatakanaGuide
+          onDismiss={isSpecialKatakanaReplay ? dismissSpecialKatakanaReplay : () => setHasCompletedSpecialKatakanaGuide(true)}
+        />
       )}
 
       <div className="flex w-full max-w-md flex-col items-center gap-2">

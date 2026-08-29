@@ -749,3 +749,43 @@ describe('TracingPage Back button — Similar Letters row (characters-only, no w
     expect(getByTestId('landed-path')).toHaveTextContent('/practice/hiragana/hiragana-similar-letters')
   })
 })
+
+// Special Katakana (see curriculum.ts's SPECIAL_KATAKANA_CATEGORY_ID) —
+// reuses the existing character-set Tracing flow, generalized only via
+// tracingUnits.ts's small-vowel additions (see that file's own tests for
+// the exact glyph-expansion coverage). This just confirms the real
+// TracingPage renders normally around a 2-glyph Special Katakana target,
+// same as it already does for yōon.
+describe('TracingPage — Special Katakana (2-glyph targets, small vowel kana)', () => {
+  beforeEach(() => {
+    useProgressStore.getState().resetProgress()
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(canvasContext as unknown as CanvasRenderingContext2D)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('/practice/special-katakana/special-katakana-fa-row/tracing starts in the character phase and does not crash on a 2-glyph target with a small vowel kana', () => {
+    const { getByText } = render(
+      <MemoryRouter initialEntries={['/practice/special-katakana/special-katakana-fa-row/tracing']}>
+        <Routes>
+          <Route path="/practice/:categoryId/:rowId/tracing" element={<TracingPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    expect(getByText('Trace each character')).toBeInTheDocument()
+    expect(getByText(/Round 1 \/ 6/)).toBeInTheDocument()
+  })
+
+  it('/practice/special-katakana/special-katakana-she-row/tracing (session 2) also renders normally', () => {
+    const { getByText } = render(
+      <MemoryRouter initialEntries={['/practice/special-katakana/special-katakana-she-row/tracing']}>
+        <Routes>
+          <Route path="/practice/:categoryId/:rowId/tracing" element={<TracingPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    expect(getByText('Trace each character')).toBeInTheDocument()
+  })
+})
