@@ -231,23 +231,40 @@ export function TracingPage() {
 
     // Draws one glyph centered in the writing cell at (col, row) — sized
     // down (and nudged slightly lower, per Step 15) when it's a small
-    // ゃ/ゅ/ょ, so it's unambiguous at a glance which half of a yōon unit is
-    // which without deforming/cropping either glyph.
-    const drawGlyph = (kana: string, col: number, row: number, isSmall: boolean) => {
+    // ゃ/ゅ/ょ, so it's unambiguous at a glance which half of a yōon/Special
+    // Katakana unit is which without deforming/cropping either glyph.
+    // `pairRole` is 'none' for a normal standalone character (drawn dead
+    // center, unchanged), or 'base'/'small' for the two halves of a 2-glyph
+    // writing unit — each nudged HORIZONTALLY toward the other, across the
+    // shared boundary between their two cells, so the pair reads as one
+    // grouped writing unit (きゃ/ファ/ミャ) instead of two glyphs each
+    // centered in isolation with a full cell's worth of empty space between
+    // them (Step 25/26). Purely a text-position offset on faint guide
+    // glyphs sharing one canvas with freehand drawing — unlike
+    // StrokeOrderAnimation's bordered SVG cards above, there's no visual
+    // card boundary here to clash with by nudging past the cell's own
+    // center, and the actual hit/drawing area is untouched either way.
+    const BASE_NUDGE_FRACTION = 0.16 // fraction of cellSize the base glyph shifts toward its small glyph
+    const SMALL_NUDGE_FRACTION = 0.34 // fraction of cellSize the small glyph shifts toward its base glyph
+    const drawGlyph = (kana: string, col: number, row: number, pairRole: 'none' | 'base' | 'small') => {
+      const isSmall = pairRole === 'small'
       const fontSize = cellSize * 0.75 * (isSmall ? SMALL_GUIDE_SCALE : 1)
       ctx.font = `${fontSize}px "Klee One", sans-serif`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.fillStyle = 'rgba(120, 120, 120, 0.3)'
-      // A small glyph is pulled toward the base glyph's cell (leading edge of
-      // its own cell) instead of centered in its full-width cell, matching
-      // StrokeOrderAnimation's TracingCell `align="start"` nudge — otherwise
-      // the shrunk glyph floats in the middle of unused cell space and reads
-      // as too far from the base glyph it's paired with (Step 25).
-      const smallNudge = isSmall ? cellSize * (1 - SMALL_GUIDE_SCALE) * 0.375 : 0
-      const cx = cellSize * (col + 0.5) - smallNudge
+      const horizontalNudge =
+        pairRole === 'base' ? cellSize * BASE_NUDGE_FRACTION : pairRole === 'small' ? -cellSize * SMALL_NUDGE_FRACTION : 0
+      const cx = cellSize * (col + 0.5) + horizontalNudge
       const cy = cellSize * (row + 0.5) + cellSize * (isSmall ? 0.12 : 0.05)
       ctx.fillText(kana, cx, cy)
+    }
+
+    // A 2-glyph unit's first glyph is 'base' and second is 'small' — a
+    // single-glyph unit's lone glyph is always 'none'.
+    const pairRoleFor = (glyphIndex: number, glyphCount: number): 'none' | 'base' | 'small' => {
+      if (glyphCount < 2) return 'none'
+      return glyphIndex === 0 ? 'base' : 'small'
     }
 
     if (phase === 'chars' && currentCharId && charUnit) {
@@ -256,7 +273,7 @@ export function TracingPage() {
       ctx.scale(dpr, dpr)
       const paint = () => {
         if (drawTokenRef.current !== token) return
-        charUnit.glyphs.forEach((glyph, i) => drawGlyph(glyph.kana, i, 0, glyph.isSmall))
+        charUnit.glyphs.forEach((glyph, i) => drawGlyph(glyph.kana, i, 0, pairRoleFor(i, charUnit.glyphs.length)))
       }
       if (document.fonts?.load) {
         document.fonts.load(`${cellSize * 0.75}px "Klee One"`).then(paint, paint)
@@ -273,7 +290,7 @@ export function TracingPage() {
           let col = 0
           packedRow.units.forEach((unit) => {
             unit.glyphs.forEach((glyph, glyphIndex) => {
-              drawGlyph(glyph.kana, col + glyphIndex, rowIndex, glyph.isSmall)
+              drawGlyph(glyph.kana, col + glyphIndex, rowIndex, pairRoleFor(glyphIndex, unit.glyphs.length))
             })
             col += unitCellWidth(unit)
           })

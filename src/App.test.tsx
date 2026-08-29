@@ -449,22 +449,24 @@ describe('character-set learnStyle with yōon (multi-glyph, one-mora characters)
     expect(screen.getByText(/Round 1/)).toBeInTheDocument()
   })
 
-  // Word Builder keeps a multi-glyph character like きゃ as ONE pre-combined
-  // tile, never split into separate き/ゃ tiles — see WordBuilderPage.tsx's
-  // TrayTile comment (this reverses an earlier explicit request; the mora
-  // unit is now used everywhere, including existing yōon words — see the
-  // Special Katakana spec's explicit tile-unit requirement). Every word in
-  // youon-ka-row contains exactly one small ゃ/ゅ/ょ combo character, so
-  // regardless of which word the session picks, some button's accessible
-  // text should be exactly that 2-glyph combo — never split into a bare
-  // small ゃ/ゅ/ょ tile on its own.
-  it('/practice/youon/youon-ka-row/word-builder keeps yōon combo characters as one tile, never split into separate glyph tiles', () => {
+  // Word Builder SPELLING-splits a multi-glyph character like きゃ into its
+  // two component glyph tiles [き][ゃ] — reverses the earlier "yōon stays
+  // whole" design to match Special Katakana's split (see
+  // wordBuilderTiles.ts's displayGlyphsForCharId: any 2-codepoint id whose
+  // codepoints merge into one mora splits, and that's true for yōon too).
+  // The combined characterId (e.g. 'kya'/'gyo') itself remains the single
+  // Review/SRS/recognition target either way — this only changes what Word
+  // Builder's tray shows. Every word in youon-ka-row contains exactly one
+  // small ゃ/ゅ/ょ combo character, so regardless of which word the session
+  // picks, some button's accessible text should be exactly a bare small
+  // ゃ/ゅ/ょ tile — never a leftover full 2-glyph combo.
+  it('/practice/youon/youon-ka-row/word-builder splits yōon combo characters into separate glyph tiles', () => {
     renderAt('/practice/youon/youon-ka-row/word-builder')
     const buttonTexts = screen.getAllByRole('button').map((b) => b.textContent)
-    // Some tile shows a full 2-glyph combo like きゃ/ぎょ.
-    expect(buttonTexts.some((t) => t != null && [...t].length === 2 && /[ぁ-ん]/.test(t))).toBe(true)
-    // Regression: no tile should show a bare small ゃ/ゅ/ょ on its own.
-    expect(buttonTexts.some((t) => t === 'ゃ' || t === 'ゅ' || t === 'ょ')).toBe(false)
+    // Some tile shows a bare small ゃ/ゅ/ょ — the split-off small half.
+    expect(buttonTexts.some((t) => t === 'ゃ' || t === 'ゅ' || t === 'ょ')).toBe(true)
+    // Regression: no tile shows an un-split 2-glyph combo like きゃ/ぎょ.
+    expect(buttonTexts.some((t) => t != null && [...t].length === 2 && /[ぁ-ん]/.test(t))).toBe(false)
   })
 
   it('sokuon/chōon/hiragana/katakana behavior is unaffected by youon existing (regression)', () => {
