@@ -71,13 +71,12 @@ describe('Special Katakana — Listening', () => {
   })
 })
 
-// Word Builder spelling-tile split (finish Special Katakana learning
-// polish, item 3): superseded the earlier "never split glyphs" design.
-// Special Katakana now SPELLING-splits into its two component glyphs in
-// Word Builder specifically (full kana + small vowel), while remaining ONE
+// Word Builder spelling-tile split: Special Katakana SPELLING-splits into
+// its two component glyphs in Word Builder specifically (full kana + small
+// vowel — yōon does too, see WordBuilderPage.test.tsx), while remaining ONE
 // combined Review/SRS/recognition target everywhere else (Kana Quiz/
-// Listening/Typing above, unchanged). See WordBuilderPage.tsx's
-// SPECIAL_KATAKANA_SPLIT_IDS.
+// Listening/Typing above, unchanged). See wordBuilderTiles.ts's
+// displayGlyphsForCharId.
 describe('Special Katakana — Word Builder (spelling-split tiles, combined Review target)', () => {
   it('placing all target tiles in order completes the word (3-tile word ファン: [フ][ァ][ン])', () => {
     vi.useFakeTimers()

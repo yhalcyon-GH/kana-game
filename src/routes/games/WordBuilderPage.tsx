@@ -28,13 +28,14 @@ import { useProgressStore } from '../../store/progressStore'
 const DISTRACTOR_COUNT = 3
 
 // A single tray/slot tile can be either a whole learning-unit CHARACTER ID's
-// kana (most characters, and yōon like きゃ — one glyph or 2-glyph digraph,
-// always ONE tile, e.g. ティッシュ's シュ stays whole) OR one HALF of a
-// Special Katakana character's kana, spelling-split for display purposes
-// only (ティッシュ's ティ splits into [テ][ィ]) — see
-// src/lib/wordBuilderTiles.ts's SPECIAL_KATAKANA_SPLIT_IDS/
-// buildFlatTargetTiles for the exact rule and FlatTargetTile for how a
-// split pair is still folded back into ONE combined Review/SRS target.
+// kana (most characters — one glyph, always ONE tile) OR one HALF of a
+// yōon/Special Katakana character's kana, spelling-split for display
+// purposes only (ティッシュ's ティ splits into [テ][ィ], きゃんぷ's きゃ
+// splits into [キ][ャ]) — see src/lib/wordBuilderTiles.ts's
+// displayGlyphsForCharId/buildFlatTargetTiles for the exact rule (a
+// 2-codepoint id whose codepoints merge into ONE mora) and FlatTargetTile
+// for how a split pair is still folded back into ONE combined Review/SRS
+// target.
 type TrayTile = { key: string; glyph: string; placed: boolean }
 
 type Props = {
@@ -118,26 +119,22 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
 
   // Sets up a fresh tray/slots for a new word. Slots/tiles are sized to the
   // word's DISPLAY-tile count: most characters render as one tile per
-  // learning unit (charId and glyph coincide), yōon (きゃ/しゃ/チャ etc.)
-  // stays ONE tile despite being 2 codepoints, and Special Katakana
-  // (ファ/フィ/ティ/シェ/... — see SPECIAL_KATAKANA_SPLIT_IDS) spelling-splits
-  // into TWO tiles (full kana + small vowel) even though it remains a single
+  // learning unit (charId and glyph coincide), and yōon/Special Katakana
+  // (きゃ/しゃ/ミャ/ファ/フィ/ティ/シェ/... — see
+  // wordBuilderTiles.ts's displayGlyphsForCharId) spelling-split into TWO
+  // tiles (base glyph + small glyph) even though each remains a single
   // Review/SRS/recognition target. Distractor tiles apply the exact same
-  // split rule (via displayGlyphsForCharId) — a Special Katakana distractor
-  // must look the same whether it's drawn as the target or as a decoy, or
-  // the split would appear inconsistent from round to round.
+  // split rule (via displayGlyphsForCharId) — a yōon/Special Katakana
+  // distractor like katakana-fa must show as [フ][ァ] here too, not as one
+  // whole ファ tile, or the split would look inconsistent depending on
+  // whether a given round happened to draw that character as the target or
+  // as a distractor.
   const setupRound = useCallback(
     (word: AnchorWord) => {
       const distractorCharIds = isSimilarLetters
         ? pickSimilarLettersDistractorCharIds(word.characterIds, confusionGroups, scopeCharacterIds, DISTRACTOR_COUNT)
         : pickDistractorCharIds(word.characterIds, scopeCharacterIds, DISTRACTOR_COUNT)
       const flatTarget = buildFlatTargetTiles(word.characterIds)
-      // Spelling-split the same way the target tiles are (see
-      // displayGlyphsForCharId) — a Special Katakana distractor like
-      // katakana-fa must show as [フ][ァ] here too, not as one whole ファ
-      // tile, or the split would look inconsistent depending on whether a
-      // given round happened to draw that character as the target or as a
-      // distractor.
       const distractorTiles = distractorCharIds.flatMap((id) => displayGlyphsForCharId(id))
       const tileGlyphs = shuffle([...flatTarget.map((t) => t.glyph), ...distractorTiles])
       setTray(tileGlyphs.map((glyph, i) => ({ key: `${glyph}-${i}`, glyph, placed: false })))
@@ -181,12 +178,13 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
     // harmless back when it only fed the SRS box, but now directly drives
     // character Review (see lib/srs.ts's applyReviewResult), so a
     // misattributed character would show up there as "kept missing" when it
-    // wasn't the problem. A Special Katakana charId can now span TWO display
-    // tiles (see targetTiles/buildFlatTargetTiles above) — both parts are
-    // folded back into ONE correctness value per charId here (correct only
-    // if every one of its parts was placed correctly), so a miss on either
-    // half of e.g. フィ still records exactly one wrong result against
-    // katakana-fi, never a separate/nonexistent glyph target. Word Builder
+    // wasn't the problem. A yōon/Special Katakana charId can span TWO
+    // display tiles (see targetTiles/buildFlatTargetTiles above) — both
+    // parts are folded back into ONE correctness value per charId here
+    // (correct only if every one of its parts was placed correctly), so a
+    // miss on either half of e.g. フィ or きゃ still records exactly one
+    // wrong result against katakana-fi/kya, never two separate/nonexistent
+    // glyph targets. Word Builder
     // has real per-character precision, so ONLY the actually-wrong
     // character(s) enter Review here — a correctly placed character that
     // wasn't already active stays untouched (recordCharacterReviewResult is

@@ -2,7 +2,7 @@ import { act, fireEvent, render } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHARACTERS_BY_ID } from '../../data/characters'
-import { WORDS_BY_ID } from '../../data/words'
+import { WORDS_BY_ID, WORDS_BY_ROW } from '../../data/words'
 import { getNextRowId, ROWS } from '../../data/curriculum'
 import { REVIEW_SCOPE_ID } from '../../hooks/useCurriculum'
 import { useProgressStore } from '../../store/progressStore'
@@ -539,12 +539,14 @@ describe('WordBuilderPage: Save checkbox on wrong answer only', () => {
   })
 })
 
-// Special Katakana spelling-tile split (item 3 of "finish Special Katakana
-// learning polish") — the character id stays ONE Review/SRS/recognition
-// target, but Word Builder renders it as two display tiles (full kana +
-// small vowel). See SPECIAL_KATAKANA_SPLIT_IDS in WordBuilderPage.tsx.
-describe('WordBuilderPage Special Katakana spelling-tile split', () => {
+// Yōon + Special Katakana spelling-tile split — the character id stays ONE
+// Review/SRS/recognition target everywhere else in the app, but Word
+// Builder renders any 2-codepoint id whose codepoints merge into ONE mora
+// (a small ゃゅょ/ャュョ/ぁぃぅぇぉ/ァィゥェォ attached to a base kana) as
+// two display tiles. See displayGlyphsForCharId in wordBuilderTiles.ts.
+describe('WordBuilderPage yōon + Special Katakana spelling-tile split', () => {
   const SPLIT_COMBOS: [string, [string, string]][] = [
+    // Special Katakana
     ['katakana-fa', ['フ', 'ァ']],
     ['katakana-fi', ['フ', 'ィ']],
     ['katakana-fe', ['フ', 'ェ']],
@@ -557,16 +559,24 @@ describe('WordBuilderPage Special Katakana spelling-tile split', () => {
     ['katakana-wi', ['ウ', 'ィ']],
     ['katakana-we', ['ウ', 'ェ']],
     ['katakana-special-wo', ['ウ', 'ォ']],
+    // Yōon — now split just like Special Katakana (spec change from the
+    // earlier "yōon stays whole" design)
+    ['kya', ['き', 'ゃ']],
+    ['shu', ['し', 'ゅ']],
+    ['mya', ['み', 'ゃ']],
+    ['katakana-kya', ['キ', 'ャ']],
+    ['katakana-shu', ['シ', 'ュ']],
+    ['katakana-cha', ['チ', 'ャ']],
+    ['katakana-mya', ['ミ', 'ャ']],
   ]
 
   it.each(SPLIT_COMBOS)('%s splits into its two component glyphs', (charId, expected) => {
     expect(displayGlyphsForCharId(charId)).toEqual(expected)
   })
 
-  it('yōon (キャ/シュ/チャ) stays a single unsplit tile', () => {
-    expect(displayGlyphsForCharId('katakana-kya')).toEqual(['キャ'])
-    expect(displayGlyphsForCharId('katakana-shu')).toEqual(['シュ'])
-    expect(displayGlyphsForCharId('katakana-cha')).toEqual(['チャ'])
+  it('a single-glyph character (ン, ー, ッ, ...) never splits', () => {
+    expect(displayGlyphsForCharId('katakana-n')).toEqual(['ン'])
+    expect(displayGlyphsForCharId('katakana-chouon')).toEqual(['ー'])
   })
 
   it('ファン (fan) tiles as [フ][ァ][ン]', () => {
@@ -577,18 +587,20 @@ describe('WordBuilderPage Special Katakana spelling-tile split', () => {
     ])
   })
 
-  it('ティッシュ (tissue) tiles as [テ][ィ][ッ][シュ]', () => {
+  it('ティッシュ (tissue) tiles as [テ][ィ][ッ][シ][ュ]', () => {
     expect(buildFlatTargetTiles(WORDS_BY_ID['special-katakana-fa-tisshu'].characterIds).map((t) => t.glyph)).toEqual([
       'テ',
       'ィ',
       'ッ',
-      'シュ',
+      'シ',
+      'ュ',
     ])
   })
 
-  it('キャンディー (candy) tiles as [キャ][ン][デ][ィ][ー] — キャ stays whole', () => {
+  it('キャンディー (candy) tiles as [キ][ャ][ン][デ][ィ][ー]', () => {
     expect(buildFlatTargetTiles(WORDS_BY_ID['special-katakana-fa-kyandii'].characterIds).map((t) => t.glyph)).toEqual([
-      'キャ',
+      'キ',
+      'ャ',
       'ン',
       'デ',
       'ィ',
@@ -596,12 +608,13 @@ describe('WordBuilderPage Special Katakana spelling-tile split', () => {
     ])
   })
 
-  it('ジェスチャー (gesture) tiles as [ジ][ェ][ス][チャ][ー] — チャ stays whole', () => {
+  it('ジェスチャー (gesture) tiles as [ジ][ェ][ス][チ][ャ][ー]', () => {
     expect(buildFlatTargetTiles(WORDS_BY_ID['special-katakana-she-jesuchaa'].characterIds).map((t) => t.glyph)).toEqual([
       'ジ',
       'ェ',
       'ス',
-      'チャ',
+      'チ',
+      'ャ',
       'ー',
     ])
   })
@@ -627,7 +640,29 @@ describe('WordBuilderPage Special Katakana spelling-tile split', () => {
     ])
   })
 
-  it('a wrong placement on either split half of a Special Katakana tile records exactly one wrong result against the combined charId', () => {
+  it('ミャンマー (Myanmar) tiles as [ミ][ャ][ン][マ][ー]', () => {
+    expect(buildFlatTargetTiles(WORDS_BY_ID['youon-katakana-ma-ra-myanmaa'].characterIds).map((t) => t.glyph)).toEqual([
+      'ミ',
+      'ャ',
+      'ン',
+      'マ',
+      'ー',
+    ])
+  })
+
+  it('distractor tiles use the exact same split rule as target tiles — a character never looks split in one role and whole in another', () => {
+    // Same assertion as displayGlyphsForCharId's own per-id tests, but from
+    // the angle that matters: WordBuilderPage's distractor path
+    // (setupRound's distractorTiles) calls displayGlyphsForCharId directly,
+    // so whatever it returns for a target charId is exactly what a
+    // distractor drawing that same charId would render too — there is no
+    // separate distractor-only code path left to drift.
+    for (const [charId, expected] of SPLIT_COMBOS) {
+      expect(displayGlyphsForCharId(charId)).toEqual(expected)
+    }
+  })
+
+  it('a wrong placement on either split half of a yōon/Special Katakana tile records exactly one wrong result against the combined charId', () => {
     const { container } = render(
       <MemoryRouter initialEntries={['/practice/special-katakana/special-katakana-fa-row/word-builder']}>
         <Routes>
@@ -660,6 +695,71 @@ describe('WordBuilderPage Special Katakana spelling-tile split', () => {
     // attribution instead of being folded back into its combined charId.
     for (const [id, state] of Object.entries(characters)) {
       if (state?.reviewActive) expect(CHARACTERS_BY_ID[id]).toBeDefined()
+    }
+  })
+
+  // Deterministic version of the invariant test above: missing only ONE
+  // half of a split owner (e.g. only キ, not ャ, of きゃ) must record exactly
+  // ONE wrong result — against the combined owner charId — never two
+  // separate errors for キ and ャ, and never touch any other, correctly
+  // placed, character in the same word. Works for whichever word the
+  // session actually draws (queue order isn't controlled here) by reading
+  // the real target back out of WORDS_BY_ROW/buildFlatTargetTiles instead
+  // of hand-mapping every possible meaning.
+  it('missing only one half of a split owner marks exactly that owner wrong, not its glyph-mate nor any other character in the word', () => {
+    const { container } = render(
+      <MemoryRouter initialEntries={['/practice/special-katakana/special-katakana-fa-row/word-builder']}>
+        <Routes>
+          <Route path="/practice/:categoryId/:rowId/word-builder" element={<WordBuilderPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const meaning = container.querySelector('.text-lg.font-semibold')!.textContent!.trim()
+    const word = WORDS_BY_ROW['special-katakana-fa-row'].find((w) => w.meaning === meaning)!
+    expect(word).toBeDefined()
+    const flatTarget = buildFlatTargetTiles(word.characterIds)
+
+    // Find a split owner (a charId contributing 2 display tiles) — every
+    // Special Katakana word has at least one, since that's the whole point
+    // of this row.
+    const splitOwnerId = word.characterIds.find((id) => displayGlyphsForCharId(id).length === 2)!
+    expect(splitOwnerId).toBeDefined()
+    const splitIndex = flatTarget.findIndex((t) => t.charId === splitOwnerId)
+
+    // Placed tiles become `disabled` (see KanaTile/handleTrayClick), so they
+    // naturally drop out of this query on the next call — no need to track
+    // which specific tile instance was already used.
+    const trayButtons = () =>
+      Array.from(container.querySelectorAll('button.font-kana:not(.border-dashed):not([disabled])')) as HTMLButtonElement[]
+    const clickCorrect = (glyph: string) => {
+      const chosen = trayButtons().find((b) => b.textContent === glyph)
+      expect(chosen).toBeDefined()
+      act(() => fireEvent.click(chosen!))
+    }
+    // Any target glyph is off-limits for the deliberate wrong pick — not
+    // just this slot's own glyph — so it never cannibalizes a tile a LATER
+    // slot still needs (e.g. a duplicate glyph like ー appearing twice in
+    // the target). Only a genuine distractor tile is picked.
+    const targetGlyphs = new Set(flatTarget.map((t) => t.glyph))
+    const clickWrong = () => {
+      const chosen = trayButtons().find((b) => !targetGlyphs.has(b.textContent ?? ''))
+      expect(chosen).toBeDefined()
+      act(() => fireEvent.click(chosen!))
+    }
+
+    // Fill every slot: the split owner's OWN index gets a deliberately wrong
+    // (distractor) tile, everything else gets its real correct glyph.
+    flatTarget.forEach((target, i) => {
+      if (i === splitIndex) clickWrong()
+      else clickCorrect(target.glyph)
+    })
+
+    const characters = useProgressStore.getState().characters
+    expect(characters[splitOwnerId]).toMatchObject({ reviewActive: true, reviewStreak: 0 })
+    for (const charId of word.characterIds) {
+      if (charId === splitOwnerId) continue
+      expect(characters[charId]?.reviewActive ?? false).toBe(false)
     }
   })
 })

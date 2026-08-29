@@ -209,6 +209,18 @@ describe('PracticeSummary graded result (score image + X/Y score)', () => {
     expect(container.querySelectorAll('img').length).toBe(1)
   })
 
+  // Enlarged from PR #83's h-28/w-28 sm:h-32/w-32 — roughly doubled again,
+  // aspect ratio preserved (object-contain, never cropped).
+  it('the result image is enlarged (h-56/w-56, sm:h-64/w-64) with aspect ratio preserved', () => {
+    const { container } = renderGraded()
+    const resultImg = container.querySelector('img')!
+    expect(resultImg.className).toContain('h-56')
+    expect(resultImg.className).toContain('w-56')
+    expect(resultImg.className).toContain('sm:h-64')
+    expect(resultImg.className).toContain('sm:w-64')
+    expect(resultImg.className).toContain('object-contain')
+  })
+
   it.each([
     [{ correct: 0, total: 8 }, 'summary-result-1.webp'], // 0% -> band 1
     [{ correct: 1, total: 8 }, 'summary-result-1.webp'], // 12.5% -> band 1

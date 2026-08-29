@@ -789,3 +789,67 @@ describe('TracingPage — Special Katakana (2-glyph targets, small vowel kana)',
     expect(getByText('Trace each character')).toBeInTheDocument()
   })
 })
+
+// Writing-canvas glyph spacing (Step 25/26): the base and small glyph of a
+// yōon/Special Katakana 2-glyph unit must be drawn nudged toward each
+// other's cell, not each independently dead-center in its own cell — see
+// TracingPage's drawGlyph/pairRoleFor. Asserted directly against the
+// mocked canvas context's fillText calls (x-coordinate), since this is a
+// canvas-drawn guide with no DOM element to query.
+describe('TracingPage — writing canvas glyph spacing (base/small pair nudge)', () => {
+  beforeEach(() => {
+    useProgressStore.getState().resetProgress()
+    canvasContext.fillText.mockClear()
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(canvasContext as unknown as CanvasRenderingContext2D)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  // fillText(text, x, y) — the mock records every call; find the base glyph
+  // (col 0, the row's first fillText call) and small glyph (col 1) calls
+  // and compare their x against the two cells' own true centers.
+  function assertBaseAndSmallNudgeTowardEachOther(cellSize: number) {
+    const calls = canvasContext.fillText.mock.calls as [string, number, number][]
+    expect(calls.length).toBeGreaterThanOrEqual(2)
+    const [, baseX] = calls[0]
+    const [, smallX] = calls[1]
+    const baseCellCenter = cellSize * 0.5
+    const smallCellCenter = cellSize * 1.5
+    // Base glyph is shifted RIGHT of its own cell's center (toward the
+    // small glyph); small glyph is shifted LEFT of its own cell's center
+    // (toward the base glyph) — i.e. the gap between them is smaller than
+    // the gap between their two cells' centers would otherwise be.
+    expect(baseX).toBeGreaterThan(baseCellCenter)
+    expect(smallX).toBeLessThan(smallCellCenter)
+    expect(smallX - baseX).toBeLessThan(smallCellCenter - baseCellCenter)
+  }
+
+  it('きゃ (yōon, hiragana) — base glyph nudges right, small glyph nudges left', () => {
+    render(
+      <MemoryRouter initialEntries={['/practice/youon/youon-ka-row/tracing']}>
+        <Routes>
+          <Route path="/practice/:categoryId/:rowId/tracing" element={<TracingPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    expect(canvasContext.fillText).toHaveBeenCalled()
+    // CANVAS_SIZE (single-character phase) is a fixed 280 CSS px — see
+    // TracingPage's module-level constant — so the two cells' true centers
+    // are known without reading layout state directly.
+    assertBaseAndSmallNudgeTowardEachOther(280)
+  })
+
+  it('ファ (Special Katakana) — base glyph nudges right, small glyph nudges left', () => {
+    render(
+      <MemoryRouter initialEntries={['/practice/special-katakana/special-katakana-fa-row/tracing']}>
+        <Routes>
+          <Route path="/practice/:categoryId/:rowId/tracing" element={<TracingPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    expect(canvasContext.fillText).toHaveBeenCalled()
+    assertBaseAndSmallNudgeTowardEachOther(280)
+  })
+})

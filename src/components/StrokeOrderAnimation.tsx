@@ -125,8 +125,12 @@ const SMALL_GLYPH_SCALE = 0.65
 // to the cell's leading edge instead of centering it, so the small glyph
 // sits visually adjacent to the base glyph's cell rather than floating in
 // the middle of its own full-width cell with a large empty gap on the
-// base-glyph side (Step 25 — see the matching nudge in TracingPage's canvas
-// drawGlyph, which must stay visually consistent with this).
+// base-glyph side. The base glyph's own card already fills its entire
+// `size`×`size` cell (its <svg width/height is exactly `size`, see
+// StrokeOrderAnimation), so there's no analogous slack to justify away on
+// that side — the two bordered cards already sit flush together (gap-0)
+// (Step 25 — see the matching nudge in TracingPage's canvas drawGlyph,
+// which must stay visually consistent with this for the small glyph).
 function TracingCell({ size, children, align = 'center' }: { size: number; children: ReactNode; align?: 'center' | 'start' }) {
   return (
     <div
