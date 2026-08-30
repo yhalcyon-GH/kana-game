@@ -77,6 +77,37 @@ describe('RestaurantPage', () => {
     expect(screen.getByAltText('Tamamizu')).toHaveAttribute('src', expect.stringContaining('mascot/order.png'))
   })
 
+  it.each(['katakana', 'other', 'special-katakana'] as const)('uses tenpura and misoshiru in the %s introduction', (stage) => {
+    render(<MemoryRouter><RestaurantPage stage={stage} /></MemoryRouter>)
+    expect(screen.getByAltText('てんぷら')).toBeInTheDocument()
+    expect(screen.getByAltText('みそしる')).toBeInTheDocument()
+  })
+
+  it('keeps Romaji hidden after Start until Choose in Romaji is pressed', () => {
+    renderPage(false)
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }))
+    expect(screen.queryByTestId('restaurant-romaji-fallback')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Choose in Romaji' }))
+    expect(screen.getByTestId('restaurant-romaji-fallback')).toBeInTheDocument()
+  })
+
+  it('uses font-kana for the order template', () => {
+    renderPage(false)
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }))
+    expect(screen.getByTestId('restaurant-order-template')).toHaveClass('font-kana')
+  })
+
+  it('provides separate pronunciation controls for both targets in question 5', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    renderPage()
+    for (let question = 1; question < 5; question++) {
+      clickTargetAnswer()
+      fireEvent.click(screen.getByRole('button', { name: 'Next order' }))
+    }
+    clickTargetAnswer()
+    expect(screen.getAllByRole('button', { name: /^Hear / }).length).toBeGreaterThanOrEqual(3)
+  })
+
   it('offers Try Again and Show Answer after a wrong answer', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0)
     renderPage()

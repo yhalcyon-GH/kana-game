@@ -58,6 +58,7 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
   const [sessionResults, setSessionResults] = useState<SessionResult[]>([])
   const [completed, setCompleted] = useState(false)
   const [started, setStarted] = useState(false)
+  const greetedIntroRef = useRef(false)
   const [showRomaji, setShowRomaji] = useState(false)
   const [selectedRomaji, setSelectedRomaji] = useState<RestaurantDish[]>([])
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
@@ -67,15 +68,13 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
     setSpeechSupported(getSpeechRecognitionCtor() !== null)
   }, [speak])
 
-  // Staff greeting, once per screen mount — same useTTS abstraction as
-  // everywhere else in the app; if there's no static clip for this key the
-  // existing WebSpeechProvider fallback in useTTS just speaks the fallback
-  // text, no new fallback plumbing needed here.
   useEffect(() => {
-    speak('restaurant/staff/irasshaimase', 'いらっしゃいませ。')
-    // Only on mount for this screen instance — not re-fired on every round.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    if (!started && !greetedIntroRef.current) {
+      speak('restaurant/staff/irasshaimase', 'いらっしゃいませ。')
+      greetedIntroRef.current = true
+    }
+    if (started) greetedIntroRef.current = false
+  }, [started, speak])
 
   useEffect(() => {
     return () => {
@@ -213,7 +212,7 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
     return <SessionSummary correct={correct} mistakes={mistakes} onPlayAgain={playAgain} backPath={backPath} />
   }
   if (!started) {
-    return <RestaurantIntro onStart={() => setStarted(true)} dishes={dishes} backPath={backPath} />
+    return <RestaurantIntro onStart={() => setStarted(true)} backPath={backPath} />
   }
 
   return (
@@ -244,7 +243,7 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
         </div>
       </div>
 
-      <p data-testid="restaurant-order-template" className="w-full whitespace-nowrap text-center text-[clamp(.8rem,4vw,1.125rem)]" lang="ja">
+      <p data-testid="restaurant-order-template" className="font-kana w-full whitespace-nowrap text-center text-[clamp(.8rem,4vw,1.125rem)]" lang="ja">
         {targets.length === 1 ? 'すみません、＿＿＿＿おねがいします。' : 'すみません、＿＿＿＿ と ＿＿＿＿ おねがいします。'}
       </p>
 
@@ -274,7 +273,7 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
               <p className="text-xl font-bold">{targets.map((dish) => dish.romaji).join(' + ')}</p>
               {targets.map((dish) => <p key={dish.id} className="text-sm text-neutral-600 dark:text-neutral-300">{dish.english}</p>)}
               <div className="flex gap-2">
-                <button type="button" onClick={() => { sequenceIdRef.current++; stop(); speak(targets[0].audioPath.replace(/^\/audio\//, '').replace(/\.wav$/, ''), targets[0].displayKana) }} className="rounded-full border px-3 py-1 text-sm">Hear the dish</button>
+                {targets.map((dish) => <button key={dish.id} type="button" onClick={() => { sequenceIdRef.current++; stop(); speak(dish.audioPath.replace(/^\/audio\//, '').replace(/\.wav$/, ''), dish.displayKana) }} className="rounded-full border px-3 py-1 text-sm">Hear {dish.romaji}</button>)}
                 <button type="button" onClick={hearFullOrder} className="rounded-full border px-3 py-1 text-sm">Hear the full order</button>
               </div>
               <button
@@ -355,9 +354,9 @@ function DishGlyph({ dish, className, target = false, menu = false }: { dish: Re
   )
 }
 
-function RestaurantIntro({ onStart, dishes, backPath }: { onStart: () => void; dishes: RestaurantDish[]; backPath: string }) {
-  const tenpura = dishes.find((dish) => dish.id === 'tenpura') ?? dishes[0]
-  const misoshiru = dishes.find((dish) => dish.id === 'misoshiru') ?? dishes[1]
+function RestaurantIntro({ onStart, backPath }: { onStart: () => void; backPath: string }) {
+  const tenpura = RESTAURANT_DISHES.find((dish) => dish.id === 'tenpura')!
+  const misoshiru = RESTAURANT_DISHES.find((dish) => dish.id === 'misoshiru')!
   return <div className="flex w-full flex-col items-center gap-4">
     <Link to={backPath} className="self-start rounded-full border px-4 py-1.5 text-sm font-semibold">← Back</Link>
     <p className="whitespace-nowrap text-center text-lg font-bold">Let's order at a restaurant.</p>
