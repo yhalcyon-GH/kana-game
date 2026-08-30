@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { AnswerFeedbackRow } from '../../components/AnswerFeedbackRow'
 import { RESTAURANT_DISHES, type RestaurantDish, type RestaurantStageId } from '../../data/restaurantDishes'
 import { useTTS } from '../../hooks/useTTS'
-import { pickRoundFromPools, shuffleRestaurantChoices, type RestaurantRound } from '../../lib/restaurantRound'
+import { menuKey, pickRoundFromPools, shuffleRestaurantChoices, type RestaurantRound } from '../../lib/restaurantRound'
 import { checkMultipleDishOrderAlternatives, checkOrderAlternatives, type OrderCheckResult } from '../../lib/restaurantMatching'
 
 // Minimal ambient typing for the (still-experimental, vendor-prefixed) Web
@@ -64,6 +64,8 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
   const [showRomaji, setShowRomaji] = useState(false)
   const [selectedRomaji, setSelectedRomaji] = useState<RestaurantDish[]>([])
   const usedTargetIdsRef = useRef<string[]>([round.target.id])
+  const usedPairKeysRef = useRef<string[]>([])
+  const lastMenuKeyRef = useRef(menuKey(round.menu))
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
   const recognitionTokenRef = useRef(0)
   const [speechSupported, setSpeechSupported] = useState(false)
@@ -114,6 +116,13 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
     recognitionRef.current?.abort()
     recognitionRef.current = null
     const token = recognitionTokenRef.current
+    let settled = false
+    const settle = (callback: () => void) => {
+      if (settled || token !== recognitionTokenRef.current) return
+      settled = true
+      recognitionRef.current = null
+      callback()
+    }
     setState({ kind: 'listening' })
     const recognition = new Ctor()
     recognitionRef.current = recognition
@@ -122,19 +131,23 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
     recognition.interimResults = false
     recognition.maxAlternatives = 3
     recognition.onresult = (event) => {
-      if (token !== recognitionTokenRef.current || !event.results || !event.results[0]) return
+      if (settled || token !== recognitionTokenRef.current || !event.results || !event.results[0]) return
       const result = event.results[0]
       const alternatives: string[] = []
-      for (let i = 0; i < result.length; i++) alternatives.push(result[i].transcript)
+      const resultLength = Number.isInteger(result.length) && result.length > 0 ? result.length : 0
+      for (let i = 0; i < resultLength; i++) {
+        const transcript = result[i]?.transcript
+        if (typeof transcript === 'string' && transcript.trim()) alternatives.push(transcript)
+      }
       const check = targets.length === 1 ? checkOrderAlternatives(alternatives, round.menu, targets[0]) : checkMultipleDishOrderAlternatives(alternatives, round.menu, targets)
-      evaluate(alternatives[0] ?? null, check)
+      settle(() => evaluate(alternatives[0] ?? null, check))
     }
     recognition.onerror = () => {
-      if (token !== recognitionTokenRef.current) return
-      evaluate(null, { outcome: 'unrecognized' })
+      settle(() => evaluate(null, { outcome: 'unrecognized' }))
     }
     recognition.onend = () => {
-      if (token !== recognitionTokenRef.current) return
+      if (settled || token !== recognitionTokenRef.current) return
+      settled = true
       recognitionRef.current = null
       // If neither onresult nor onerror fired (e.g. aborted), fall back to
       // an unrecognized result rather than leaving the UI stuck listening.
@@ -143,7 +156,7 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
     try {
       recognition.start()
     } catch {
-      evaluate(null, { outcome: 'unrecognized' })
+      settle(() => evaluate(null, { outcome: 'unrecognized' }))
     }
   }
 
@@ -171,13 +184,19 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
     recognitionTokenRef.current++
     recognitionRef.current?.abort()
     recognitionRef.current = null
-    const nextRound = pickRoundFromPools(dishes, menuDishes, Math.random, round.target.id, usedTargetIdsRef.current)
+    const nextRound = pickRoundFromPools(dishes, menuDishes, Math.random, round.target.id, usedTargetIdsRef.current, lastMenuKeyRef.current)
     usedTargetIdsRef.current = [...usedTargetIdsRef.current, nextRound.target.id]
-    const secondTarget = dishes.filter((dish) => dish.id !== nextRound.target.id)[Math.floor(Math.random() * (dishes.length - 1))]
+    const candidates = dishes.filter((dish) => dish.id !== nextRound.target.id)
+    const unseenPairs = candidates.filter((dish) => !usedPairKeysRef.current.includes([nextRound.target.id, dish.id].sort().join('|')))
+    const secondPool = unseenPairs.length ? unseenPairs : candidates
+    const secondTarget = secondPool[Math.floor(Math.random() * secondPool.length)]
     const nextMenu = questionNumber + 1 >= 5
-      ? [nextRound.target, secondTarget, ...nextRound.menu.filter((dish) => dish.id !== secondTarget.id && dish.id !== nextRound.target.id)].slice(0, 4)
+      ? shuffleRestaurantChoices([nextRound.target, secondTarget, ...nextRound.menu.filter((dish) => dish.id !== secondTarget.id && dish.id !== nextRound.target.id)].slice(0, 4))
       : nextRound.menu
+    usedPairKeysRef.current = [...usedPairKeysRef.current, [nextRound.target.id, secondTarget.id].sort().join('|')]
+    usedTargetIdsRef.current = [...usedTargetIdsRef.current, secondTarget.id]
     const orderRound = { ...nextRound, menu: nextMenu }
+    lastMenuKeyRef.current = menuKey(orderRound.menu)
     setRound(orderRound)
     setTargets(questionNumber + 1 >= 5 ? [orderRound.target, secondTarget] : [orderRound.target])
     setRomajiChoices(shuffleRestaurantChoices(orderRound.menu))
@@ -195,7 +214,9 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
     recognitionRef.current = null
     const firstRound = pickRoundFromPools(dishes, menuDishes)
     usedTargetIdsRef.current = [firstRound.target.id]
+    usedPairKeysRef.current = []
     setRound(firstRound)
+    lastMenuKeyRef.current = menuKey(firstRound.menu)
     setTargets([firstRound.target])
     setRomajiChoices(shuffleRestaurantChoices(firstRound.menu))
     setQuestionNumber(1)
@@ -274,7 +295,7 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
       </div>
 
       <p data-testid="restaurant-order-template" className="font-kana w-full whitespace-nowrap text-center text-[clamp(.8rem,4vw,1.125rem)]" lang="ja">
-        {targets.length === 1 ? 'すみません、＿＿＿＿おねがいします。' : 'すみません、＿＿＿＿ と ＿＿＿＿ おねがいします。'}
+        {targets.length === 1 ? 'すみません、＿＿＿＿ おねがいします。' : 'すみません、＿＿＿＿ と ＿＿＿＿ おねがいします。'}
       </p>
 
       <div className="w-full max-w-md divide-y divide-amber-200 rounded-xl border border-amber-200 bg-amber-50/40 px-3 shadow-sm dark:divide-amber-900 dark:border-amber-900 dark:bg-amber-950/20" data-testid="restaurant-menu">
@@ -306,8 +327,7 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
                 {targets.map((dish) => <button key={dish.id} type="button" onClick={() => { sequenceIdRef.current++; stop(); speak(dish.audioPath.replace(/^\/audio\//, '').replace(/\.wav$/, ''), dish.displayKana) }} className="rounded-full border px-3 py-1 text-sm">Hear {dish.romaji}</button>)}
                 <button type="button" onClick={hearFullOrder} className="rounded-full border px-3 py-1 text-sm">Hear the full order</button>
               </div>
-              <AnswerFeedbackRow mood={isSuccess ? 'correct' : 'incorrect'} showNext={false} onNext={nextOrder} />
-              <button type="button" onClick={nextOrder} className="mt-1 rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white">Next order</button>
+              <AnswerFeedbackRow mood={isSuccess ? 'correct' : 'incorrect'} showNext onNext={nextOrder} />
             </>
           ) : (
             <>

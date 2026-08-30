@@ -78,7 +78,7 @@ describe('RestaurantPage', () => {
     expect(screen.getByAltText('Restaurant introduction')).toHaveAttribute('src', expect.stringContaining('restaurant-intro.png'))
     expect(screen.getByText('and')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Start' }))
-    expect(screen.getByTestId('restaurant-order-template')).toHaveTextContent('すみません、＿＿＿＿おねがいします。')
+    expect(screen.getByTestId('restaurant-order-template')).toHaveTextContent('すみません、＿＿＿＿ おねがいします。')
     expect(screen.getByAltText('Tamamizu')).toHaveAttribute('src', expect.stringContaining('mascot/order.png'))
   })
 
@@ -107,7 +107,7 @@ describe('RestaurantPage', () => {
     renderPage()
     for (let question = 1; question < 5; question++) {
       clickTargetAnswer()
-      fireEvent.click(screen.getByRole('button', { name: 'Next order' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Next' }))
     }
     clickTargetAnswer()
     expect(screen.getAllByRole('button', { name: /^Hear / }).length).toBeGreaterThanOrEqual(3)
@@ -129,9 +129,9 @@ describe('RestaurantPage', () => {
       clickTargetAnswer()
       if (question < 8) {
         expect(screen.getByText(`Question ${question} / 8`)).toBeInTheDocument()
-        fireEvent.click(screen.getByRole('button', { name: 'Next order' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Next' }))
       } else {
-        fireEvent.click(screen.getByRole('button', { name: 'Next order' }))
+        fireEvent.click(screen.getByRole('button', { name: 'Next' }))
       }
     }
     expect(screen.getByText('Completed!')).toBeInTheDocument()
@@ -145,10 +145,10 @@ describe('RestaurantPage', () => {
     clickWrongAnswer()
     fireEvent.click(screen.getByRole('button', { name: 'Try Again' }))
     fireEvent.click(screen.getByTestId('restaurant-romaji-sushi'))
-    fireEvent.click(screen.getByRole('button', { name: 'Next order' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
     for (let question = 2; question <= 8; question++) {
       clickTargetAnswer()
-      fireEvent.click(screen.getByRole('button', { name: 'Next order' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Next' }))
     }
     expect(screen.getByText('Correct: 7 / 8')).toBeInTheDocument()
     expect(screen.getByText('Mistakes: 1')).toBeInTheDocument()
@@ -160,10 +160,10 @@ describe('RestaurantPage', () => {
     renderPage()
     clickWrongAnswer()
     fireEvent.click(screen.getByRole('button', { name: 'Show Answer' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Next order' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
     for (let question = 2; question <= 8; question++) {
       clickTargetAnswer()
-      fireEvent.click(screen.getByRole('button', { name: 'Next order' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Next' }))
     }
     expect(screen.getByText('Correct: 7 / 8')).toBeInTheDocument()
     expect(screen.getByText('Mistakes: 1')).toBeInTheDocument()

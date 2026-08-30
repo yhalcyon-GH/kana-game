@@ -66,4 +66,13 @@ describe('pickRoundFromPools', () => {
     expect(round.menu).toHaveLength(4)
     expect(round.menu.some((dish) => dish.stage === 'hiragana')).toBe(true)
   })
+
+  it('does not pin the target to the first menu position', () => {
+    const positions = new Set<number>()
+    for (let seed = 1; seed <= 40; seed++) {
+      const round = pickRoundFromPools(HIRAGANA_RESTAURANT_DISHES, HIRAGANA_RESTAURANT_DISHES, makeRng(seed))
+      positions.add(round.menu.findIndex((dish) => dish.id === round.target.id))
+    }
+    expect(positions.size).toBeGreaterThan(1)
+  })
 })
