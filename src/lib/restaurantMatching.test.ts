@@ -81,8 +81,8 @@ describe('checkOrder', () => {
     if (result.outcome === 'wrong-dish') expect(result.identified.id).toBe('soba')
   })
 
-  it('does not succeed on a dish name alone with no order-intent phrase', () => {
-    expect(checkOrder('すし', menu, sushi).outcome).toBe('unrecognized')
+  it('succeeds on a dish name alone without an order-intent phrase', () => {
+    expect(checkOrder('すし', menu, sushi).outcome).toBe('success')
   })
 
   it('does not succeed on an order-intent phrase alone with no dish named', () => {

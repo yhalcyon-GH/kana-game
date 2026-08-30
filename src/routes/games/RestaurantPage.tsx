@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Mascot } from '../../components/Mascot'
-import { HIRAGANA_RESTAURANT_DISHES, type RestaurantDish } from '../../data/restaurantDishes'
+import { RESTAURANT_DISHES, type RestaurantDish, type RestaurantStageId } from '../../data/restaurantDishes'
 import { useTTS } from '../../hooks/useTTS'
 import { pickRound, type RestaurantRound } from '../../lib/restaurantRound'
 import { checkOrderAlternatives, type OrderCheckResult } from '../../lib/restaurantMatching'
@@ -45,9 +45,10 @@ type ResultState =
 // anything taught, mastered, reviewed, or completed; it's just a repeatable
 // vocabulary-recognition game the learner can play as many times as they
 // like from the Hiragana overview page.
-export function RestaurantPage() {
+export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStageId }) {
   const { speak } = useTTS()
-  const [round, setRound] = useState<RestaurantRound>(() => pickRound(HIRAGANA_RESTAURANT_DISHES))
+  const dishes = RESTAURANT_DISHES.filter((dish) => dish.stage === stage)
+  const [round, setRound] = useState<RestaurantRound>(() => pickRound(dishes))
   const [state, setState] = useState<ResultState>({ kind: 'idle' })
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
   const [speechSupported, setSpeechSupported] = useState(false)
@@ -61,7 +62,7 @@ export function RestaurantPage() {
   // existing WebSpeechProvider fallback in useTTS just speaks the fallback
   // text, no new fallback plumbing needed here.
   useEffect(() => {
-    speak('restaurant/irasshaimase', 'いらっしゃいませ。')
+    speak('restaurant/staff/irasshaimase', 'いらっしゃいませ。')
     // Only on mount for this screen instance — not re-fired on every round.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -69,13 +70,14 @@ export function RestaurantPage() {
   useEffect(() => {
     return () => {
       recognitionRef.current?.abort()
+      stop()
     }
-  }, [])
+  }, [stop])
 
   function evaluate(transcript: string | null, check: OrderCheckResult) {
     setState({ kind: 'result', transcript, check })
     if (check.outcome === 'success') {
-      speak('restaurant/kashikomarimashita', 'かしこまりました。')
+      speak('restaurant/staff/kashikomarimashita', 'かしこまりました。')
     }
   }
 
@@ -120,7 +122,8 @@ export function RestaurantPage() {
   }
 
   function nextOrder() {
-    setRound(pickRound(HIRAGANA_RESTAURANT_DISHES))
+    stop()
+    setRound(pickRound(dishes))
     setState({ kind: 'idle' })
   }
 
@@ -140,7 +143,7 @@ export function RestaurantPage() {
         >
           ← Back
         </Link>
-        <h1 className="text-xl font-bold">ひらがなレストラン</h1>
+        <h1 className="text-xl font-bold">{stage === 'hiragana' ? 'ひらがなレストラン' : `${stage === 'katakana' ? 'カタカナ' : stage === 'other' ? 'Sokuon & Long Vowel' : 'Special Katakana'} Restaurant`}</h1>
         <span className="w-16" aria-hidden="true" />
       </div>
 
@@ -155,7 +158,7 @@ export function RestaurantPage() {
           data-testid="restaurant-target-bubble"
           aria-label="What Tamamizu wants to order"
         >
-          <DishGlyph dish={round.target} className="mx-auto h-16 w-16 text-4xl" />
+            <DishGlyph dish={round.target} className="mx-auto h-16 w-16 text-4xl" target />
         </div>
       </div>
 
@@ -185,6 +188,10 @@ export function RestaurantPage() {
           {isSuccess ? (
             <>
               <p className="text-lg font-bold text-green-600 dark:text-green-400">Great!</p>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => speak(round.target.audioPath.replace(/^\/audio\//, '').replace(/\.wav$/, ''), round.target.displayKana)} className="rounded-full border px-3 py-1 text-sm">Hear the dish</button>
+                <button type="button" onClick={() => { speak('restaurant/phrases/sumimasen', 'すみません。'); window.setTimeout(() => speak(round.target.audioPath.replace(/^\/audio\//, '').replace(/\.wav$/, ''), round.target.displayKana), 400); window.setTimeout(() => speak('restaurant/phrases/onegaishimasu', 'おねがいします。'), 900) }} className="rounded-full border px-3 py-1 text-sm">Hear the full order</button>
+              </div>
               <button
                 type="button"
                 onClick={nextOrder}
@@ -249,9 +256,9 @@ export function RestaurantPage() {
   )
 }
 
-function DishGlyph({ dish, className }: { dish: RestaurantDish; className: string }) {
+function DishGlyph({ dish, className, target = false }: { dish: RestaurantDish; className: string; target?: boolean }) {
   if (dish.image) {
-    return <img src={`${import.meta.env.BASE_URL}${dish.image}`} alt="" className={`object-contain ${className}`} />
+    return <img src={`${import.meta.env.BASE_URL}${dish.image}`} alt={target ? 'Target dish' : ''} className={`object-contain ${className}`} />
   }
   return (
     <div className={`flex items-center justify-center ${className}`} aria-hidden="true">

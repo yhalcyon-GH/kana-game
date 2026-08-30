@@ -57,11 +57,9 @@ describe('restaurantDishes (hiragana stage)', () => {
     expect(HIRAGANA_RESTAURANT_DISHES).toHaveLength(Object.keys(expected).length)
   })
 
-  it('no dish has an image set yet (placeholders only, per spec)', () => {
-    for (const dish of RESTAURANT_DISHES) {
-      expect(dish.image).toBeUndefined()
-      expect(dish.placeholderEmoji.length).toBeGreaterThan(0)
-    }
+  it('uses existing images when available and placeholders otherwise', () => {
+    for (const dish of RESTAURANT_DISHES) expect(dish.placeholderEmoji.length).toBeGreaterThan(0)
+    expect(RESTAURANT_DISHES.find((dish) => dish.id === 'sushi')?.image).toBe('word-icons/sa-sushi.webp')
   })
 
   it('every placeholderEmoji is unique, so the target bubble is never ambiguous between two displayed dishes', () => {

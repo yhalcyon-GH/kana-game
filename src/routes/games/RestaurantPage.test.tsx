@@ -70,7 +70,7 @@ describe('RestaurantPage', () => {
 
   it('auto-speaks the greeting on mount via useTTS', () => {
     renderPage()
-    expect(tts.speak).toHaveBeenCalledWith('restaurant/irasshaimase', 'いらっしゃいませ。')
+    expect(tts.speak).toHaveBeenCalledWith('restaurant/staff/irasshaimase', 'いらっしゃいませ。')
   })
 })
 

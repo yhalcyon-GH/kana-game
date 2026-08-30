@@ -75,8 +75,7 @@ export type OrderCheckResult =
 export function checkOrder(rawTranscript: string, menu: RestaurantDish[], target: RestaurantDish): OrderCheckResult {
   const normalized = normalizeJapanese(rawTranscript)
   const identified = identifyDish(normalized, menu)
-  const intentPresent = hasOrderIntent(normalized)
-  if (!identified || !intentPresent) return { outcome: 'unrecognized' }
+  if (!identified) return { outcome: 'unrecognized' }
   if (identified.id !== target.id) return { outcome: 'wrong-dish', identified }
   return { outcome: 'success' }
 }

@@ -278,14 +278,14 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
           features that happen to both currently only be wired up on the
           Hiragana page (see App.tsx). Only 'hiragana' has a route/dishes
           today; other stage ids are not yet implemented. */}
-      {restaurantStage === 'hiragana' && (
+      {restaurantStage && (
         <button
           type="button"
           onClick={() => navigate(`/restaurant/${restaurantStage}`)}
           data-testid="restaurant-cta"
           className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-center text-base font-semibold shadow-sm transition hover:border-blue-400 active:scale-[0.98] dark:border-neutral-700 dark:bg-neutral-800"
         >
-          🍣 Visit the Hiragana Restaurant
+          🍽️ Visit the {restaurantStage} Restaurant
         </button>
       )}
       {/* Optional supplementary "Ask Tamamizu about particles" entry point
