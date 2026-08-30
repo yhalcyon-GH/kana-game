@@ -8,20 +8,27 @@ import { RestaurantPage } from './RestaurantPage'
 const tts = vi.hoisted(() => ({ speak: vi.fn(), speakAndWait: vi.fn(), speakStaticOnly: vi.fn(), stop: vi.fn(), supported: true }))
 vi.mock('../../hooks/useTTS', () => ({ useTTS: () => tts }))
 
-function renderPage() {
-  return render(
+function renderPage(start = true) {
+  const view = render(
     <MemoryRouter>
       <RestaurantPage />
     </MemoryRouter>,
   )
+  if (start) {
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Choose in Romaji' }))
+  }
+  return view
 }
 
 function clickTargetAnswer() {
-  const targetSrc = screen.getByAltText('Target dish').getAttribute('src')
-  const targetImage = [...screen.getByTestId('restaurant-menu').querySelectorAll('img')].find((image) => image.getAttribute('src') === targetSrc)
-  const targetId = targetImage?.closest('[data-testid^="restaurant-dish-"]')?.getAttribute('data-testid')?.replace('restaurant-dish-', '')
-  expect(targetId).toBeTruthy()
-  fireEvent.click(screen.getByTestId(`restaurant-romaji-${targetId}`))
+  if (!screen.queryByTestId('restaurant-romaji-fallback')) fireEvent.click(screen.getByRole('button', { name: 'Choose in Romaji' }))
+  const targetSources = screen.getAllByAltText('Target dish').map((image) => image.getAttribute('src'))
+  const menuImages = [...screen.getByTestId('restaurant-menu').querySelectorAll('img')]
+  const targetIds = targetSources.map((src) => menuImages.find((image) => image.getAttribute('src') === src)?.closest('[data-testid^="restaurant-dish-"]')?.getAttribute('data-testid')?.replace('restaurant-dish-', ''))
+  expect(targetIds.every(Boolean)).toBe(true)
+  targetIds.forEach((id) => fireEvent.click(screen.getByTestId(`restaurant-romaji-${id}`)))
+  if (targetIds.length === 2) fireEvent.click(screen.getByRole('button', { name: 'Order' }))
 }
 
 beforeEach(() => {
@@ -60,9 +67,12 @@ describe('RestaurantPage full-order cleanup', () => {
 })
 
 describe('RestaurantPage', () => {
-  it('uses the shared heading and one-line order template', () => {
-    renderPage()
-    expect(screen.getByRole('heading', { name: 'Order at the Restaurant' })).toBeInTheDocument()
+  it('shows the intro before the first question and a one-line order template after Start', () => {
+    renderPage(false)
+    expect(screen.getByText("Let's order at a restaurant.")).toBeInTheDocument()
+    expect(screen.getByAltText('Restaurant introduction')).toHaveAttribute('src', expect.stringContaining('restaurant-intro.png'))
+    expect(screen.getByText('and')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }))
     expect(screen.getByTestId('restaurant-order-template')).toHaveTextContent('すみません、＿＿＿＿おねがいします。')
     expect(screen.getByAltText('Tamamizu')).toHaveAttribute('src', expect.stringContaining('mascot/order.png'))
   })
@@ -73,19 +83,14 @@ describe('RestaurantPage', () => {
     fireEvent.click(screen.getByTestId('restaurant-romaji-soba'))
     expect(screen.getByRole('button', { name: 'Try Again' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Show Answer' }))
-    expect(screen.getAllByText('すし').length).toBeGreaterThanOrEqual(2)
-    expect(screen.getByText('sushi')).toBeInTheDocument()
+    expect(screen.getAllByText('sushi').length).toBeGreaterThan(0)
   })
 
   it('keeps the session on questions 1 through 7 and shows results after question 8', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0)
     renderPage()
     for (let question = 1; question <= 8; question++) {
-      const targetSrc = screen.getByAltText('Target dish').getAttribute('src')
-      const targetMenuImage = [...screen.getByTestId('restaurant-menu').querySelectorAll('img')].find((image) => image.getAttribute('src') === targetSrc)
-      const targetId = targetMenuImage?.closest('[data-testid^="restaurant-dish-"]')?.getAttribute('data-testid')?.replace('restaurant-dish-', '')
-      expect(targetId).toBeTruthy()
-      fireEvent.click(screen.getByTestId(`restaurant-romaji-${targetId}`))
+      clickTargetAnswer()
       if (question < 8) {
         expect(screen.getByText(`Question ${question} / 8`)).toBeInTheDocument()
         fireEvent.click(screen.getByRole('button', { name: 'Next order' }))
@@ -130,7 +135,7 @@ describe('RestaurantPage', () => {
   })
   it('renders without crashing', () => {
     renderPage()
-    expect(screen.getByRole('heading', { name: 'Order at the Restaurant' })).toBeInTheDocument()
+    expect(screen.getByText('Question 1 / 8')).toBeInTheDocument()
   })
 
   it('renders 4 unique dish cards in the menu', () => {

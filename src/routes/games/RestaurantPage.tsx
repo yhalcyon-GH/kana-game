@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { RESTAURANT_DISHES, type RestaurantDish, type RestaurantStageId } from '../../data/restaurantDishes'
 import { useTTS } from '../../hooks/useTTS'
 import { pickRound, shuffleRestaurantChoices, type RestaurantRound } from '../../lib/restaurantRound'
-import { checkOrderAlternatives, type OrderCheckResult } from '../../lib/restaurantMatching'
+import { checkMultipleDishOrderAlternatives, checkOrderAlternatives, type OrderCheckResult } from '../../lib/restaurantMatching'
 
 // Minimal ambient typing for the (still-experimental, vendor-prefixed) Web
 // Speech API — not present in the TS DOM lib. Deliberately only the surface
@@ -36,7 +36,7 @@ type ResultState =
   | { kind: 'listening' }
   | { kind: 'result'; transcript: string | null; check: OrderCheckResult; revealed?: boolean }
 
-type SessionResult = { dish: RestaurantDish; correct: boolean }
+type SessionResult = { dishes: RestaurantDish[]; correct: boolean }
 
 // A small, standalone, repeatable "order the dish from the menu" mini-game.
 // Deliberately outside the
@@ -51,11 +51,15 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
   const sequenceIdRef = useRef(0)
   const dishes = RESTAURANT_DISHES.filter((dish) => dish.stage === stage)
   const [round, setRound] = useState<RestaurantRound>(() => pickRound(dishes))
+  const [targets, setTargets] = useState<RestaurantDish[]>([round.target])
   const [romajiChoices, setRomajiChoices] = useState<RestaurantDish[]>(() => shuffleRestaurantChoices(round.menu))
   const [state, setState] = useState<ResultState>({ kind: 'idle' })
   const [questionNumber, setQuestionNumber] = useState(1)
   const [sessionResults, setSessionResults] = useState<SessionResult[]>([])
   const [completed, setCompleted] = useState(false)
+  const [started, setStarted] = useState(false)
+  const [showRomaji, setShowRomaji] = useState(false)
+  const [selectedRomaji, setSelectedRomaji] = useState<RestaurantDish[]>([])
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
   const [speechSupported, setSpeechSupported] = useState(false)
 
@@ -87,7 +91,7 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
       const next = [...previous]
       const index = questionNumber - 1
       const earlier = next[index]
-      next[index] = { dish: round.target, correct: Boolean(earlier?.correct) || (check.outcome === 'success' && !earlier) }
+      next[index] = { dishes: targets, correct: Boolean(earlier?.correct) || (check.outcome === 'success' && !earlier) }
       return next
     })
     if (check.outcome === 'success') {
@@ -112,7 +116,7 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
       const result = event.results[0]
       const alternatives: string[] = []
       for (let i = 0; i < result.length; i++) alternatives.push(result[i].transcript)
-      const check = checkOrderAlternatives(alternatives, round.menu, round.target)
+      const check = targets.length === 1 ? checkOrderAlternatives(alternatives, round.menu, targets[0]) : checkMultipleDishOrderAlternatives(alternatives, round.menu, targets)
       evaluate(alternatives[0] ?? null, check)
     }
     recognition.onerror = () => {
@@ -131,8 +135,17 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
   }
 
   function chooseRomaji(dish: RestaurantDish) {
+    if (targets.length === 2) {
+      setSelectedRomaji((selected) => selected.some((item) => item.id === dish.id) ? selected.filter((item) => item.id !== dish.id) : selected.length < 2 ? [...selected, dish] : selected)
+      return
+    }
     const check: OrderCheckResult = dish.id === round.target.id ? { outcome: 'success' } : { outcome: 'wrong-dish', identified: dish }
     evaluate(null, check)
+  }
+
+  function submitRomajiOrder() {
+    const correct = selectedRomaji.length === targets.length && targets.every((target) => selectedRomaji.some((dish) => dish.id === target.id))
+    evaluate(null, correct ? { outcome: 'success' } : { outcome: 'wrong-dish', identified: selectedRomaji[0] ?? round.menu[0] })
   }
 
   function nextOrder() {
@@ -144,7 +157,10 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
     stop()
     const nextRound = pickRound(dishes, Math.random, round.target.id)
     setRound(nextRound)
+    setTargets(questionNumber + 1 >= 5 ? [nextRound.target, nextRound.menu.find((dish) => dish.id !== nextRound.target.id)!] : [nextRound.target])
     setRomajiChoices(shuffleRestaurantChoices(nextRound.menu))
+    setShowRomaji(false)
+    setSelectedRomaji([])
     setQuestionNumber((number) => number + 1)
     setState({ kind: 'idle' })
   }
@@ -154,10 +170,14 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
     stop()
     const firstRound = pickRound(dishes)
     setRound(firstRound)
+    setTargets([firstRound.target])
     setRomajiChoices(shuffleRestaurantChoices(firstRound.menu))
     setQuestionNumber(1)
     setSessionResults([])
     setCompleted(false)
+    setStarted(false)
+    setShowRomaji(false)
+    setSelectedRomaji([])
     setState({ kind: 'idle' })
   }
 
@@ -169,10 +189,14 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
     if (sequenceId !== sequenceIdRef.current) return
     await new Promise((resolve) => window.setTimeout(resolve, 400))
     if (sequenceId !== sequenceIdRef.current) return
-    await play(round.target.audioPath.replace(/^\/audio\//, '').replace(/\.wav$/, ''), round.target.displayKana)
-    if (sequenceId !== sequenceIdRef.current) return
-    await new Promise((resolve) => window.setTimeout(resolve, 400))
-    if (sequenceId !== sequenceIdRef.current) return
+    for (let i = 0; i < targets.length; i++) {
+      await play(targets[i].audioPath.replace(/^\/audio\//, '').replace(/\.wav$/, ''), targets[i].displayKana)
+      if (sequenceId !== sequenceIdRef.current) return
+      if (i < targets.length - 1) await play('restaurant/phrases/to', 'と')
+      if (sequenceId !== sequenceIdRef.current) return
+      await new Promise((resolve) => window.setTimeout(resolve, 400))
+      if (sequenceId !== sequenceIdRef.current) return
+    }
     await play('restaurant/phrases/onegaishimasu', 'おねがいします。')
   }
 
@@ -188,6 +212,9 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
     const correct = sessionResults.filter((result) => result.correct).length
     return <SessionSummary correct={correct} mistakes={mistakes} onPlayAgain={playAgain} backPath={backPath} />
   }
+  if (!started) {
+    return <RestaurantIntro onStart={() => setStarted(true)} dishes={dishes} backPath={backPath} />
+  }
 
   return (
     <div className="flex w-full flex-col items-center gap-6">
@@ -198,7 +225,7 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
         >
           ← Back
         </Link>
-        <div className="text-center"><h1 className="text-xl font-bold">Order at the Restaurant</h1><p className="text-xs text-neutral-500">Question {questionNumber} / 8</p></div>
+        <p className="text-center text-xs text-neutral-500">Question {questionNumber} / 8</p>
         <span className="w-16" aria-hidden="true" />
       </div>
 
@@ -213,15 +240,16 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
           data-testid="restaurant-target-bubble"
           aria-label="What Tamamizu wants to order"
         >
-          <DishGlyph dish={round.target} className="mx-auto h-24 w-24 text-4xl" target />
+          <div className="flex items-center justify-center gap-2">{targets.map((dish, index) => <span key={dish.id} className="contents"><DishGlyph dish={dish} className="h-24 w-24 text-4xl" target />{index < targets.length - 1 && <span className="font-kana text-3xl">と</span>}</span>)}</div>
         </div>
       </div>
 
       <p data-testid="restaurant-order-template" className="w-full whitespace-nowrap text-center text-[clamp(.8rem,4vw,1.125rem)]" lang="ja">
-        すみません、＿＿＿＿おねがいします。
+        {targets.length === 1 ? 'すみません、＿＿＿＿おねがいします。' : 'すみません、＿＿＿＿ と ＿＿＿＿ おねがいします。'}
       </p>
 
       <div className="w-full max-w-md divide-y divide-amber-200 rounded-xl border border-amber-200 bg-amber-50/40 px-3 shadow-sm dark:divide-amber-900 dark:border-amber-900 dark:bg-amber-950/20" data-testid="restaurant-menu">
+        <h2 className="font-kana px-2 py-3 text-center text-xl font-bold">メニュー</h2>
         {round.menu.map((dish) => (
           <div
             key={dish.id}
@@ -243,10 +271,10 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
           {isSuccess || state.revealed ? (
             <>
               {isSuccess && <p className="text-lg font-bold text-green-600 dark:text-green-400">Great!</p>}
-              <p className="font-kana text-xl font-bold">{round.target.displayKana}</p>
-              <p className="text-sm text-neutral-600 dark:text-neutral-300">{round.target.english}</p>
+              <p className="text-xl font-bold">{targets.map((dish) => dish.romaji).join(' + ')}</p>
+              {targets.map((dish) => <p key={dish.id} className="text-sm text-neutral-600 dark:text-neutral-300">{dish.english}</p>)}
               <div className="flex gap-2">
-                <button type="button" onClick={() => { sequenceIdRef.current++; stop(); speak(round.target.audioPath.replace(/^\/audio\//, '').replace(/\.wav$/, ''), round.target.displayKana) }} className="rounded-full border px-3 py-1 text-sm">Hear the dish</button>
+                <button type="button" onClick={() => { sequenceIdRef.current++; stop(); speak(targets[0].audioPath.replace(/^\/audio\//, '').replace(/\.wav$/, ''), targets[0].displayKana) }} className="rounded-full border px-3 py-1 text-sm">Hear the dish</button>
                 <button type="button" onClick={hearFullOrder} className="rounded-full border px-3 py-1 text-sm">Hear the full order</button>
               </div>
               <button
@@ -292,7 +320,7 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
             </p>
           )}
 
-          <div className="flex w-full flex-col items-center gap-2" data-testid="restaurant-romaji-fallback">
+          {!showRomaji ? <button type="button" onClick={() => setShowRomaji(true)} className="rounded-full border px-5 py-2 text-sm font-semibold">Choose in Romaji</button> : <div className="flex w-full flex-col items-center gap-2" data-testid="restaurant-romaji-fallback">
             <p className="text-sm text-neutral-500 dark:text-neutral-400">Choose the romaji instead</p>
             <div className="grid w-full grid-cols-2 gap-2">
               {romajiChoices.map((dish) => (
@@ -301,13 +329,14 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
                   type="button"
                   onClick={() => chooseRomaji(dish)}
                   data-testid={`restaurant-romaji-${dish.id}`}
-                  className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold hover:border-blue-400 active:scale-95 dark:border-neutral-600"
+                  className={`rounded-xl border px-3 py-2 text-sm font-semibold hover:border-blue-400 active:scale-95 dark:border-neutral-600 ${selectedRomaji.some((item) => item.id === dish.id) ? 'border-blue-500 bg-blue-50' : 'border-neutral-300'}`}
                 >
                   {dish.romaji}
                 </button>
               ))}
             </div>
-          </div>
+            {targets.length === 2 && <button type="button" disabled={selectedRomaji.length !== 2} onClick={submitRomajiOrder} className="rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">Order</button>}
+          </div>}
         </div>
       )}
     </div>
@@ -326,6 +355,21 @@ function DishGlyph({ dish, className, target = false, menu = false }: { dish: Re
   )
 }
 
+function RestaurantIntro({ onStart, dishes, backPath }: { onStart: () => void; dishes: RestaurantDish[]; backPath: string }) {
+  const tenpura = dishes.find((dish) => dish.id === 'tenpura') ?? dishes[0]
+  const misoshiru = dishes.find((dish) => dish.id === 'misoshiru') ?? dishes[1]
+  return <div className="flex w-full flex-col items-center gap-4">
+    <Link to={backPath} className="self-start rounded-full border px-4 py-1.5 text-sm font-semibold">← Back</Link>
+    <p className="whitespace-nowrap text-center text-lg font-bold">Let's order at a restaurant.</p>
+    <img src={`${import.meta.env.BASE_URL}mascot/restaurant-intro.png`} alt="Restaurant introduction" className="max-h-56 w-full max-w-md rounded-2xl object-cover" />
+    <p className="text-sm">When ordering, say:</p>
+    <div className="font-kana text-center text-lg"><p>すみません</p><p className="font-sans text-xs">(Excuse me)</p></div>
+    <div className="flex items-center gap-2"><DishGlyph dish={tenpura} className="h-16 w-16" menu /><div className="text-center"><p className="font-kana text-2xl">と</p><p className="text-xs">and</p></div><DishGlyph dish={misoshiru} className="h-16 w-16" menu /></div>
+    <div className="font-kana text-center text-lg"><p>おねがいします</p><p className="font-sans text-xs">(please)</p></div>
+    <button type="button" onClick={onStart} className="rounded-full bg-blue-600 px-6 py-3 font-semibold text-white">Start</button>
+  </div>
+}
+
 function SessionSummary({ correct, mistakes, onPlayAgain, backPath }: { correct: number; mistakes: SessionResult[]; onPlayAgain: () => void; backPath: string }) {
   const accuracy = Math.round((correct / 8) * 100)
   return (
@@ -338,7 +382,7 @@ function SessionSummary({ correct, mistakes, onPlayAgain, backPath }: { correct:
         <h2 className="mt-5 font-bold">Mistakes</h2>
         {mistakes.length === 0 ? <p className="mt-2 text-sm text-neutral-500">None — excellent work!</p> : (
           <div className="mt-2 divide-y divide-neutral-200 text-left dark:divide-neutral-700">
-            {mistakes.map(({ dish }, index) => <div key={`${dish.id}-${index}`} className="flex items-center gap-3 py-2"><DishGlyph dish={dish} className="h-12 w-12 text-2xl" menu /><div><p className="font-kana font-bold">{dish.displayKana}</p><p className="text-xs text-neutral-600 dark:text-neutral-300">{dish.english}</p></div></div>)}
+            {mistakes.map(({ dishes }, index) => <div key={`${dishes.map((dish) => dish.id).join('-')}-${index}`} className="flex items-center gap-3 py-2">{dishes.map((dish) => <DishGlyph key={dish.id} dish={dish} className="h-12 w-12 text-2xl" menu />)}<div>{dishes.map((dish) => <p key={dish.id} className="font-kana font-bold">{dish.displayKana} <span className="font-sans text-sm font-normal">{dish.romaji}</span></p>)}</div></div>)}
           </div>
         )}
       </div>
