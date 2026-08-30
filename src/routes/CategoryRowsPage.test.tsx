@@ -602,7 +602,11 @@ function renderHiraganaWithParticleEntry() {
 describe('Hiragana Restaurant CTA', () => {
   it('renders on the Hiragana overview', () => {
     const { getByTestId } = renderHiraganaWithParticleEntry()
-    expect(getByTestId('restaurant-cta')).toBeInTheDocument()
+    const cta = getByTestId('restaurant-cta')
+    expect(cta).toBeInTheDocument()
+    expect(cta).toHaveTextContent('REAL-LIFE PRACTICE')
+    expect(cta).toHaveTextContent('Restaurant Practice')
+    expect(cta).toHaveTextContent('Order food using what you\'ve learned')
   })
 
   it('does not render on the Katakana overview (Hiragana-only entry point)', () => {

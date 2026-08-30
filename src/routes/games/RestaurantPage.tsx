@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AnswerFeedbackRow } from '../../components/AnswerFeedbackRow'
+import { PracticeScoreVisual } from '../../components/PracticeScoreVisual'
 import { RESTAURANT_DISHES, type RestaurantDish, type RestaurantStageId } from '../../data/restaurantDishes'
 import { useTTS } from '../../hooks/useTTS'
 import { menuKey, pickRoundFromPools, shuffleRestaurantChoices, type RestaurantRound } from '../../lib/restaurantRound'
@@ -502,19 +503,22 @@ function RestaurantIntro({ onStart, backPath }: { onStart: () => void; backPath:
 }
 
 function SessionSummary({ correct, mistakes, onPlayAgain, backPath }: { correct: number; mistakes: SessionResult[]; onPlayAgain: () => void; backPath: string }) {
-  const accuracy = Math.round((correct / 8) * 100)
+  const percent = Math.round((correct / 8) * 100)
+  const comment = percent === 100 ? "Perfect! You're ready to order!" : percent >= 75 ? "Great job! You're getting the hang of it!" : percent >= 50 ? "Nice work! Let's practice a little more." : "Keep practicing! You'll get it!"
   return (
-    <div className="flex w-full flex-col items-center gap-5">
+    <div className="flex w-full flex-col items-center gap-6">
       <h1 className="text-2xl font-bold">Completed!</h1>
+      <PracticeScoreVisual correct={correct} total={8} />
+      <p data-testid="restaurant-result-comment" className="max-w-sm text-center text-lg font-semibold text-amber-800 dark:text-amber-200">{comment}</p>
       <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-neutral-50 p-5 text-center dark:border-neutral-700 dark:bg-neutral-900">
-        <p className="text-lg font-semibold">Correct: {correct} / 8</p>
-        <p>Mistakes: {mistakes.length}</p>
-        <p className="text-sm text-neutral-600 dark:text-neutral-300">Accuracy: {accuracy}%</p>
-        <h2 className="mt-5 font-bold">Mistakes</h2>
+        <h2 className="font-bold">Mistakes</h2>
         {mistakes.length === 0 ? <p className="mt-2 text-sm text-neutral-500">None — excellent work!</p> : (
-          <div className="mt-2 divide-y divide-neutral-200 text-left dark:divide-neutral-700">
+          <>
+            <p className="mt-2 text-left text-sm font-semibold text-neutral-700 dark:text-neutral-300">Missed this round ({mistakes.length})</p>
+            <div className="mt-2 divide-y divide-neutral-200 text-left dark:divide-neutral-700">
             {mistakes.map(({ dishes }, index) => <div key={`${dishes.map((dish) => dish.id).join('-')}-${index}`} className="flex items-center gap-3 py-2">{dishes.map((dish) => <DishGlyph key={dish.id} dish={dish} className="h-12 w-12 text-2xl" menu />)}<div>{dishes.map((dish) => <p key={dish.id} className="font-kana font-bold">{dish.displayKana} <span className="font-sans text-sm font-normal">{dish.romaji}</span></p>)}</div></div>)}
-          </div>
+            </div>
+          </>
         )}
       </div>
       <div className="flex gap-3">
