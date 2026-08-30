@@ -8,6 +8,59 @@ import { RestaurantPage } from './RestaurantPage'
 const tts = vi.hoisted(() => ({ speak: vi.fn(), speakAndWait: vi.fn(), speakStaticOnly: vi.fn(), stop: vi.fn(), supported: true }))
 vi.mock('../../hooks/useTTS', () => ({ useTTS: () => tts }))
 
+type RecognitionAlternative = { transcript?: unknown } | undefined
+type RecognitionResult = { [index: number]: RecognitionAlternative; length: number }
+type RecognitionEvent = { results: { [index: number]: RecognitionResult | undefined; length: number } }
+
+class FakeSpeechRecognition {
+  static instances: FakeSpeechRecognition[] = []
+  lang = ''
+  continuous = false
+  interimResults = false
+  maxAlternatives = 3
+  onresult: ((event: RecognitionEvent) => void) | null = null
+  onerror: ((event: { error: string }) => void) | null = null
+  onend: (() => void) | null = null
+  start = vi.fn()
+  abort = vi.fn()
+
+  constructor() {
+    FakeSpeechRecognition.instances.push(this)
+  }
+
+  result(...alternatives: RecognitionAlternative[]) {
+    const result = Object.assign([...alternatives], { length: alternatives.length }) as unknown as RecognitionResult
+    this.onresult?.({ results: Object.assign([result], { length: 1 }) })
+  }
+
+  error(error = 'no-speech') {
+    this.onerror?.({ error })
+  }
+
+  end() {
+    this.onend?.()
+  }
+}
+
+function installFakeSpeechRecognition() {
+  FakeSpeechRecognition.instances = []
+  ;(window as unknown as { SpeechRecognition: unknown }).SpeechRecognition = FakeSpeechRecognition
+}
+
+async function startSpeech() {
+  fireEvent.click(await screen.findByTestId('restaurant-speak-button'))
+  return FakeSpeechRecognition.instances.at(-1)!
+}
+
+function currentTargetDishes() {
+  const ids = screen.getAllByTestId(/^restaurant-target-(?!bubble)/).map((node) => node.getAttribute('data-testid')!.replace('restaurant-target-', ''))
+  return ids.map((id) => HIRAGANA_RESTAURANT_DISHES.find((dish) => dish.id === id)!)
+}
+
+function mascotSource() {
+  return screen.getByTestId('mascot-stage').querySelector('img')?.getAttribute('src')
+}
+
 function renderPage(start = true) {
   const view = render(
     <MemoryRouter>
@@ -46,6 +99,7 @@ beforeEach(() => {
   // across environments instead of relying on the ambient default.
   delete (window as unknown as { SpeechRecognition?: unknown }).SpeechRecognition
   delete (window as unknown as { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition
+  FakeSpeechRecognition.instances = []
 })
 
 afterEach(() => {
@@ -113,13 +167,61 @@ describe('RestaurantPage', () => {
     expect(screen.getAllByRole('button', { name: /^Hear / }).length).toBeGreaterThanOrEqual(3)
   })
 
+  it('does not consume phantom secondary targets during questions 1 through 4', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    renderPage()
+    const firstFour: string[] = []
+    for (let question = 1; question <= 4; question++) {
+      firstFour.push(currentTargetDishes()[0].id)
+      clickTargetAnswer()
+      fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    }
+    const questionFiveTargets = currentTargetDishes().map((dish) => dish.id)
+    expect(new Set(firstFour).size).toBe(4)
+    expect(questionFiveTargets).toHaveLength(2)
+    expect(questionFiveTargets.every((id) => !firstFour.includes(id))).toBe(true)
+  })
+
+  it('keeps every final menu unique, target-complete, shuffled, and different from the previous menu when possible', () => {
+    const randomValues = [0.02, 0.71, 0.34, 0.93, 0.18, 0.56, 0.81, 0.27]
+    let randomIndex = 0
+    vi.spyOn(Math, 'random').mockImplementation(() => randomValues[randomIndex++ % randomValues.length])
+    renderPage()
+    let previousMenuKey: string | null = null
+    const targetPositions = new Set<number>()
+    for (let question = 1; question <= 8; question++) {
+      const menuIds = [...screen.getByTestId('restaurant-menu').querySelectorAll('[data-testid^="restaurant-dish-"]')]
+        .map((node) => node.getAttribute('data-testid')!.replace('restaurant-dish-', ''))
+      const targetIds = currentTargetDishes().map((dish) => dish.id)
+      expect(menuIds).toHaveLength(4)
+      expect(new Set(menuIds).size).toBe(4)
+      expect(targetIds.every((id) => menuIds.includes(id))).toBe(true)
+      targetIds.forEach((id) => targetPositions.add(menuIds.indexOf(id)))
+      const currentMenuKey = [...menuIds].sort().join('|')
+      if (previousMenuKey !== null) expect(currentMenuKey).not.toBe(previousMenuKey)
+      previousMenuKey = currentMenuKey
+      clickTargetAnswer()
+      fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    }
+    expect(targetPositions.size).toBeGreaterThan(1)
+  })
+
   it('offers Try Again and Show Answer after a wrong answer', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0)
     renderPage()
     clickWrongAnswer()
+    expect(mascotSource()).toContain('mascot/incorrect.webp')
     expect(screen.getByRole('button', { name: 'Try Again' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Show Answer' }))
+    expect(mascotSource()).toContain('mascot/incorrect.webp')
     expect(screen.getAllByText('sushi').length).toBeGreaterThan(0)
+  })
+
+  it('shows the correct mascot after a correct answer', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    renderPage()
+    clickTargetAnswer()
+    expect(mascotSource()).toContain('mascot/correct.webp')
   })
 
   it('keeps the session on questions 1 through 7 and shows results after question 8', () => {
@@ -217,6 +319,168 @@ describe('RestaurantPage', () => {
   })
 })
 
+describe('RestaurantPage SpeechRecognition lifecycle', () => {
+  function renderWithSpeech() {
+    installFakeSpeechRecognition()
+    return renderPage()
+  }
+
+  function advanceToQuestion5() {
+    for (let question = 1; question < 5; question++) {
+      clickTargetAnswer()
+      fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    }
+    expect(screen.getByText('Question 5 / 8')).toBeInTheDocument()
+  }
+
+  it('accepts a valid two-dish speech result', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    renderWithSpeech()
+    advanceToQuestion5()
+    const recognizer = await startSpeech()
+    const [first, second] = currentTargetDishes()
+    act(() => recognizer.result({ transcript: `${first.displayKana}と${second.displayKana}おねがいします` }))
+    expect(screen.getByText('Great!')).toBeInTheDocument()
+  })
+
+  it('accepts a valid two-dish speech result in reverse order', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    renderWithSpeech()
+    advanceToQuestion5()
+    const recognizer = await startSpeech()
+    const [first, second] = currentTargetDishes()
+    act(() => recognizer.result({ transcript: `${second.displayKana}と${first.displayKana}おねがいします` }))
+    expect(screen.getByText('Great!')).toBeInTheDocument()
+  })
+
+  it('handles an empty results collection without crashing', async () => {
+    renderWithSpeech()
+    const recognizer = await startSpeech()
+    act(() => {
+      recognizer.onresult?.({ results: Object.assign([], { length: 0 }) })
+      recognizer.end()
+    })
+    expect(screen.getByText("I couldn't catch that.")).toBeInTheDocument()
+  })
+
+  it('handles results[0] being undefined without crashing', async () => {
+    renderWithSpeech()
+    const recognizer = await startSpeech()
+    act(() => {
+      recognizer.onresult?.({ results: Object.assign([undefined], { length: 1 }) })
+      recognizer.end()
+    })
+    expect(screen.getByText("I couldn't catch that.")).toBeInTheDocument()
+  })
+
+  it('handles a zero-length result without crashing', async () => {
+    renderWithSpeech()
+    const recognizer = await startSpeech()
+    act(() => recognizer.onresult?.({ results: Object.assign([{ length: 0 }], { length: 1 }) }))
+    expect(screen.getByText("I couldn't catch that.")).toBeInTheDocument()
+  })
+
+  it('handles a malformed recognition alternative without crashing', async () => {
+    renderWithSpeech()
+    const recognizer = await startSpeech()
+    act(() => recognizer.result({ transcript: 42 }))
+    expect(screen.getByText("I couldn't catch that.")).toBeInTheDocument()
+  })
+
+  it('settles onerror as unrecognized and shows the incorrect mascot', async () => {
+    renderWithSpeech()
+    const recognizer = await startSpeech()
+    act(() => recognizer.error())
+    expect(screen.getByText("I couldn't catch that.")).toBeInTheDocument()
+    expect(mascotSource()).toContain('mascot/incorrect.webp')
+  })
+
+  it('does not let onend overwrite a successful onresult', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    renderWithSpeech()
+    const recognizer = await startSpeech()
+    const [target] = currentTargetDishes()
+    act(() => {
+      recognizer.result({ transcript: `${target.displayKana}おねがいします` })
+      recognizer.end()
+    })
+    expect(screen.getByText('Great!')).toBeInTheDocument()
+    expect(screen.queryByText("I couldn't catch that.")).not.toBeInTheDocument()
+  })
+
+  it('does not settle again when onend follows onerror', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    renderWithSpeech()
+    const recognizer = await startSpeech()
+    const [target] = currentTargetDishes()
+    act(() => {
+      recognizer.error()
+      recognizer.end()
+      recognizer.result({ transcript: `${target.displayKana}おねがいします` })
+    })
+    expect(screen.getByText("I couldn't catch that.")).toBeInTheDocument()
+    expect(screen.queryByText('Great!')).not.toBeInTheDocument()
+  })
+
+  it('aborts the old recognizer before starting speech again', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    renderWithSpeech()
+    const first = await startSpeech()
+    clickWrongAnswer()
+    fireEvent.click(screen.getByRole('button', { name: 'Try Again' }))
+    expect(first.abort).toHaveBeenCalledTimes(1)
+    const second = await startSpeech()
+    expect(second).not.toBe(first)
+    expect(second.start).toHaveBeenCalledTimes(1)
+  })
+
+  it('ignores an old onresult after Next changes the question', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    renderWithSpeech()
+    const old = await startSpeech()
+    clickTargetAnswer()
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    const [oldTarget] = HIRAGANA_RESTAURANT_DISHES
+    act(() => old.result({ transcript: `${oldTarget.displayKana}おねがいします` }))
+    expect(screen.getByText('Question 2 / 8')).toBeInTheDocument()
+    expect(screen.queryByText(/I heard:/)).not.toBeInTheDocument()
+  })
+
+  it('ignores callbacks after unmount', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    const view = renderWithSpeech()
+    const recognizer = await startSpeech()
+    const [target] = currentTargetDishes()
+    view.unmount()
+    act(() => {
+      recognizer.result({ transcript: `${target.displayKana}おねがいします` })
+      recognizer.error()
+      recognizer.end()
+    })
+    expect(recognizer.abort).toHaveBeenCalledTimes(1)
+    expect(tts.speak).not.toHaveBeenCalledWith('restaurant/staff/kashikomarimashita', 'かしこまりました。')
+  })
+
+  it('allows a fresh Speak after Try Again', async () => {
+    renderWithSpeech()
+    const first = await startSpeech()
+    act(() => first.error())
+    fireEvent.click(screen.getByRole('button', { name: 'Try Again' }))
+    const second = await startSpeech()
+    expect(FakeSpeechRecognition.instances).toHaveLength(2)
+    expect(second.start).toHaveBeenCalledTimes(1)
+  })
+
+  it('aborts the active recognizer when the question changes', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    renderWithSpeech()
+    const recognizer = await startSpeech()
+    clickTargetAnswer()
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    expect(recognizer.abort).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('RestaurantPage progress isolation', () => {
   function snapshotProgress() {
     return localStorage.getItem('kana-game-progress')
@@ -239,25 +503,13 @@ describe('RestaurantPage progress isolation', () => {
   })
 
   it('a simulated speech recognition error does not change progress/saved store state', async () => {
-    class FakeSpeechRecognition {
-      lang = ''
-      continuous = false
-      interimResults = false
-      maxAlternatives = 3
-      onresult: ((e: unknown) => void) | null = null
-      onerror: ((e: { error: string }) => void) | null = null
-      onend: (() => void) | null = null
-      start() {
-        this.onerror?.({ error: 'no-speech' })
-      }
-      abort() {}
-    }
-    ;(window as unknown as { SpeechRecognition: unknown }).SpeechRecognition = FakeSpeechRecognition
+    installFakeSpeechRecognition()
 
     const before = { progress: snapshotProgress(), saved: snapshotSaved() }
     renderPage()
     const speakButton = await screen.findByTestId('restaurant-speak-button')
     speakButton.click()
+    act(() => FakeSpeechRecognition.instances[0].error())
     expect(await screen.findByText("I couldn't catch that.")).toBeInTheDocument()
     expect(snapshotProgress()).toBe(before.progress)
     expect(snapshotSaved()).toBe(before.saved)

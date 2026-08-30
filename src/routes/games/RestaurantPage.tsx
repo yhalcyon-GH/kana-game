@@ -186,19 +186,47 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
     recognitionRef.current = null
     const nextRound = pickRoundFromPools(dishes, menuDishes, Math.random, round.target.id, usedTargetIdsRef.current, lastMenuKeyRef.current)
     usedTargetIdsRef.current = [...usedTargetIdsRef.current, nextRound.target.id]
-    const candidates = dishes.filter((dish) => dish.id !== nextRound.target.id)
-    const unseenPairs = candidates.filter((dish) => !usedPairKeysRef.current.includes([nextRound.target.id, dish.id].sort().join('|')))
-    const secondPool = unseenPairs.length ? unseenPairs : candidates
-    const secondTarget = secondPool[Math.floor(Math.random() * secondPool.length)]
-    const nextMenu = questionNumber + 1 >= 5
-      ? shuffleRestaurantChoices([nextRound.target, secondTarget, ...nextRound.menu.filter((dish) => dish.id !== secondTarget.id && dish.id !== nextRound.target.id)].slice(0, 4))
-      : nextRound.menu
-    usedPairKeysRef.current = [...usedPairKeysRef.current, [nextRound.target.id, secondTarget.id].sort().join('|')]
-    usedTargetIdsRef.current = [...usedTargetIdsRef.current, secondTarget.id]
+    const isTwoTargetRound = questionNumber + 1 >= 5
+    let secondTarget: RestaurantDish | null = null
+    let nextMenu = nextRound.menu
+    if (isTwoTargetRound) {
+      const candidates = dishes.filter((dish) => dish.id !== nextRound.target.id)
+      const unseenTargets = candidates.filter((dish) => !usedTargetIdsRef.current.includes(dish.id))
+      const targetPool = unseenTargets.length ? unseenTargets : candidates
+      const unusedPairs = targetPool.filter((dish) => !usedPairKeysRef.current.includes([nextRound.target.id, dish.id].sort().join('|')))
+      const secondPool = unusedPairs.length ? unusedPairs : targetPool
+      const selectedSecondTarget = secondPool[Math.min(secondPool.length - 1, Math.floor(Math.random() * secondPool.length))]
+      secondTarget = selectedSecondTarget
+
+      const fillerPool = menuDishes.filter((dish) => dish.id !== nextRound.target.id && dish.id !== selectedSecondTarget.id)
+      const buildFinalMenu = () => shuffleRestaurantChoices([
+        nextRound.target,
+        selectedSecondTarget,
+        ...shuffleRestaurantChoices(fillerPool).slice(0, 2),
+      ])
+      nextMenu = buildFinalMenu()
+      for (let attempt = 0; attempt < 4 && menuKey(nextMenu) === lastMenuKeyRef.current; attempt++) {
+        nextMenu = buildFinalMenu()
+      }
+      if (menuKey(nextMenu) === lastMenuKeyRef.current) {
+        outer: for (let first = 0; first < fillerPool.length; first++) {
+          for (let second = first + 1; second < fillerPool.length; second++) {
+            const alternative = [nextRound.target, selectedSecondTarget, fillerPool[first], fillerPool[second]]
+            if (menuKey(alternative) !== lastMenuKeyRef.current) {
+              nextMenu = shuffleRestaurantChoices(alternative)
+              break outer
+            }
+          }
+        }
+      }
+
+      usedTargetIdsRef.current = [...usedTargetIdsRef.current, selectedSecondTarget.id]
+      usedPairKeysRef.current = [...usedPairKeysRef.current, [nextRound.target.id, selectedSecondTarget.id].sort().join('|')]
+    }
     const orderRound = { ...nextRound, menu: nextMenu }
     lastMenuKeyRef.current = menuKey(orderRound.menu)
     setRound(orderRound)
-    setTargets(questionNumber + 1 >= 5 ? [orderRound.target, secondTarget] : [orderRound.target])
+    setTargets(secondTarget ? [orderRound.target, secondTarget] : [orderRound.target])
     setRomajiChoices(shuffleRestaurantChoices(orderRound.menu))
     setShowRomaji(false)
     setSelectedRomaji([])
@@ -342,6 +370,7 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
                 Try Again
               </button>
               <button type="button" onClick={() => setState({ ...state, revealed: true })} className="rounded-full border px-5 py-2 text-sm font-semibold">Show Answer</button>
+              <AnswerFeedbackRow mood="incorrect" showNext={false} onNext={nextOrder} />
             </>
           )}
         </div>
