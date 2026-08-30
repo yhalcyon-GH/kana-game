@@ -2,11 +2,14 @@ import type { PointerEvent } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { BackToHubLink } from '../../components/BackToHubLink'
+import { CharacterGrid } from '../../components/CharacterGrid'
+import { PitchAccentNote, PITCH_ACCENT_NOTE_ROW_ID } from '../../components/PitchAccentNote'
 import { PracticeSummary } from '../../components/PracticeSummary'
 import { TracingUnitAnimation } from '../../components/StrokeOrderAnimation'
+import { WordCard } from '../../components/WordCard'
 import { WordImage } from '../../components/WordImage'
 import { CHARACTERS_BY_ID, getCharacterAudioId } from '../../data/characters'
-import { CATEGORIES_BY_ID, ROWS_BY_ID } from '../../data/curriculum'
+import { CATEGORIES_BY_ID, ROWS_BY_ID, SPECIAL_KATAKANA_CATEGORY_ID } from '../../data/curriculum'
 import { getSimilarLetterExplanationImage } from '../../data/similarLetterExplanations'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
 import { useTTS } from '../../hooks/useTTS'
@@ -112,7 +115,13 @@ export function TracingPage() {
   const wordIds = useMemo(() => words.map((w) => w.id), [words])
   const wordsById = useMemo(() => Object.fromEntries(words.map((w) => [w.id, w])), [words])
 
-  const [phase, setPhase] = useState<'chars' | 'words'>('chars')
+  // 'overview' is a browse-only preview stage that now precedes the real
+  // tracing flow: overview -> chars -> words -> finished (contrast-pairs
+  // still skip 'chars', see startSession). It shows what this row is about
+  // to make you trace, tap-to-play only — deliberately no autoplay on mount,
+  // unlike every round of the tracing phases below — and it never touches
+  // markRowActivityCompleted (only finished=true does, unchanged).
+  const [phase, setPhase] = useState<'overview' | 'chars' | 'words'>('overview')
   const [queue, setQueue] = useState<string[]>([])
   const [roundIndex, setRoundIndex] = useState(0)
   const [finished, setFinished] = useState(false)
@@ -123,7 +132,10 @@ export function TracingPage() {
   // there's no benefit to randomizing or limiting round count. Contrast-pairs
   // categories start directly in the 'words' phase (see file header) and
   // never populate a 'chars' queue at all.
-  const startSession = useCallback(() => {
+  // The actual tracing flow, entered from the Overview's "Start Tracing"
+  // button (and from the summary's "Try again", which is unchanged: it drops
+  // straight back into tracing rather than re-showing the Overview).
+  const beginTracing = useCallback(() => {
     advanceLockedRef.current = false
     if (isContrastPairs) {
       setPhase('words')
@@ -136,6 +148,15 @@ export function TracingPage() {
     setFinished(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [charPool, wordIds, isContrastPairs])
+
+  // A fresh visit starts on the browse-only Overview, not mid-trace.
+  const startSession = useCallback(() => {
+    advanceLockedRef.current = false
+    setPhase('overview')
+    setQueue([])
+    setRoundIndex(0)
+    setFinished(false)
+  }, [])
 
   useEffect(() => {
     if (isContrastPairs ? wordIds.length > 0 : charPool.length > 0) startSession()
@@ -430,7 +451,7 @@ export function TracingPage() {
                 ]
         }
         backHref={isReview ? '/practice/review' : `/practice/${categoryId}/${rowId}`}
-        onRetry={startSession}
+        onRetry={beginTracing}
         continueAction={
           !isReview
             ? {
@@ -440,6 +461,74 @@ export function TracingPage() {
             : undefined
         }
       />
+    )
+  }
+
+  // ===== Overview =====
+  // A browse-only look at exactly what this row's tracing session covers,
+  // shown once before the first character. Reuses the same CharacterGrid and
+  // WordCard the Learn screens use, so tapping a card plays its audio the
+  // same way it does everywhere else — and nothing plays on its own here.
+  //
+  // Which sections appear follows the row's own tracing shape rather than
+  // any per-category special-casing invented for this screen:
+  //   - contrast-pairs (促音/長音): words only — these rows have no isolated
+  //     character phase at all (see the file header).
+  //   - Similar Letters: characters only — `words` is forced empty above for
+  //     exactly this row type, so its word section simply has nothing to show.
+  //   - Special Katakana: characters via CharacterGrid's `compact` layout (no
+  //     empty a/i/u/e/o placeholder slots), plus words.
+  //   - everything else (normal Hiragana/Katakana rows, Yōon): both.
+  if (phase === 'overview') {
+    const overviewChars = isContrastPairs ? [] : charPool.map((id) => CHARACTERS_BY_ID[id]).filter(Boolean)
+    return (
+      <div className="flex w-full min-w-0 max-w-full flex-col items-center gap-6">
+        <BackToHubLink rowId={rowId} categoryId={categoryId} />
+        <h2 className="text-sm font-semibold text-neutral-600 dark:text-neutral-300">What you'll trace</h2>
+        <p className="-mt-4 text-sm text-neutral-500 dark:text-neutral-400">Tap anything to hear it</p>
+
+        {overviewChars.length > 0 && (
+          <div className="flex w-full min-w-0 max-w-full flex-col items-center gap-2">
+            <h3 className="text-xs font-semibold tracking-wide text-neutral-400 uppercase dark:text-neutral-500">
+              Characters
+            </h3>
+            <CharacterGrid characters={overviewChars} compact={categoryId === SPECIAL_KATAKANA_CATEGORY_ID} />
+          </div>
+        )}
+
+        {words.length > 0 && (
+          <div className="flex w-full min-w-0 max-w-full flex-col items-center gap-2">
+            <h3 className="text-xs font-semibold tracking-wide text-neutral-400 uppercase dark:text-neutral-500">
+              Words
+            </h3>
+            {/* a-row only — same note, same position (immediately above the
+                word cards), as Learn's Step B. See PitchAccentNote. */}
+            {rowId === PITCH_ACCENT_NOTE_ROW_ID && <PitchAccentNote />}
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+              {words.map((word) => (
+                <WordCard key={word.id} word={word} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-wrap justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => navigate(isReview ? '/practice/review' : `/practice/${categoryId}/${rowId}`)}
+            className="rounded-full border border-neutral-300 px-6 py-2 font-semibold hover:border-blue-400 dark:border-neutral-600"
+          >
+            Back
+          </button>
+          <button
+            type="button"
+            onClick={beginTracing}
+            className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
+          >
+            Start Tracing
+          </button>
+        </div>
+      </div>
     )
   }
 

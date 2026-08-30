@@ -1,8 +1,21 @@
-import { act, fireEvent, render } from '@testing-library/react'
+import { act, fireEvent, render as rtlRender } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useProgressStore } from '../../store/progressStore'
 import { TracingPage } from './TracingPage'
+
+// Tracing now opens on a browse-only Overview stage (see TracingPage's
+// 'overview' phase) before the character/word phases. Every existing test in
+// this file is about the tracing flow itself, so this local `render` steps
+// past the Overview automatically, keeping each test's original focus. The
+// Overview's own behaviour is covered by its dedicated describe block at the
+// bottom of this file, which uses `rtlRender` directly.
+function render(ui: Parameters<typeof rtlRender>[0]) {
+  const result = rtlRender(ui)
+  const [startButton] = result.queryAllByRole('button', { name: 'Start Tracing' })
+  if (startButton) act(() => void fireEvent.click(startButton))
+  return result
+}
 
 const canvasContext = {
   beginPath: vi.fn(),
@@ -851,5 +864,104 @@ describe('TracingPage — writing canvas glyph spacing (base/small pair nudge)',
     )
     expect(canvasContext.fillText).toHaveBeenCalled()
     assertBaseAndSmallNudgeTowardEachOther(280)
+  })
+})
+
+// Tracing Overview stage — a browse-only preview (tap-to-play, no autoplay)
+// shown before the real chars/words tracing flow. Uses `rtlRender` directly
+// (not this file's local `render`, which auto-clicks past the Overview) so
+// each test can inspect the Overview itself.
+describe('TracingPage Overview stage', () => {
+  beforeEach(() => {
+    useProgressStore.getState().resetProgress()
+  })
+
+  function renderOverview(categoryId: string, rowId: string) {
+    return rtlRender(
+      <MemoryRouter initialEntries={[`/practice/${categoryId}/${rowId}/tracing`]}>
+        <Routes>
+          <Route path="/practice/:categoryId/:rowId/tracing" element={<TracingPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+  }
+
+  it('a normal hiragana row (a-row) shows both a Characters section and a Words section', () => {
+    const { getByText } = renderOverview('hiragana', 'a-row')
+    expect(getByText('Characters')).toBeInTheDocument()
+    expect(getByText('Words')).toBeInTheDocument()
+    expect(getByText('love')).toBeInTheDocument() // a-ai
+  })
+
+  it('yōon (youon-ka-row) shows both Characters and Words', () => {
+    const { getByText } = renderOverview('youon', 'youon-ka-row')
+    expect(getByText('Characters')).toBeInTheDocument()
+    expect(getByText('Words')).toBeInTheDocument()
+  })
+
+  it('Special Katakana (special-katakana-fa-row) shows Characters (compact) and Words', () => {
+    const { getByText, container } = renderOverview('special-katakana', 'special-katakana-fa-row')
+    expect(getByText('Characters')).toBeInTheDocument()
+    expect(getByText('Words')).toBeInTheDocument()
+    // Compact layout: a flex-wrap row, not the 5-column gojūon grid.
+    expect(container.querySelector('.grid-cols-5')).toBeNull()
+  })
+
+  it('Similar Letters shows Characters only, no Words section', () => {
+    const { getByText, queryByText } = renderOverview('hiragana', 'hiragana-similar-letters')
+    expect(getByText('Characters')).toBeInTheDocument()
+    expect(queryByText('Words')).toBeNull()
+  })
+
+  it('a contrast-pairs row (sokuon-row) shows Words only, no Characters section', () => {
+    const { getByText, queryByText } = renderOverview('sokuon', 'sokuon-row')
+    expect(queryByText('Characters')).toBeNull()
+    expect(getByText('Words')).toBeInTheDocument()
+  })
+
+  it('does not autoplay audio on mount — TTS is not invoked just by viewing the Overview', () => {
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(() => Promise.resolve())
+    const playSpy = vi.spyOn(HTMLMediaElement.prototype, 'play')
+    renderOverview('hiragana', 'a-row')
+    expect(playSpy).not.toHaveBeenCalled()
+  })
+
+  it('Back on the Overview returns to the Practice Hub without entering the tracing flow', () => {
+    const { getByRole, getByTestId } = rtlRender(
+      <MemoryRouter initialEntries={['/practice/hiragana/a-row/tracing']}>
+        <Routes>
+          <Route path="/practice/:categoryId/:rowId/tracing" element={<TracingPage />} />
+          <Route path="*" element={<LocationProbe />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    fireEvent.click(getByRole('button', { name: 'Back' }))
+    expect(getByTestId('landed-path')).toHaveTextContent('/practice/hiragana/a-row')
+  })
+
+  it('Start Tracing enters the existing character-phase flow unchanged', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(canvasContext as unknown as CanvasRenderingContext2D)
+    const { getByRole, getByText } = renderOverview('hiragana', 'a-row')
+    fireEvent.click(getByRole('button', { name: 'Start Tracing' }))
+    expect(getByText('Trace each character')).toBeInTheDocument()
+    expect(getByText(/Round 1 \/ 5/)).toBeInTheDocument()
+  })
+
+  it('merely viewing the Overview never marks Tracing completed', () => {
+    renderOverview('hiragana', 'a-row')
+    expect(useProgressStore.getState().isRowActivityCompleted('a-row', 'tracing')).toBe(false)
+  })
+
+  it('a genuine full completion after Start Tracing still marks rowActivityCompletion (completion semantics unchanged)', () => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(canvasContext as unknown as CanvasRenderingContext2D)
+    const { getByRole, container } = renderOverview('hiragana', 'a-row')
+    fireEvent.click(getByRole('button', { name: 'Start Tracing' }))
+    let guard = 0
+    while (!container.textContent?.includes('Tracing complete!') && guard < 20) {
+      act(() => fireEvent.click(getByRole('button', { name: 'Next' })))
+      guard += 1
+    }
+    expect(container.textContent).toMatch(/Tracing complete!/)
+    expect(useProgressStore.getState().rowActivityCompletion['a-row']?.tracing).toBe(true)
   })
 })

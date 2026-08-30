@@ -18,6 +18,8 @@ import { YOUON_GUIDE } from '../data/youonGuide'
 import { YouonGuide } from '../components/YouonGuide'
 import { SPECIAL_KATAKANA_GUIDE } from '../data/specialKatakanaGuide'
 import { SpecialKatakanaGuide } from '../components/SpecialKatakanaGuide'
+import { PARTICLE_GUIDE } from '../data/particleGuide'
+import { ParticleGuide } from '../components/ParticleGuide'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../hooks/useCurriculum'
 import { useActiveGuideReplayId, useGuideReplay } from '../hooks/useGuideReplay'
 import { getRecommendedActivity } from '../lib/recommendedPath'
@@ -146,6 +148,8 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   const setHasCompletedYouonGuide = useProgressStore((s) => s.setHasCompletedYouonGuide)
   const hasCompletedSpecialKatakanaGuide = useProgressStore((s) => s.hasCompletedSpecialKatakanaGuide)
   const setHasCompletedSpecialKatakanaGuide = useProgressStore((s) => s.setHasCompletedSpecialKatakanaGuide)
+  const hasCompletedParticleGuide = useProgressStore((s) => s.hasCompletedParticleGuide)
+  const setHasCompletedParticleGuide = useProgressStore((s) => s.setHasCompletedParticleGuide)
 
   // Manual Guide replay (Issue #46) — a `?guide=<id>` ephemeral target that
   // forces exactly one Guide to display on its real screen, regardless of
@@ -159,6 +163,7 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   const { isReplaying: isYouonReplay, dismissReplay: dismissYouonReplay } = useGuideReplay('youon')
   const { isReplaying: isSpecialKatakanaReplay, dismissReplay: dismissSpecialKatakanaReplay } =
     useGuideReplay('specialKatakana')
+  const { isReplaying: isParticleReplay, dismissReplay: dismissParticleReplay } = useGuideReplay('particle')
   const { isReplaying: isReviewReplay, dismissReplay: dismissReviewReplay } = useGuideReplay('review')
   const activeGuideReplayId = useActiveGuideReplayId()
 
@@ -250,6 +255,15 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   // would be with no `?guide=` at all (Issue #46's "invalid replay ids fail
   // safely and show the normal page" / "never shows two Guides
   // simultaneously").
+  // Particles' one auto-trigger row — hiragana wa-row, where わ/を and the
+  // topic-marker は (plus the こんにちは/こんばんは greetings that are this
+  // Guide's Step 3) are introduced. Same shape as the concept Guides above.
+  // The /hiragana page's supplementary "Ask Tamamizu about particles" button
+  // is unaffected: it still starts a manual `?guide=particle` replay there at
+  // any time, before or after this automatic first showing, without writing
+  // progress on replay.
+  const isParticleTargetRoute =
+    !isReview && categoryId === PARTICLE_GUIDE.target.categoryId && rowId === PARTICLE_GUIDE.target.rowId
   const isKnownReplayHere =
     activeGuideReplayId !== null &&
     ((isLearnTracingTargetRoute && activeGuideReplayId === 'learnTracing') ||
@@ -257,7 +271,8 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
       (isSokuonTargetRoute && activeGuideReplayId === 'sokuon') ||
       (isChouonTargetRoute && activeGuideReplayId === 'chouon') ||
       (isYouonTargetRoute && activeGuideReplayId === 'youon') ||
-      (isSpecialKatakanaTargetRoute && activeGuideReplayId === 'specialKatakana'))
+      (isSpecialKatakanaTargetRoute && activeGuideReplayId === 'specialKatakana') ||
+      (isParticleTargetRoute && activeGuideReplayId === 'particle'))
   const showLearnTracingGuide =
     isLearnTracingTargetRoute && (isLearnTracingReplay || (!isKnownReplayHere && !hasCompletedLearnTracingGuide))
   const tracingCompleted = showRecommendedPath && rowActivityCompletion[rowId]?.tracing === true
@@ -281,9 +296,17 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   const showSpecialKatakanaGuide =
     isSpecialKatakanaTargetRoute &&
     (isSpecialKatakanaReplay || (!isKnownReplayHere && !hasCompletedSpecialKatakanaGuide && hasCompletedIntroGuide))
+  const showParticleGuide =
+    isParticleTargetRoute &&
+    (isParticleReplay || (!isKnownReplayHere && !hasCompletedParticleGuide && hasCompletedIntroGuide))
   const showReviewGuide = isReview && isReviewReplay
   const disableHubActivities =
-    showPracticeGuide || showSokuonGuide || showChouonGuide || showYouonGuide || showSpecialKatakanaGuide
+    showPracticeGuide ||
+    showSokuonGuide ||
+    showChouonGuide ||
+    showYouonGuide ||
+    showSpecialKatakanaGuide ||
+    showParticleGuide
   const recommended = showRecommendedPath
     ? getRecommendedActivity({
         learnStyle: isContrastPairs ? 'contrast-pairs' : 'character-set',
@@ -440,6 +463,10 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
         <SpecialKatakanaGuide
           onDismiss={isSpecialKatakanaReplay ? dismissSpecialKatakanaReplay : () => setHasCompletedSpecialKatakanaGuide(true)}
         />
+      )}
+
+      {showParticleGuide && (
+        <ParticleGuide onDismiss={isParticleReplay ? dismissParticleReplay : () => setHasCompletedParticleGuide(true)} />
       )}
 
       <div className="flex w-full max-w-md flex-col items-center gap-2">

@@ -758,3 +758,67 @@ describe('PracticeHubPage Summary hub icon', () => {
     expect(katakana.container.querySelector('h1')!.textContent).toContain('Similar Letters')
   })
 })
+
+// Particle Guide auto-trigger on hiragana/wa-row (see PARTICLE_GUIDE.target
+// in particleGuide.ts and showParticleGuide in PracticeHubPage) — same
+// mechanism as every other concept Guide's automatic first showing.
+describe('Particle Guide auto-show on wa-row Practice Hub', () => {
+  it('auto-shows on the first visit to hiragana/wa-row once the intro Guide is done', () => {
+    useProgressStore.getState().setHasCompletedIntroGuide(true)
+    const hub = renderRowHub('hiragana', 'wa-row')
+    expect(hub.getByTestId('particle-guide')).toBeInTheDocument()
+  })
+
+  it('does not auto-show before the intro Guide is completed', () => {
+    const hub = renderRowHub('hiragana', 'wa-row')
+    expect(hub.queryByTestId('particle-guide')).toBeNull()
+  })
+
+  it('does not auto-show on any other row', () => {
+    useProgressStore.getState().setHasCompletedIntroGuide(true)
+    const hub = renderRowHub('hiragana', 'a-row')
+    expect(hub.queryByTestId('particle-guide')).toBeNull()
+  })
+
+  it('Skip flips hasCompletedParticleGuide and dismisses the Guide', () => {
+    useProgressStore.getState().setHasCompletedIntroGuide(true)
+    const hub = renderRowHub('hiragana', 'wa-row')
+    expect(useProgressStore.getState().hasCompletedParticleGuide).toBe(false)
+
+    fireEvent.click(hub.getByText('Skip'))
+
+    expect(hub.queryByTestId('particle-guide')).toBeNull()
+    expect(useProgressStore.getState().hasCompletedParticleGuide).toBe(true)
+  })
+
+  it('"Got it!" completion (all 3 steps) also flips the flag', () => {
+    useProgressStore.getState().setHasCompletedIntroGuide(true)
+    const hub = renderRowHub('hiragana', 'wa-row')
+    fireEvent.click(hub.getByText('Next'))
+    fireEvent.click(hub.getByText('Next'))
+    fireEvent.click(hub.getByText('Got it!'))
+
+    expect(hub.queryByTestId('particle-guide')).toBeNull()
+    expect(useProgressStore.getState().hasCompletedParticleGuide).toBe(true)
+  })
+
+  it('does not auto-show again on a second visit once the flag is already true', () => {
+    useProgressStore.getState().setHasCompletedIntroGuide(true)
+    useProgressStore.getState().setHasCompletedParticleGuide(true)
+    const hub = renderRowHub('hiragana', 'wa-row')
+    expect(hub.queryByTestId('particle-guide')).toBeNull()
+  })
+
+  it('a manual ?guide=particle replay still works on wa-row after the flag is already true, without a double mount', () => {
+    useProgressStore.getState().setHasCompletedIntroGuide(true)
+    useProgressStore.getState().setHasCompletedParticleGuide(true)
+    const hub = renderRowHub('hiragana', 'wa-row', '?guide=particle')
+    expect(hub.getAllByTestId('particle-guide')).toHaveLength(1)
+  })
+
+  it('an unrelated ?guide= value on wa-row does not suppress or duplicate the automatic Particle Guide', () => {
+    useProgressStore.getState().setHasCompletedIntroGuide(true)
+    const hub = renderRowHub('hiragana', 'wa-row', '?guide=not-a-real-guide')
+    expect(hub.getAllByTestId('particle-guide')).toHaveLength(1)
+  })
+})

@@ -18,6 +18,13 @@ function renderAt(path: string) {
   )
 }
 
+// Tracing now opens on a browse-only Overview stage (see TracingPage's
+// 'overview' phase) before the character/word phases. The route tests below
+// are about the tracing flow itself, so they step past the Overview first.
+function startTracing() {
+  fireEvent.click(screen.getByRole('button', { name: 'Start Tracing' }))
+}
+
 beforeEach(() => {
   useProgressStore.getState().resetProgress()
   // These are routing tests, not onboarding tests — suppress the Tamamizu
@@ -58,6 +65,7 @@ describe('routing', () => {
 
   it('/practice/hiragana/a-row/tracing renders the Tracing page', () => {
     renderAt('/practice/hiragana/a-row/tracing')
+    startTracing()
     expect(screen.getByText('Trace each character')).toBeInTheDocument()
   })
 
@@ -303,12 +311,14 @@ describe('contrast-pairs learnStyle (sokuon)', () => {
 
   it('/practice/sokuon/sokuon-row/tracing starts directly in the word phase, skipping the character phase', () => {
     renderAt('/practice/sokuon/sokuon-row/tracing')
+    startTracing()
     expect(screen.getByText('Trace each word')).toBeInTheDocument()
     expect(screen.queryByText('Trace each character')).not.toBeInTheDocument()
   })
 
   it('/practice/hiragana/a-row/tracing still starts in the character phase (regression)', () => {
     renderAt('/practice/hiragana/a-row/tracing')
+    startTracing()
     expect(screen.getByText('Trace each character')).toBeInTheDocument()
   })
 
@@ -367,6 +377,7 @@ describe('contrast-pairs learnStyle with zero new characters (chōon)', () => {
 
   it('/practice/chouon/chouon-katakana-row/tracing starts directly in the word phase, and does not crash despite an empty character pool', () => {
     renderAt('/practice/chouon/chouon-katakana-row/tracing')
+    startTracing()
     expect(screen.getByText('Trace each word')).toBeInTheDocument()
     expect(screen.queryByText('Trace each character')).not.toBeInTheDocument()
   })
@@ -441,6 +452,7 @@ describe('character-set learnStyle with yōon (multi-glyph, one-mora characters)
     // page still renders normally around that empty guide, not only the
     // stroke component in isolation.
     renderAt('/practice/youon/youon-ka-row/tracing')
+    startTracing()
     expect(screen.getByText('Trace each character')).toBeInTheDocument()
   })
 

@@ -4,6 +4,7 @@ import { CharacterCard } from '../components/CharacterCard'
 import { CharacterGrid } from '../components/CharacterGrid'
 import { SaveCharacterToggle } from '../components/SaveCharacterToggle'
 import { SaveWordToggle } from '../components/SaveWordToggle'
+import { PitchAccentNote, PITCH_ACCENT_NOTE_ROW_ID } from '../components/PitchAccentNote'
 import { WordCard } from '../components/WordCard'
 import { CHARACTERS_BY_ID, getCharacterAudioId } from '../data/characters'
 import { CATEGORIES_BY_ID, isSpecialKatakanaRowId, ROWS_BY_ID, SPECIAL_KATAKANA_CATEGORY_ID } from '../data/curriculum'
@@ -445,6 +446,10 @@ export function LearnPage() {
       {row.explanation && (
         <p className="max-w-md text-center text-sm text-neutral-500 dark:text-neutral-400">{row.explanation}</p>
       )}
+      {/* Only the very first row (see PITCH_ACCENT_NOTE_ROW_ID) — the note
+          sits immediately above the word cards whose kana carry the red
+          accent line it's explaining. */}
+      {rowId === PITCH_ACCENT_NOTE_ROW_ID && <PitchAccentNote />}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
         {words.map((word) => (
           <div key={word.id} className="flex flex-col items-center gap-1">

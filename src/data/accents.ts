@@ -237,6 +237,8 @@ export const ACCENT_PATTERNS: Record<string, string> = {
   'wa-en': 'HL', // えん (en)
   'wa-hon': 'HL', // ほん (hon)
   'wa-kanpai': 'LHHH', // かんぱい (kanpai)
+  'wa-konbanwa': 'LHHHH', // こんばんは (konbanwa)
+  'wa-konnichiwa': 'LHHHH', // こんにちは (konnichiwa)
   'wa-mizu-wo-nomu': 'LHHHL', // みずをのむ (mizu wo nomu)
   'wa-nihon': 'LHL', // にほん (nihon)
   'wa-nihongo': 'LHHH', // にほんご (nihongo)
