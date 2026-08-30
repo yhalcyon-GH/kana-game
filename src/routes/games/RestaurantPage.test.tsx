@@ -52,9 +52,25 @@ describe('RestaurantPage full-order cleanup', () => {
 })
 
 describe('RestaurantPage', () => {
+  it('uses the shared heading and one-line order template', () => {
+    renderPage()
+    expect(screen.getByRole('heading', { name: 'Order at the Restaurant' })).toBeInTheDocument()
+    expect(screen.getByTestId('restaurant-order-template')).toHaveTextContent('すみません、＿＿＿＿おねがいします。')
+    expect(screen.getByAltText('Tamamizu')).toHaveAttribute('src', expect.stringContaining('mascot/order.png'))
+  })
+
+  it('offers Try Again and Show Answer after a wrong answer', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    renderPage()
+    fireEvent.click(screen.getByTestId('restaurant-romaji-soba'))
+    expect(screen.getByRole('button', { name: 'Try Again' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Show Answer' }))
+    expect(screen.getAllByText('すし').length).toBeGreaterThanOrEqual(2)
+    expect(screen.getByText('sushi')).toBeInTheDocument()
+  })
   it('renders without crashing', () => {
     renderPage()
-    expect(screen.getByText('ひらがなレストラン')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Order at the Restaurant' })).toBeInTheDocument()
   })
 
   it('renders 4 unique dish cards in the menu', () => {

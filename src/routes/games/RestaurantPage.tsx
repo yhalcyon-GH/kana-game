@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Mascot } from '../../components/Mascot'
 import { RESTAURANT_DISHES, type RestaurantDish, type RestaurantStageId } from '../../data/restaurantDishes'
 import { useTTS } from '../../hooks/useTTS'
 import { pickRound, type RestaurantRound } from '../../lib/restaurantRound'
@@ -35,10 +34,10 @@ function getSpeechRecognitionCtor(): SpeechRecognitionCtor | null {
 type ResultState =
   | { kind: 'idle' }
   | { kind: 'listening' }
-  | { kind: 'result'; transcript: string | null; check: OrderCheckResult }
+  | { kind: 'result'; transcript: string | null; check: OrderCheckResult; revealed?: boolean }
 
-// A small, standalone, repeatable "order the dish from the menu" mini-game
-// (Issue: Hiragana Restaurant prototype). Deliberately outside the
+// A small, standalone, repeatable "order the dish from the menu" mini-game.
+// Deliberately outside the
 // curriculum/row/Recommended-Path/Review/SRS/Saved system entirely — see
 // data/restaurantDishes.ts's comment and this component's total lack of any
 // useProgressStore/useCurriculum/savedItemsStore import. It never marks
@@ -77,7 +76,7 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
   }, [stop])
 
   function evaluate(transcript: string | null, check: OrderCheckResult) {
-    setState({ kind: 'result', transcript, check })
+    setState({ kind: 'result', transcript, check, revealed: false })
     if (check.outcome === 'success') {
       speak('restaurant/staff/kashikomarimashita', 'かしこまりました。')
     }
@@ -162,7 +161,7 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
         >
           ← Back
         </Link>
-        <h1 className="text-xl font-bold">{stage === 'hiragana' ? 'ひらがなレストラン' : `${stage === 'katakana' ? 'カタカナ' : stage === 'other' ? 'Sokuon & Long Vowel' : 'Special Katakana'} Restaurant`}</h1>
+        <h1 className="text-xl font-bold">Order at the Restaurant</h1>
         <span className="w-16" aria-hidden="true" />
       </div>
 
@@ -171,30 +170,30 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
           the whole point is the learner has to read the menu to figure out
           what to say. */}
       <div className="flex w-full max-w-md items-end gap-3">
-        <Mascot mood="normal" />
+        <img src={`${import.meta.env.BASE_URL}mascot/order.png`} alt="Tamamizu" className="h-28 w-28 shrink-0 object-contain sm:h-32 sm:w-32" />
         <div
           className="relative flex-1 rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-center shadow-sm dark:border-neutral-700 dark:bg-neutral-800"
           data-testid="restaurant-target-bubble"
           aria-label="What Tamamizu wants to order"
         >
-            <DishGlyph dish={round.target} className="mx-auto h-16 w-16 text-4xl" target />
+          <DishGlyph dish={round.target} className="mx-auto h-24 w-24 text-4xl" target />
         </div>
       </div>
 
-      <p className="text-center text-lg" lang="ja">
-        すみません、＿＿＿＿、おねがいします。
+      <p data-testid="restaurant-order-template" className="w-full whitespace-nowrap text-center text-[clamp(.8rem,4vw,1.125rem)]" lang="ja">
+        すみません、＿＿＿＿おねがいします。
       </p>
 
-      <div className="grid w-full max-w-md grid-cols-2 gap-3" data-testid="restaurant-menu">
+      <div className="w-full max-w-md divide-y divide-amber-200 rounded-xl border border-amber-200 bg-amber-50/40 px-3 shadow-sm dark:divide-amber-900 dark:border-amber-900 dark:bg-amber-950/20" data-testid="restaurant-menu">
         {round.menu.map((dish) => (
           <div
             key={dish.id}
             data-testid={`restaurant-dish-${dish.id}`}
-            className="flex flex-col items-center gap-1 rounded-2xl border border-neutral-200 bg-white p-3 text-center shadow-sm dark:border-neutral-700 dark:bg-neutral-800"
+            className="grid grid-cols-[5rem_1fr_auto] items-center gap-3 px-2 py-3 text-left transition hover:bg-amber-100/60 dark:hover:bg-amber-900/30"
           >
-            <DishGlyph dish={dish} className="h-12 w-12 text-3xl" menu />
+            <DishGlyph dish={dish} className="h-16 w-16 text-3xl" menu />
             <span className="font-kana text-xl font-bold">{dish.displayKana}</span>
-            <span className="text-sm text-neutral-500 dark:text-neutral-400">¥{dish.priceYen}</span>
+            <span className="text-sm text-neutral-600 dark:text-neutral-300">¥{dish.priceYen}</span>
           </div>
         ))}
       </div>
@@ -204,9 +203,11 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
           {state.kind === 'result' && state.transcript !== null && (
             <p className="text-sm text-neutral-500 dark:text-neutral-400">I heard: 「{state.transcript}」</p>
           )}
-          {isSuccess ? (
+          {isSuccess || state.revealed ? (
             <>
-              <p className="text-lg font-bold text-green-600 dark:text-green-400">Great!</p>
+              {isSuccess && <p className="text-lg font-bold text-green-600 dark:text-green-400">Great!</p>}
+              <p className="font-kana text-xl font-bold">{round.target.displayKana}</p>
+              <p className="text-sm text-neutral-600 dark:text-neutral-300">{round.target.english}</p>
               <div className="flex gap-2">
                 <button type="button" onClick={() => { sequenceIdRef.current++; stop(); speak(round.target.audioPath.replace(/^\/audio\//, '').replace(/\.wav$/, ''), round.target.displayKana) }} className="rounded-full border px-3 py-1 text-sm">Hear the dish</button>
                 <button type="button" onClick={hearFullOrder} className="rounded-full border px-3 py-1 text-sm">Hear the full order</button>
@@ -229,8 +230,9 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
                 onClick={tryAgain}
                 className="mt-1 rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 active:scale-95"
               >
-                Try again
+                Try Again
               </button>
+              <button type="button" onClick={() => setState({ ...state, revealed: true })} className="rounded-full border px-5 py-2 text-sm font-semibold">Show Answer</button>
             </>
           )}
         </div>

@@ -1,4 +1,4 @@
-// "Hiragana Restaurant" — a standalone, repeatable, non-scored-pronunciation
+// Restaurant ordering game — a standalone, repeatable, non-scored-pronunciation
 // mini-game (see docs at the call site, routes/RestaurantPage.tsx). This
 // data deliberately does NOT live in words.ts / WORDS_BY_ROW: Restaurant
 // dishes are never taught, never unlock rows, never feed Review/SRS, and
@@ -12,6 +12,7 @@ export type RestaurantDish = {
   id: string
   stage: RestaurantStageId
   displayKana: string
+  english: string
   romaji: string
   priceYen: number
   // Accepted spoken/typed forms for this dish — kana and kanji spellings a
@@ -33,8 +34,9 @@ const imageById: Record<string, string> = {
   koohii: 'word-icons/chouon-katakana-koohii.webp', koora: 'word-icons/chouon-katakana-koora.webp', aisu: 'word-icons/katakana-sa-aisu.webp', keeki: 'word-icons/katakana-a-keeki.webp', gyouza: 'word-icons/youon-ka-gyouza.webp', mirukutii: 'word-icons/special-katakana-fa-mirukutii.webp',
 }
 const placeholderById: Record<string, string> = { udon: '🍲', yakitori: '🍗', oden: '🍢', edamame: '🫛', purin: '🍮', zerii: '🍧', suupu: '🥣', hanbaagaa: '🍔', suteeki: '🥩', poteto: '🍟', chikin: '🍖', raamen: '🍜', miruku: '🥛', hotto: '☕', 'hotto-doggu': '🌭', sandoicchi: '🥪', 'hanbaagaa-setto': '🍔➕', korokke: '🥔', kukkii: '🍪', 'hotto-kokoa': '☕🍫', toufu: '🧈', chaahan: '🍳', shichuu: '🍲🥕', kaferate: '☕🥛', 'orenji-juusu': '🍊🥤', ryokucha: '🍵', pafe: '🍨🍓', tiramisu: '🍰☕', 'choko-aisu': '🍫🍨' }
+const englishById: Record<string, string> = { sushi: 'sushi', soba: 'soba noodles', udon: 'udon noodles', tenpura: 'tempura', onigiri: 'rice ball', yakitori: 'grilled chicken skewers', sashimi: 'sashimi', tonkatsu: 'pork cutlet', oden: 'Japanese stew', edamame: 'edamame', misoshiru: 'miso soup', karee: 'curry', pasuta: 'pasta', sarada: 'salad', piza: 'pizza', suupu: 'soup', hanbaagaa: 'hamburger', suteeki: 'steak', poteto: 'French fries', chikin: 'chicken', raamen: 'ramen', koohii: 'coffee', koora: 'cola', miruku: 'milk', purin: 'pudding', zerii: 'jelly', aisu: 'ice cream', keeki: 'cake', 'hotto-doggu': 'hot dog', sandoicchi: 'sandwich', 'hanbaagaa-setto': 'hamburger set', korokke: 'croquette', kukkii: 'cookie', 'hotto-kokoa': 'hot cocoa', toufu: 'tofu', chaahan: 'fried rice', gyouza: 'dumplings', shichuu: 'stew', kaferate: 'cafe latte', mirukutii: 'milk tea', 'orenji-juusu': 'orange juice', ryokucha: 'green tea', pafe: 'parfait', tiramisu: 'tiramisu', 'choko-aisu': 'chocolate ice cream' }
 function dish(stage: RestaurantStageId, id: string, displayKana: string, romaji: string, priceYen: number, recognitionAliases: string[]): RestaurantDish {
-  return { id, stage, displayKana, romaji, priceYen, recognitionAliases, placeholderEmoji: placeholderById[id] ?? '🍽️', requiredCategories: [stage], image: imageById[id] ?? `restaurant-dishes/${stage}/${id}.webp`, audioPath: `/audio/restaurant/${stage}/${id}.wav` }
+  return { id, stage, displayKana, english: englishById[id] ?? displayKana, romaji, priceYen, recognitionAliases, placeholderEmoji: placeholderById[id] ?? '🍽️', requiredCategories: [stage], image: imageById[id] ?? `restaurant-dishes/${stage}/${id}.webp`, audioPath: `/audio/restaurant/${stage}/${id}.wav` }
 }
 const h = [
   ['sushi','すし','sushi',680,['すし','寿司','鮨']],['soba','そば','soba',650,['そば','蕎麦']],['udon','うどん','udon',650,['うどん']],['tenpura','てんぷら','tenpura',900,['てんぷら','天ぷら','天麩羅']],['onigiri','おにぎり','onigiri',250,['おにぎり','お握り','御握り']],['yakitori','やきとり','yakitori',480,['やきとり','焼き鳥','焼鳥']],['sashimi','さしみ','sashimi',980,['さしみ','刺身']],['tonkatsu','とんかつ','tonkatsu',950,['とんかつ','トンカツ','豚カツ']],['oden','おでん','oden',580,['おでん']],['edamame','えだまめ','edamame',380,['えだまめ','枝豆']],['misoshiru','みそしる','misoshiru',300,['みそしる','味噌汁','みそ汁']],
