@@ -35,7 +35,7 @@ function getSpeechRecognitionCtor(): SpeechRecognitionCtor | null {
 type ResultState =
   | { kind: 'idle' }
   | { kind: 'listening' }
-  | { kind: 'result'; transcript: string | null; check: OrderCheckResult; revealed?: boolean }
+  | { kind: 'result'; source: 'speech' | 'romaji'; transcript: string | null; check: OrderCheckResult; revealed?: boolean }
 
 type SessionResult = { dishes: RestaurantDish[]; correct: boolean }
 
@@ -62,12 +62,15 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
   const [started, setStarted] = useState(false)
   const greetedIntroRef = useRef(false)
   const [showRomaji, setShowRomaji] = useState(false)
+  const [isRomajiRescue, setIsRomajiRescue] = useState(false)
   const [selectedRomaji, setSelectedRomaji] = useState<RestaurantDish[]>([])
   const usedTargetIdsRef = useRef<string[]>([round.target.id])
   const usedPairKeysRef = useRef<string[]>([])
   const lastMenuKeyRef = useRef(menuKey(round.menu))
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
   const recognitionTokenRef = useRef(0)
+  const speechRetryUsedRef = useRef(false)
+  const [speechRetryUsed, setSpeechRetryUsed] = useState(false)
   const [speechSupported, setSpeechSupported] = useState(false)
 
   useEffect(() => {
@@ -92,18 +95,30 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
     }
   }, [stop])
 
-  function evaluate(transcript: string | null, check: OrderCheckResult) {
-    setState({ kind: 'result', transcript, check, revealed: false })
+  function finalizeQuestion(correct: boolean) {
     setSessionResults((previous) => {
-      const next = [...previous]
       const index = questionNumber - 1
-      const earlier = next[index]
-      next[index] = { dishes: targets, correct: Boolean(earlier?.correct) || (check.outcome === 'success' && !earlier) }
+      if (previous[index]) return previous
+      const next = [...previous]
+      next[index] = { dishes: targets, correct }
       return next
     })
+  }
+
+  function evaluate(source: 'speech' | 'romaji', transcript: string | null, check: OrderCheckResult) {
+    setState({ kind: 'result', source, transcript, check, revealed: false })
     if (check.outcome === 'success') {
+      finalizeQuestion(true)
       speak('restaurant/staff/kashikomarimashita', 'かしこまりました。')
+    } else if (source === 'romaji') {
+      finalizeQuestion(false)
     }
+  }
+
+  function revealAnswer() {
+    if (state.kind !== 'result' || state.revealed) return
+    finalizeQuestion(false)
+    setState({ ...state, revealed: true })
   }
 
   function startListening() {
@@ -114,15 +129,15 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
     }
     recognitionTokenRef.current++
     recognitionRef.current?.abort()
-    recognitionRef.current = null
     const token = recognitionTokenRef.current
     let settled = false
     const settle = (callback: () => void) => {
       if (settled || token !== recognitionTokenRef.current) return
       settled = true
-      recognitionRef.current = null
       callback()
     }
+    setShowRomaji(false)
+    setIsRomajiRescue(false)
     setState({ kind: 'listening' })
     const recognition = new Ctor()
     recognitionRef.current = recognition
@@ -140,23 +155,20 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
         if (typeof transcript === 'string' && transcript.trim()) alternatives.push(transcript)
       }
       const check = targets.length === 1 ? checkOrderAlternatives(alternatives, round.menu, targets[0]) : checkMultipleDishOrderAlternatives(alternatives, round.menu, targets)
-      settle(() => evaluate(alternatives[0] ?? null, check))
+      settle(() => evaluate('speech', alternatives[0] ?? null, check))
     }
     recognition.onerror = () => {
-      settle(() => evaluate(null, { outcome: 'unrecognized' }))
+      settle(() => evaluate('speech', null, { outcome: 'unrecognized' }))
     }
     recognition.onend = () => {
-      if (settled || token !== recognitionTokenRef.current) return
-      settled = true
-      recognitionRef.current = null
       // If neither onresult nor onerror fired (e.g. aborted), fall back to
       // an unrecognized result rather than leaving the UI stuck listening.
-      setState((prev) => (prev.kind === 'listening' ? { kind: 'result', transcript: null, check: { outcome: 'unrecognized' } } : prev))
+      settle(() => evaluate('speech', null, { outcome: 'unrecognized' }))
     }
     try {
       recognition.start()
     } catch {
-      settle(() => evaluate(null, { outcome: 'unrecognized' }))
+      settle(() => evaluate('speech', null, { outcome: 'unrecognized' }))
     }
   }
 
@@ -166,12 +178,12 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
       return
     }
     const check: OrderCheckResult = dish.id === round.target.id ? { outcome: 'success' } : { outcome: 'wrong-dish', identified: dish }
-    evaluate(null, check)
+    evaluate('romaji', null, check)
   }
 
   function submitRomajiOrder() {
     const correct = selectedRomaji.length === targets.length && targets.every((target) => selectedRomaji.some((dish) => dish.id === target.id))
-    evaluate(null, correct ? { outcome: 'success' } : { outcome: 'wrong-dish', identified: selectedRomaji[0] ?? round.menu[0] })
+    evaluate('romaji', null, correct ? { outcome: 'success' } : { outcome: 'wrong-dish', identified: selectedRomaji[0] ?? round.menu[0] })
   }
 
   function nextOrder() {
@@ -229,7 +241,10 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
     setTargets(secondTarget ? [orderRound.target, secondTarget] : [orderRound.target])
     setRomajiChoices(shuffleRestaurantChoices(orderRound.menu))
     setShowRomaji(false)
+    setIsRomajiRescue(false)
     setSelectedRomaji([])
+    speechRetryUsedRef.current = false
+    setSpeechRetryUsed(false)
     setQuestionNumber((number) => number + 1)
     setState({ kind: 'idle' })
   }
@@ -252,7 +267,10 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
     setCompleted(false)
     setStarted(false)
     setShowRomaji(false)
+    setIsRomajiRescue(false)
     setSelectedRomaji([])
+    speechRetryUsedRef.current = false
+    setSpeechRetryUsed(false)
     setState({ kind: 'idle' })
   }
 
@@ -276,15 +294,29 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
   }
 
   function tryAgain() {
-    recognitionTokenRef.current++
-    recognitionRef.current?.abort()
-    recognitionRef.current = null
+    if (speechRetryUsedRef.current) return
+    speechRetryUsedRef.current = true
+    setSpeechRetryUsed(true)
+    startListening()
+  }
+
+  function showRomajiRescue() {
+    setIsRomajiRescue(true)
+    setShowRomaji(true)
+    setSelectedRomaji([])
     setState({ kind: 'idle' })
+  }
+
+  function revealRomajiRescueAnswer() {
+    finalizeQuestion(false)
+    setState({ kind: 'result', source: 'romaji', transcript: null, check: { outcome: 'wrong-dish', identified: round.menu[0] }, revealed: true })
+    setShowRomaji(false)
   }
 
   const isResult = state.kind === 'result'
   const backPath = stage === 'hiragana' ? '/hiragana' : stage === 'katakana' ? '/katakana' : stage === 'other' ? '/other' : '/youon'
   const isSuccess = isResult && state.kind === 'result' && state.check.outcome === 'success'
+  const isSpeechFailure = isResult && state.kind === 'result' && state.source === 'speech' && !isSuccess && !state.revealed
   const mistakes = sessionResults.filter((result) => !result.correct)
   if (completed) {
     const correct = sessionResults.filter((result) => result.correct).length
@@ -362,14 +394,15 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
               <p className="text-lg font-bold text-red-600 dark:text-red-400">
                 {state.kind === 'result' && state.check.outcome === 'wrong-dish' ? "That's not quite it." : "I couldn't catch that."}
               </p>
-              <button
+              {isSpeechFailure && !speechRetryUsed && <button
                 type="button"
                 onClick={tryAgain}
                 className="mt-1 rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 active:scale-95"
               >
                 Try Again
-              </button>
-              <button type="button" onClick={() => setState({ ...state, revealed: true })} className="rounded-full border px-5 py-2 text-sm font-semibold">Show Answer</button>
+              </button>}
+              {isSpeechFailure && <button type="button" onClick={showRomajiRescue} className="rounded-full border px-5 py-2 text-sm font-semibold">Show Romaji</button>}
+              <button type="button" onClick={revealAnswer} className="rounded-full border px-5 py-2 text-sm font-semibold">Show Answer</button>
               <AnswerFeedbackRow mood="incorrect" showNext={false} onNext={nextOrder} />
             </>
           )}
@@ -378,22 +411,25 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
 
       {!isResult && (
         <div className="flex w-full max-w-md flex-col items-center gap-4">
-          <button
-            type="button"
-            onClick={startListening}
-            disabled={!speechSupported || state.kind === 'listening'}
-            data-testid="restaurant-speak-button"
-            className="rounded-full bg-blue-600 px-6 py-3 text-base font-semibold text-white hover:bg-blue-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {state.kind === 'listening' ? '🎤 Listening…' : '🎤 Speak'}
-          </button>
-          {!speechSupported && (
-            <p className="text-center text-xs text-neutral-500 dark:text-neutral-400">
-              Voice input isn't available in this browser — use the buttons below instead.
-            </p>
-          )}
+          {(!showRomaji || !isRomajiRescue) && <>
+            <button
+              type="button"
+              onClick={startListening}
+              disabled={!speechSupported || state.kind === 'listening'}
+              data-testid="restaurant-speak-button"
+              className="rounded-full bg-blue-600 px-6 py-3 text-base font-semibold text-white hover:bg-blue-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {state.kind === 'listening' ? '🎤 Listening…' : '🎤 Speak'}
+            </button>
+            {!speechSupported && (
+              <p className="text-center text-xs text-neutral-500 dark:text-neutral-400">
+                Voice input isn't available in this browser — use the buttons below instead.
+              </p>
+            )}
+            {!showRomaji && <button type="button" onClick={() => setShowRomaji(true)} className="rounded-full border px-5 py-2 text-sm font-semibold">Choose in Romaji</button>}
+          </>}
 
-          {!showRomaji ? <button type="button" onClick={() => setShowRomaji(true)} className="rounded-full border px-5 py-2 text-sm font-semibold">Choose in Romaji</button> : <div className="flex w-full flex-col items-center gap-2" data-testid="restaurant-romaji-fallback">
+          {showRomaji && <div className="flex w-full flex-col items-center gap-2" data-testid="restaurant-romaji-fallback">
             <p className="text-sm text-neutral-500 dark:text-neutral-400">Choose the romaji instead</p>
             <div className="grid w-full grid-cols-2 gap-2">
               {romajiChoices.map((dish) => (
@@ -409,6 +445,7 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
               ))}
             </div>
             {targets.length === 2 && <button type="button" disabled={selectedRomaji.length !== 2} onClick={submitRomajiOrder} className="rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">Order</button>}
+            {isRomajiRescue && <button type="button" onClick={revealRomajiRescueAnswer} className="rounded-full border px-5 py-2 text-sm font-semibold">Show Answer</button>}
           </div>}
         </div>
       )}
