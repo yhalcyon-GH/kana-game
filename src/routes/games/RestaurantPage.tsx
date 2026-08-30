@@ -358,20 +358,7 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
         {targets.length === 1 ? 'すみません、＿＿＿＿ おねがいします。' : 'すみません、＿＿＿＿ と ＿＿＿＿ おねがいします。'}
       </p>
 
-      <div className="w-full max-w-md divide-y divide-amber-200 rounded-xl border border-amber-200 bg-amber-50/40 px-3 shadow-sm dark:divide-amber-900 dark:border-amber-900 dark:bg-amber-950/20" data-testid="restaurant-menu">
-        <h2 className="font-kana px-2 py-3 text-center text-xl font-bold">メニュー</h2>
-        {round.menu.map((dish) => (
-          <div
-            key={dish.id}
-            data-testid={`restaurant-dish-${dish.id}`}
-            className="grid grid-cols-[5rem_1fr_auto] items-center gap-3 px-2 py-3 text-left transition hover:bg-amber-100/60 dark:hover:bg-amber-900/30"
-          >
-            <DishGlyph dish={dish} className="h-16 w-16 text-3xl" menu />
-            <span className="font-kana text-xl font-bold">{dish.displayKana}</span>
-            <span className="text-sm text-neutral-600 dark:text-neutral-300">¥{dish.priceYen}</span>
-          </div>
-        ))}
-      </div>
+      <RestaurantMenuSheet dishes={round.menu} />
 
       {isResult && (
         <div className="flex w-full max-w-md flex-col items-center gap-2 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-center dark:border-neutral-700 dark:bg-neutral-900">
@@ -450,6 +437,40 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
         </div>
       )}
     </div>
+  )
+}
+
+function RestaurantMenuSheet({ dishes }: { dishes: RestaurantDish[] }) {
+  return (
+    <section
+      aria-labelledby="restaurant-menu-title"
+      data-testid="restaurant-menu"
+      className="w-full max-w-md overflow-hidden rounded-lg border border-amber-300/70 bg-[#fff8e7] shadow-[0_8px_24px_rgba(120,75,25,0.12)] dark:border-amber-800/80 dark:bg-[#2b2118] dark:shadow-[0_8px_24px_rgba(0,0,0,0.24)]"
+    >
+      <header className="px-4 pt-4 pb-3 sm:px-6">
+        <h2 id="restaurant-menu-title" className="font-kana text-center text-2xl font-bold tracking-[0.14em] text-amber-950 dark:text-amber-100">
+          メニュー
+        </h2>
+        <div data-testid="restaurant-menu-divider" aria-hidden="true" className="mx-auto mt-2 w-full border-t border-amber-300/80 dark:border-amber-700/80" />
+      </header>
+      <div className="divide-y divide-amber-200/90 px-3 sm:px-5 dark:divide-amber-800/80">
+        {dishes.map((dish) => (
+          <div
+            key={dish.id}
+            data-testid={`restaurant-dish-${dish.id}`}
+            className="grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-2.5 py-2.5 text-left sm:grid-cols-[4.25rem_minmax(0,1fr)_auto] sm:gap-3 sm:py-3"
+          >
+            <DishGlyph dish={dish} className="h-12 w-12 text-2xl sm:h-14 sm:w-14 sm:text-3xl" menu />
+            <span className="font-kana min-w-0 break-words text-[clamp(1rem,4.5vw,1.25rem)] leading-snug font-bold text-amber-950 dark:text-amber-100">
+              {dish.displayKana}
+            </span>
+            <span className="whitespace-nowrap text-right text-xs font-medium tabular-nums text-amber-900/75 sm:text-sm dark:text-amber-200/75">
+              ¥{dish.priceYen}
+            </span>
+          </div>
+        ))}
+      </div>
+    </section>
   )
 }
 
