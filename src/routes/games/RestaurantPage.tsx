@@ -48,7 +48,6 @@ type ResultState =
 export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStageId }) {
   const { speak, speakAndWait, stop } = useTTS()
   const sequenceIdRef = useRef(0)
-  const previousTargetIdRef = useRef<string | undefined>(undefined)
   const dishes = RESTAURANT_DISHES.filter((dish) => dish.stage === stage)
   const [round, setRound] = useState<RestaurantRound>(() => pickRound(dishes))
   const [state, setState] = useState<ResultState>({ kind: 'idle' })
@@ -72,6 +71,7 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
   useEffect(() => {
     return () => {
       recognitionRef.current?.abort()
+      sequenceIdRef.current++
       stop()
     }
   }, [stop])
@@ -126,9 +126,7 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
   function nextOrder() {
     sequenceIdRef.current++
     stop()
-    const next = pickRound(dishes, Math.random, previousTargetIdRef.current)
-    previousTargetIdRef.current = next.target.id
-    setRound(next)
+    setRound(pickRound(dishes, Math.random, round.target.id))
     setState({ kind: 'idle' })
   }
 

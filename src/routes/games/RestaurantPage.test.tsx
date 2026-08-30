@@ -1,11 +1,11 @@
-import { render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { HIRAGANA_RESTAURANT_DISHES } from '../../data/restaurantDishes'
 import { useProgressStore } from '../../store/progressStore'
 import { RestaurantPage } from './RestaurantPage'
 
-const tts = vi.hoisted(() => ({ speak: vi.fn(), speakStaticOnly: vi.fn(), stop: vi.fn(), supported: true }))
+const tts = vi.hoisted(() => ({ speak: vi.fn(), speakAndWait: vi.fn(), speakStaticOnly: vi.fn(), stop: vi.fn(), supported: true }))
 vi.mock('../../hooks/useTTS', () => ({ useTTS: () => tts }))
 
 function renderPage() {
@@ -19,11 +19,36 @@ function renderPage() {
 beforeEach(() => {
   useProgressStore.getState().resetProgress()
   tts.speak.mockReset()
+  tts.speakAndWait.mockReset()
+  tts.stop.mockReset()
   localStorage.clear()
   // jsdom has no SpeechRecognition by default; make that explicit/stable
   // across environments instead of relying on the ambient default.
   delete (window as unknown as { SpeechRecognition?: unknown }).SpeechRecognition
   delete (window as unknown as { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+  vi.restoreAllMocks()
+})
+
+describe('RestaurantPage full-order cleanup', () => {
+  it('does not continue a full order after unmount settles its pending playback', async () => {
+    vi.useFakeTimers()
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    let settle!: () => void
+    tts.speakAndWait.mockImplementationOnce(() => new Promise<void>((resolve) => { settle = resolve }))
+    const view = renderPage()
+    fireEvent.click(screen.getByTestId('restaurant-romaji-sushi'))
+    expect(screen.getByText('Great!')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Hear the full order' }))
+    expect(tts.speakAndWait).toHaveBeenCalledTimes(1)
+    view.unmount()
+    await act(async () => { settle(); await Promise.resolve() })
+    await act(async () => { await vi.advanceTimersByTimeAsync(2000) })
+    expect(tts.speakAndWait).toHaveBeenCalledTimes(1)
+  })
 })
 
 describe('RestaurantPage', () => {
