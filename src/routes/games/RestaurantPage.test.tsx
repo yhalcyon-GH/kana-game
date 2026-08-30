@@ -16,6 +16,14 @@ function renderPage() {
   )
 }
 
+function clickTargetAnswer() {
+  const targetSrc = screen.getByAltText('Target dish').getAttribute('src')
+  const targetImage = [...screen.getByTestId('restaurant-menu').querySelectorAll('img')].find((image) => image.getAttribute('src') === targetSrc)
+  const targetId = targetImage?.closest('[data-testid^="restaurant-dish-"]')?.getAttribute('data-testid')?.replace('restaurant-dish-', '')
+  expect(targetId).toBeTruthy()
+  fireEvent.click(screen.getByTestId(`restaurant-romaji-${targetId}`))
+}
+
 beforeEach(() => {
   useProgressStore.getState().resetProgress()
   tts.speak.mockReset()
@@ -52,9 +60,77 @@ describe('RestaurantPage full-order cleanup', () => {
 })
 
 describe('RestaurantPage', () => {
+  it('uses the shared heading and one-line order template', () => {
+    renderPage()
+    expect(screen.getByRole('heading', { name: 'Order at the Restaurant' })).toBeInTheDocument()
+    expect(screen.getByTestId('restaurant-order-template')).toHaveTextContent('すみません、＿＿＿＿おねがいします。')
+    expect(screen.getByAltText('Tamamizu')).toHaveAttribute('src', expect.stringContaining('mascot/order.png'))
+  })
+
+  it('offers Try Again and Show Answer after a wrong answer', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    renderPage()
+    fireEvent.click(screen.getByTestId('restaurant-romaji-soba'))
+    expect(screen.getByRole('button', { name: 'Try Again' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Show Answer' }))
+    expect(screen.getAllByText('すし').length).toBeGreaterThanOrEqual(2)
+    expect(screen.getByText('sushi')).toBeInTheDocument()
+  })
+
+  it('keeps the session on questions 1 through 7 and shows results after question 8', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    renderPage()
+    for (let question = 1; question <= 8; question++) {
+      const targetSrc = screen.getByAltText('Target dish').getAttribute('src')
+      const targetMenuImage = [...screen.getByTestId('restaurant-menu').querySelectorAll('img')].find((image) => image.getAttribute('src') === targetSrc)
+      const targetId = targetMenuImage?.closest('[data-testid^="restaurant-dish-"]')?.getAttribute('data-testid')?.replace('restaurant-dish-', '')
+      expect(targetId).toBeTruthy()
+      fireEvent.click(screen.getByTestId(`restaurant-romaji-${targetId}`))
+      if (question < 8) {
+        expect(screen.getByText(`Question ${question} / 8`)).toBeInTheDocument()
+        fireEvent.click(screen.getByRole('button', { name: 'Next order' }))
+      } else {
+        fireEvent.click(screen.getByRole('button', { name: 'Next order' }))
+      }
+    }
+    expect(screen.getByText('Completed!')).toBeInTheDocument()
+    expect(screen.getByText('Correct: 8 / 8')).toBeInTheDocument()
+    expect(screen.getByText('Mistakes: 0')).toBeInTheDocument()
+  })
+
+  it('counts wrong then retry-correct as a mistake in the final score', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    renderPage()
+    fireEvent.click(screen.getByTestId('restaurant-romaji-soba'))
+    fireEvent.click(screen.getByRole('button', { name: 'Try Again' }))
+    fireEvent.click(screen.getByTestId('restaurant-romaji-sushi'))
+    fireEvent.click(screen.getByRole('button', { name: 'Next order' }))
+    for (let question = 2; question <= 8; question++) {
+      clickTargetAnswer()
+      fireEvent.click(screen.getByRole('button', { name: 'Next order' }))
+    }
+    expect(screen.getByText('Correct: 7 / 8')).toBeInTheDocument()
+    expect(screen.getByText('Mistakes: 1')).toBeInTheDocument()
+    expect(screen.getByText('Accuracy: 88%')).toBeInTheDocument()
+  })
+
+  it('counts Show Answer as a mistake before advancing to the final score', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    renderPage()
+    fireEvent.click(screen.getByTestId('restaurant-romaji-soba'))
+    fireEvent.click(screen.getByRole('button', { name: 'Show Answer' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next order' }))
+    for (let question = 2; question <= 8; question++) {
+      clickTargetAnswer()
+      fireEvent.click(screen.getByRole('button', { name: 'Next order' }))
+    }
+    expect(screen.getByText('Correct: 7 / 8')).toBeInTheDocument()
+    expect(screen.getByText('Mistakes: 1')).toBeInTheDocument()
+    expect(screen.getByText('Accuracy: 88%')).toBeInTheDocument()
+  })
   it('renders without crashing', () => {
     renderPage()
-    expect(screen.getByText('ひらがなレストラン')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Order at the Restaurant' })).toBeInTheDocument()
   })
 
   it('renders 4 unique dish cards in the menu', () => {

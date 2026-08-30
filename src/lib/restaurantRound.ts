@@ -5,6 +5,15 @@ export type RestaurantRound = {
   target: RestaurantDish
 }
 
+export function shuffleRestaurantChoices(dishes: RestaurantDish[], rng: () => number = Math.random): RestaurantDish[] {
+  const shuffled = [...dishes]
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const idx = Math.min(i, Math.max(0, Math.floor(rng() * (i + 1))))
+    ;[shuffled[i], shuffled[idx]] = [shuffled[idx], shuffled[i]]
+  }
+  return shuffled
+}
+
 // Picks 4 unique dishes from the pool (Fisher–Yates partial shuffle) then
 // one of those 4 as the target to order. `rng` defaults to Math.random but
 // is injectable so tests can supply a deterministic sequence — see
