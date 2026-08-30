@@ -74,6 +74,13 @@ function renderPage(start = true) {
   return view
 }
 
+function renderSpeechPage() {
+  const view = renderPage(false)
+  fireEvent.click(screen.getByRole('button', { name: 'Start' }))
+  expect(screen.queryByTestId('restaurant-romaji-fallback')).not.toBeInTheDocument()
+  return view
+}
+
 function clickTargetAnswer() {
   if (!screen.queryByTestId('restaurant-romaji-fallback')) fireEvent.click(screen.getByRole('button', { name: 'Choose in Romaji' }))
   const targetIds = screen.getAllByTestId(/^restaurant-target-(?!bubble)/).map((node) => node.getAttribute('data-testid')?.replace('restaurant-target-', ''))
@@ -87,6 +94,41 @@ function clickWrongAnswer() {
   const id = wrong?.closest('[data-testid^="restaurant-dish-"]')?.getAttribute('data-testid')?.replace('restaurant-dish-', '')
   expect(id).toBeTruthy()
   fireEvent.click(screen.getByTestId(`restaurant-romaji-${id}`))
+}
+
+function currentWrongMenuDish() {
+  const targetIds = new Set(currentTargetDishes().map((dish) => dish.id))
+  const id = [...screen.getByTestId('restaurant-menu').querySelectorAll('[data-testid^="restaurant-dish-"]')]
+    .map((node) => node.getAttribute('data-testid')!.replace('restaurant-dish-', ''))
+    .find((candidate) => !targetIds.has(candidate))!
+  return HIRAGANA_RESTAURANT_DISHES.find((dish) => dish.id === id)!
+}
+
+function finishSessionWithCorrectRomajiAnswers() {
+  fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+  for (let question = 2; question <= 8; question++) {
+    clickTargetAnswer()
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+  }
+}
+
+function finishSessionFromQuestionFive() {
+  fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+  for (let question = 6; question <= 8; question++) {
+    clickTargetAnswer()
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+  }
+}
+
+function clickWrongTwoDishAnswer() {
+  const targetIds = new Set(currentTargetDishes().map((dish) => dish.id))
+  const menuIds = [...screen.getByTestId('restaurant-menu').querySelectorAll('[data-testid^="restaurant-dish-"]')]
+    .map((node) => node.getAttribute('data-testid')!.replace('restaurant-dish-', ''))
+    .filter((id) => !targetIds.has(id))
+  expect(menuIds.length).toBeGreaterThanOrEqual(2)
+  fireEvent.click(screen.getByTestId(`restaurant-romaji-${menuIds[0]}`))
+  fireEvent.click(screen.getByTestId(`restaurant-romaji-${menuIds[1]}`))
+  fireEvent.click(screen.getByRole('button', { name: 'Order' }))
 }
 
 beforeEach(() => {
@@ -206,12 +248,13 @@ describe('RestaurantPage', () => {
     expect(targetPositions.size).toBeGreaterThan(1)
   })
 
-  it('offers Try Again and Show Answer after a wrong answer', () => {
+  it('treats an initial Romaji wrong answer as final and offers only Show Answer', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0)
     renderPage()
     clickWrongAnswer()
     expect(mascotSource()).toContain('mascot/incorrect.webp')
-    expect(screen.getByRole('button', { name: 'Try Again' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Try Again' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Show Romaji' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Show Answer' }))
     expect(mascotSource()).toContain('mascot/incorrect.webp')
     expect(screen.getAllByText('sushi').length).toBeGreaterThan(0)
@@ -239,22 +282,6 @@ describe('RestaurantPage', () => {
     expect(screen.getByText('Completed!')).toBeInTheDocument()
     expect(screen.getByText('Correct: 8 / 8')).toBeInTheDocument()
     expect(screen.getByText('Mistakes: 0')).toBeInTheDocument()
-  })
-
-  it('counts wrong then retry-correct as a mistake in the final score', () => {
-    vi.spyOn(Math, 'random').mockReturnValue(0)
-    renderPage()
-    clickWrongAnswer()
-    fireEvent.click(screen.getByRole('button', { name: 'Try Again' }))
-    fireEvent.click(screen.getByTestId('restaurant-romaji-sushi'))
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
-    for (let question = 2; question <= 8; question++) {
-      clickTargetAnswer()
-      fireEvent.click(screen.getByRole('button', { name: 'Next' }))
-    }
-    expect(screen.getByText('Correct: 7 / 8')).toBeInTheDocument()
-    expect(screen.getByText('Mistakes: 1')).toBeInTheDocument()
-    expect(screen.getByText('Accuracy: 88%')).toBeInTheDocument()
   })
 
   it('counts Show Answer as a mistake before advancing to the final score', () => {
@@ -422,16 +449,169 @@ describe('RestaurantPage SpeechRecognition lifecycle', () => {
     expect(screen.queryByText('Great!')).not.toBeInTheDocument()
   })
 
-  it('aborts the old recognizer before starting speech again', async () => {
+  it('shows the one-time speech rescue controls after a first wrong speech result', async () => {
     vi.spyOn(Math, 'random').mockReturnValue(0)
-    renderWithSpeech()
+    installFakeSpeechRecognition()
+    renderSpeechPage()
     const first = await startSpeech()
-    clickWrongAnswer()
+    act(() => first.result({ transcript: currentWrongMenuDish().displayKana }))
+    expect(screen.getByText("That's not quite it.")).toBeInTheDocument()
+    expect(mascotSource()).toContain('mascot/incorrect.webp')
+    expect(screen.getByRole('button', { name: 'Try Again' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Show Romaji' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Show Answer' })).toBeInTheDocument()
+  })
+
+  it('starts exactly one new recognizer immediately when Try Again is clicked', async () => {
+    installFakeSpeechRecognition()
+    renderSpeechPage()
+    const first = await startSpeech()
+    act(() => first.error())
     fireEvent.click(screen.getByRole('button', { name: 'Try Again' }))
     expect(first.abort).toHaveBeenCalledTimes(1)
-    const second = await startSpeech()
+    expect(FakeSpeechRecognition.instances).toHaveLength(2)
+    const second = FakeSpeechRecognition.instances[1]
     expect(second).not.toBe(first)
     expect(second.start).toHaveBeenCalledTimes(1)
+    expect(screen.getByTestId('restaurant-speak-button')).toHaveTextContent('Listening')
+  })
+
+  it('does not offer another retry after a second speech failure', async () => {
+    installFakeSpeechRecognition()
+    renderSpeechPage()
+    const first = await startSpeech()
+    act(() => first.error())
+    fireEvent.click(screen.getByRole('button', { name: 'Try Again' }))
+    act(() => FakeSpeechRecognition.instances[1].error())
+    expect(screen.queryByRole('button', { name: 'Try Again' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Show Romaji' })).toBeInTheDocument()
+  })
+
+  it('recovers successfully through Romaji after both speech attempts fail', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    installFakeSpeechRecognition()
+    renderSpeechPage()
+    const first = await startSpeech()
+    act(() => first.error())
+    fireEvent.click(screen.getByRole('button', { name: 'Try Again' }))
+    const second = FakeSpeechRecognition.instances[1]
+    act(() => second.error())
+    expect(screen.queryByRole('button', { name: 'Try Again' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Show Romaji' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Show Answer' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Show Romaji' }))
+    clickTargetAnswer()
+    expect(screen.getByText('Great!')).toBeInTheDocument()
+    finishSessionWithCorrectRomajiAnswers()
+    expect(screen.getByText('Correct: 8 / 8')).toBeInTheDocument()
+    expect(screen.getByText('Mistakes: 0')).toBeInTheDocument()
+  })
+
+  it('keeps a recovered retry answer correct in the final summary', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    installFakeSpeechRecognition()
+    renderSpeechPage()
+    const first = await startSpeech()
+    act(() => first.error())
+    fireEvent.click(screen.getByRole('button', { name: 'Try Again' }))
+    const [target] = currentTargetDishes()
+    act(() => FakeSpeechRecognition.instances[1].result({ transcript: target.displayKana }))
+    expect(screen.getByText('Great!')).toBeInTheDocument()
+    finishSessionWithCorrectRomajiAnswers()
+    expect(screen.getByText('Correct: 8 / 8')).toBeInTheDocument()
+    expect(screen.getByText('Mistakes: 0')).toBeInTheDocument()
+  })
+
+  it('uses Show Romaji after speech failure without recording an interim mistake', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    installFakeSpeechRecognition()
+    renderSpeechPage()
+    const recognizer = await startSpeech()
+    act(() => recognizer.error())
+    fireEvent.click(screen.getByRole('button', { name: 'Show Romaji' }))
+    expect(screen.getByTestId('restaurant-romaji-fallback')).toBeInTheDocument()
+    clickTargetAnswer()
+    expect(screen.getByText('Great!')).toBeInTheDocument()
+    finishSessionWithCorrectRomajiAnswers()
+    expect(screen.getByText('Correct: 8 / 8')).toBeInTheDocument()
+    expect(screen.getByText('Mistakes: 0')).toBeInTheDocument()
+  })
+
+  it('finalizes Show Answer exactly once after a speech failure', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    installFakeSpeechRecognition()
+    renderSpeechPage()
+    const recognizer = await startSpeech()
+    act(() => recognizer.error())
+    fireEvent.click(screen.getByRole('button', { name: 'Show Answer' }))
+    expect(mascotSource()).toContain('mascot/incorrect.webp')
+    finishSessionWithCorrectRomajiAnswers()
+    expect(screen.getByText('Correct: 7 / 8')).toBeInTheDocument()
+    expect(screen.getByText('Mistakes: 1')).toBeInTheDocument()
+  })
+
+  it('finalizes a wrong Romaji rescue and offers only Show Answer', async () => {
+    installFakeSpeechRecognition()
+    renderSpeechPage()
+    const recognizer = await startSpeech()
+    act(() => recognizer.error())
+    fireEvent.click(screen.getByRole('button', { name: 'Show Romaji' }))
+    fireEvent.click(screen.getByTestId(`restaurant-romaji-${currentWrongMenuDish().id}`))
+    expect(screen.queryByRole('button', { name: 'Try Again' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Show Romaji' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Show Answer' })).toBeInTheDocument()
+  })
+
+  it('supports the speech-to-Romaji rescue flow for a two-dish question', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    installFakeSpeechRecognition()
+    renderSpeechPage()
+    for (let question = 1; question < 5; question++) {
+      fireEvent.click(screen.getByRole('button', { name: 'Choose in Romaji' }))
+      clickTargetAnswer()
+      fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    }
+    const recognizer = await startSpeech()
+    act(() => recognizer.error())
+    fireEvent.click(screen.getByRole('button', { name: 'Show Romaji' }))
+    clickTargetAnswer()
+    expect(screen.getByText('Great!')).toBeInTheDocument()
+  })
+
+  it('recovers a Q5 two-dish question with a successful speech retry', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    installFakeSpeechRecognition()
+    renderSpeechPage()
+    advanceToQuestion5()
+    const first = await startSpeech()
+    act(() => first.error())
+    fireEvent.click(screen.getByRole('button', { name: 'Try Again' }))
+    expect(FakeSpeechRecognition.instances).toHaveLength(2)
+    expect(currentTargetDishes()).toHaveLength(2)
+    const [firstTarget, secondTarget] = currentTargetDishes()
+    act(() => FakeSpeechRecognition.instances[1].result({ transcript: `${firstTarget.displayKana}と${secondTarget.displayKana}おねがいします` }))
+    expect(screen.getByText('Great!')).toBeInTheDocument()
+    finishSessionFromQuestionFive()
+    expect(screen.getByText('Correct: 8 / 8')).toBeInTheDocument()
+    expect(screen.getByText('Mistakes: 0')).toBeInTheDocument()
+  })
+
+  it('records one mistake for a wrong Q5 Romaji rescue pair even after Show Answer', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    installFakeSpeechRecognition()
+    renderSpeechPage()
+    advanceToQuestion5()
+    const recognizer = await startSpeech()
+    act(() => recognizer.error())
+    fireEvent.click(screen.getByRole('button', { name: 'Show Romaji' }))
+    clickWrongTwoDishAnswer()
+    expect(mascotSource()).toContain('mascot/incorrect.webp')
+    expect(screen.queryByRole('button', { name: 'Try Again' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Show Romaji' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Show Answer' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Show Answer' }))
+    finishSessionFromQuestionFive()
+    expect(screen.getByText('Mistakes: 1')).toBeInTheDocument()
   })
 
   it('ignores an old onresult after Next changes the question', async () => {
@@ -461,14 +641,18 @@ describe('RestaurantPage SpeechRecognition lifecycle', () => {
     expect(tts.speak).not.toHaveBeenCalledWith('restaurant/staff/kashikomarimashita', 'かしこまりました。')
   })
 
-  it('allows a fresh Speak after Try Again', async () => {
-    renderWithSpeech()
+  it('ignores callbacks from the failed recognizer after immediate retry', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    installFakeSpeechRecognition()
+    renderSpeechPage()
     const first = await startSpeech()
     act(() => first.error())
     fireEvent.click(screen.getByRole('button', { name: 'Try Again' }))
-    const second = await startSpeech()
-    expect(FakeSpeechRecognition.instances).toHaveLength(2)
-    expect(second.start).toHaveBeenCalledTimes(1)
+    const [target] = currentTargetDishes()
+    act(() => first.result({ transcript: target.displayKana }))
+    expect(screen.getByTestId('restaurant-speak-button')).toHaveTextContent('Listening')
+    act(() => FakeSpeechRecognition.instances[1].result({ transcript: target.displayKana }))
+    expect(screen.getByText('Great!')).toBeInTheDocument()
   })
 
   it('aborts the active recognizer when the question changes', async () => {
@@ -497,7 +681,7 @@ describe('RestaurantPage progress isolation', () => {
     // Click a button that isn't guaranteed correct — assert isolation
     // regardless of which one it happens to be.
     buttons[0].click()
-    expect(await screen.findByText(/try again|great!/i)).toBeInTheDocument()
+    expect(await screen.findByText(/show answer|great!/i)).toBeInTheDocument()
     expect(snapshotProgress()).toBe(before.progress)
     expect(snapshotSaved()).toBe(before.saved)
   })
