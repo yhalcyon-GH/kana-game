@@ -13,6 +13,7 @@ import type { QuestionMode } from '../../data/feedback'
 import type { AnchorWord } from '../../data/types'
 import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
+import { useDelayedAction } from '../../hooks/useDelayedAction'
 import { useEnterAdvance } from '../../hooks/useEnterAdvance'
 import { useFrozenWordPool } from '../../hooks/useFrozenWordPool'
 import { useGameSession } from '../../hooks/useGameSession'
@@ -106,6 +107,14 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
 
   const { queue, roundIndex, correctCount, setCorrectCount, finished, startMistakeReview, advance } =
     useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession, rounds, sessionKey, buildQueue })
+  const { schedule: scheduleAdvance, cancel: cancelAdvance } = useDelayedAction()
+  // See KanaQuizPage's identical comment: cancels the correct-answer
+  // auto-advance timer before advancing, so a manual click never fires
+  // alongside it.
+  const handleNext = useCallback(() => {
+    cancelAdvance()
+    advance()
+  }, [cancelAdvance, advance])
 
   const [slots, setSlots] = useState<(string | null)[]>([])
   const [tray, setTray] = useState<TrayTile[]>([])
@@ -210,8 +219,8 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
       setStatus('correct')
       setCorrectCount((c) => c + 1)
       onCorrect()
-      const timer = setTimeout(advance, 2000)
-      return () => clearTimeout(timer)
+      scheduleAdvance(advance, 2000)
+      return
     }
 
     // One attempt per word — a miss reveals the answer and waits for the
@@ -330,33 +339,29 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
               <span className={`font-kana font-bold whitespace-nowrap ${tile && [...tile.glyph].length > 1 ? 'text-base' : 'text-2xl'}`}>
                 {tile ? tile.glyph : ''}
               </span>
-              {status !== 'playing' && tile && (
-                <span className="text-xs font-normal text-neutral-500 dark:text-neutral-400">
-                  {kanaToRomaji(tile.glyph)}
-                </span>
-              )}
+              <span
+                className={`text-xs font-normal text-neutral-500 dark:text-neutral-400 ${
+                  status !== 'playing' && tile ? 'visible' : 'invisible'
+                }`}
+                aria-hidden={!(status !== 'playing' && tile)}
+              >
+                {tile ? kanaToRomaji(tile.glyph) : ' '}
+              </span>
             </button>
           )
         })}
       </div>
 
+      <div className="min-h-[3.5rem] flex items-center justify-center" aria-hidden={status !== 'wrong'}>
+        {status === 'wrong' && <AnswerReveal characterIds={currentWord.characterIds} />}
+      </div>
+
       <AnswerFeedbackRow
         mood={mood}
-        left={status === 'wrong' && <AnswerReveal characterIds={currentWord.characterIds} />}
+        showNext={status === 'correct' || status === 'wrong'}
+        onNext={handleNext}
+        saveControl={status === 'wrong' ? <SaveWordToggle wordId={currentWord.id} kana={currentWord.kana} /> : undefined}
       />
-
-      {status === 'wrong' && (
-        <>
-          <SaveWordToggle wordId={currentWord.id} kana={currentWord.kana} />
-          <button
-            type="button"
-            onClick={advance}
-            className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
-          >
-            Next
-          </button>
-        </>
-      )}
 
       <div className="flex flex-wrap justify-center gap-2">
         {tray.map((tile) => (

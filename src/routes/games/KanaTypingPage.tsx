@@ -91,7 +91,14 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
 
   const { queue, roundIndex, correctCount, setCorrectCount, finished, startMistakeReview, advance } =
     useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession, rounds, sessionKey, buildQueue })
-  const { schedule: scheduleAdvance } = useDelayedAction()
+  const { schedule: scheduleAdvance, cancel: cancelAdvance } = useDelayedAction()
+  // See KanaQuizPage's identical comment: cancels the correct-answer
+  // auto-advance timer before advancing, so a manual click never fires
+  // alongside it.
+  const handleNext = useCallback(() => {
+    cancelAdvance()
+    advance()
+  }, [cancelAdvance, advance])
 
   const [input, setInput] = useState('')
   const [answered, setAnswered] = useState(false)
@@ -227,22 +234,16 @@ export function KanaTypingPage({ rowIdOverride }: Props = {}) {
         )}
       </form>
 
+      <div className="min-h-[3.5rem] flex items-center justify-center" aria-hidden={!(answered && !wasCorrect)}>
+        {answered && !wasCorrect && <AnswerReveal characterIds={currentWord.characterIds} />}
+      </div>
+
       <AnswerFeedbackRow
         mood={mood}
-        left={answered && !wasCorrect && <AnswerReveal characterIds={currentWord.characterIds} />}
+        showNext={answered}
+        onNext={handleNext}
+        saveControl={answered && !wasCorrect ? <SaveWordToggle wordId={currentWord.id} kana={currentWord.kana} /> : undefined}
       />
-
-      {answered && !wasCorrect && <SaveWordToggle wordId={currentWord.id} kana={currentWord.kana} />}
-
-      {answered && !wasCorrect && (
-        <button
-          type="button"
-          onClick={advance}
-          className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
-        >
-          Next
-        </button>
-      )}
     </div>
   )
 }

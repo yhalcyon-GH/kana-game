@@ -1,4 +1,4 @@
-import { act, fireEvent, render } from '@testing-library/react'
+import { act, fireEvent, render, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHARACTERS_BY_ID } from '../../data/characters'
@@ -314,9 +314,9 @@ describe('WordBuilderPage result summary (correct/total count)', () => {
 
   // Fills every empty slot with tray tiles (mode-agnostic, like
   // clickThroughWordBuilderRound) and tallies real correctness from the
-  // DOM: a correct round auto-advances (no actionable Next button — see
-  // this page's per-character-attribution tests above), a wrong one shows
-  // one.
+  // DOM. Next now renders on BOTH correct and wrong rounds (see
+  // AnswerFeedbackRow's showNext), so correctness is read from whether the
+  // Save toggle (wrong-only) appears, not from Next's presence.
   function playSessionTallyingCorrectness(container: HTMLElement, rounds: number): number {
     const availableTrayButtons = () =>
       Array.from(container.querySelectorAll('button.font-kana:not(.border-dashed):not([disabled])')) as HTMLButtonElement[]
@@ -332,13 +332,10 @@ describe('WordBuilderPage result summary (correct/total count)', () => {
         act(() => fireEvent.click(next))
         guard += 1
       }
-      const nextButton = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('Next'))
-      if (nextButton) {
-        act(() => fireEvent.click(nextButton))
-      } else {
-        correct += 1
-        act(() => vi.advanceTimersByTime(2000))
-      }
+      const isWrong = !!container.querySelector('input[type="checkbox"]')
+      if (!isWrong) correct += 1
+      const nextButton = within(container).getByRole('button', { name: /^next$/i })
+      act(() => fireEvent.click(nextButton))
     }
     return correct
   }
@@ -381,13 +378,10 @@ describe('WordBuilderPage result summary (correct/total count)', () => {
         act(() => fireEvent.click(next))
         fillGuard += 1
       }
+      const isWrong = !!container.querySelector('input[type="checkbox"]')
+      if (!isWrong) correct += 1
       const nextButton = Array.from(container.querySelectorAll('button')).find((b) => b.textContent?.includes('Next'))
-      if (nextButton) {
-        act(() => fireEvent.click(nextButton))
-      } else {
-        correct += 1
-        act(() => vi.advanceTimersByTime(2000))
-      }
+      if (nextButton) act(() => fireEvent.click(nextButton))
       guard += 1
     }
 

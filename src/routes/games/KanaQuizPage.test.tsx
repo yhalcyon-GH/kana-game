@@ -232,12 +232,17 @@ describe('KanaQuizPage Recall round behavior', () => {
     expect(container.querySelector('.font-kana.text-7xl')).toBeNull()
     expect(container.querySelector('[aria-label="Replay audio"]')).not.toBeNull()
 
-    // Issue #19: the target romaji stays hidden until answered, same as the
-    // kana itself — Recall's only prompt is the audio.
+    // Issue #19: the target romaji stays visually hidden until answered,
+    // same as the kana itself — Recall's only prompt is the audio. Its
+    // line height is reserved up front (see the layout-shift fix), so the
+    // label span itself is present in the DOM before answering — it just
+    // stays invisible/aria-hidden until then, rather than being
+    // added/removed.
     const romajiValuesBeforeAnswer = Object.values(CHARACTERS_BY_ID).map((c) => c.displayLabel ?? c.romaji)
-    expect(
-      Array.from(container.querySelectorAll('span')).some((el) => romajiValuesBeforeAnswer.includes(el.textContent ?? '')),
-    ).toBe(false)
+    const visibleRomajiSpans = Array.from(container.querySelectorAll('span')).filter(
+      (el) => romajiValuesBeforeAnswer.includes(el.textContent ?? '') && !el.classList.contains('invisible'),
+    )
+    expect(visibleRomajiSpans).toHaveLength(0)
 
     const choiceButtons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
     expect(choiceButtons.length).toBeGreaterThan(0)
@@ -421,22 +426,18 @@ describe('KanaQuizPage Recommended Path completion (Issue #11)', () => {
 // — see "fix: redesign practice result summary".
 describe('KanaQuizPage result summary (correct/total count)', () => {
   // Clicks the FIRST choice every round (mode-agnostic) and tallies real
-  // correctness from the DOM: a correct answer never shows an actionable
-  // Next button (it auto-advances after 2000ms — see the "Next button
-  // flash" regression tests above), a wrong one does. This gives a ground
-  // truth correct count without needing to know the target answer.
+  // correctness from the DOM. Next now renders on BOTH correct and wrong
+  // rounds (see AnswerFeedbackRow's showNext), so correctness is read from
+  // whether the Save toggle (wrong-only) appears, not from Next's presence.
   function playSessionTallyingCorrectness(container: HTMLElement, rounds: number): number {
     let correct = 0
     for (let round = 0; round < rounds; round++) {
       const buttons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
       act(() => fireEvent.click(buttons[0]))
-      const next = within(container).queryByRole('button', { name: /^next$/i })
-      if (next === null) {
-        correct += 1
-        act(() => vi.advanceTimersByTime(2000))
-      } else {
-        act(() => fireEvent.click(next))
-      }
+      const isWrong = !!container.querySelector('input[type="checkbox"]')
+      if (!isWrong) correct += 1
+      const next = within(container).getByRole('button', { name: /^next$/i })
+      act(() => fireEvent.click(next))
     }
     return correct
   }
@@ -464,13 +465,10 @@ describe('KanaQuizPage result summary (correct/total count)', () => {
     while (!container.textContent?.includes('complete!') && guard < 20) {
       const buttons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
       act(() => fireEvent.click(buttons[0]))
+      const isWrong = !!container.querySelector('input[type="checkbox"]')
+      if (!isWrong) correct += 1
       const next = within(container).queryByRole('button', { name: /^next$/i })
-      if (next) {
-        act(() => fireEvent.click(next))
-      } else {
-        correct += 1
-        act(() => vi.advanceTimersByTime(2000))
-      }
+      if (next) act(() => fireEvent.click(next))
       guard += 1
     }
 
@@ -484,24 +482,28 @@ describe('KanaQuizPage result summary (correct/total count)', () => {
 })
 
 // Regression test for the mobile "Next button flash" bug (see PR
-// description): answering CORRECTLY schedules a 2000ms auto-advance and
-// must never render an actionable "Next" button at all — before, during,
-// or across the round transition it triggers. The underlying bug was that
-// `answered`/`selectedId` are round-local state that used to only get
-// reset by a per-round effect keyed on the new round's id — so for the one
-// render where roundIndex has already advanced but that reset effect
-// hasn't run yet, the OLD `selectedId` no longer equals the NEW
-// currentCharId, and the "Next" button's condition (`answered &&
-// selectedId !== currentCharId`) would spuriously read true. The fix adds
-// `answeredForId`, set alongside `answered`, so the button only ever shows
-// when the answered state genuinely belongs to the round currently on
-// screen.
-describe('KanaQuizPage — no Next-button flash after a correct answer', () => {
-  it('never renders an actionable Next button across several correct-answer auto-advances in a row', () => {
+// description), updated for the new "Next shown on correct too" behavior
+// (see AnswerFeedbackRow's showNext). Next now legitimately appears right
+// after a correct answer (alongside the still-running 2000ms auto-advance
+// timer) — this instead guards that it never carries over STALE into a
+// fresh, not-yet-answered round. The underlying bug was that `answered`/
+// `selectedId` are round-local state that used to only get reset by a
+// per-round effect keyed on the new round's id — so for the one render
+// where roundIndex has already advanced but that reset effect hasn't run
+// yet, the OLD `selectedId` no longer equals the NEW currentCharId, and the
+// "Next" button's condition would spuriously read true. The fix adds
+// `answeredForRoundIndex`, set alongside `answered`, so the button only
+// ever shows when the answered state genuinely belongs to the round
+// currently on screen.
+describe('KanaQuizPage — no stale Next-button carryover after a correct answer', () => {
+  it('shows exactly one Next button right after answering, and none in the fresh unanswered round that follows', () => {
     vi.useFakeTimers()
     const { container } = renderRowQuiz()
 
     for (let round = 0; round < 6; round++) {
+      // Not yet answered this round — no Next button.
+      expect(within(container).queryByRole('button', { name: /^next$/i })).toBeNull()
+
       const isRead = currentRoundMode(container) === 'read'
       let correctButton: HTMLButtonElement
       if (isRead) {
@@ -517,29 +519,28 @@ describe('KanaQuizPage — no Next-button flash after a correct answer', () => {
         // state — determine it via the store's live audio target isn't
         // exposed, so instead just answer with the FIRST choice and
         // detect whether it was correct from the DOM after clicking; if
-        // wrong, immediately move past it with the resulting Next button
-        // (correctness itself is asserted by other tests) — this loop
-        // only cares that no button renders as "Next" during any correct
-        // auto-advance window.
+        // wrong, immediately move past it manually (correctness itself is
+        // asserted by other tests) — this loop only cares that Next never
+        // carries over stale into an unanswered round.
         correctButton = Array.from(container.querySelectorAll('.grid button'))[0] as HTMLButtonElement
       }
 
       act(() => fireEvent.click(correctButton))
-      // Immediately after answering, and at every point while the
-      // 2000ms auto-advance timer is pending, there must be no
-      // interactive Next button if the answer was correct.
-      const nextRightAfterAnswer = within(container).queryByRole('button', { name: /^next$/i })
-      const wasCorrect = nextRightAfterAnswer === null
+      // Answered — Next appears immediately, exactly once.
+      expect(within(container).getAllByRole('button', { name: /^next$/i })).toHaveLength(1)
+
+      const wasCorrect = !container.querySelector('input[type="checkbox"]')
       if (wasCorrect) {
         act(() => vi.advanceTimersByTime(1000))
-        expect(within(container).queryByRole('button', { name: /^next$/i })).toBeNull()
+        expect(within(container).getAllByRole('button', { name: /^next$/i })).toHaveLength(1)
+        // Auto-advance timer fires here, moving into a brand-new unanswered
+        // round — the Next button must not carry over.
         act(() => vi.advanceTimersByTime(1000))
-        // Now on the next round entirely — still no stray Next button.
         expect(within(container).queryByRole('button', { name: /^next$/i })).toBeNull()
       } else {
         // A genuinely wrong answer's Next button IS actionable — clear it
         // manually and move on, same as every other test in this file.
-        act(() => fireEvent.click(nextRightAfterAnswer!))
+        act(() => fireEvent.click(within(container).getByRole('button', { name: /^next$/i })))
       }
     }
     vi.useRealTimers()
