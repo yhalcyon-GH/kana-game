@@ -27,9 +27,15 @@ export class StaticFileProvider implements SpeechProvider {
   // played on top of the new request's real clip: two different voices
   // audibly overlapping for the same character.
   private requestId = 0
+  private pendingCompletion: (() => void) | null = null
+  private settleCompletion() {
+    this.pendingCompletion?.()
+    this.pendingCompletion = null
+  }
 
   stop() {
     this.requestId++
+    this.settleCompletion()
     if (!this.audioEl) return
     this.audioEl.pause()
     this.audioEl.currentTime = 0
@@ -37,8 +43,13 @@ export class StaticFileProvider implements SpeechProvider {
 
   waitForEnd(): Promise<void> {
     if (!this.audioEl) return Promise.resolve()
+    const id = this.requestId
     return new Promise((resolve) => {
-      this.audioEl!.addEventListener('ended', () => resolve(), { once: true })
+      this.settleCompletion()
+      this.pendingCompletion = () => resolve()
+      this.audioEl!.addEventListener('ended', () => {
+        if (id === this.requestId) this.settleCompletion()
+      }, { once: true })
     })
   }
 
@@ -58,6 +69,7 @@ export class StaticFileProvider implements SpeechProvider {
 
   speak(request: SpeechRequest, options: SpeechPlaybackOptions): Promise<void> {
     const { audioEl, gainNode } = this.ensureGraph()
+    this.settleCompletion()
     const id = ++this.requestId
     return new Promise((resolve, reject) => {
       // A superseded request (a newer speak() call already reassigned

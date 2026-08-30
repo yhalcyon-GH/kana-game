@@ -42,4 +42,10 @@ describe('pickRound', () => {
     expect(menu).toHaveLength(4)
     expect(target).toBeDefined()
   })
+
+  it('avoids repeating the previous target when another menu item is available', () => {
+    const first = pickRound(HIRAGANA_RESTAURANT_DISHES, () => 0)
+    const next = pickRound(HIRAGANA_RESTAURANT_DISHES, () => 0, first.target.id)
+    expect(next.target.id).not.toBe(first.target.id)
+  })
 })

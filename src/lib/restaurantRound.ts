@@ -9,7 +9,7 @@ export type RestaurantRound = {
 // one of those 4 as the target to order. `rng` defaults to Math.random but
 // is injectable so tests can supply a deterministic sequence — see
 // restaurantRound.test.ts.
-export function pickRound(dishes: RestaurantDish[], rng: () => number = Math.random): RestaurantRound {
+export function pickRound(dishes: RestaurantDish[], rng: () => number = Math.random, previousTargetId?: string): RestaurantRound {
   if (dishes.length < 4) {
     throw new Error(`pickRound needs at least 4 dishes, got ${dishes.length}`)
   }
@@ -19,6 +19,7 @@ export function pickRound(dishes: RestaurantDish[], rng: () => number = Math.ran
     const idx = Math.min(pool.length - 1, Math.max(0, Math.floor(rng() * pool.length)))
     menu.push(...pool.splice(idx, 1))
   }
-  const targetIdx = Math.min(menu.length - 1, Math.max(0, Math.floor(rng() * menu.length)))
-  return { menu, target: menu[targetIdx] }
+  const targetCandidates = previousTargetId ? menu.filter((dish) => dish.id !== previousTargetId) : menu
+  const targetIdx = Math.min(targetCandidates.length - 1, Math.max(0, Math.floor(rng() * targetCandidates.length)))
+  return { menu, target: targetCandidates[targetIdx] }
 }

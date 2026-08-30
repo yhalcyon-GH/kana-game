@@ -48,6 +48,7 @@ type ResultState =
 export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStageId }) {
   const { speak, speakAndWait, stop } = useTTS()
   const sequenceIdRef = useRef(0)
+  const previousTargetIdRef = useRef<string | undefined>(undefined)
   const dishes = RESTAURANT_DISHES.filter((dish) => dish.stage === stage)
   const [round, setRound] = useState<RestaurantRound>(() => pickRound(dishes))
   const [state, setState] = useState<ResultState>({ kind: 'idle' })
@@ -125,7 +126,9 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
   function nextOrder() {
     sequenceIdRef.current++
     stop()
-    setRound(pickRound(dishes))
+    const next = pickRound(dishes, Math.random, previousTargetIdRef.current)
+    previousTargetIdRef.current = next.target.id
+    setRound(next)
     setState({ kind: 'idle' })
   }
 
@@ -207,7 +210,7 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
             <>
               <p className="text-lg font-bold text-green-600 dark:text-green-400">Great!</p>
               <div className="flex gap-2">
-                <button type="button" onClick={() => speak(round.target.audioPath.replace(/^\/audio\//, '').replace(/\.wav$/, ''), round.target.displayKana)} className="rounded-full border px-3 py-1 text-sm">Hear the dish</button>
+                <button type="button" onClick={() => { sequenceIdRef.current++; stop(); speak(round.target.audioPath.replace(/^\/audio\//, '').replace(/\.wav$/, ''), round.target.displayKana) }} className="rounded-full border px-3 py-1 text-sm">Hear the dish</button>
                 <button type="button" onClick={hearFullOrder} className="rounded-full border px-3 py-1 text-sm">Hear the full order</button>
               </div>
               <button
