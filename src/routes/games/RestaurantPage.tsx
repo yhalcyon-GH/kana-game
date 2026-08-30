@@ -1,0 +1,261 @@
+import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { Mascot } from '../../components/Mascot'
+import { HIRAGANA_RESTAURANT_DISHES, type RestaurantDish } from '../../data/restaurantDishes'
+import { useTTS } from '../../hooks/useTTS'
+import { pickRound, type RestaurantRound } from '../../lib/restaurantRound'
+import { checkOrderAlternatives, type OrderCheckResult } from '../../lib/restaurantMatching'
+
+// Minimal ambient typing for the (still-experimental, vendor-prefixed) Web
+// Speech API — not present in the TS DOM lib. Deliberately only the surface
+// this component actually uses; no dependency on the newer
+// SpeechRecognition.available()/install()/processLocally() APIs per spec.
+type SpeechRecognitionAlternative = { transcript: string }
+type SpeechRecognitionResultLike = { [index: number]: SpeechRecognitionAlternative; length: number }
+type SpeechRecognitionEventLike = { results: { [index: number]: SpeechRecognitionResultLike; length: number } }
+type SpeechRecognitionErrorEventLike = { error: string }
+type SpeechRecognitionLike = {
+  lang: string
+  continuous: boolean
+  interimResults: boolean
+  maxAlternatives: number
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null
+  onend: (() => void) | null
+  start: () => void
+  abort: () => void
+}
+type SpeechRecognitionCtor = new () => SpeechRecognitionLike
+
+function getSpeechRecognitionCtor(): SpeechRecognitionCtor | null {
+  const w = window as unknown as { SpeechRecognition?: SpeechRecognitionCtor; webkitSpeechRecognition?: SpeechRecognitionCtor }
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null
+}
+
+type ResultState =
+  | { kind: 'idle' }
+  | { kind: 'listening' }
+  | { kind: 'result'; transcript: string | null; check: OrderCheckResult }
+
+// A small, standalone, repeatable "order the dish from the menu" mini-game
+// (Issue: Hiragana Restaurant prototype). Deliberately outside the
+// curriculum/row/Recommended-Path/Review/SRS/Saved system entirely — see
+// data/restaurantDishes.ts's comment and this component's total lack of any
+// useProgressStore/useCurriculum/savedItemsStore import. It never marks
+// anything taught, mastered, reviewed, or completed; it's just a repeatable
+// vocabulary-recognition game the learner can play as many times as they
+// like from the Hiragana overview page.
+export function RestaurantPage() {
+  const { speak } = useTTS()
+  const [round, setRound] = useState<RestaurantRound>(() => pickRound(HIRAGANA_RESTAURANT_DISHES))
+  const [state, setState] = useState<ResultState>({ kind: 'idle' })
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
+  const [speechSupported, setSpeechSupported] = useState(false)
+
+  useEffect(() => {
+    setSpeechSupported(getSpeechRecognitionCtor() !== null)
+  }, [])
+
+  // Staff greeting, once per screen mount — same useTTS abstraction as
+  // everywhere else in the app; if there's no static clip for this key the
+  // existing WebSpeechProvider fallback in useTTS just speaks the fallback
+  // text, no new fallback plumbing needed here.
+  useEffect(() => {
+    speak('restaurant/irasshaimase', 'いらっしゃいませ。')
+    // Only on mount for this screen instance — not re-fired on every round.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.abort()
+    }
+  }, [])
+
+  function evaluate(transcript: string | null, check: OrderCheckResult) {
+    setState({ kind: 'result', transcript, check })
+    if (check.outcome === 'success') {
+      speak('restaurant/kashikomarimashita', 'かしこまりました。')
+    }
+  }
+
+  function startListening() {
+    const Ctor = getSpeechRecognitionCtor()
+    if (!Ctor) {
+      setSpeechSupported(false)
+      return
+    }
+    setState({ kind: 'listening' })
+    const recognition = new Ctor()
+    recognitionRef.current = recognition
+    recognition.lang = 'ja-JP'
+    recognition.continuous = false
+    recognition.interimResults = false
+    recognition.maxAlternatives = 3
+    recognition.onresult = (event) => {
+      const result = event.results[0]
+      const alternatives: string[] = []
+      for (let i = 0; i < result.length; i++) alternatives.push(result[i].transcript)
+      const check = checkOrderAlternatives(alternatives, round.menu, round.target)
+      evaluate(alternatives[0] ?? null, check)
+    }
+    recognition.onerror = () => {
+      evaluate(null, { outcome: 'unrecognized' })
+    }
+    recognition.onend = () => {
+      // If neither onresult nor onerror fired (e.g. aborted), fall back to
+      // an unrecognized result rather than leaving the UI stuck listening.
+      setState((prev) => (prev.kind === 'listening' ? { kind: 'result', transcript: null, check: { outcome: 'unrecognized' } } : prev))
+    }
+    try {
+      recognition.start()
+    } catch {
+      evaluate(null, { outcome: 'unrecognized' })
+    }
+  }
+
+  function chooseRomaji(dish: RestaurantDish) {
+    const check: OrderCheckResult = dish.id === round.target.id ? { outcome: 'success' } : { outcome: 'wrong-dish', identified: dish }
+    evaluate(null, check)
+  }
+
+  function nextOrder() {
+    setRound(pickRound(HIRAGANA_RESTAURANT_DISHES))
+    setState({ kind: 'idle' })
+  }
+
+  function tryAgain() {
+    setState({ kind: 'idle' })
+  }
+
+  const isResult = state.kind === 'result'
+  const isSuccess = isResult && state.kind === 'result' && state.check.outcome === 'success'
+
+  return (
+    <div className="flex w-full flex-col items-center gap-6">
+      <div className="flex w-full max-w-md items-center justify-between">
+        <Link
+          to="/hiragana"
+          className="rounded-full border border-neutral-300 px-4 py-1.5 text-sm font-semibold text-neutral-600 hover:border-blue-400 hover:text-neutral-900 dark:border-neutral-600 dark:text-neutral-300 dark:hover:text-neutral-100"
+        >
+          ← Back
+        </Link>
+        <h1 className="text-xl font-bold">ひらがなレストラン</h1>
+        <span className="w-16" aria-hidden="true" />
+      </div>
+
+      {/* Tamamizu + speech bubble showing ONLY the target dish's
+          image-or-emoji — no kana/romaji/English inside the bubble, since
+          the whole point is the learner has to read the menu to figure out
+          what to say. */}
+      <div className="flex w-full max-w-md items-end gap-3">
+        <Mascot mood="normal" />
+        <div
+          className="relative flex-1 rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-center shadow-sm dark:border-neutral-700 dark:bg-neutral-800"
+          data-testid="restaurant-target-bubble"
+          aria-label="What Tamamizu wants to order"
+        >
+          <DishGlyph dish={round.target} className="mx-auto h-16 w-16 text-4xl" />
+        </div>
+      </div>
+
+      <p className="text-center text-lg" lang="ja">
+        すみません、＿＿＿＿、おねがいします。
+      </p>
+
+      <div className="grid w-full max-w-md grid-cols-2 gap-3" data-testid="restaurant-menu">
+        {round.menu.map((dish) => (
+          <div
+            key={dish.id}
+            data-testid={`restaurant-dish-${dish.id}`}
+            className="flex flex-col items-center gap-1 rounded-2xl border border-neutral-200 bg-white p-3 text-center shadow-sm dark:border-neutral-700 dark:bg-neutral-800"
+          >
+            <DishGlyph dish={dish} className="h-12 w-12 text-3xl" />
+            <span className="font-kana text-xl font-bold">{dish.displayKana}</span>
+            <span className="text-sm text-neutral-500 dark:text-neutral-400">¥{dish.priceYen}</span>
+          </div>
+        ))}
+      </div>
+
+      {isResult && (
+        <div className="flex w-full max-w-md flex-col items-center gap-2 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-center dark:border-neutral-700 dark:bg-neutral-900">
+          {state.kind === 'result' && state.transcript !== null && (
+            <p className="text-sm text-neutral-500 dark:text-neutral-400">I heard: 「{state.transcript}」</p>
+          )}
+          {isSuccess ? (
+            <>
+              <p className="text-lg font-bold text-green-600 dark:text-green-400">Great!</p>
+              <button
+                type="button"
+                onClick={nextOrder}
+                className="mt-1 rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 active:scale-95"
+              >
+                Next order
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-lg font-bold text-red-600 dark:text-red-400">
+                {state.kind === 'result' && state.check.outcome === 'wrong-dish' ? "That's not quite it." : "I couldn't catch that."}
+              </p>
+              <button
+                type="button"
+                onClick={tryAgain}
+                className="mt-1 rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 active:scale-95"
+              >
+                Try again
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {!isResult && (
+        <div className="flex w-full max-w-md flex-col items-center gap-4">
+          <button
+            type="button"
+            onClick={startListening}
+            disabled={!speechSupported || state.kind === 'listening'}
+            data-testid="restaurant-speak-button"
+            className="rounded-full bg-blue-600 px-6 py-3 text-base font-semibold text-white hover:bg-blue-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {state.kind === 'listening' ? '🎤 Listening…' : '🎤 Speak'}
+          </button>
+          {!speechSupported && (
+            <p className="text-center text-xs text-neutral-500 dark:text-neutral-400">
+              Voice input isn't available in this browser — use the buttons below instead.
+            </p>
+          )}
+
+          <div className="flex w-full flex-col items-center gap-2" data-testid="restaurant-romaji-fallback">
+            <p className="text-sm text-neutral-500 dark:text-neutral-400">Choose the romaji instead</p>
+            <div className="grid w-full grid-cols-2 gap-2">
+              {round.menu.map((dish) => (
+                <button
+                  key={dish.id}
+                  type="button"
+                  onClick={() => chooseRomaji(dish)}
+                  data-testid={`restaurant-romaji-${dish.id}`}
+                  className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold hover:border-blue-400 active:scale-95 dark:border-neutral-600"
+                >
+                  {dish.romaji}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DishGlyph({ dish, className }: { dish: RestaurantDish; className: string }) {
+  if (dish.image) {
+    return <img src={`${import.meta.env.BASE_URL}${dish.image}`} alt="" className={`object-contain ${className}`} />
+  }
+  return (
+    <div className={`flex items-center justify-center ${className}`} aria-hidden="true">
+      {dish.placeholderEmoji}
+    </div>
+  )
+}

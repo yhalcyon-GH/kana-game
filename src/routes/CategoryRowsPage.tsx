@@ -255,6 +255,25 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
       {trailingRows.length > 0 && (
         <RowMap rows={trailingRows} isUnlocked={isRowUnlocked} isTaught={isRowTaught} isMastered={isRowMastered} />
       )}
+      {/* Hiragana Restaurant CTA — Hiragana page only, standalone repeatable
+          mini-game (see routes/games/RestaurantPage.tsx and
+          data/restaurantDishes.ts). Deliberately placed right before the
+          particle button below and styled the same way (a full-width
+          rounded button, matching this page's other CTAs) rather than a new
+          visual pattern, but it navigates directly instead of opening a
+          Guide overlay. Not a curriculum row, not in Recommended Path, no
+          completion flag — see RestaurantPage's own comment for the full
+          progress-isolation guarantee. */}
+      {askTamamizuKanaIntroVariant === 'hiragana' && (
+        <button
+          type="button"
+          onClick={() => navigate('/restaurant/hiragana')}
+          data-testid="restaurant-cta"
+          className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-center text-base font-semibold shadow-sm transition hover:border-blue-400 active:scale-[0.98] dark:border-neutral-700 dark:bg-neutral-800"
+        >
+          🍣 Visit the Hiragana Restaurant
+        </button>
+      )}
       {/* Optional supplementary "Ask Tamamizu about particles" entry point
           (は/へ/を pronunciation quirks) — Hiragana page only, deliberately
           not a new Home category card, Recommended Path step, or curriculum

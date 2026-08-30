@@ -16,6 +16,7 @@ import { useTrackLastStudied } from './hooks/useTrackLastStudied'
 import { KanaQuizPage } from './routes/games/KanaQuizPage'
 import { KanaTypingPage } from './routes/games/KanaTypingPage'
 import { ListeningPage } from './routes/games/ListeningPage'
+import { RestaurantPage } from './routes/games/RestaurantPage'
 import { TracingPage } from './routes/games/TracingPage'
 import { WordBuilderPage } from './routes/games/WordBuilderPage'
 import { AboutPage } from './routes/AboutPage'
@@ -122,6 +123,11 @@ function App() {
               <Route path="/practice/review/listening" element={<ListeningPage rowIdOverride={REVIEW_SCOPE_ID} />} />
               <Route path="/practice/review/kana-quiz" element={<KanaQuizPage rowIdOverride={REVIEW_SCOPE_ID} />} />
               <Route path="/practice/review/kana-typing" element={<KanaTypingPage rowIdOverride={REVIEW_SCOPE_ID} />} />
+              {/* Hiragana Restaurant — standalone, repeatable, non-curriculum
+                  mini-game (see routes/games/RestaurantPage.tsx). Deliberately
+                  not nested under /practice/:categoryId/:rowId since it's not
+                  a Recommended Path activity for any row. */}
+              <Route path="/restaurant/hiragana" element={<RestaurantPage />} />
               <Route path="/review" element={<ReviewPage />} />
               <Route path="/saved" element={<SavedPage />} />
               <Route path="/settings" element={<SettingsPage />} />
