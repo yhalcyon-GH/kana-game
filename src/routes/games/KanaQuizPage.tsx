@@ -115,7 +115,16 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
 
   const { queue, roundIndex, correctCount, setCorrectCount, finished, startSession, startMistakeReview, advance } =
     useGameSession({ ids: quizCharacterIds, weight: getBox, onFinish, resetSession, rounds, sessionKey: rowId, buildQueue })
-  const { schedule: scheduleAdvance } = useDelayedAction()
+  const { schedule: scheduleAdvance, cancel: cancelAdvance } = useDelayedAction()
+  // Manual Next after a correct answer must cancel the pending 2s auto-
+  // advance timer before advancing, so a click right after answering
+  // correctly never fires both the timer AND the click (which would skip
+  // two rounds). cancel() is a harmless no-op on a wrong answer (nothing
+  // scheduled) or once the timer has already fired.
+  const handleNext = useCallback(() => {
+    cancelAdvance()
+    advance()
+  }, [cancelAdvance, advance])
 
   // One Read/Recall mode per queue slot, built fresh every time `queue`
   // itself gets a new identity (a brand-new session from startSession, a
@@ -262,8 +271,13 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
             🔊
           </span>
         )}
-        {currentMode === 'recall' && answered && (
-          <span className="text-2xl font-semibold">{currentChar.displayLabel ?? currentChar.romaji}</span>
+        {currentMode === 'recall' && (
+          <span
+            className={`text-2xl font-semibold ${answered ? 'visible' : 'invisible'}`}
+            aria-hidden={!answered}
+          >
+            {currentChar.displayLabel ?? currentChar.romaji}
+          </span>
         )}
         {supported && currentMode === 'recall' && (
           <button
@@ -303,20 +317,16 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
         })}
       </div>
 
-      <AnswerFeedbackRow mood={mood} />
-
-      {answered && answeredForRoundIndex === roundIndex && selectedId !== currentCharId && (
-        <>
-          <SaveCharacterToggle characterId={currentCharId} kana={currentChar.kana} />
-          <button
-            type="button"
-            onClick={advance}
-            className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
-          >
-            Next
-          </button>
-        </>
-      )}
+      <AnswerFeedbackRow
+        mood={mood}
+        showNext={answered && answeredForRoundIndex === roundIndex}
+        onNext={handleNext}
+        saveControl={
+          answered && answeredForRoundIndex === roundIndex && selectedId !== currentCharId ? (
+            <SaveCharacterToggle characterId={currentCharId} kana={currentChar.kana} />
+          ) : undefined
+        }
+      />
     </div>
   )
 }

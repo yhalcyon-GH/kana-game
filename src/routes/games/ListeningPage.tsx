@@ -95,7 +95,14 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
 
   const { queue, roundIndex, correctCount, setCorrectCount, finished, startMistakeReview, advance } =
     useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession, rounds, sessionKey, buildQueue })
-  const { schedule: scheduleAdvance } = useDelayedAction()
+  const { schedule: scheduleAdvance, cancel: cancelAdvance } = useDelayedAction()
+  // See KanaQuizPage's identical comment: cancels the correct-answer
+  // auto-advance timer before advancing, so a manual click never fires
+  // alongside it.
+  const handleNext = useCallback(() => {
+    cancelAdvance()
+    advance()
+  }, [cancelAdvance, advance])
 
   // Normal (non-Similar-Letters) Listening: real-word-distractor choices,
   // unchanged from before. Similar Letters Listening: generated kana-
@@ -322,35 +329,32 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
                 <span className="font-kana block">
                   <UnbreakableKana kana={choice.kana} />
                 </span>
-                {answered && (
-                  <span className="block text-sm font-normal text-neutral-500 dark:text-neutral-400">
-                    {choice.romaji}
-                  </span>
-                )}
+                <span
+                  className={`block text-sm font-normal text-neutral-500 dark:text-neutral-400 ${answered ? 'visible' : 'invisible'}`}
+                  aria-hidden={!answered}
+                >
+                  {choice.romaji}
+                </span>
               </button>
             )
           })}
         </div>
       )}
 
-      <AnswerFeedbackRow mood={mood} />
-
-      {answered &&
-        answeredForRoundIndex === roundIndex &&
-        (isSimilarLetters
-          ? !spellingChoices.find((c) => c.key === selectedSpellingKey)?.isCorrect
-          : selectedId !== currentWord.id) && (
-          <>
+      <AnswerFeedbackRow
+        mood={mood}
+        showNext={answered && answeredForRoundIndex === roundIndex}
+        onNext={handleNext}
+        saveControl={
+          answered &&
+          answeredForRoundIndex === roundIndex &&
+          (isSimilarLetters
+            ? !spellingChoices.find((c) => c.key === selectedSpellingKey)?.isCorrect
+            : selectedId !== currentWord.id) ? (
             <SaveWordToggle wordId={currentWord.id} kana={currentWord.kana} />
-            <button
-              type="button"
-              onClick={advance}
-              className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
-            >
-              Next
-            </button>
-          </>
-        )}
+          ) : undefined
+        }
+      />
     </div>
   )
 }

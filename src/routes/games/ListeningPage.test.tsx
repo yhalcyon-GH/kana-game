@@ -248,21 +248,18 @@ describe('ListeningPage result summary (correct/total count)', () => {
   })
 
   // Clicks the FIRST choice every round (mode-agnostic) and tallies real
-  // correctness from the DOM: a correct answer auto-advances (no actionable
-  // Next button — see the "Next button flash" regression tests below), a
-  // wrong one shows one.
+  // correctness from the DOM. Next now renders on BOTH correct and wrong
+  // rounds (see AnswerFeedbackRow's showNext), so correctness is read from
+  // whether the Save toggle (wrong-only) appears, not from Next's presence.
   function playSessionTallyingCorrectness(container: HTMLElement, rounds: number): number {
     let correct = 0
     for (let round = 0; round < rounds; round++) {
       const buttons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
       act(() => fireEvent.click(buttons[0]))
-      const next = within(container).queryByRole('button', { name: /^next$/i })
-      if (next === null) {
-        correct += 1
-        act(() => vi.advanceTimersByTime(2000))
-      } else {
-        act(() => fireEvent.click(next))
-      }
+      const isWrong = !!container.querySelector('input[type="checkbox"]')
+      if (!isWrong) correct += 1
+      const next = within(container).getByRole('button', { name: /^next$/i })
+      act(() => fireEvent.click(next))
     }
     return correct
   }
@@ -289,13 +286,10 @@ describe('ListeningPage result summary (correct/total count)', () => {
     while (!container.textContent?.includes('complete!') && guard < 20) {
       const buttons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
       act(() => fireEvent.click(buttons[0]))
+      const isWrong = !!container.querySelector('input[type="checkbox"]')
+      if (!isWrong) correct += 1
       const next = within(container).queryByRole('button', { name: /^next$/i })
-      if (next) {
-        act(() => fireEvent.click(next))
-      } else {
-        correct += 1
-        act(() => vi.advanceTimersByTime(2000))
-      }
+      if (next) act(() => fireEvent.click(next))
       guard += 1
     }
 
@@ -314,18 +308,23 @@ describe('ListeningPage romaji hint (Issue #19)', () => {
     vi.useRealTimers()
   })
 
+  // Below the target's own meaning label, this checks the ABOVE-the-choices
+  // romaji hint (the `alwaysShowRomajiHints` line under the word image) —
+  // not the per-choice romaji reserved under each answer button (see the
+  // "reserves a romaji line per choice" describe block below), which is a
+  // separate slot that toggles visibility (not presence) once answered.
   it('hides the target romaji at question start when alwaysShowRomajiHints is OFF, with no reveal button', () => {
     const { container, queryByText } = renderRowListening()
-    const meaning = container.querySelector('span.text-sm.text-neutral-500')!.textContent!.trim()
-    expect(queryByText(MEANING_TO_ROMAJI[meaning])).toBeNull()
+    const meaning = container.querySelector('span.text-sm.text-neutral-500:not(.block)')!.textContent!.trim()
+    expect(queryByText(MEANING_TO_ROMAJI[meaning], { selector: 'span:not(.block)' })).toBeNull()
     expect(queryByText('Show romaji')).toBeNull()
   })
 
   it('shows the target romaji from the start when alwaysShowRomajiHints is ON, with no "Show romaji" button', () => {
     useProgressStore.getState().setAlwaysShowRomajiHints(true)
     const { container, queryByText } = renderRowListening()
-    const meaning = container.querySelectorAll('span.text-sm.text-neutral-500')[0]!.textContent!.trim()
-    expect(queryByText(MEANING_TO_ROMAJI[meaning])).not.toBeNull()
+    const meaning = container.querySelector('span.text-sm.text-neutral-500:not(.block)')!.textContent!.trim()
+    expect(queryByText(MEANING_TO_ROMAJI[meaning], { selector: 'span:not(.block)' })).not.toBeNull()
     expect(queryByText('Show romaji')).toBeNull()
   })
 
@@ -339,17 +338,53 @@ describe('ListeningPage romaji hint (Issue #19)', () => {
         </Routes>
       </MemoryRouter>,
     )
-    const meaning = container.querySelector('span.text-sm.text-neutral-500')!.textContent!.trim()
-    expect(queryByText(MEANING_TO_ROMAJI[meaning])).toBeNull()
+    const meaning = container.querySelector('span.text-sm.text-neutral-500:not(.block)')!.textContent!.trim()
+    expect(queryByText(MEANING_TO_ROMAJI[meaning], { selector: 'span:not(.block)' })).toBeNull()
     expect(queryByText('Show romaji')).toBeNull()
   })
 })
 
-// Regression test for the mobile "Next button flash" bug — see
-// KanaQuizPage.test.tsx's identical describe block for the full root-cause
-// explanation. ListeningPage had the same stale `selectedId`-vs-new-
-// `currentWord.id` comparison; the fix adds `answeredForId`.
-describe('ListeningPage — no Next-button flash after a correct answer', () => {
+// The per-choice romaji line (shown under each answer button once answered)
+// reserves its line height up front — see AnswerFeedbackRow-adjacent layout-
+// shift fix — instead of being inserted only after answering. It stays
+// present but visually hidden (`invisible` + `aria-hidden`) before an
+// answer, then becomes visible after, without ever being added/removed from
+// the DOM (which is what would move the mascot stage below it).
+describe('ListeningPage per-choice romaji slot (no layout shift)', () => {
+  beforeEach(() => {
+    useProgressStore.getState().resetProgress()
+  })
+
+  it('reserves a romaji line per choice before answering (present but hidden), then reveals it after', () => {
+    const { container } = renderRowListening()
+    const choiceButtons = Array.from(container.querySelectorAll('.grid button')) as HTMLButtonElement[]
+    const romajiSlots = () =>
+      choiceButtons.map((b) => b.querySelector('span.block.text-sm.font-normal')) as (HTMLElement | null)[]
+
+    const before = romajiSlots()
+    expect(before.every((s) => s !== null)).toBe(true)
+    expect(before.every((s) => s!.classList.contains('invisible'))).toBe(true)
+    expect(before.every((s) => s!.getAttribute('aria-hidden') === 'true')).toBe(true)
+
+    act(() => fireEvent.click(choiceButtons[0]))
+
+    const after = romajiSlots()
+    expect(after.every((s) => s!.classList.contains('visible'))).toBe(true)
+    expect(after.every((s) => s!.getAttribute('aria-hidden') === 'false')).toBe(true)
+    // Same slots, not new ones — structure unchanged by the toggle.
+    expect(after.map((s) => s)).toEqual(romajiSlots())
+  })
+})
+
+// Regression test, updated for the new "Next shown on correct too" behavior
+// (see AnswerFeedbackRow's showNext) — see KanaQuizPage.test.tsx's identical
+// describe block for the original stale `selectedId`-vs-new-`currentWord.id`
+// root cause this guards against. Next now legitimately appears right after
+// a correct answer (in addition to the still-running 2s auto-advance timer)
+// and must cleanly disappear once the round actually transitions — it must
+// never carry over stale/duplicated into a round that hasn't been answered
+// yet.
+describe('ListeningPage — no stale Next-button carryover after a correct answer', () => {
   beforeEach(() => {
     useProgressStore.getState().resetProgress()
   })
@@ -358,26 +393,32 @@ describe('ListeningPage — no Next-button flash after a correct answer', () => 
     vi.useRealTimers()
   })
 
-  it('never renders an actionable Next button across several correct-answer auto-advances in a row', () => {
+  it('shows exactly one Next button right after a correct answer, and none in the fresh unanswered round that follows', () => {
     vi.useFakeTimers()
     const { container } = renderRowListening()
 
     for (let round = 0; round < 4; round++) {
-      const meaning = container.querySelector('span.text-sm.text-neutral-500')!.textContent!.trim()
+      const meaning = container.querySelector('span.text-sm.text-neutral-500:not(.block)')!.textContent!.trim()
       const targetKana = MEANING_TO_KANA[meaning]
       const correctButton = Array.from(container.querySelectorAll('button')).find(
         (b) => b.querySelector('.font-kana')?.textContent === targetKana,
       ) as HTMLButtonElement
       expect(correctButton).toBeDefined()
 
+      // Not yet answered this round — no Next button.
+      expect(within(container).queryByRole('button', { name: /^next$/i })).toBeNull()
+
       act(() => fireEvent.click(correctButton))
-      expect(within(container).queryByRole('button', { name: /^next$/i })).toBeNull()
+      // Answered correctly — Next appears immediately, alongside the still-
+      // pending auto-advance timer, and there's exactly one of it.
+      expect(within(container).getAllByRole('button', { name: /^next$/i })).toHaveLength(1)
 
       act(() => vi.advanceTimersByTime(1000))
-      expect(within(container).queryByRole('button', { name: /^next$/i })).toBeNull()
+      expect(within(container).getAllByRole('button', { name: /^next$/i })).toHaveLength(1)
 
+      // Auto-advance timer fires here, moving into a brand-new unanswered
+      // round — the Next button must not carry over.
       act(() => vi.advanceTimersByTime(1000))
-      // Now on the next round entirely — still no stray Next button.
       expect(within(container).queryByRole('button', { name: /^next$/i })).toBeNull()
     }
   })
