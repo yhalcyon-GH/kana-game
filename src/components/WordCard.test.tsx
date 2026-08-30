@@ -69,6 +69,21 @@ describe('WordCard with a yōon word (2 glyphs, 1 character id, but mismatched m
   })
 })
 
+describe('Particle greeting display', () => {
+  it.each(['wa-konnichiwa', 'wa-konbanwa'])('marks only the final は for %s', (id) => {
+    const { getByTestId, getByText } = render(<WordCard word={WORDS_BY_ID[id]} />)
+    expect(getByTestId('particle-greeting-ha')).toHaveTextContent('は')
+    expect(getByTestId('particle-greeting-ha')).toHaveClass('text-red-600')
+    expect(getByText('は ※Particle')).toHaveClass('text-red-600')
+  })
+
+  it('leaves ordinary vocabulary without particle styling', () => {
+    const { queryByTestId, queryByText } = render(<WordCard word={WORDS_BY_ID['wa-watashi']} />)
+    expect(queryByTestId('particle-greeting-ha')).toBeNull()
+    expect(queryByText('は ※Particle')).toBeNull()
+  })
+})
+
 // Special Katakana vocabulary (finish Special Katakana learning polish,
 // item 4) — 22 words newly given ACCENT_PATTERNS entries. ファン (fan) is a
 // representative combo word: ファ is a Special Katakana combo that must

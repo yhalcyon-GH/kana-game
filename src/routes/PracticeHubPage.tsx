@@ -263,7 +263,8 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   // any time, before or after this automatic first showing, without writing
   // progress on replay.
   const isParticleTargetRoute =
-    !isReview && categoryId === PARTICLE_GUIDE.target.categoryId && rowId === PARTICLE_GUIDE.target.rowId
+    !isReview &&
+    PARTICLE_GUIDE.autoTargets.some((target) => target.categoryId === categoryId && target.rowId === rowId)
   const isKnownReplayHere =
     activeGuideReplayId !== null &&
     ((isLearnTracingTargetRoute && activeGuideReplayId === 'learnTracing') ||

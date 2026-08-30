@@ -780,6 +780,19 @@ describe('Particle Guide auto-show on wa-row Practice Hub', () => {
     expect(hub.queryByTestId('particle-guide')).toBeNull()
   })
 
+  it('auto-shows on hiragana/ha-row', () => {
+    useProgressStore.getState().setHasCompletedIntroGuide(true)
+    const hub = renderRowHub('hiragana', 'ha-row')
+    expect(hub.getByTestId('particle-guide')).toBeInTheDocument()
+  })
+
+  it('does not auto-show on ha-row after wa-row completed the shared guide', () => {
+    useProgressStore.getState().setHasCompletedIntroGuide(true)
+    useProgressStore.getState().setHasCompletedParticleGuide(true)
+    const hub = renderRowHub('hiragana', 'ha-row')
+    expect(hub.queryByTestId('particle-guide')).toBeNull()
+  })
+
   it('Skip flips hasCompletedParticleGuide and dismisses the Guide', () => {
     useProgressStore.getState().setHasCompletedIntroGuide(true)
     const hub = renderRowHub('hiragana', 'wa-row')

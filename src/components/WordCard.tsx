@@ -67,6 +67,7 @@ function AccentedKana({ kana, accent }: { kana: string; accent?: string }) {
 // which is too small to hit reliably) — the icon stays as a visual hint.
 export function WordCard({ word }: Props) {
   const { speak } = useTTS()
+  const isParticleGreeting = word.id === 'wa-konnichiwa' || word.id === 'wa-konbanwa'
 
   return (
     <button
@@ -77,10 +78,20 @@ export function WordCard({ word }: Props) {
     >
       <WordImage word={word} className="h-16 w-16" />
       <span className="mt-2 mb-0.5">
-        <AccentedKana kana={word.kana} accent={ACCENT_PATTERNS[word.id]} />
+        {isParticleGreeting ? (
+          <span className="font-kana text-2xl font-bold">
+            <UnbreakableKana kana={word.kana.slice(0, -1)} />
+            <span className="text-red-600 dark:text-red-400" data-testid="particle-greeting-ha">
+              は
+            </span>
+          </span>
+        ) : (
+          <AccentedKana kana={word.kana} accent={ACCENT_PATTERNS[word.id]} />
+        )}
       </span>
       <span className="text-sm text-neutral-500 dark:text-neutral-400">{word.romaji}</span>
       <span className="text-center text-sm text-neutral-600 dark:text-neutral-300">{word.meaning}</span>
+      {isParticleGreeting && <span className="text-sm font-semibold text-red-600 dark:text-red-400">は ※Particle</span>}
       <span className="mt-1 rounded-full bg-neutral-100 px-3 py-1 text-sm dark:bg-neutral-700" aria-hidden="true">
         🔊
       </span>
