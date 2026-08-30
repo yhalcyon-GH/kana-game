@@ -283,9 +283,16 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
           type="button"
           onClick={() => navigate(`/restaurant/${restaurantStage}`)}
           data-testid="restaurant-cta"
-          className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-center text-base font-semibold shadow-sm transition hover:border-blue-400 active:scale-[0.98] dark:border-neutral-700 dark:bg-neutral-800"
+          className="w-full max-w-md rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-left shadow-md transition hover:border-amber-400 hover:bg-amber-100 active:scale-[0.98] dark:border-amber-700 dark:bg-amber-950/40 dark:hover:bg-amber-900/50"
         >
-          🍽️ Order at the Restaurant
+          <span className="block text-xs font-bold tracking-[0.16em] text-amber-700 dark:text-amber-300">REAL-LIFE PRACTICE</span>
+          <span className="mt-1 flex items-center justify-between gap-3">
+            <span>
+              <span className="block text-lg font-bold text-amber-950 dark:text-amber-50">🍽️ Restaurant Practice</span>
+              <span className="mt-1 block text-sm font-normal text-amber-900/75 dark:text-amber-200/75">Order food using what you&apos;ve learned</span>
+            </span>
+            <span className="shrink-0 text-sm font-bold text-amber-800 dark:text-amber-200">Try it →</span>
+          </span>
         </button>
       )}
       {/* Optional supplementary "Ask Tamamizu about particles" entry point

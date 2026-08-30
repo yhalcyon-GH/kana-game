@@ -99,7 +99,25 @@ export function checkOrderAlternatives(
 
 export function checkMultipleDishOrder(rawTranscript: string, menu: RestaurantDish[], targets: RestaurantDish[]): OrderCheckResult {
   const normalized = normalizeJapanese(rawTranscript)
-  const named = menu.filter((dish) => dish.recognitionAliases.some((alias) => normalized.includes(normalizeJapanese(alias))))
+  const entries = menu.flatMap((dish) => dish.recognitionAliases.map((alias) => ({ dish, alias: normalizeJapanese(alias) })))
+    .filter((entry) => entry.alias.length > 0)
+    .sort((a, b) => b.alias.length - a.alias.length)
+  const matchedSpans: { start: number; end: number }[] = []
+  const named: RestaurantDish[] = []
+  for (const entry of entries) {
+    if (named.some((dish) => dish.id === entry.dish.id)) continue
+    let start = normalized.indexOf(entry.alias)
+    while (start >= 0) {
+      const end = start + entry.alias.length
+      const overlaps = matchedSpans.some((span) => start < span.end && end > span.start)
+      if (!overlaps) {
+        named.push(entry.dish)
+        matchedSpans.push({ start, end })
+        break
+      }
+      start = normalized.indexOf(entry.alias, start + 1)
+    }
+  }
   if (targets.every((target) => named.some((dish) => dish.id === target.id)) && named.length === targets.length) return { outcome: 'success' }
   return named[0] ? { outcome: 'wrong-dish', identified: named[0] } : { outcome: 'unrecognized' }
 }

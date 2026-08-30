@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { HIRAGANA_RESTAURANT_DISHES } from '../data/restaurantDishes'
+import { HIRAGANA_RESTAURANT_DISHES, RESTAURANT_DISHES } from '../data/restaurantDishes'
 import { checkMultipleDishOrder, checkMultipleDishOrderAlternatives, checkOrder, checkOrderAlternatives, hasOrderIntent, identifyDish, normalizeJapanese } from './restaurantMatching'
 
 const sushi = HIRAGANA_RESTAURANT_DISHES.find((d) => d.id === 'sushi')!
@@ -7,6 +7,12 @@ const soba = HIRAGANA_RESTAURANT_DISHES.find((d) => d.id === 'soba')!
 const udon = HIRAGANA_RESTAURANT_DISHES.find((d) => d.id === 'udon')!
 const oden = HIRAGANA_RESTAURANT_DISHES.find((d) => d.id === 'oden')!
 const menu = [sushi, soba, udon, oden]
+const chocoAisu = RESTAURANT_DISHES.find((d) => d.id === 'choko-aisu')!
+const aisu = RESTAURANT_DISHES.find((d) => d.id === 'aisu')!
+const shichuu = RESTAURANT_DISHES.find((d) => d.id === 'shichuu')!
+const pafe = RESTAURANT_DISHES.find((d) => d.id === 'pafe')!
+const hamburger = RESTAURANT_DISHES.find((d) => d.id === 'hanbaagaa')!
+const hamburgerSet = RESTAURANT_DISHES.find((d) => d.id === 'hanbaagaa-setto')!
 
 describe('normalizeJapanese', () => {
   it('strips whitespace and punctuation', () => {
@@ -131,5 +137,30 @@ describe('checkMultipleDishOrder', () => {
 
   it('checks up to three speech-recognition alternatives for a two-dish order', () => {
     expect(checkMultipleDishOrderAlternatives(['noise', 'すし', 'そば と すし'], menu, [sushi, soba]).outcome).toBe('success')
+  })
+
+  it('matches チョコアイス and シチュー without counting the アイ ス substring twice', () => {
+    expect(checkMultipleDishOrder('チョコアイスとシチューお願いします', [chocoAisu, aisu, shichuu, pafe], [chocoAisu, shichuu]).outcome).toBe('success')
+  })
+
+  it('accepts the reverse order for the collision-prone pair', () => {
+    expect(checkMultipleDishOrder('シチューとチョコアイスお願いします', [chocoAisu, aisu, shichuu, pafe], [chocoAisu, shichuu]).outcome).toBe('success')
+  })
+
+  it('rejects アイスとシチュー when チョコアイス is the target', () => {
+    expect(checkMultipleDishOrder('アイスとシチューお願いします', [chocoAisu, aisu, shichuu, pafe], [chocoAisu, shichuu]).outcome).toBe('wrong-dish')
+  })
+
+  it('rejects a target pair when a third dish is explicitly spoken', () => {
+    expect(checkMultipleDishOrder('チョコアイスとシチューとパフェお願いします', [chocoAisu, aisu, shichuu, pafe], [chocoAisu, shichuu]).outcome).toBe('wrong-dish')
+  })
+
+  it('prefers ハンバーガーセット over the shorter ハンバーガー alias', () => {
+    expect(checkMultipleDishOrder('ハンバーガーセットとシチュー', [hamburger, hamburgerSet, shichuu], [hamburgerSet, shichuu]).outcome).toBe('success')
+  })
+
+  it('keeps single-dish matching correct with overlapping aliases', () => {
+    expect(checkOrder('チョコアイスお願いします', [chocoAisu, aisu], chocoAisu).outcome).toBe('success')
+    expect(checkOrder('アイスお願いします', [chocoAisu, aisu], aisu).outcome).toBe('success')
   })
 })

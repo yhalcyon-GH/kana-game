@@ -280,8 +280,13 @@ describe('RestaurantPage', () => {
       }
     }
     expect(screen.getByText('Completed!')).toBeInTheDocument()
-    expect(screen.getByText('Correct: 8 / 8')).toBeInTheDocument()
-    expect(screen.getByText('Mistakes: 0')).toBeInTheDocument()
+    expect(screen.getByText('100%')).toBeInTheDocument()
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '100')
+    expect(screen.getByText('8 of 8 correct')).toBeInTheDocument()
+    expect(screen.getByText("Perfect! You're ready to order!")).toBeInTheDocument()
+    expect(screen.getByTestId('practice-result-image')).toHaveAttribute('src', expect.stringContaining('summary-results/summary-result-5.webp'))
+    expect(screen.getByRole('button', { name: 'Play Again' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Back' })).toBeInTheDocument()
   })
 
   it('counts Show Answer as a mistake before advancing to the final score', () => {
@@ -294,9 +299,9 @@ describe('RestaurantPage', () => {
       clickTargetAnswer()
       fireEvent.click(screen.getByRole('button', { name: 'Next' }))
     }
-    expect(screen.getByText('Correct: 7 / 8')).toBeInTheDocument()
-    expect(screen.getByText('Mistakes: 1')).toBeInTheDocument()
-    expect(screen.getByText('Accuracy: 88%')).toBeInTheDocument()
+    expect(screen.getByText('7 of 8 correct')).toBeInTheDocument()
+    expect(screen.getByText('Great job! You\'re getting the hang of it!')).toBeInTheDocument()
+    expect(screen.getByText('Missed this round (1)')).toBeInTheDocument()
   })
   it('renders without crashing', () => {
     renderPage()
@@ -529,8 +534,8 @@ describe('RestaurantPage SpeechRecognition lifecycle', () => {
     clickTargetAnswer()
     expect(screen.getByText('Great!')).toBeInTheDocument()
     finishSessionWithCorrectRomajiAnswers()
-    expect(screen.getByText('Correct: 8 / 8')).toBeInTheDocument()
-    expect(screen.getByText('Mistakes: 0')).toBeInTheDocument()
+    expect(screen.getByText('8 of 8 correct')).toBeInTheDocument()
+    expect(screen.getByText("Perfect! You're ready to order!")).toBeInTheDocument()
   })
 
   it('keeps a recovered retry answer correct in the final summary', async () => {
@@ -544,8 +549,8 @@ describe('RestaurantPage SpeechRecognition lifecycle', () => {
     act(() => FakeSpeechRecognition.instances[1].result({ transcript: target.displayKana }))
     expect(screen.getByText('Great!')).toBeInTheDocument()
     finishSessionWithCorrectRomajiAnswers()
-    expect(screen.getByText('Correct: 8 / 8')).toBeInTheDocument()
-    expect(screen.getByText('Mistakes: 0')).toBeInTheDocument()
+    expect(screen.getByText('8 of 8 correct')).toBeInTheDocument()
+    expect(screen.getByText("Perfect! You're ready to order!")).toBeInTheDocument()
   })
 
   it('uses Show Romaji after speech failure without recording an interim mistake', async () => {
@@ -559,8 +564,8 @@ describe('RestaurantPage SpeechRecognition lifecycle', () => {
     clickTargetAnswer()
     expect(screen.getByText('Great!')).toBeInTheDocument()
     finishSessionWithCorrectRomajiAnswers()
-    expect(screen.getByText('Correct: 8 / 8')).toBeInTheDocument()
-    expect(screen.getByText('Mistakes: 0')).toBeInTheDocument()
+    expect(screen.getByText('8 of 8 correct')).toBeInTheDocument()
+    expect(screen.getByText("Perfect! You're ready to order!")).toBeInTheDocument()
   })
 
   it('finalizes Show Answer exactly once after a speech failure', async () => {
@@ -572,8 +577,8 @@ describe('RestaurantPage SpeechRecognition lifecycle', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show Answer' }))
     expect(mascotSource()).toContain('mascot/incorrect.webp')
     finishSessionWithCorrectRomajiAnswers()
-    expect(screen.getByText('Correct: 7 / 8')).toBeInTheDocument()
-    expect(screen.getByText('Mistakes: 1')).toBeInTheDocument()
+    expect(screen.getByText('7 of 8 correct')).toBeInTheDocument()
+    expect(screen.getByText('Missed this round (1)')).toBeInTheDocument()
   })
 
   it('finalizes a wrong Romaji rescue and offers only Show Answer', async () => {
@@ -618,8 +623,8 @@ describe('RestaurantPage SpeechRecognition lifecycle', () => {
     act(() => FakeSpeechRecognition.instances[1].result({ transcript: `${firstTarget.displayKana}と${secondTarget.displayKana}おねがいします` }))
     expect(screen.getByText('Great!')).toBeInTheDocument()
     finishSessionFromQuestionFive()
-    expect(screen.getByText('Correct: 8 / 8')).toBeInTheDocument()
-    expect(screen.getByText('Mistakes: 0')).toBeInTheDocument()
+    expect(screen.getByText('8 of 8 correct')).toBeInTheDocument()
+    expect(screen.getByText("Perfect! You're ready to order!")).toBeInTheDocument()
   })
 
   it('records one mistake for a wrong Q5 Romaji rescue pair even after Show Answer', async () => {
@@ -637,7 +642,7 @@ describe('RestaurantPage SpeechRecognition lifecycle', () => {
     expect(screen.getByRole('button', { name: 'Show Answer' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Show Answer' }))
     finishSessionFromQuestionFive()
-    expect(screen.getByText('Mistakes: 1')).toBeInTheDocument()
+    expect(screen.getByText('Missed this round (1)')).toBeInTheDocument()
   })
 
   it('ignores an old onresult after Next changes the question', async () => {
