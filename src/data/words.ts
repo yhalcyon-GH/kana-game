@@ -143,6 +143,12 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'wa-tonkatsu', kana: 'とんかつ', romaji: 'tonkatsu', meaning: 'pork cutlet', image: 'word-icons/wa-tonkatsu.webp', characterIds: ['to', 'n', 'ka', 'tsu'], audioText: '豚カツ。' },
     { id: 'wa-nihongo', kana: 'にほんご', romaji: 'nihongo', meaning: 'Japanese (language)', image: 'word-icons/wa-nihongo.webp', characterIds: ['ni', 'ho', 'n', 'go'], audioText: '日本語' },
     { id: 'wa-denwa', kana: 'でんわ', romaji: 'denwa', meaning: 'telephone', image: 'word-icons/wa-denwa.webp', characterIds: ['de', 'n', 'wa'], audioText: '電話' },
+    // The two greetings below are historical topic-marker spellings: both END
+    // in は (read "wa"), NOT わ — see the Particle Guide's Step 3, which
+    // teaches exactly this. `characterIds` therefore ends in 'ha', which is
+    // what Word Builder tiles, so the learner assembles the real orthography.
+    { id: 'wa-konnichiwa', kana: 'こんにちは', romaji: 'konnichiwa', meaning: 'hello / good afternoon', image: 'word-icons/wa-konnichiwa.webp', characterIds: ['ko', 'n', 'ni', 'chi', 'ha'], audioText: 'こんにちは。' },
+    { id: 'wa-konbanwa', kana: 'こんばんは', romaji: 'konbanwa', meaning: 'good evening', image: 'word-icons/wa-konbanwa.webp', characterIds: ['ko', 'n', 'ba', 'n', 'ha'], audioText: 'こんばんは。' },
   ],
 
   // ===== カタカナ (katakana) vocabulary =====

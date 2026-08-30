@@ -53,6 +53,19 @@ function buildPhoneme(kana: string, accent?: string): string {
   return katakanaMorae.slice(0, nucleusIndex).join('') + "'" + katakanaMorae.slice(nucleusIndex).join('')
 }
 
+// A word whose SPELLING and READING differ in a way buildPhoneme can't
+// derive from `kana` alone. The only such cases are the topic-marker は in
+// the greetings こんにちは/こんばんは: written は, read ワ. Feeding the
+// literal katakana ハ into the SAPI phoneme string would make Nanami say
+// "konnichiha", so the reading is spelled out here instead. Kept as an
+// explicit, minimal per-id table in this offline script rather than a new
+// AnchorWord field — nothing at runtime needs it, and the displayed kana
+// (`kana`/`audioText`) must stay the real orthography everywhere.
+const READING_OVERRIDES: Record<string, string> = {
+  'wa-konnichiwa': 'こんにちわ',
+  'wa-konbanwa': 'こんばんわ',
+}
+
 function synthesizeSSML(ssml: string, key: string, region: string): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const speechConfig = sdk.SpeechConfig.fromSubscription(key, region)
@@ -95,7 +108,7 @@ async function main() {
     }
     const displayText = w.audioText ?? w.kana
     const accent = ACCENT_PATTERNS[w.id]
-    const phoneme = buildPhoneme(w.kana, accent)
+    const phoneme = buildPhoneme(READING_OVERRIDES[w.id] ?? w.kana, accent)
     const inner = `<phoneme alphabet="sapi" ph="${phoneme}">${displayText}</phoneme>。`
     const buf = await synthesizeSSML(wrapSSML(inner), key, region)
     const outPath = path.join(OUT_DIR, 'words', `${w.id}.wav`)
