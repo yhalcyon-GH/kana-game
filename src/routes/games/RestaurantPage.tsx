@@ -191,7 +191,7 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
             data-testid={`restaurant-dish-${dish.id}`}
             className="flex flex-col items-center gap-1 rounded-2xl border border-neutral-200 bg-white p-3 text-center shadow-sm dark:border-neutral-700 dark:bg-neutral-800"
           >
-            <DishGlyph dish={dish} className="h-12 w-12 text-3xl" />
+            <DishGlyph dish={dish} className="h-12 w-12 text-3xl" menu />
             <span className="font-kana text-xl font-bold">{dish.displayKana}</span>
             <span className="text-sm text-neutral-500 dark:text-neutral-400">¥{dish.priceYen}</span>
           </div>
@@ -274,9 +274,10 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
   )
 }
 
-function DishGlyph({ dish, className, target = false }: { dish: RestaurantDish; className: string; target?: boolean }) {
-  if (dish.image) {
-    return <img src={`${import.meta.env.BASE_URL}${dish.image}`} alt={target ? 'Target dish' : ''} className={`object-contain ${className}`} />
+function DishGlyph({ dish, className, target = false, menu = false }: { dish: RestaurantDish; className: string; target?: boolean; menu?: boolean }) {
+  const [failed, setFailed] = useState(false)
+  if (dish.image && !failed) {
+    return <img src={`${import.meta.env.BASE_URL}${dish.image}`} alt={target ? 'Target dish' : menu ? dish.displayKana : ''} onError={() => setFailed(true)} className={`object-contain ${className}`} />
   }
   return (
     <div className={`flex items-center justify-center ${className}`} aria-hidden="true">

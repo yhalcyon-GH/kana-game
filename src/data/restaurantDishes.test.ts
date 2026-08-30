@@ -66,13 +66,15 @@ describe('restaurantDishes (hiragana stage)', () => {
 
   it('has unique placeholder visuals among missing-image dishes in every stage', () => {
     for (const stage of ['hiragana', 'katakana', 'other', 'special-katakana'] as const) {
-      const missing = RESTAURANT_DISHES.filter((dish) => dish.stage === stage && !dish.image).map((dish) => dish.placeholderEmoji)
+    const missing = RESTAURANT_DISHES.filter((dish) => dish.stage === stage && !dish.image).map((dish) => dish.placeholderEmoji)
       expect(new Set(missing).size).toBe(missing.length)
     }
   })
 
   it('references only existing public images', () => {
-    for (const dish of RESTAURANT_DISHES.filter((item) => item.image)) {
+    expect(RESTAURANT_DISHES).toHaveLength(45)
+    expect(RESTAURANT_DISHES.filter((item) => item.image)).toHaveLength(45)
+    for (const dish of RESTAURANT_DISHES) {
       expect(fs.existsSync(path.resolve(process.cwd(), 'public', dish.image!))).toBe(true)
     }
   })
