@@ -31,8 +31,37 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Detect reviewable changes
+        id: changes
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const binaryExtensions = new Set([
+              '.webp', '.png', '.jpg', '.jpeg', '.gif', '.wav', '.mp3', '.ico',
+              '.ogg', '.mp4', '.mov', '.avi', '.webm', '.woff', '.woff2', '.ttf', '.otf'
+            ]);
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              per_page: 100
+            });
+            const reviewable = files.some(({ filename }) => {
+              const extension = filename.includes('.')
+                ? filename.slice(filename.lastIndexOf('.')).toLowerCase()
+                : '';
+              return !binaryExtensions.has(extension);
+            });
+            core.setOutput('has_reviewable_changes', reviewable.toString());
+            core.info(`Reviewable changes: ${reviewable}`);
+
+      - name: Skip Claude review for binary-only changes
+        if: steps.changes.outputs.has_reviewable_changes != 'true'
+        run: echo "No reviewable text changes; Claude review not required."
+
       - name: Run Claude Code Review
         id: claude-review
+        if: steps.changes.outputs.has_reviewable_changes == 'true'
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
