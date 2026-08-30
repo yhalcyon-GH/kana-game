@@ -16,6 +16,14 @@ function renderPage() {
   )
 }
 
+function clickTargetAnswer() {
+  const targetSrc = screen.getByAltText('Target dish').getAttribute('src')
+  const targetImage = [...screen.getByTestId('restaurant-menu').querySelectorAll('img')].find((image) => image.getAttribute('src') === targetSrc)
+  const targetId = targetImage?.closest('[data-testid^="restaurant-dish-"]')?.getAttribute('data-testid')?.replace('restaurant-dish-', '')
+  expect(targetId).toBeTruthy()
+  fireEvent.click(screen.getByTestId(`restaurant-romaji-${targetId}`))
+}
+
 beforeEach(() => {
   useProgressStore.getState().resetProgress()
   tts.speak.mockReset()
@@ -88,6 +96,37 @@ describe('RestaurantPage', () => {
     expect(screen.getByText('Completed!')).toBeInTheDocument()
     expect(screen.getByText('Correct: 8 / 8')).toBeInTheDocument()
     expect(screen.getByText('Mistakes: 0')).toBeInTheDocument()
+  })
+
+  it('counts wrong then retry-correct as a mistake in the final score', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    renderPage()
+    fireEvent.click(screen.getByTestId('restaurant-romaji-soba'))
+    fireEvent.click(screen.getByRole('button', { name: 'Try Again' }))
+    fireEvent.click(screen.getByTestId('restaurant-romaji-sushi'))
+    fireEvent.click(screen.getByRole('button', { name: 'Next order' }))
+    for (let question = 2; question <= 8; question++) {
+      clickTargetAnswer()
+      fireEvent.click(screen.getByRole('button', { name: 'Next order' }))
+    }
+    expect(screen.getByText('Correct: 7 / 8')).toBeInTheDocument()
+    expect(screen.getByText('Mistakes: 1')).toBeInTheDocument()
+    expect(screen.getByText('Accuracy: 88%')).toBeInTheDocument()
+  })
+
+  it('counts Show Answer as a mistake before advancing to the final score', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    renderPage()
+    fireEvent.click(screen.getByTestId('restaurant-romaji-soba'))
+    fireEvent.click(screen.getByRole('button', { name: 'Show Answer' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next order' }))
+    for (let question = 2; question <= 8; question++) {
+      clickTargetAnswer()
+      fireEvent.click(screen.getByRole('button', { name: 'Next order' }))
+    }
+    expect(screen.getByText('Correct: 7 / 8')).toBeInTheDocument()
+    expect(screen.getByText('Mistakes: 1')).toBeInTheDocument()
+    expect(screen.getByText('Accuracy: 88%')).toBeInTheDocument()
   })
   it('renders without crashing', () => {
     renderPage()

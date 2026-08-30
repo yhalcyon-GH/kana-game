@@ -338,7 +338,7 @@ function SessionSummary({ correct, mistakes, onPlayAgain, backPath }: { correct:
         <h2 className="mt-5 font-bold">Mistakes</h2>
         {mistakes.length === 0 ? <p className="mt-2 text-sm text-neutral-500">None — excellent work!</p> : (
           <div className="mt-2 divide-y divide-neutral-200 text-left dark:divide-neutral-700">
-            {mistakes.map(({ dish }) => <div key={dish.id} className="flex items-center gap-3 py-2"><DishGlyph dish={dish} className="h-12 w-12 text-2xl" menu /><div><p className="font-kana font-bold">{dish.displayKana}</p><p className="text-xs text-neutral-600 dark:text-neutral-300">{dish.english}</p></div></div>)}
+            {mistakes.map(({ dish }, index) => <div key={`${dish.id}-${index}`} className="flex items-center gap-3 py-2"><DishGlyph dish={dish} className="h-12 w-12 text-2xl" menu /><div><p className="font-kana font-bold">{dish.displayKana}</p><p className="text-xs text-neutral-600 dark:text-neutral-300">{dish.english}</p></div></div>)}
           </div>
         )}
       </div>
