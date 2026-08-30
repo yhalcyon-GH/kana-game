@@ -276,13 +276,39 @@ describe('RestaurantPage', () => {
     expect(screen.getByText('Question 1 / 8')).toBeInTheDocument()
   })
 
-  it('renders 4 unique dish cards in the menu', () => {
+  it('renders a labelled Menu Sheet with an HTML title and CSS divider', () => {
     renderPage()
     const menu = screen.getByTestId('restaurant-menu')
-    const cards = menu.querySelectorAll('[data-testid^="restaurant-dish-"]')
-    expect(cards.length).toBe(4)
-    const ids = [...cards].map((c) => c.getAttribute('data-testid'))
+    const title = screen.getByRole('heading', { name: 'メニュー' })
+    expect(menu.tagName).toBe('SECTION')
+    expect(title).toHaveClass('font-kana')
+    expect(menu).toHaveAttribute('aria-labelledby', title.id)
+    expect(screen.getByTestId('restaurant-menu-divider')).toHaveClass('border-t')
+  })
+
+  it('renders 4 unique dishes with kana, prices, and contained illustrations only', () => {
+    renderPage()
+    const menu = screen.getByTestId('restaurant-menu')
+    const rows = [...menu.querySelectorAll('[data-testid^="restaurant-dish-"]')]
+    expect(rows).toHaveLength(4)
+    const ids = rows.map((row) => row.getAttribute('data-testid')!.replace('restaurant-dish-', ''))
     expect(new Set(ids).size).toBe(4)
+    for (const id of ids) {
+      const dish = HIRAGANA_RESTAURANT_DISHES.find((candidate) => candidate.id === id)!
+      const row = screen.getByTestId(`restaurant-dish-${id}`)
+      expect(row).toHaveTextContent(dish.displayKana)
+      expect(row).toHaveTextContent(`¥${dish.priceYen}`)
+      expect(row).not.toHaveTextContent(dish.romaji)
+      expect(row).not.toHaveTextContent(dish.english)
+      expect(row.querySelector('img')).toHaveClass('object-contain')
+    }
+  })
+
+  it('always includes every current target in the Menu Sheet', () => {
+    renderPage()
+    const menu = screen.getByTestId('restaurant-menu')
+    const targetIds = currentTargetDishes().map((dish) => dish.id)
+    for (const id of targetIds) expect(menu.querySelector(`[data-testid="restaurant-dish-${id}"]`)).not.toBeNull()
   })
 
   it('the target speech bubble contains no dish name/romaji/English text, only an emoji/image', () => {
