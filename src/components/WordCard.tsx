@@ -19,14 +19,26 @@ type Props = {
 // pattern, or its mora count doesn't line up with the accent string
 // (shouldn't happen, but a silently mismatched line would be worse than
 // none).
-function AccentedKana({ kana, accent }: { kana: string; accent?: string }) {
+function KanaText({ kana, highlightLastKana }: { kana: string; highlightLastKana?: boolean }) {
+  if (!highlightLastKana) return <UnbreakableKana kana={kana} />
+  return (
+    <>
+      <UnbreakableKana kana={kana.slice(0, -1)} />
+      <span className="text-red-600 dark:text-red-400" data-testid="particle-greeting-ha">
+        {kana[kana.length - 1]}
+      </span>
+    </>
+  )
+}
+
+function AccentedKana({ kana, accent, highlightLastKana }: { kana: string; accent?: string; highlightLastKana?: boolean }) {
   const chars = [...kana]
   const n = chars.length
   const morae = toMorae(kana)
   if (!accent || accent.length !== morae.length) {
     return (
       <span className="font-kana text-2xl font-bold">
-        <UnbreakableKana kana={kana} />
+        <KanaText kana={kana} highlightLastKana={highlightLastKana} />
       </span>
     )
   }
@@ -58,7 +70,7 @@ function AccentedKana({ kana, accent }: { kana: string; accent?: string }) {
           vectorEffect="non-scaling-stroke"
         />
       </svg>
-      <UnbreakableKana kana={kana} />
+      <KanaText kana={kana} highlightLastKana={highlightLastKana} />
     </span>
   )
 }
@@ -78,16 +90,7 @@ export function WordCard({ word }: Props) {
     >
       <WordImage word={word} className="h-16 w-16" />
       <span className="mt-2 mb-0.5">
-        {isParticleGreeting ? (
-          <span className="font-kana text-2xl font-bold">
-            <UnbreakableKana kana={word.kana.slice(0, -1)} />
-            <span className="text-red-600 dark:text-red-400" data-testid="particle-greeting-ha">
-              は
-            </span>
-          </span>
-        ) : (
-          <AccentedKana kana={word.kana} accent={ACCENT_PATTERNS[word.id]} />
-        )}
+        <AccentedKana kana={word.kana} accent={ACCENT_PATTERNS[word.id]} highlightLastKana={isParticleGreeting} />
       </span>
       <span className="text-sm text-neutral-500 dark:text-neutral-400">{word.romaji}</span>
       <span className="text-center text-sm text-neutral-600 dark:text-neutral-300">{word.meaning}</span>

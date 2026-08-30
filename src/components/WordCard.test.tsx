@@ -71,16 +71,18 @@ describe('WordCard with a yōon word (2 glyphs, 1 character id, but mismatched m
 
 describe('Particle greeting display', () => {
   it.each(['wa-konnichiwa', 'wa-konbanwa'])('marks only the final は for %s', (id) => {
-    const { getByTestId, getByText } = render(<WordCard word={WORDS_BY_ID[id]} />)
+    const { container, getByTestId, getByText } = render(<WordCard word={WORDS_BY_ID[id]} />)
     expect(getByTestId('particle-greeting-ha')).toHaveTextContent('は')
     expect(getByTestId('particle-greeting-ha')).toHaveClass('text-red-600')
     expect(getByText('は ※Particle')).toHaveClass('text-red-600')
+    expect(container.querySelector('svg polyline')).toBeInTheDocument()
   })
 
   it('leaves ordinary vocabulary without particle styling', () => {
-    const { queryByTestId, queryByText } = render(<WordCard word={WORDS_BY_ID['wa-watashi']} />)
+    const { container, queryByTestId, queryByText } = render(<WordCard word={WORDS_BY_ID['wa-watashi']} />)
     expect(queryByTestId('particle-greeting-ha')).toBeNull()
     expect(queryByText('は ※Particle')).toBeNull()
+    expect(container.querySelector('svg polyline')).toBeInTheDocument()
   })
 })
 
