@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { HIRAGANA_RESTAURANT_DISHES } from '../data/restaurantDishes'
-import { checkOrder, checkOrderAlternatives, hasOrderIntent, identifyDish, normalizeJapanese } from './restaurantMatching'
+import { checkMultipleDishOrder, checkMultipleDishOrderAlternatives, checkOrder, checkOrderAlternatives, hasOrderIntent, identifyDish, normalizeJapanese } from './restaurantMatching'
 
 const sushi = HIRAGANA_RESTAURANT_DISHES.find((d) => d.id === 'sushi')!
 const soba = HIRAGANA_RESTAURANT_DISHES.find((d) => d.id === 'soba')!
@@ -109,5 +109,27 @@ describe('checkOrderAlternatives', () => {
 
   it('prefers success from any of the first three alternatives', () => {
     expect(checkOrderAlternatives(['noise', 'そば', 'すし'], menu, sushi).outcome).toBe('success')
+  })
+})
+
+describe('checkMultipleDishOrder', () => {
+  it('succeeds when targets A and B are named in menu order', () => {
+    expect(checkMultipleDishOrder('すし と そば', menu, [sushi, soba]).outcome).toBe('success')
+  })
+
+  it('succeeds when targets A and B are named in reverse order', () => {
+    expect(checkMultipleDishOrder('そば と すし', menu, [sushi, soba]).outcome).toBe('success')
+  })
+
+  it('fails when only one of the two targets is named', () => {
+    expect(checkMultipleDishOrder('すし', menu, [sushi, soba]).outcome).not.toBe('success')
+  })
+
+  it('fails when both targets and another displayed dish are named', () => {
+    expect(checkMultipleDishOrder('すし と そば と うどん', menu, [sushi, soba]).outcome).not.toBe('success')
+  })
+
+  it('checks up to three speech-recognition alternatives for a two-dish order', () => {
+    expect(checkMultipleDishOrderAlternatives(['noise', 'すし', 'そば と すし'], menu, [sushi, soba]).outcome).toBe('success')
   })
 })
