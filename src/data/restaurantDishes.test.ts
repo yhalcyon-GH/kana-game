@@ -63,4 +63,9 @@ describe('restaurantDishes (hiragana stage)', () => {
       expect(dish.placeholderEmoji.length).toBeGreaterThan(0)
     }
   })
+
+  it('every placeholderEmoji is unique, so the target bubble is never ambiguous between two displayed dishes', () => {
+    const emoji = HIRAGANA_RESTAURANT_DISHES.map((d) => d.placeholderEmoji)
+    expect(new Set(emoji).size).toBe(emoji.length)
+  })
 })

@@ -33,6 +33,7 @@ import { useCurriculum } from '../hooks/useCurriculum'
 import { buildGuideReplayHref, useGuideReplay } from '../hooks/useGuideReplay'
 import { isRowRecommendedPathDone } from '../lib/recommendedPath'
 import { useProgressStore } from '../store/progressStore'
+import type { RestaurantStageId } from '../data/restaurantDishes'
 
 const SOKUON_TARGET_PATH = `/practice/${SOKUON_GUIDE.target.categoryId}/${SOKUON_GUIDE.target.rowId}`
 const CHOUON_TARGET_PATH = `/practice/${CHOUON_GUIDE.target.categoryId}/${CHOUON_GUIDE.target.rowId}`
@@ -55,12 +56,21 @@ type Props = {
   // only picks which Ask Tamamizu artwork to show (Hiragana vs Katakana) —
   // both replay the exact same shared KanaIntroExcerptGuide.
   askTamamizuKanaIntroVariant?: 'hiragana' | 'katakana'
+  // Which Restaurant stage's CTA to show on this page, if any — separate
+  // from askTamamizuKanaIntroVariant on purpose: Restaurant is an unrelated
+  // feature (a standalone repeatable mini-game, not a Guide/Ask Tamamizu
+  // excerpt), so it must not inherit that prop's on/off state or variant.
+  // Only 'hiragana' is wired up anywhere right now (App.tsx's /hiragana
+  // page) — katakana/other/special-katakana Restaurant stages don't exist
+  // yet, but this prop lets a future page opt in without touching the
+  // Ask Tamamizu wiring at all.
+  restaurantStage?: RestaurantStageId
 }
 
 // One row-map page per top-level script group (see App.tsx's four routes)
 // — replaces the single HomePage that used to show every category's rows
 // stacked in one page. HomePage itself is now just a chooser linking here.
-export function CategoryRowsPage({ title, description, categoryIds, askTamamizuKanaIntroVariant }: Props) {
+export function CategoryRowsPage({ title, description, categoryIds, askTamamizuKanaIntroVariant, restaurantStage }: Props) {
   const { rows, isRowUnlocked, isRowTaught, globalRecommendedTarget } = useCurriculum()
   const navigate = useNavigate()
   const kanaIntroExcerptGuide = useGuideReplay('kanaIntro')
@@ -263,11 +273,15 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
           visual pattern, but it navigates directly instead of opening a
           Guide overlay. Not a curriculum row, not in Recommended Path, no
           completion flag — see RestaurantPage's own comment for the full
-          progress-isolation guarantee. */}
-      {askTamamizuKanaIntroVariant === 'hiragana' && (
+          progress-isolation guarantee. Gated on its own `restaurantStage`
+          prop, not on askTamamizuKanaIntroVariant — those are unrelated
+          features that happen to both currently only be wired up on the
+          Hiragana page (see App.tsx). Only 'hiragana' has a route/dishes
+          today; other stage ids are not yet implemented. */}
+      {restaurantStage === 'hiragana' && (
         <button
           type="button"
-          onClick={() => navigate('/restaurant/hiragana')}
+          onClick={() => navigate(`/restaurant/${restaurantStage}`)}
           data-testid="restaurant-cta"
           className="w-full max-w-md rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-center text-base font-semibold shadow-sm transition hover:border-blue-400 active:scale-[0.98] dark:border-neutral-700 dark:bg-neutral-800"
         >

@@ -57,7 +57,7 @@ export const RESTAURANT_DISHES: RestaurantDish[] = [
     romaji: 'udon',
     priceYen: 650,
     recognitionAliases: ['うどん'],
-    placeholderEmoji: '🍜',
+    placeholderEmoji: '🍲',
     requiredCategories: ['hiragana'],
   },
   {
@@ -87,7 +87,7 @@ export const RESTAURANT_DISHES: RestaurantDish[] = [
     romaji: 'yakitori',
     priceYen: 480,
     recognitionAliases: ['やきとり', '焼き鳥', '焼鳥'],
-    placeholderEmoji: '🍢',
+    placeholderEmoji: '🍗',
     requiredCategories: ['hiragana'],
   },
   {
@@ -137,7 +137,7 @@ export const RESTAURANT_DISHES: RestaurantDish[] = [
     romaji: 'misoshiru',
     priceYen: 300,
     recognitionAliases: ['みそしる', '味噌汁', 'みそ汁'],
-    placeholderEmoji: '🍲',
+    placeholderEmoji: '🥣',
     requiredCategories: ['hiragana'],
   },
 ]

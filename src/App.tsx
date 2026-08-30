@@ -61,6 +61,7 @@ function App() {
                     description="Learn hiragana with everyday words."
                     categoryIds={[DEFAULT_CATEGORY_ID]}
                     askTamamizuKanaIntroVariant="hiragana"
+                    restaurantStage="hiragana"
                   />
                 }
               />

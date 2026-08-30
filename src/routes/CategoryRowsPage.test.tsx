@@ -593,6 +593,7 @@ function renderHiraganaWithParticleEntry() {
         description=""
         categoryIds={[DEFAULT_CATEGORY_ID]}
         askTamamizuKanaIntroVariant="hiragana"
+        restaurantStage="hiragana"
       />
     </MemoryRouter>,
   )
@@ -607,6 +608,29 @@ describe('Hiragana Restaurant CTA', () => {
   it('does not render on the Katakana overview (Hiragana-only entry point)', () => {
     const { queryByTestId } = renderKatakana()
     expect(queryByTestId('restaurant-cta')).toBeNull()
+  })
+
+  it('does not depend on askTamamizuKanaIntroVariant: absent even with the variant set, if restaurantStage is not passed', () => {
+    const { queryByTestId } = render(
+      <MemoryRouter>
+        <CategoryRowsPage
+          title="ひらがな"
+          description=""
+          categoryIds={[DEFAULT_CATEGORY_ID]}
+          askTamamizuKanaIntroVariant="hiragana"
+        />
+      </MemoryRouter>,
+    )
+    expect(queryByTestId('restaurant-cta')).toBeNull()
+  })
+
+  it('does not depend on askTamamizuKanaIntroVariant: present with only restaurantStage passed', () => {
+    const { getByTestId } = render(
+      <MemoryRouter>
+        <CategoryRowsPage title="ひらがな" description="" categoryIds={[DEFAULT_CATEGORY_ID]} restaurantStage="hiragana" />
+      </MemoryRouter>,
+    )
+    expect(getByTestId('restaurant-cta')).toBeInTheDocument()
   })
 
   it('appears before the "Ask Tamamizu about particles" button in DOM order', () => {
@@ -633,7 +657,15 @@ describe('Hiragana Restaurant CTA', () => {
         <Routes>
           <Route
             path="/hiragana"
-            element={<CategoryRowsPage title="ひらがな" description="" categoryIds={[DEFAULT_CATEGORY_ID]} askTamamizuKanaIntroVariant="hiragana" />}
+            element={
+              <CategoryRowsPage
+                title="ひらがな"
+                description=""
+                categoryIds={[DEFAULT_CATEGORY_ID]}
+                askTamamizuKanaIntroVariant="hiragana"
+                restaurantStage="hiragana"
+              />
+            }
           />
           <Route path="/restaurant/hiragana" element={<LocationDisplay />} />
         </Routes>
