@@ -5,6 +5,17 @@ export type RestaurantRound = {
   target: RestaurantDish
 }
 
+export function pickRoundFromPools(targetDishes: RestaurantDish[], menuDishes: RestaurantDish[], rng: () => number = Math.random, previousTargetId?: string, usedTargetIds: string[] = []): RestaurantRound {
+  if (targetDishes.length < 2 || menuDishes.length < 4) throw new Error('Restaurant pools need at least 2 targets and 4 menu dishes')
+  const targetPool = targetDishes.filter((dish) => dish.id !== previousTargetId)
+  const unseen = targetPool.filter((dish) => !usedTargetIds.includes(dish.id))
+  const candidates = unseen.length >= 1 ? unseen : targetPool
+  const target = candidates[Math.min(candidates.length - 1, Math.floor(rng() * candidates.length))]
+  const menuPool = menuDishes.filter((dish) => dish.id !== target.id)
+  const shuffled = shuffleRestaurantChoices(menuPool, rng)
+  return { target, menu: [target, ...shuffled.slice(0, 3)] }
+}
+
 export function shuffleRestaurantChoices(dishes: RestaurantDish[], rng: () => number = Math.random): RestaurantDish[] {
   const shuffled = [...dishes]
   for (let i = shuffled.length - 1; i > 0; i--) {

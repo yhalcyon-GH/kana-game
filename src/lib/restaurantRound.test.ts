@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { HIRAGANA_RESTAURANT_DISHES } from '../data/restaurantDishes'
-import { pickRound, shuffleRestaurantChoices } from './restaurantRound'
+import { HIRAGANA_RESTAURANT_DISHES, KATAKANA_RESTAURANT_DISHES } from '../data/restaurantDishes'
+import { pickRound, pickRoundFromPools, shuffleRestaurantChoices } from './restaurantRound'
 
 // Simple deterministic LCG so tests don't depend on Math.random while still
 // exercising many distinct sequences.
@@ -56,5 +56,14 @@ describe('shuffleRestaurantChoices', () => {
     const shuffled = shuffleRestaurantChoices(menu, () => 0)
     expect(shuffled.map((dish) => dish.id)).toEqual(['soba', 'udon', 'tenpura', 'sushi'])
     expect(new Set(shuffled.map((dish) => dish.id))).toEqual(new Set(menu.map((dish) => dish.id)))
+  })
+})
+
+describe('pickRoundFromPools', () => {
+  it('keeps targets in the current stage while allowing earlier-stage menu dishes', () => {
+    const round = pickRoundFromPools(KATAKANA_RESTAURANT_DISHES, [...HIRAGANA_RESTAURANT_DISHES, ...KATAKANA_RESTAURANT_DISHES], () => 0)
+    expect(round.target.stage).toBe('katakana')
+    expect(round.menu).toHaveLength(4)
+    expect(round.menu.some((dish) => dish.stage === 'hiragana')).toBe(true)
   })
 })

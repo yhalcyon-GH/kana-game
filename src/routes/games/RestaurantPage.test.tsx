@@ -23,12 +23,17 @@ function renderPage(start = true) {
 
 function clickTargetAnswer() {
   if (!screen.queryByTestId('restaurant-romaji-fallback')) fireEvent.click(screen.getByRole('button', { name: 'Choose in Romaji' }))
-  const targetSources = screen.getAllByAltText('Target dish').map((image) => image.getAttribute('src'))
-  const menuImages = [...screen.getByTestId('restaurant-menu').querySelectorAll('img')]
-  const targetIds = targetSources.map((src) => menuImages.find((image) => image.getAttribute('src') === src)?.closest('[data-testid^="restaurant-dish-"]')?.getAttribute('data-testid')?.replace('restaurant-dish-', ''))
-  expect(targetIds.every(Boolean)).toBe(true)
+  const targetIds = screen.getAllByTestId(/^restaurant-target-(?!bubble)/).map((node) => node.getAttribute('data-testid')?.replace('restaurant-target-', ''))
   targetIds.forEach((id) => fireEvent.click(screen.getByTestId(`restaurant-romaji-${id}`)))
   if (targetIds.length === 2) fireEvent.click(screen.getByRole('button', { name: 'Order' }))
+}
+
+function clickWrongAnswer() {
+  const targetSrc = screen.getByAltText('Target dish').getAttribute('src')
+  const wrong = [...screen.getByTestId('restaurant-menu').querySelectorAll('img')].find((image) => image.getAttribute('src') !== targetSrc)
+  const id = wrong?.closest('[data-testid^="restaurant-dish-"]')?.getAttribute('data-testid')?.replace('restaurant-dish-', '')
+  expect(id).toBeTruthy()
+  fireEvent.click(screen.getByTestId(`restaurant-romaji-${id}`))
 }
 
 beforeEach(() => {
@@ -111,7 +116,7 @@ describe('RestaurantPage', () => {
   it('offers Try Again and Show Answer after a wrong answer', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0)
     renderPage()
-    fireEvent.click(screen.getByTestId('restaurant-romaji-soba'))
+    clickWrongAnswer()
     expect(screen.getByRole('button', { name: 'Try Again' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Show Answer' }))
     expect(screen.getAllByText('sushi').length).toBeGreaterThan(0)
@@ -137,7 +142,7 @@ describe('RestaurantPage', () => {
   it('counts wrong then retry-correct as a mistake in the final score', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0)
     renderPage()
-    fireEvent.click(screen.getByTestId('restaurant-romaji-soba'))
+    clickWrongAnswer()
     fireEvent.click(screen.getByRole('button', { name: 'Try Again' }))
     fireEvent.click(screen.getByTestId('restaurant-romaji-sushi'))
     fireEvent.click(screen.getByRole('button', { name: 'Next order' }))
@@ -153,7 +158,7 @@ describe('RestaurantPage', () => {
   it('counts Show Answer as a mistake before advancing to the final score', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0)
     renderPage()
-    fireEvent.click(screen.getByTestId('restaurant-romaji-soba'))
+    clickWrongAnswer()
     fireEvent.click(screen.getByRole('button', { name: 'Show Answer' }))
     fireEvent.click(screen.getByRole('button', { name: 'Next order' }))
     for (let question = 2; question <= 8; question++) {
