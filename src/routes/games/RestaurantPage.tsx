@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { AnswerFeedbackRow } from '../../components/AnswerFeedbackRow'
 import { RESTAURANT_DISHES, type RestaurantDish, type RestaurantStageId } from '../../data/restaurantDishes'
 import { useTTS } from '../../hooks/useTTS'
-import { pickRound, shuffleRestaurantChoices, type RestaurantRound } from '../../lib/restaurantRound'
+import { menuKey, pickRoundFromPools, shuffleRestaurantChoices, type RestaurantRound } from '../../lib/restaurantRound'
 import { checkMultipleDishOrderAlternatives, checkOrderAlternatives, type OrderCheckResult } from '../../lib/restaurantMatching'
 
 // Minimal ambient typing for the (still-experimental, vendor-prefixed) Web
@@ -50,7 +51,8 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
   const { speak, speakAndWait, stop } = useTTS()
   const sequenceIdRef = useRef(0)
   const dishes = RESTAURANT_DISHES.filter((dish) => dish.stage === stage)
-  const [round, setRound] = useState<RestaurantRound>(() => pickRound(dishes))
+  const menuDishes = RESTAURANT_DISHES.filter((dish) => ['hiragana', 'katakana', 'other', 'special-katakana'].indexOf(dish.stage) <= ['hiragana', 'katakana', 'other', 'special-katakana'].indexOf(stage))
+  const [round, setRound] = useState<RestaurantRound>(() => pickRoundFromPools(dishes, menuDishes))
   const [targets, setTargets] = useState<RestaurantDish[]>([round.target])
   const [romajiChoices, setRomajiChoices] = useState<RestaurantDish[]>(() => shuffleRestaurantChoices(round.menu))
   const [state, setState] = useState<ResultState>({ kind: 'idle' })
@@ -61,7 +63,11 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
   const greetedIntroRef = useRef(false)
   const [showRomaji, setShowRomaji] = useState(false)
   const [selectedRomaji, setSelectedRomaji] = useState<RestaurantDish[]>([])
+  const usedTargetIdsRef = useRef<string[]>([round.target.id])
+  const usedPairKeysRef = useRef<string[]>([])
+  const lastMenuKeyRef = useRef(menuKey(round.menu))
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
+  const recognitionTokenRef = useRef(0)
   const [speechSupported, setSpeechSupported] = useState(false)
 
   useEffect(() => {
@@ -78,7 +84,9 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
 
   useEffect(() => {
     return () => {
+      recognitionTokenRef.current++
       recognitionRef.current?.abort()
+      recognitionRef.current = null
       sequenceIdRef.current++
       stop()
     }
@@ -104,6 +112,17 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
       setSpeechSupported(false)
       return
     }
+    recognitionTokenRef.current++
+    recognitionRef.current?.abort()
+    recognitionRef.current = null
+    const token = recognitionTokenRef.current
+    let settled = false
+    const settle = (callback: () => void) => {
+      if (settled || token !== recognitionTokenRef.current) return
+      settled = true
+      recognitionRef.current = null
+      callback()
+    }
     setState({ kind: 'listening' })
     const recognition = new Ctor()
     recognitionRef.current = recognition
@@ -112,16 +131,24 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
     recognition.interimResults = false
     recognition.maxAlternatives = 3
     recognition.onresult = (event) => {
+      if (settled || token !== recognitionTokenRef.current || !event.results || !event.results[0]) return
       const result = event.results[0]
       const alternatives: string[] = []
-      for (let i = 0; i < result.length; i++) alternatives.push(result[i].transcript)
+      const resultLength = Number.isInteger(result.length) && result.length > 0 ? result.length : 0
+      for (let i = 0; i < resultLength; i++) {
+        const transcript = result[i]?.transcript
+        if (typeof transcript === 'string' && transcript.trim()) alternatives.push(transcript)
+      }
       const check = targets.length === 1 ? checkOrderAlternatives(alternatives, round.menu, targets[0]) : checkMultipleDishOrderAlternatives(alternatives, round.menu, targets)
-      evaluate(alternatives[0] ?? null, check)
+      settle(() => evaluate(alternatives[0] ?? null, check))
     }
     recognition.onerror = () => {
-      evaluate(null, { outcome: 'unrecognized' })
+      settle(() => evaluate(null, { outcome: 'unrecognized' }))
     }
     recognition.onend = () => {
+      if (settled || token !== recognitionTokenRef.current) return
+      settled = true
+      recognitionRef.current = null
       // If neither onresult nor onerror fired (e.g. aborted), fall back to
       // an unrecognized result rather than leaving the UI stuck listening.
       setState((prev) => (prev.kind === 'listening' ? { kind: 'result', transcript: null, check: { outcome: 'unrecognized' } } : prev))
@@ -129,7 +156,7 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
     try {
       recognition.start()
     } catch {
-      evaluate(null, { outcome: 'unrecognized' })
+      settle(() => evaluate(null, { outcome: 'unrecognized' }))
     }
   }
 
@@ -154,10 +181,53 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
     }
     sequenceIdRef.current++
     stop()
-    const nextRound = pickRound(dishes, Math.random, round.target.id)
-    setRound(nextRound)
-    setTargets(questionNumber + 1 >= 5 ? [nextRound.target, nextRound.menu.find((dish) => dish.id !== nextRound.target.id)!] : [nextRound.target])
-    setRomajiChoices(shuffleRestaurantChoices(nextRound.menu))
+    recognitionTokenRef.current++
+    recognitionRef.current?.abort()
+    recognitionRef.current = null
+    const nextRound = pickRoundFromPools(dishes, menuDishes, Math.random, round.target.id, usedTargetIdsRef.current, lastMenuKeyRef.current)
+    usedTargetIdsRef.current = [...usedTargetIdsRef.current, nextRound.target.id]
+    const isTwoTargetRound = questionNumber + 1 >= 5
+    let secondTarget: RestaurantDish | null = null
+    let nextMenu = nextRound.menu
+    if (isTwoTargetRound) {
+      const candidates = dishes.filter((dish) => dish.id !== nextRound.target.id)
+      const unseenTargets = candidates.filter((dish) => !usedTargetIdsRef.current.includes(dish.id))
+      const targetPool = unseenTargets.length ? unseenTargets : candidates
+      const unusedPairs = targetPool.filter((dish) => !usedPairKeysRef.current.includes([nextRound.target.id, dish.id].sort().join('|')))
+      const secondPool = unusedPairs.length ? unusedPairs : targetPool
+      const selectedSecondTarget = secondPool[Math.min(secondPool.length - 1, Math.floor(Math.random() * secondPool.length))]
+      secondTarget = selectedSecondTarget
+
+      const fillerPool = menuDishes.filter((dish) => dish.id !== nextRound.target.id && dish.id !== selectedSecondTarget.id)
+      const buildFinalMenu = () => shuffleRestaurantChoices([
+        nextRound.target,
+        selectedSecondTarget,
+        ...shuffleRestaurantChoices(fillerPool).slice(0, 2),
+      ])
+      nextMenu = buildFinalMenu()
+      for (let attempt = 0; attempt < 4 && menuKey(nextMenu) === lastMenuKeyRef.current; attempt++) {
+        nextMenu = buildFinalMenu()
+      }
+      if (menuKey(nextMenu) === lastMenuKeyRef.current) {
+        outer: for (let first = 0; first < fillerPool.length; first++) {
+          for (let second = first + 1; second < fillerPool.length; second++) {
+            const alternative = [nextRound.target, selectedSecondTarget, fillerPool[first], fillerPool[second]]
+            if (menuKey(alternative) !== lastMenuKeyRef.current) {
+              nextMenu = shuffleRestaurantChoices(alternative)
+              break outer
+            }
+          }
+        }
+      }
+
+      usedTargetIdsRef.current = [...usedTargetIdsRef.current, selectedSecondTarget.id]
+      usedPairKeysRef.current = [...usedPairKeysRef.current, [nextRound.target.id, selectedSecondTarget.id].sort().join('|')]
+    }
+    const orderRound = { ...nextRound, menu: nextMenu }
+    lastMenuKeyRef.current = menuKey(orderRound.menu)
+    setRound(orderRound)
+    setTargets(secondTarget ? [orderRound.target, secondTarget] : [orderRound.target])
+    setRomajiChoices(shuffleRestaurantChoices(orderRound.menu))
     setShowRomaji(false)
     setSelectedRomaji([])
     setQuestionNumber((number) => number + 1)
@@ -167,8 +237,14 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
   function playAgain() {
     sequenceIdRef.current++
     stop()
-    const firstRound = pickRound(dishes)
+    recognitionTokenRef.current++
+    recognitionRef.current?.abort()
+    recognitionRef.current = null
+    const firstRound = pickRoundFromPools(dishes, menuDishes)
+    usedTargetIdsRef.current = [firstRound.target.id]
+    usedPairKeysRef.current = []
     setRound(firstRound)
+    lastMenuKeyRef.current = menuKey(firstRound.menu)
     setTargets([firstRound.target])
     setRomajiChoices(shuffleRestaurantChoices(firstRound.menu))
     setQuestionNumber(1)
@@ -200,6 +276,9 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
   }
 
   function tryAgain() {
+    recognitionTokenRef.current++
+    recognitionRef.current?.abort()
+    recognitionRef.current = null
     setState({ kind: 'idle' })
   }
 
@@ -239,12 +318,12 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
           data-testid="restaurant-target-bubble"
           aria-label="What Tamamizu wants to order"
         >
-          <div className="flex items-center justify-center gap-2">{targets.map((dish, index) => <span key={dish.id} className="contents"><DishGlyph dish={dish} className="h-24 w-24 text-4xl" target />{index < targets.length - 1 && <span className="font-kana text-3xl">と</span>}</span>)}</div>
+          <div className="flex min-w-0 items-center justify-center gap-1">{targets.map((dish, index) => <span key={dish.id} data-testid={`restaurant-target-${dish.id}`} className="flex min-w-0 items-center"><DishGlyph dish={dish} className={targets.length === 2 ? 'h-20 w-20 max-w-[40vw] text-3xl' : 'h-24 w-24 text-4xl'} target />{index < targets.length - 1 && <span className="font-kana shrink-0 px-0.5 text-2xl">と</span>}</span>)}</div>
         </div>
       </div>
 
       <p data-testid="restaurant-order-template" className="font-kana w-full whitespace-nowrap text-center text-[clamp(.8rem,4vw,1.125rem)]" lang="ja">
-        {targets.length === 1 ? 'すみません、＿＿＿＿おねがいします。' : 'すみません、＿＿＿＿ と ＿＿＿＿ おねがいします。'}
+        {targets.length === 1 ? 'すみません、＿＿＿＿ おねがいします。' : 'すみません、＿＿＿＿ と ＿＿＿＿ おねがいします。'}
       </p>
 
       <div className="w-full max-w-md divide-y divide-amber-200 rounded-xl border border-amber-200 bg-amber-50/40 px-3 shadow-sm dark:divide-amber-900 dark:border-amber-900 dark:bg-amber-950/20" data-testid="restaurant-menu">
@@ -276,13 +355,7 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
                 {targets.map((dish) => <button key={dish.id} type="button" onClick={() => { sequenceIdRef.current++; stop(); speak(dish.audioPath.replace(/^\/audio\//, '').replace(/\.wav$/, ''), dish.displayKana) }} className="rounded-full border px-3 py-1 text-sm">Hear {dish.romaji}</button>)}
                 <button type="button" onClick={hearFullOrder} className="rounded-full border px-3 py-1 text-sm">Hear the full order</button>
               </div>
-              <button
-                type="button"
-                onClick={nextOrder}
-                className="mt-1 rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700 active:scale-95"
-              >
-                Next order
-              </button>
+              <AnswerFeedbackRow mood={isSuccess ? 'correct' : 'incorrect'} showNext onNext={nextOrder} />
             </>
           ) : (
             <>
@@ -297,6 +370,7 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
                 Try Again
               </button>
               <button type="button" onClick={() => setState({ ...state, revealed: true })} className="rounded-full border px-5 py-2 text-sm font-semibold">Show Answer</button>
+              <AnswerFeedbackRow mood="incorrect" showNext={false} onNext={nextOrder} />
             </>
           )}
         </div>
@@ -360,7 +434,7 @@ function RestaurantIntro({ onStart, backPath }: { onStart: () => void; backPath:
   return <div className="flex w-full flex-col items-center gap-4">
     <Link to={backPath} className="self-start rounded-full border px-4 py-1.5 text-sm font-semibold">← Back</Link>
     <p className="whitespace-nowrap text-center text-lg font-bold">Let's order at a restaurant.</p>
-    <img src={`${import.meta.env.BASE_URL}mascot/restaurant-intro.png`} alt="Restaurant introduction" className="max-h-56 w-full max-w-md rounded-2xl object-cover" />
+    <img src={`${import.meta.env.BASE_URL}mascot/restaurant-intro.png`} alt="Restaurant introduction" className="h-auto w-full max-w-md rounded-2xl object-contain" />
     <p className="text-sm">When ordering, say:</p>
     <div className="font-kana text-center text-lg"><p>すみません</p><p className="font-sans text-xs">(Excuse me)</p></div>
     <div className="flex items-center gap-2"><DishGlyph dish={tenpura} className="h-16 w-16" menu /><div className="text-center"><p className="font-kana text-2xl">と</p><p className="text-xs">and</p></div><DishGlyph dish={misoshiru} className="h-16 w-16" menu /></div>
