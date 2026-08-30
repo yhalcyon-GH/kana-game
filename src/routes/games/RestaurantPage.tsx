@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { RESTAURANT_DISHES, type RestaurantDish, type RestaurantStageId } from '../../data/restaurantDishes'
 import { useTTS } from '../../hooks/useTTS'
-import { pickRound, type RestaurantRound } from '../../lib/restaurantRound'
+import { pickRound, shuffleRestaurantChoices, type RestaurantRound } from '../../lib/restaurantRound'
 import { checkOrderAlternatives, type OrderCheckResult } from '../../lib/restaurantMatching'
 
 // Minimal ambient typing for the (still-experimental, vendor-prefixed) Web
@@ -36,6 +36,8 @@ type ResultState =
   | { kind: 'listening' }
   | { kind: 'result'; transcript: string | null; check: OrderCheckResult; revealed?: boolean }
 
+type SessionResult = { dish: RestaurantDish; correct: boolean }
+
 // A small, standalone, repeatable "order the dish from the menu" mini-game.
 // Deliberately outside the
 // curriculum/row/Recommended-Path/Review/SRS/Saved system entirely — see
@@ -49,7 +51,11 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
   const sequenceIdRef = useRef(0)
   const dishes = RESTAURANT_DISHES.filter((dish) => dish.stage === stage)
   const [round, setRound] = useState<RestaurantRound>(() => pickRound(dishes))
+  const [romajiChoices, setRomajiChoices] = useState<RestaurantDish[]>(() => shuffleRestaurantChoices(round.menu))
   const [state, setState] = useState<ResultState>({ kind: 'idle' })
+  const [questionNumber, setQuestionNumber] = useState(1)
+  const [sessionResults, setSessionResults] = useState<SessionResult[]>([])
+  const [completed, setCompleted] = useState(false)
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
   const [speechSupported, setSpeechSupported] = useState(false)
 
@@ -77,6 +83,13 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
 
   function evaluate(transcript: string | null, check: OrderCheckResult) {
     setState({ kind: 'result', transcript, check, revealed: false })
+    setSessionResults((previous) => {
+      const next = [...previous]
+      const index = questionNumber - 1
+      const earlier = next[index]
+      next[index] = { dish: round.target, correct: Boolean(earlier?.correct) || (check.outcome === 'success' && !earlier) }
+      return next
+    })
     if (check.outcome === 'success') {
       speak('restaurant/staff/kashikomarimashita', 'かしこまりました。')
     }
@@ -123,9 +136,28 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
   }
 
   function nextOrder() {
+    if (questionNumber >= 8) {
+      setCompleted(true)
+      return
+    }
     sequenceIdRef.current++
     stop()
-    setRound(pickRound(dishes, Math.random, round.target.id))
+    const nextRound = pickRound(dishes, Math.random, round.target.id)
+    setRound(nextRound)
+    setRomajiChoices(shuffleRestaurantChoices(nextRound.menu))
+    setQuestionNumber((number) => number + 1)
+    setState({ kind: 'idle' })
+  }
+
+  function playAgain() {
+    sequenceIdRef.current++
+    stop()
+    const firstRound = pickRound(dishes)
+    setRound(firstRound)
+    setRomajiChoices(shuffleRestaurantChoices(firstRound.menu))
+    setQuestionNumber(1)
+    setSessionResults([])
+    setCompleted(false)
     setState({ kind: 'idle' })
   }
 
@@ -151,6 +183,11 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
   const isResult = state.kind === 'result'
   const backPath = stage === 'hiragana' ? '/hiragana' : stage === 'katakana' ? '/katakana' : stage === 'other' ? '/other' : '/youon'
   const isSuccess = isResult && state.kind === 'result' && state.check.outcome === 'success'
+  const mistakes = sessionResults.filter((result) => !result.correct)
+  if (completed) {
+    const correct = sessionResults.filter((result) => result.correct).length
+    return <SessionSummary correct={correct} mistakes={mistakes} onPlayAgain={playAgain} backPath={backPath} />
+  }
 
   return (
     <div className="flex w-full flex-col items-center gap-6">
@@ -161,7 +198,7 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
         >
           ← Back
         </Link>
-        <h1 className="text-xl font-bold">Order at the Restaurant</h1>
+        <div className="text-center"><h1 className="text-xl font-bold">Order at the Restaurant</h1><p className="text-xs text-neutral-500">Question {questionNumber} / 8</p></div>
         <span className="w-16" aria-hidden="true" />
       </div>
 
@@ -258,7 +295,7 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
           <div className="flex w-full flex-col items-center gap-2" data-testid="restaurant-romaji-fallback">
             <p className="text-sm text-neutral-500 dark:text-neutral-400">Choose the romaji instead</p>
             <div className="grid w-full grid-cols-2 gap-2">
-              {round.menu.map((dish) => (
+              {romajiChoices.map((dish) => (
                 <button
                   key={dish.id}
                   type="button"
@@ -285,6 +322,30 @@ function DishGlyph({ dish, className, target = false, menu = false }: { dish: Re
   return (
     <div className={`flex items-center justify-center ${className}`} aria-hidden="true">
       {dish.placeholderEmoji}
+    </div>
+  )
+}
+
+function SessionSummary({ correct, mistakes, onPlayAgain, backPath }: { correct: number; mistakes: SessionResult[]; onPlayAgain: () => void; backPath: string }) {
+  const accuracy = Math.round((correct / 8) * 100)
+  return (
+    <div className="flex w-full flex-col items-center gap-5">
+      <h1 className="text-2xl font-bold">Completed!</h1>
+      <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-neutral-50 p-5 text-center dark:border-neutral-700 dark:bg-neutral-900">
+        <p className="text-lg font-semibold">Correct: {correct} / 8</p>
+        <p>Mistakes: {mistakes.length}</p>
+        <p className="text-sm text-neutral-600 dark:text-neutral-300">Accuracy: {accuracy}%</p>
+        <h2 className="mt-5 font-bold">Mistakes</h2>
+        {mistakes.length === 0 ? <p className="mt-2 text-sm text-neutral-500">None — excellent work!</p> : (
+          <div className="mt-2 divide-y divide-neutral-200 text-left dark:divide-neutral-700">
+            {mistakes.map(({ dish }) => <div key={dish.id} className="flex items-center gap-3 py-2"><DishGlyph dish={dish} className="h-12 w-12 text-2xl" menu /><div><p className="font-kana font-bold">{dish.displayKana}</p><p className="text-xs text-neutral-600 dark:text-neutral-300">{dish.english}</p></div></div>)}
+          </div>
+        )}
+      </div>
+      <div className="flex gap-3">
+        <button type="button" onClick={onPlayAgain} className="rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white">Play Again</button>
+        <Link to={backPath} className="rounded-full border px-5 py-2 text-sm font-semibold">Back</Link>
+      </div>
     </div>
   )
 }

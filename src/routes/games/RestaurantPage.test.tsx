@@ -68,6 +68,27 @@ describe('RestaurantPage', () => {
     expect(screen.getAllByText('すし').length).toBeGreaterThanOrEqual(2)
     expect(screen.getByText('sushi')).toBeInTheDocument()
   })
+
+  it('keeps the session on questions 1 through 7 and shows results after question 8', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    renderPage()
+    for (let question = 1; question <= 8; question++) {
+      const targetSrc = screen.getByAltText('Target dish').getAttribute('src')
+      const targetMenuImage = [...screen.getByTestId('restaurant-menu').querySelectorAll('img')].find((image) => image.getAttribute('src') === targetSrc)
+      const targetId = targetMenuImage?.closest('[data-testid^="restaurant-dish-"]')?.getAttribute('data-testid')?.replace('restaurant-dish-', '')
+      expect(targetId).toBeTruthy()
+      fireEvent.click(screen.getByTestId(`restaurant-romaji-${targetId}`))
+      if (question < 8) {
+        expect(screen.getByText(`Question ${question} / 8`)).toBeInTheDocument()
+        fireEvent.click(screen.getByRole('button', { name: 'Next order' }))
+      } else {
+        fireEvent.click(screen.getByRole('button', { name: 'Next order' }))
+      }
+    }
+    expect(screen.getByText('Completed!')).toBeInTheDocument()
+    expect(screen.getByText('Correct: 8 / 8')).toBeInTheDocument()
+    expect(screen.getByText('Mistakes: 0')).toBeInTheDocument()
+  })
   it('renders without crashing', () => {
     renderPage()
     expect(screen.getByRole('heading', { name: 'Order at the Restaurant' })).toBeInTheDocument()

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { HIRAGANA_RESTAURANT_DISHES } from '../data/restaurantDishes'
-import { pickRound } from './restaurantRound'
+import { pickRound, shuffleRestaurantChoices } from './restaurantRound'
 
 // Simple deterministic LCG so tests don't depend on Math.random while still
 // exercising many distinct sequences.
@@ -47,5 +47,14 @@ describe('pickRound', () => {
     const first = pickRound(HIRAGANA_RESTAURANT_DISHES, () => 0)
     const next = pickRound(HIRAGANA_RESTAURANT_DISHES, () => 0, first.target.id)
     expect(next.target.id).not.toBe(first.target.id)
+  })
+})
+
+describe('shuffleRestaurantChoices', () => {
+  it('returns the same four dishes in an order independent from the menu order', () => {
+    const menu = HIRAGANA_RESTAURANT_DISHES.slice(0, 4)
+    const shuffled = shuffleRestaurantChoices(menu, () => 0)
+    expect(shuffled.map((dish) => dish.id)).toEqual(['soba', 'udon', 'tenpura', 'sushi'])
+    expect(new Set(shuffled.map((dish) => dish.id))).toEqual(new Set(menu.map((dish) => dish.id)))
   })
 })
