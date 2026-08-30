@@ -46,7 +46,8 @@ type ResultState =
 // vocabulary-recognition game the learner can play as many times as they
 // like from the Hiragana overview page.
 export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStageId }) {
-  const { speak } = useTTS()
+  const { speak, speakAndWait, stop } = useTTS()
+  const sequenceIdRef = useRef(0)
   const dishes = RESTAURANT_DISHES.filter((dish) => dish.stage === stage)
   const [round, setRound] = useState<RestaurantRound>(() => pickRound(dishes))
   const [state, setState] = useState<ResultState>({ kind: 'idle' })
@@ -55,7 +56,7 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
 
   useEffect(() => {
     setSpeechSupported(getSpeechRecognitionCtor() !== null)
-  }, [])
+  }, [speak])
 
   // Staff greeting, once per screen mount — same useTTS abstraction as
   // everywhere else in the app; if there's no static clip for this key the
@@ -122,9 +123,25 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
   }
 
   function nextOrder() {
+    sequenceIdRef.current++
     stop()
     setRound(pickRound(dishes))
     setState({ kind: 'idle' })
+  }
+
+  async function hearFullOrder() {
+    const sequenceId = ++sequenceIdRef.current
+    stop()
+    const play = (key: string, text: string) => speakAndWait ? speakAndWait(key, text) : Promise.resolve(speak(key, text))
+    await play('restaurant/phrases/sumimasen', 'すみません。')
+    if (sequenceId !== sequenceIdRef.current) return
+    await new Promise((resolve) => window.setTimeout(resolve, 400))
+    if (sequenceId !== sequenceIdRef.current) return
+    await play(round.target.audioPath.replace(/^\/audio\//, '').replace(/\.wav$/, ''), round.target.displayKana)
+    if (sequenceId !== sequenceIdRef.current) return
+    await new Promise((resolve) => window.setTimeout(resolve, 400))
+    if (sequenceId !== sequenceIdRef.current) return
+    await play('restaurant/phrases/onegaishimasu', 'おねがいします。')
   }
 
   function tryAgain() {
@@ -132,13 +149,14 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
   }
 
   const isResult = state.kind === 'result'
+  const backPath = stage === 'hiragana' ? '/hiragana' : stage === 'katakana' ? '/katakana' : stage === 'other' ? '/other' : '/youon'
   const isSuccess = isResult && state.kind === 'result' && state.check.outcome === 'success'
 
   return (
     <div className="flex w-full flex-col items-center gap-6">
       <div className="flex w-full max-w-md items-center justify-between">
         <Link
-          to="/hiragana"
+          to={backPath}
           className="rounded-full border border-neutral-300 px-4 py-1.5 text-sm font-semibold text-neutral-600 hover:border-blue-400 hover:text-neutral-900 dark:border-neutral-600 dark:text-neutral-300 dark:hover:text-neutral-100"
         >
           ← Back
@@ -190,7 +208,7 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
               <p className="text-lg font-bold text-green-600 dark:text-green-400">Great!</p>
               <div className="flex gap-2">
                 <button type="button" onClick={() => speak(round.target.audioPath.replace(/^\/audio\//, '').replace(/\.wav$/, ''), round.target.displayKana)} className="rounded-full border px-3 py-1 text-sm">Hear the dish</button>
-                <button type="button" onClick={() => { speak('restaurant/phrases/sumimasen', 'すみません。'); window.setTimeout(() => speak(round.target.audioPath.replace(/^\/audio\//, '').replace(/\.wav$/, ''), round.target.displayKana), 400); window.setTimeout(() => speak('restaurant/phrases/onegaishimasu', 'おねがいします。'), 900) }} className="rounded-full border px-3 py-1 text-sm">Hear the full order</button>
+                <button type="button" onClick={hearFullOrder} className="rounded-full border px-3 py-1 text-sm">Hear the full order</button>
               </div>
               <button
                 type="button"

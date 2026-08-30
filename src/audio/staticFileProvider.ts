@@ -35,6 +35,13 @@ export class StaticFileProvider implements SpeechProvider {
     this.audioEl.currentTime = 0
   }
 
+  waitForEnd(): Promise<void> {
+    if (!this.audioEl) return Promise.resolve()
+    return new Promise((resolve) => {
+      this.audioEl!.addEventListener('ended', () => resolve(), { once: true })
+    })
+  }
+
   private ensureGraph(): { audioEl: HTMLAudioElement; gainNode: GainNode | null } {
     if (!this.audioEl) {
       this.audioEl = new Audio()

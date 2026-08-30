@@ -88,11 +88,11 @@ export function checkOrderAlternatives(
   menu: RestaurantDish[],
   target: RestaurantDish,
 ): OrderCheckResult {
-  let firstResult: OrderCheckResult = { outcome: 'unrecognized' }
+  let wrongDish: OrderCheckResult | null = null
   for (let i = 0; i < Math.min(3, rawAlternatives.length); i++) {
     const result = checkOrder(rawAlternatives[i], menu, target)
-    if (i === 0) firstResult = result
     if (result.outcome === 'success') return result
+    if (result.outcome === 'wrong-dish') wrongDish = result
   }
-  return firstResult
+  return wrongDish ?? { outcome: 'unrecognized' }
 }

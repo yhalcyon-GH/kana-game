@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import fs from 'node:fs'
+import path from 'node:path'
 import { HIRAGANA_RESTAURANT_DISHES, RESTAURANT_DISHES } from './restaurantDishes'
 
 const SMALL_TSU = 'っ'
@@ -62,8 +64,21 @@ describe('restaurantDishes (hiragana stage)', () => {
     expect(RESTAURANT_DISHES.find((dish) => dish.id === 'sushi')?.image).toBe('word-icons/sa-sushi.webp')
   })
 
-  it('every placeholderEmoji is unique, so the target bubble is never ambiguous between two displayed dishes', () => {
-    const emoji = HIRAGANA_RESTAURANT_DISHES.map((d) => d.placeholderEmoji)
+  it('has unique placeholder visuals among missing-image dishes in every stage', () => {
+    for (const stage of ['hiragana', 'katakana', 'other', 'special-katakana'] as const) {
+      const missing = RESTAURANT_DISHES.filter((dish) => dish.stage === stage && !dish.image).map((dish) => dish.placeholderEmoji)
+      expect(new Set(missing).size).toBe(missing.length)
+    }
+  })
+
+  it('references only existing public images', () => {
+    for (const dish of RESTAURANT_DISHES.filter((item) => item.image)) {
+      expect(fs.existsSync(path.resolve(process.cwd(), 'public', dish.image!))).toBe(true)
+    }
+  })
+
+  it('every missing-image placeholder is unique, so the target bubble is never ambiguous', () => {
+    const emoji = HIRAGANA_RESTAURANT_DISHES.filter((d) => !d.image).map((d) => d.placeholderEmoji)
     expect(new Set(emoji).size).toBe(emoji.length)
   })
 })

@@ -102,4 +102,12 @@ describe('checkOrderAlternatives', () => {
     const result = checkOrderAlternatives(alternatives, menu, sushi)
     expect(result.outcome).toBe('unrecognized')
   })
+
+  it('prefers a wrong displayed dish over an earlier unrecognized alternative', () => {
+    expect(checkOrderAlternatives(['noise', 'そば'], menu, sushi)).toEqual({ outcome: 'wrong-dish', identified: soba })
+  })
+
+  it('prefers success from any of the first three alternatives', () => {
+    expect(checkOrderAlternatives(['noise', 'そば', 'すし'], menu, sushi).outcome).toBe('success')
+  })
 })

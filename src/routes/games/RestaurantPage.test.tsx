@@ -49,8 +49,9 @@ describe('RestaurantPage', () => {
       expect(text.includes(dish.displayKana)).toBe(false)
       expect(text.toLowerCase().includes(dish.romaji)).toBe(false)
     }
-    // Should contain exactly the placeholder emoji (no images exist yet).
-    expect(text.trim().length).toBeGreaterThan(0)
+    // Existing vocabulary art is allowed; placeholders remain text-free too.
+    const image = bubble.querySelector('img')
+    expect(image || text.trim().length > 0).toBeTruthy()
   })
 
   it('romaji fallback options are present immediately on initial render, not gated behind a speech failure', () => {
