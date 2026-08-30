@@ -89,4 +89,12 @@ describe('StaticFileProvider', () => {
     await expect(request).resolves.toBeUndefined()
     pauseSpy.mockRestore()
   })
+
+  it('settles a completion waiter when playback is stopped', async () => {
+    const provider = new StaticFileProvider()
+    await provider.speak({ key: 'characters/a', text: 'あ' }, { volume: 1, rate: 1 })
+    const completion = provider.waitForEnd()
+    provider.stop()
+    await expect(completion).resolves.toBeUndefined()
+  })
 })

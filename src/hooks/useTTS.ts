@@ -105,5 +105,19 @@ export function useTTS() {
     webSpeechProvider.stop()
   }, [])
 
-  return { speak, speakStaticOnly, stop, supported: true }
+  const speakAndWait = useCallback(async (audioKey: string, fallbackText: string, lang?: string) => {
+    if (!audioEnabled) return
+    const isFeedback = audioKey.startsWith('feedback/')
+    if (isFeedback && !mascotVoiceEnabled) return
+    const request = { key: audioKey, text: fallbackText, lang }
+    const options = { volume: isFeedback ? mascotVoiceVolume : audioVolume, rate: audioSpeed }
+    try {
+      await staticProvider.speak(request, options)
+      await staticProvider.waitForEnd()
+    } catch {
+      await webSpeechProvider.speak(request, options).catch(() => {})
+    }
+  }, [audioEnabled, audioVolume, audioSpeed, mascotVoiceEnabled, mascotVoiceVolume])
+
+  return { speak, speakAndWait, speakStaticOnly, stop, supported: true }
 }

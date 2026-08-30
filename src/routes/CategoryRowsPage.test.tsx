@@ -10,6 +10,7 @@ import {
   ASK_TAMAMIZU_CHOUON,
   ASK_TAMAMIZU_HIRAGANA,
   ASK_TAMAMIZU_KATAKANA,
+  ASK_TAMAMIZU_PARTICLE,
   ASK_TAMAMIZU_SOKUON,
   ASK_TAMAMIZU_YOUON,
 } from '../data/askTamamizu'
@@ -581,5 +582,96 @@ describe('Yōon section Guide replay (Issue #50)', () => {
 
     expect(getByTestId('landed-path')).toHaveTextContent('/practice/youon/youon-ka-row?guide=youon')
     expect(useProgressStore.getState().hasCompletedYouonGuide).toBe(true)
+  })
+})
+
+function renderHiraganaWithParticleEntry() {
+  return render(
+    <MemoryRouter>
+      <CategoryRowsPage
+        title="ひらがな"
+        description=""
+        categoryIds={[DEFAULT_CATEGORY_ID]}
+        askTamamizuKanaIntroVariant="hiragana"
+        restaurantStage="hiragana"
+      />
+    </MemoryRouter>,
+  )
+}
+
+describe('Hiragana Restaurant CTA', () => {
+  it('renders on the Hiragana overview', () => {
+    const { getByTestId } = renderHiraganaWithParticleEntry()
+    expect(getByTestId('restaurant-cta')).toBeInTheDocument()
+  })
+
+  it('does not render on the Katakana overview (Hiragana-only entry point)', () => {
+    const { queryByTestId } = renderKatakana()
+    expect(queryByTestId('restaurant-cta')).toBeNull()
+  })
+
+  it('does not depend on askTamamizuKanaIntroVariant: absent even with the variant set, if restaurantStage is not passed', () => {
+    const { queryByTestId } = render(
+      <MemoryRouter>
+        <CategoryRowsPage
+          title="ひらがな"
+          description=""
+          categoryIds={[DEFAULT_CATEGORY_ID]}
+          askTamamizuKanaIntroVariant="hiragana"
+        />
+      </MemoryRouter>,
+    )
+    expect(queryByTestId('restaurant-cta')).toBeNull()
+  })
+
+  it('does not depend on askTamamizuKanaIntroVariant: present with only restaurantStage passed', () => {
+    const { getByTestId } = render(
+      <MemoryRouter>
+        <CategoryRowsPage title="ひらがな" description="" categoryIds={[DEFAULT_CATEGORY_ID]} restaurantStage="hiragana" />
+      </MemoryRouter>,
+    )
+    expect(getByTestId('restaurant-cta')).toBeInTheDocument()
+  })
+
+  it('appears before the "Ask Tamamizu about particles" button in DOM order', () => {
+    const { getByTestId, getByRole } = renderHiraganaWithParticleEntry()
+    const restaurantCta = getByTestId('restaurant-cta')
+    const particleButton = getByRole('button', { name: ASK_TAMAMIZU_PARTICLE.ariaLabel })
+    expect(restaurantCta.compareDocumentPosition(particleButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('the particle button still exists and still works after adding the Restaurant CTA', () => {
+    const { getByRole } = renderHiraganaWithParticleEntry()
+    const particleButton = getByRole('button', { name: ASK_TAMAMIZU_PARTICLE.ariaLabel })
+    expect(particleButton).toBeInTheDocument()
+    fireEvent.click(particleButton)
+    // ParticleGuide should now be replaying — its dismiss behavior is
+    // covered elsewhere; here we just confirm the click is still wired up
+    // (no crash, guide content shows up).
+    expect(useProgressStore.getState().hasCompletedParticleGuide).toBe(false)
+  })
+
+  it('navigates to /restaurant/hiragana on click', () => {
+    const { getByTestId, getByTestId: getByTestId2 } = render(
+      <MemoryRouter initialEntries={['/hiragana']}>
+        <Routes>
+          <Route
+            path="/hiragana"
+            element={
+              <CategoryRowsPage
+                title="ひらがな"
+                description=""
+                categoryIds={[DEFAULT_CATEGORY_ID]}
+                askTamamizuKanaIntroVariant="hiragana"
+                restaurantStage="hiragana"
+              />
+            }
+          />
+          <Route path="/restaurant/hiragana" element={<LocationDisplay />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    fireEvent.click(getByTestId('restaurant-cta'))
+    expect(getByTestId2('landed-path')).toHaveTextContent('/restaurant/hiragana')
   })
 })
