@@ -147,8 +147,8 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     // in は (read "wa"), NOT わ — see the Particle Guide's Step 3, which
     // teaches exactly this. `characterIds` therefore ends in 'ha', which is
     // what Word Builder tiles, so the learner assembles the real orthography.
-    { id: 'wa-konnichiwa', kana: 'こんにちは', romaji: 'konnichiwa', meaning: 'hello / good afternoon', characterIds: ['ko', 'n', 'ni', 'chi', 'ha'], audioText: 'こんにちは。' },
-    { id: 'wa-konbanwa', kana: 'こんばんは', romaji: 'konbanwa', meaning: 'good evening', characterIds: ['ko', 'n', 'ba', 'n', 'ha'], audioText: 'こんばんは。' },
+    { id: 'wa-konnichiwa', kana: 'こんにちは', romaji: 'konnichiwa', meaning: 'hello / good afternoon', image: 'word-icons/wa-konnichiwa.webp', characterIds: ['ko', 'n', 'ni', 'chi', 'ha'], audioText: 'こんにちは。' },
+    { id: 'wa-konbanwa', kana: 'こんばんは', romaji: 'konbanwa', meaning: 'good evening', image: 'word-icons/wa-konbanwa.webp', characterIds: ['ko', 'n', 'ba', 'n', 'ha'], audioText: 'こんばんは。' },
   ],
 
   // ===== カタカナ (katakana) vocabulary =====

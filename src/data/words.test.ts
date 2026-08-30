@@ -39,14 +39,10 @@ describe('wa-row: konnichiwa / konbanwa', () => {
     }
   })
 
-  // No illustration exists for either greeting yet, and AnchorWord.image is
-  // optional precisely so content can ship ahead of art (see types.ts) —
-  // WordImage renders its placeholder instead. Asserting the field stays
-  // ABSENT guards against pointing it at a word-icons/*.webp that isn't
-  // actually committed, which would render as a broken image. Future art
-  // would be word-icons/wa-konnichiwa.webp / word-icons/wa-konbanwa.webp.
-  it('leaves image unset (no art yet — WordImage placeholder handles it)', () => {
-    expect(words.find((w) => w.id === 'wa-konnichiwa')?.image).toBeUndefined()
-    expect(words.find((w) => w.id === 'wa-konbanwa')?.image).toBeUndefined()
+  // Both greetings have real illustrations, converted to the standard
+  // 256x256 word-icons/*.webp convention (see public/word-icons/).
+  it('image field points at the new webp assets under word-icons/', () => {
+    expect(words.find((w) => w.id === 'wa-konnichiwa')?.image).toBe('word-icons/wa-konnichiwa.webp')
+    expect(words.find((w) => w.id === 'wa-konbanwa')?.image).toBe('word-icons/wa-konbanwa.webp')
   })
 })
