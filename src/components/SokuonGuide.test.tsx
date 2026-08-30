@@ -1,0 +1,137 @@
+import { fireEvent, render } from '@testing-library/react'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { DEFAULT_SOKUON_GUIDE_LOCALE, SOKUON_GUIDE_CONTENT } from '../data/sokuonGuideContent'
+import { PracticeHubPage } from '../routes/PracticeHubPage'
+import { useProgressStore } from '../store/progressStore'
+
+const tts = vi.hoisted(() => ({ speak: vi.fn(), stop: vi.fn() }))
+
+vi.mock('../hooks/useTTS', () => ({ useTTS: () => tts }))
+
+const content = SOKUON_GUIDE_CONTENT[DEFAULT_SOKUON_GUIDE_LOCALE]
+
+function renderHub(categoryId = 'sokuon', rowId = 'sokuon-row') {
+  return render(
+    <MemoryRouter initialEntries={[`/practice/${categoryId}/${rowId}`]}>
+      <Routes>
+        <Route path="/practice/:categoryId/:rowId" element={<PracticeHubPage />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
+
+beforeEach(() => {
+  useProgressStore.getState().resetProgress()
+  // Introduction always precedes concept guides in the real App. This
+  // makes each test fresh specifically for the independent Sokuon state.
+  useProgressStore.getState().setHasCompletedIntroGuide(true)
+  tts.speak.mockReset()
+  tts.stop.mockReset()
+})
+
+describe('Sokuon Guide (Issue #44)', () => {
+  it('shows once on the first Sokuon hub with the exact slide, subtitle, and narration', () => {
+    const hub = renderHub()
+
+    expect(hub.getByTestId('sokuon-guide')).toHaveAttribute('role', 'dialog')
+    expect(hub.getByRole('img', { name: 'Tamamizu explains the small tsu' })).toHaveAttribute(
+      'src',
+      '/guide/slide-sokuon.webp',
+    )
+    expect(hub.getByText(content.subtitle)).toBeInTheDocument()
+    expect(tts.speak).toHaveBeenCalledWith(content.audioKey, content.subtitle, content.lang)
+  })
+
+  it('disables hub activities until Got it, then restores links without changing learning progress', () => {
+    const hub = renderHub()
+    const before = useProgressStore.getState()
+    const progressBefore = {
+      taughtRowIds: before.taughtRowIds,
+      rowActivityCompletion: before.rowActivityCompletion,
+      characters: before.characters,
+      words: before.words,
+      unlockedRowIds: before.unlockedRowIds,
+      lastStudied: before.lastStudied,
+    }
+
+    const activityCards = () => hub.getAllByRole('link').filter((card) => card.classList.contains('rounded-xl'))
+    expect(activityCards().length).toBeGreaterThan(0)
+    for (const card of activityCards()) {
+      expect(card).toHaveAttribute('aria-disabled', 'true')
+      expect(card).toHaveAttribute('tabindex', '-1')
+      expect(card.tagName).not.toBe('A')
+    }
+
+    fireEvent.click(hub.getByText(content.dismissLabel))
+
+    expect(hub.queryByTestId('sokuon-guide')).toBeNull()
+    expect(tts.stop).toHaveBeenCalled()
+    const after = useProgressStore.getState()
+    expect(after.hasCompletedSokuonGuide).toBe(true)
+    expect(after.hasCompletedIntroGuide).toBe(true)
+    expect(after.hasCompletedLearnTracingGuide).toBe(false)
+    expect(after.hasCompletedPracticeGuide).toBe(false)
+    expect(after.hasCompletedReviewGuide).toBe(false)
+    expect({
+      taughtRowIds: after.taughtRowIds,
+      rowActivityCompletion: after.rowActivityCompletion,
+      characters: after.characters,
+      words: after.words,
+      unlockedRowIds: after.unlockedRowIds,
+      lastStudied: after.lastStudied,
+    }).toEqual(progressBefore)
+
+    for (const card of activityCards()) {
+      expect(card).not.toHaveAttribute('aria-disabled')
+      expect(card.tagName).toBe('A')
+    }
+  })
+
+  it('does not show again after dismissal or on another category', () => {
+    const first = renderHub()
+    fireEvent.click(first.getByText(content.dismissLabel))
+    first.unmount()
+
+    expect(renderHub().queryByTestId('sokuon-guide')).toBeNull()
+    expect(renderHub('hiragana', 'a-row').queryByTestId('sokuon-guide')).toBeNull()
+  })
+
+  it('stops narration when the guide unmounts', () => {
+    const hub = renderHub()
+    hub.unmount()
+    expect(tts.stop).toHaveBeenCalled()
+  })
+
+  // Guide layout: slide -> subtitle -> button, in that DOM order — see the
+  // PR's Guide layout restructure (ConceptGuide). Structural assertion,
+  // not a pixel check, since jsdom doesn't lay out CSS.
+  it('lays out the slide image before the subtitle before the dismiss button, in DOM order', () => {
+    const hub = renderHub()
+    const dialog = hub.getByTestId('sokuon-guide')
+    const img = hub.getByRole('img', { name: 'Tamamizu explains the small tsu' })
+    const subtitle = hub.getByText(content.subtitle)
+    const button = hub.getByText(content.dismissLabel)
+
+    const position = (node: Element) =>
+      // eslint-disable-next-line no-bitwise
+      img.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING ? 1 : -1
+    expect(dialog.contains(img)).toBe(true)
+    expect(img.compareDocumentPosition(subtitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(subtitle.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // (silence an unused-var lint if `position` isn't otherwise referenced)
+    void position
+  })
+
+  // Root-cause fix for the "Guide narration doesn't autoplay" bug (see PR
+  // description): the speak-on-mount effect now runs via useLayoutEffect,
+  // not useEffect, so it fires synchronously within the same render commit
+  // that mounted the Guide — before React yields back to the browser —
+  // instead of in a passive effect scheduled after paint. This test
+  // reflects that fix: `speak` has already been called by the time
+  // `render()` returns, with no extra `act()`/flush needed for it.
+  it('starts narration synchronously as part of mounting (no post-paint effect needed)', () => {
+    renderHub()
+    expect(tts.speak).toHaveBeenCalledWith(content.audioKey, content.subtitle, content.lang)
+  })
+})
