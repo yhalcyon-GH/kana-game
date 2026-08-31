@@ -1,6 +1,6 @@
 # Global AI Development Charter
 
-Version: 0.1  
+Version: 0.1
 Status: Experimental
 
 This charter defines project-independent principles for AI-assisted software development.
