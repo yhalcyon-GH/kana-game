@@ -6,7 +6,7 @@ Guidance for Claude Code sessions in this repository. Keep this file short: it c
 
 `kana-game` is a React/TypeScript kana-learning web app with local-only progress persistence. It teaches kana by row, vocabulary, graded mini-games, and tracing.
 
-Current curriculum categories are hiragana, katakana, sokuon, chōon, and yōon. 特殊音/tokushuon was deliberately removed; do not reintroduce it without explicit approval.
+Current curriculum categories are hiragana, katakana, sokuon, chōon, yōon, and Special Katakana (特殊音, `SPECIAL_KATAKANA_CATEGORY_ID` in `src/data/curriculum.ts`). It was removed once and later reintroduced as its own category; treat it as current, supported content.
 
 Deployment: GitHub Pages from `main`; Vite base path is `/kana-game/`.
 
@@ -21,7 +21,11 @@ npm run build
 
 `npm run build` runs TypeScript checking (`tsc -b`) and is the authoritative type check. There is no separate `typecheck` script.
 
-Before considering data/logic changes complete, run the relevant focused tests and, when practical, `npm test` + `npm run build`.
+Before considering data/logic changes complete, run the relevant focused tests and, when practical, `npm run verify` (runs test + lint + build + `git diff --check` in one step).
+
+## Standard task loop
+
+For a non-trivial task, use the `/kana-task` Skill (`.claude/skills/kana-task/SKILL.md`): Explore → Plan → Implement → Verify → Inspect → Fix → Commit → Push → PR, from just a Goal and Acceptance Criteria. See `docs/ai-development-loop.md` for the full loop and `docs/definition-of-done.md` for what "done" means.
 
 ## Architecture boundaries
 

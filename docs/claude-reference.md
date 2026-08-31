@@ -32,7 +32,7 @@ The main static catalogs are:
 - `src/data/curriculum.ts`
 - `src/data/words.ts`
 
-`ScriptCategory`/`categoryId` is the explicit category scope. Current categories are hiragana, katakana, sokuon, chōon, and yōon. 特殊音/tokushuon was deliberately removed in 2026-08-15; do not reintroduce it without explicit approval. See `docs/curriculum-extensibility.md` for history and current design.
+`ScriptCategory`/`categoryId` is the explicit category scope. Current categories are hiragana, katakana, sokuon, chōon, yōon, and Special Katakana (特殊音/tokushuon, `SPECIAL_KATAKANA_CATEGORY_ID`). Special Katakana was removed in 2026-08-15 and later reintroduced as its own shipped, tested category; treat it as current, supported content. See `docs/curriculum-extensibility.md` for that history and current design.
 
 `learnStyle` controls lesson/game flow:
 - `character-set`: hiragana, katakana, yōon
@@ -138,7 +138,7 @@ docs/            design/history/reference material
 
 ## Historical decisions worth preserving
 
-- Tokushuon was deliberately removed; absence is intentional, not unfinished work.
+- Tokushuon (Special Katakana) was deliberately removed once (2026-08-15) and later reintroduced as its own shipped category; that removal is history, not current status — see the Curriculum data model section above.
 - Category dependencies must be explicit, not inferred from ordering.
 - Yōon stroke generation is intentionally omitted because the current generator is unsafe for multi-glyph ids.
 - Existing game rules, SRS thresholds, answer correctness, and feedback behavior are product behavior, not incidental implementation details.
