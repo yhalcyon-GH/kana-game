@@ -19,7 +19,7 @@ Before anything else, confirm:
 - Relevant `Learnings.md` entries (per `.claude/rules/learnings.md` — evidence, not rigid rules).
 - The current code and tests in the area being touched.
 
-**Never commit directly to `main`.** If on `main`, create a new branch off `main` before making any change.
+**Never commit directly to `main`.** Every task needs a fresh, dedicated branch created from current `origin/main` — unless the current branch is already explicitly the dedicated branch for this exact task (e.g. resuming a task whose branch/PR already exists). If on `main`, or on any other branch not already dedicated to this task (an unrelated feature branch, a leftover branch from earlier work), create a new branch off `origin/main` before making any change — don't continue a new task on top of unrelated branch history.
 
 **Never discard uncommitted changes you didn't create this session.** If `git status` shows uncommitted changes and it's not obvious they belong to the current task, stop and ask, or preserve them (e.g. `git stash push -u` with a clear message) before switching branches — don't silently drop or overwrite them.
 
@@ -55,7 +55,7 @@ Before writing code, make explicit (internally — no need to present a long pla
 - The task requires paid external API usage (e.g. TTS/audio generation costs money and produces git-visible files — see `CLAUDE.md`).
 - The task requires a secret or API key that isn't already configured.
 - The task requires an irreversible data migration.
-- The task requires a legal/licensing judgment (e.g. touching KanjiVG/CC-BY-SA stroke data, which is a separate Gate 0 task — do not touch it here).
+- The task requires a *new, unresolved* legal/licensing judgment. If the Goal/Acceptance Criteria already provide an approved licensing decision/source and no new legal ambiguity appears during Explore, proceed — while preserving required license notices, attribution, and provenance requirements — instead of stopping.
 - The scope is expanding well beyond what the Goal/Acceptance Criteria describe.
 
 Otherwise, proceed without demanding a lengthy plan confirmation from the user.
