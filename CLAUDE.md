@@ -23,9 +23,24 @@ npm run build
 
 Before considering data/logic changes complete, run the relevant focused tests and, when practical, `npm run verify` (runs test + lint + build + `git diff --check` in one step).
 
-## Standard task loop
+## Role and standard task loop
 
-For a non-trivial task, use the `/kana-task` Skill (`.claude/skills/kana-task/SKILL.md`): Explore → Plan → Implement → Verify → Inspect → Fix → Commit → Push → PR, from just a Goal and Acceptance Criteria. See `docs/ai-development-loop.md` for the full loop and `docs/definition-of-done.md` for what "done" means.
+Roles are assigned per task; Claude Code is not permanently required to be the Builder or Reviewer.
+
+For normal implementation work, use the `/kana-task` Skill (`.claude/skills/kana-task/SKILL.md`): Explore → Plan when useful → Implement → Verify → Inspect → Fix → Commit → Push → Draft PR, from a Goal and Acceptance Criteria. See `docs/ai-development-loop.md` for the shared role-based loop and review-depth policy, and `docs/definition-of-done.md` for what Builder completion means.
+
+When assigned as an independent reviewer, use a fresh session/subagent or the review tooling rather than grading the same implementation in the same context. Review the current Goal/Acceptance Criteria and full diff for correctness, regressions, scope drift, and test gaps; do not modify the branch unless explicitly asked to implement accepted findings.
+
+When switching to Claude Code from Codex or another environment, refresh `origin` and verify repository, `git status`, branch, current `origin/main`, and any current task PR before continuing. Never assume another agent's checkout or branch state is current.
+
+## Context and usage
+
+Context is a limited resource. Keep the main session focused on the current task.
+
+- Use `/clear` between unrelated tasks rather than carrying old implementation history forward.
+- Read focused files/docs on demand instead of loading broad repository context preemptively.
+- Use subagents when they provide isolated context, independent verification, or genuinely parallel investigation; do not spawn them for simple single-file/bounded work where direct tools are cheaper and clearer.
+- Prefer focused tests while iterating and `npm run verify` for the final candidate.
 
 ## Architecture boundaries
 
@@ -75,7 +90,7 @@ Do not regenerate paid/external audio speculatively. Audio generation can cost m
 
 ## Learning loop
 
-Project-specific reusable lessons live in `Learnings.md`. Use relevant learnings as evidence, not rigid rules. Current code, tests, and explicit user instructions override stale learnings.
+Project-specific reusable lessons live in `Learnings.md`. Use relevant learnings as evidence, not rigid rules. Current accepted task requirements and approved specifications outrank stale learnings; current code/tests are evidence of implemented behavior, not automatic authority over intended behavior.
 
 Detailed learning workflow is defined in `.claude/rules/learnings.md` and the project skills `/update-learnings` and `/consolidate-learnings`.
 
@@ -95,4 +110,4 @@ Other focused docs are indexed in `docs/README.md`. In particular:
 - `docs/curriculum-extensibility.md` — category design/history.
 - `docs/audio-provider-interface.md` — audio provider abstraction.
 
-When narrative docs and current code/tests disagree, treat the code/tests as stronger evidence and update stale documentation when relevant.
+When narrative docs and current accepted behavior disagree, use the source-of-truth order in `docs/ai-development-loop.md` and update stale documentation when relevant.
