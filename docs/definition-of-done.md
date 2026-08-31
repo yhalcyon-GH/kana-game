@@ -13,7 +13,7 @@ A task is Done when all of the following are true:
 - **Diff self-review pass** — the full `git diff` was read and checked for unintended files, debug code, stale comments, accidental generated files, secrets, unnecessary refactors, and documentation mismatches.
 - **No unintended files** — only files relevant to the task are staged/committed.
 - **Required docs updated** — if the change affects behavior described in `CLAUDE.md`, `AGENTS.md`, `docs/`, or `Learnings.md`, those were updated (or a stale contradiction was fixed) — not skipped in favor of code-only changes.
-- **PR created** — with Goal, What changed, Acceptance Criteria, Tests/verification, and Risks/notes.
+- **Draft PR created** — against `main`, with Goal, What changed, Acceptance Criteria, Tests/verification, and Risks/notes. Ready-for-Review and merge are later review gates, not coding-agent completion steps.
 - **Known risks explicitly reported** — anything uncertain, deferred, or flagged for human judgment is stated in the PR/report, not silently omitted.
 
 ## When some items don't apply
