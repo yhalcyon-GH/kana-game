@@ -34,6 +34,15 @@ function getSpeechRecognitionCtor(): SpeechRecognitionCtor | null {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null
 }
 
+function abortRecognition(ref: { current: SpeechRecognitionLike | null }) {
+  ref.current?.abort()
+  ref.current = null
+}
+
+function invalidateSequence(ref: { current: number }) {
+  ref.current++
+}
+
 type ResultState =
   | { kind: 'idle' }
   | { kind: 'listening' }
@@ -97,10 +106,9 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
 
   useEffect(() => {
     return () => {
-      recognitionTokenRef.current++
-      recognitionRef.current?.abort()
-      recognitionRef.current = null
-      sequenceIdRef.current++
+      invalidateSequence(recognitionTokenRef)
+      abortRecognition(recognitionRef)
+      invalidateSequence(sequenceIdRef)
       stop()
     }
   }, [stop])
