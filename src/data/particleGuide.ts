@@ -28,4 +28,8 @@ export const PARTICLE_GUIDE_STEPS: { id: ParticleGuideStepId; slideAsset: string
 
 export const PARTICLE_GUIDE = {
   target: { categoryId: 'hiragana', rowId: 'wa-row' },
+  autoTargets: [
+    { categoryId: 'hiragana', rowId: 'ha-row' },
+    { categoryId: 'hiragana', rowId: 'wa-row' },
+  ],
 } as const
