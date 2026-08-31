@@ -503,12 +503,13 @@ function RestaurantMenuSheet({ dishes }: { dishes: RestaurantDish[] }) {
     <section
       aria-labelledby="restaurant-menu-title"
       data-testid="restaurant-menu"
-      className="w-full max-w-md overflow-hidden rounded-lg border border-amber-300/70 bg-[#fff8e7] shadow-[0_8px_24px_rgba(120,75,25,0.12)] dark:border-amber-800/80 dark:bg-[#2b2118] dark:shadow-[0_8px_24px_rgba(0,0,0,0.24)]"
+      className="w-full max-w-md overflow-hidden rounded-lg border border-amber-300/70 bg-[#fff8e7] shadow-[0_8px_24px_rgba(120,75,25,0.12)] ring-1 ring-inset ring-amber-200/80 dark:border-amber-800/80 dark:bg-[#2b2118] dark:ring-amber-700/70 dark:shadow-[0_8px_24px_rgba(0,0,0,0.24)]"
     >
-      <header className="px-4 pt-3 pb-1 sm:px-6">
-        <h2 id="restaurant-menu-title" className="font-kana text-center text-xs font-semibold tracking-[0.14em] text-amber-800/80 dark:text-amber-200/70">
+      <header className="px-4 pt-4 pb-3 sm:px-6">
+        <h2 id="restaurant-menu-title" className="font-kana text-center text-2xl font-bold tracking-[0.14em] text-amber-950 dark:text-amber-100">
           メニュー
         </h2>
+        <div data-testid="restaurant-menu-divider" aria-hidden="true" className="mx-auto mt-2 w-full border-t border-amber-300/80 dark:border-amber-700/80" />
       </header>
       <div className="divide-y divide-amber-200/90 px-3 sm:px-5 dark:divide-amber-800/80">
         {dishes.map((dish) => (

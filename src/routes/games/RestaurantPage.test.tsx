@@ -352,15 +352,16 @@ describe('RestaurantPage', () => {
     expect(screen.getByText('Question 1 / 8')).toBeInTheDocument()
   })
 
-  it('renders a labelled Menu Sheet with a small header and no decorative divider', () => {
+  it('renders a labelled Menu Sheet with a prominent header and restrained frame', () => {
     renderPage()
     const menu = screen.getByTestId('restaurant-menu')
     const title = screen.getByRole('heading', { name: 'メニュー' })
     expect(menu.tagName).toBe('SECTION')
     expect(title).toHaveClass('font-kana')
-    expect(title).toHaveClass('text-xs')
+    expect(title).toHaveClass('text-2xl')
     expect(menu).toHaveAttribute('aria-labelledby', title.id)
-    expect(screen.queryByTestId('restaurant-menu-divider')).not.toBeInTheDocument()
+    expect(menu).toHaveClass('ring-1', 'ring-inset')
+    expect(screen.getByTestId('restaurant-menu-divider')).toHaveClass('border-t')
   })
 
   it('renders 4 unique dishes with kana, prices, and contained illustrations only', () => {
