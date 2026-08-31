@@ -187,9 +187,13 @@ function StrokeGlyphAnimation({
           </clipPath>
         ))}
       </defs>
+      {/* The optional per-part transform (e.g. ず's translate(0 .01)) belongs
+          only to the animated stroke path in upstream strokesvg — the
+          shadow/guide shape it's clipped against is untransformed there, so
+          it must stay untransformed here too. */}
       <g fill="currentColor" className="text-neutral-300 dark:text-neutral-600">
         {flatParts.map((part, i) => (
-          <path key={`guide-${i}`} d={part.shadowD} transform={part.transform} />
+          <path key={`guide-${i}`} d={part.shadowD} />
         ))}
       </g>
       <g fill="none" stroke="#2563eb" strokeWidth={glyph.strokeWidth} strokeLinecap={glyph.strokeLinecap as 'round' | 'butt' | 'square'}>

@@ -3,8 +3,9 @@
 - Upstream repo: [`zhengkyl/strokesvg`](https://github.com/zhengkyl/strokesvg)
 - Pinned commit: `e4c2c91034e03c9c2f4e95f14f2361a948f52cd0`
 - The vendored kana SVGs are Klee One-derived, licensed under the SIL Open
-  Font License; see `LICENSE` in this directory (copied verbatim from the
-  pinned commit) for the full text and notice.
+  Font License; see `LICENSE` in this directory (copied from the pinned
+  commit, with one line's trailing whitespace trimmed to satisfy this repo's
+  whitespace check — no other change) for the full text and notice.
 
 ## What's vendored here
 

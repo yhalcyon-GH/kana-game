@@ -91,7 +91,7 @@ describe('convertStrokesvg: parseGlyph on vendored prototype SVGs', () => {
     const svgText = await readFile(path.join(VENDOR_DIR, PROTOTYPE_GLYPHS['katakana-a']), 'utf-8')
     const tampered = svgText.replace(
       '<path style="--i:0" d="M103 245c146 107 431-31 741-55 62-4-75 104-305 274" clip-path="url(#30a2c)"/>',
-      '<circle cx="0" cy="0" r="1"/>',
+      '<circle style="--i:0" cx="0" cy="0" r="1"/>',
     )
     expect(() => parseGlyph('katakana-a', tampered)).toThrow(/unexpected top-level element/)
   })
@@ -117,5 +117,48 @@ describe('convertStrokesvg: parseGlyph on vendored prototype SVGs', () => {
     const glyph = await loadGlyph('katakana-shi')
     const shadowDs = glyph.logicalStrokes.map((s) => s.parts[0].shadowD)
     expect(new Set(shadowDs).size).toBe(shadowDs.length)
+  })
+
+  // Upstream's animator sequences strokes off each top-level strokes-group
+  // child's `--i:N` custom property, not off document order — the six
+  // vendored SVGs happen to have `--i` match document order already, so a
+  // converter that only trusted document order would pass on this corpus
+  // while silently accepting a glyph whose `--i` disagrees with, or is
+  // simply missing from, document order. These tamper tests target that gap
+  // directly, using ア (katakana-a — exactly 2 top-level strokes, --i:0 and
+  // --i:1) as the tampering base.
+  describe('logical-stroke "--i" metadata validation', () => {
+    it('fails loudly when a top-level stroke element is missing --i entirely', async () => {
+      const svgText = await readFile(path.join(VENDOR_DIR, PROTOTYPE_GLYPHS['katakana-a']), 'utf-8')
+      const tampered = svgText.replace('<path style="--i:0"', '<path')
+      expect(tampered).not.toBe(svgText)
+      expect(() => parseGlyph('katakana-a', tampered)).toThrow(/missing "--i"/)
+    })
+
+    it('fails loudly on a duplicate --i value across top-level stroke elements', async () => {
+      const svgText = await readFile(path.join(VENDOR_DIR, PROTOTYPE_GLYPHS['katakana-a']), 'utf-8')
+      const tampered = svgText.replace('<path style="--i:1"', '<path style="--i:0"')
+      expect(() => parseGlyph('katakana-a', tampered)).toThrow(/duplicate logical-stroke "--i:0"/)
+    })
+
+    it('fails loudly when --i values are out of order relative to document order', async () => {
+      const svgText = await readFile(path.join(VENDOR_DIR, PROTOTYPE_GLYPHS['katakana-tsu']), 'utf-8')
+      // ツ has --i:0, --i:1, --i:2 in document order; swapping the first two
+      // values keeps them a valid 0..2 SET but out of DOCUMENT order.
+      const tampered = svgText.replace('style="--i:0"', 'style="--i:9"').replace('style="--i:1"', 'style="--i:0"').replace('style="--i:9"', 'style="--i:1"')
+      expect(() => parseGlyph('katakana-tsu', tampered)).toThrow(/sequential run 0\.\.2/)
+    })
+
+    it('fails loudly on a non-sequential --i run (e.g. 0, 2 for a 2-stroke glyph — a gap, not just reordering)', async () => {
+      const svgText = await readFile(path.join(VENDOR_DIR, PROTOTYPE_GLYPHS['katakana-a']), 'utf-8')
+      const tampered = svgText.replace('<path style="--i:1"', '<path style="--i:2"')
+      expect(() => parseGlyph('katakana-a', tampered)).toThrow(/sequential run 0\.\.1/)
+    })
+
+    it('fails loudly on an unsupported (non-numeric) --i value', async () => {
+      const svgText = await readFile(path.join(VENDOR_DIR, PROTOTYPE_GLYPHS['katakana-a']), 'utf-8')
+      const tampered = svgText.replace('<path style="--i:0"', '<path style="--i:foo"')
+      expect(() => parseGlyph('katakana-a', tampered)).toThrow(/missing "--i"/)
+    })
   })
 })

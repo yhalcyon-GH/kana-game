@@ -127,9 +127,34 @@ export function parseGlyph(characterId: string, svgText: string): StrokeGlyph {
     return transform ? { shadowD, strokeD, transform } : { shadowD, strokeD }
   }
 
+  // Each top-level child of the strokes group (one <path> per single-part
+  // logical stroke, or one <g> per multi-part logical stroke) carries its
+  // own animation/sequencing index as a `--i:N` custom property in `style`
+  // — upstream's animator drives stroke order off this, not off document
+  // order. Corpus source order happens to already match it (see the six
+  // vendored SVGs), but a converter that only trusts document order would
+  // silently mis-sequence a glyph whose source order and `--i` diverge
+  // (or accept one with a missing/duplicate/out-of-order index) without any
+  // signal — so `--i` is parsed and checked explicitly to be the exact
+  // sequential run 0..n-1, matching document order 1:1, and any mismatch
+  // fails loudly rather than falling back to document order silently.
+  function readStrokeIndex(el: Element): number {
+    const style = el.getAttribute('style') ?? ''
+    const match = style.match(/--i:\s*(-?\d+)\s*(?:;|$)/)
+    if (!match) fail(characterId, `top-level stroke element missing "--i" in style: ${JSON.stringify(style)}`)
+    return Number(match[1])
+  }
+
   const logicalStrokes: StrokeGlyph['logicalStrokes'] = []
+  const seenIndices = new Set<number>()
+  const strokeIndices: number[] = []
   for (const child of strokesGroup.children) {
     const tag = child.tagName.toLowerCase()
+    const strokeIndex = readStrokeIndex(child)
+    if (seenIndices.has(strokeIndex)) fail(characterId, `duplicate logical-stroke "--i:${strokeIndex}"`)
+    seenIndices.add(strokeIndex)
+    strokeIndices.push(strokeIndex)
+
     if (tag === 'path') {
       logicalStrokes.push({ parts: [resolvePart(child)] })
     } else if (tag === 'g') {
@@ -145,6 +170,14 @@ export function parseGlyph(characterId: string, svgText: string): StrokeGlyph {
   }
 
   if (logicalStrokes.length === 0) fail(characterId, 'no logical strokes found')
+
+  const expectedIndices = logicalStrokes.map((_, i) => i)
+  if (strokeIndices.some((idx, i) => idx !== expectedIndices[i])) {
+    fail(
+      characterId,
+      `logical-stroke "--i" values must be the sequential run 0..${logicalStrokes.length - 1} in document order, got [${strokeIndices.join(',')}]`,
+    )
+  }
 
   return { viewBox, strokeWidth, strokeLinecap, logicalStrokes }
 }
