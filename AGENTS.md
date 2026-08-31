@@ -27,8 +27,8 @@ Given a Goal and Acceptance Criteria:
 7. Run focused tests during iteration.
 8. On the final candidate, run `npm run verify`.
 9. Read the full diff and remove unintended changes.
-10. Commit only task-relevant files, push the branch, and open a PR against `main`.
-11. Do not merge the PR; leave merge to the separate human/ChatGPT merge gate.
+10. Commit only task-relevant files, push the branch, and open a **Draft PR** against `main`.
+11. Do not mark the PR Ready and do not merge it; leave review, Ready-for-Review transition, AI review, and merge to the separate human/ChatGPT gate.
 
 Stop and escalate before destructive operations, paid external calls, secrets/API-key setup, irreversible migrations, new unresolved licensing/legal judgments, or product-behavior ambiguity with meaningful consequences.
 
