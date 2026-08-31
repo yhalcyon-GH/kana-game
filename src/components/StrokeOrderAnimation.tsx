@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
-import { useLayoutEffect, useRef } from 'react'
+import { useId, useLayoutEffect, useRef } from 'react'
+import { STROKE_GLYPHS } from '../data/strokeGlyphs'
 import { STROKE_PATHS } from '../data/strokes'
 import { buildTracingUnit } from '../lib/tracingUnits'
 
@@ -39,6 +40,28 @@ export const GAP_MS = 200
 // regardless of paint timing.
 export function StrokeOrderAnimation({ characterId, playToken, size = 160, strokeSourceId, startDelayMs = 0 }: Props) {
   const sourceId = strokeSourceId ?? characterId
+  const glyph = STROKE_GLYPHS[sourceId]
+  if (glyph) {
+    return <StrokeGlyphAnimation glyph={glyph} playToken={playToken} size={size} startDelayMs={startDelayMs} sourceId={sourceId} />
+  }
+  return <KanjivgStrokeAnimation sourceId={sourceId} playToken={playToken} size={size} startDelayMs={startDelayMs} />
+}
+
+// Existing KanjiVG-derived renderer (STROKE_PATHS), unchanged in behavior —
+// every non-prototype glyph still uses this path (Issue #122: prototype
+// glyphs only switch to StrokeGlyphAnimation; everything else keeps this
+// fallback).
+function KanjivgStrokeAnimation({
+  sourceId,
+  playToken,
+  size,
+  startDelayMs,
+}: {
+  sourceId: string
+  playToken: number
+  size: number
+  startDelayMs: number
+}) {
   const strokes = STROKE_PATHS[sourceId] ?? []
   const pathRefs = useRef<(SVGPathElement | null)[]>([])
 
@@ -91,6 +114,94 @@ export function StrokeOrderAnimation({ characterId, playToken, size = 160, strok
               pathRefs.current[i] = el
             }}
             d={d}
+          />
+        ))}
+      </g>
+    </svg>
+  )
+}
+
+// strokesvg-derived renderer (STROKE_GLYPHS) — Phase 1A prototype (Issue
+// #122). Uses the glyph's own viewBox (1024 corpus) rather than the fixed
+// KanjiVG 109 canvas, clips each animated centerline to its own shadow
+// shape via a runtime-generated clip path (unique per component instance —
+// see useId() — so multiple simultaneous instances on the same page never
+// collide on clip ids), and animates in logical-stroke order: a multi-part
+// logical stroke's parts all share the same start delay/dash-offset
+// timing and count as exactly one step, per strokesvg's own upstream
+// semantics for grouped stroke children.
+function StrokeGlyphAnimation({
+  glyph,
+  playToken,
+  size,
+  startDelayMs,
+  sourceId,
+}: {
+  glyph: (typeof STROKE_GLYPHS)[string]
+  playToken: number
+  size: number
+  startDelayMs: number
+  sourceId: string
+}) {
+  const instanceId = useId()
+  // parts, flattened with their owning logical-stroke index, so every part
+  // of a multi-part logical stroke resolves to the same animation delay.
+  const flatParts = glyph.logicalStrokes.flatMap((stroke, strokeIndex) =>
+    stroke.parts.map((part) => ({ ...part, strokeIndex })),
+  )
+  const pathRefs = useRef<(SVGPathElement | null)[]>([])
+
+  useLayoutEffect(() => {
+    const animations = flatParts.map((part, i) => {
+      const el = pathRefs.current[i]
+      if (!el) return null
+      const length = el.getTotalLength() || 1
+      el.style.strokeDasharray = String(length)
+      if (typeof el.animate !== 'function') {
+        el.style.strokeDashoffset = '0'
+        return null
+      }
+      el.style.strokeDashoffset = String(length)
+      return el.animate([{ strokeDashoffset: length }, { strokeDashoffset: 0 }], {
+        duration: STROKE_MS,
+        delay: startDelayMs + part.strokeIndex * (STROKE_MS + GAP_MS),
+        easing: 'ease-in-out',
+        fill: 'forwards',
+      })
+    })
+    return () => animations.forEach((a) => a?.cancel())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceId, playToken, startDelayMs])
+
+  return (
+    <svg
+      viewBox={glyph.viewBox}
+      width={size}
+      height={size}
+      className="rounded-xl border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-800"
+    >
+      <defs>
+        {flatParts.map((part, i) => (
+          <clipPath key={`clip-${instanceId}-${i}`} id={`stroke-glyph-clip-${instanceId}-${i}`}>
+            <path d={part.shadowD} />
+          </clipPath>
+        ))}
+      </defs>
+      <g fill="currentColor" className="text-neutral-300 dark:text-neutral-600">
+        {flatParts.map((part, i) => (
+          <path key={`guide-${i}`} d={part.shadowD} transform={part.transform} />
+        ))}
+      </g>
+      <g fill="none" stroke="#2563eb" strokeWidth={glyph.strokeWidth} strokeLinecap={glyph.strokeLinecap as 'round' | 'butt' | 'square'}>
+        {flatParts.map((part, i) => (
+          <path
+            key={`stroke-${i}`}
+            ref={(el) => {
+              pathRefs.current[i] = el
+            }}
+            d={part.strokeD}
+            transform={part.transform}
+            clipPath={`url(#stroke-glyph-clip-${instanceId}-${i})`}
           />
         ))}
       </g>
@@ -160,7 +271,7 @@ export function TracingUnitAnimation({
     )
   }
   const [base, small] = unit.glyphs
-  const baseStrokeCount = STROKE_PATHS[base.strokeSourceId]?.length ?? 0
+  const baseStrokeCount = STROKE_GLYPHS[base.strokeSourceId]?.logicalStrokes.length ?? STROKE_PATHS[base.strokeSourceId]?.length ?? 0
   const smallStartDelayMs = baseStrokeCount * (STROKE_MS + GAP_MS)
   return (
     <div className="flex gap-0">

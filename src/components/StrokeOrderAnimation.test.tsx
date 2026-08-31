@@ -1,5 +1,6 @@
 import { render } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
+import { STROKE_GLYPHS } from '../data/strokeGlyphs'
 import { STROKE_PATHS } from '../data/strokes'
 import { StrokeOrderAnimation, TracingUnitAnimation } from './StrokeOrderAnimation'
 
@@ -82,5 +83,87 @@ describe('TracingUnitAnimation', () => {
     rerender(<TracingUnitAnimation characterId="kya" playToken={1} />)
     expect(container.querySelectorAll('svg')).toHaveLength(2)
     container.querySelectorAll('svg').forEach((svg) => expect(svg.querySelectorAll('path').length).toBeGreaterThan(0))
+  })
+})
+
+// StrokeGlyphAnimation (Phase 1A prototype — Issue #122): the six
+// representative glyphs (あ/き/ず/ア/シ/ツ) render from the new
+// strokesvg-derived STROKE_GLYPHS data path instead of KanjiVG's
+// STROKE_PATHS. Every other character keeps using StrokeOrderAnimation's
+// existing KanjiVG fallback unchanged (verified above).
+describe('StrokeOrderAnimation with prototype strokesvg glyphs', () => {
+  it('all six prototype glyphs actually have STROKE_GLYPHS entries (precondition for the tests below)', () => {
+    for (const id of ['a', 'ki', 'zu', 'katakana-a', 'katakana-shi', 'katakana-tsu']) {
+      expect(STROKE_GLYPHS[id]).toBeDefined()
+    }
+  })
+
+  it('renders each prototype glyph with one guide <path> and one animated <path> per part, using the glyph viewBox', () => {
+    for (const id of ['a', 'ki', 'zu', 'katakana-a', 'katakana-shi', 'katakana-tsu']) {
+      const { container } = render(<StrokeOrderAnimation characterId={id} playToken={0} />)
+      const svg = container.querySelector('svg')
+      const glyph = STROKE_GLYPHS[id]
+      const partCount = glyph.logicalStrokes.reduce((n, s) => n + s.parts.length, 0)
+      expect(svg?.getAttribute('viewBox')).toBe(glyph.viewBox)
+      // Two <g> groups (guide + drawable strokes), each with one <path> per
+      // part — never one <path> per logical stroke, since a multi-part
+      // logical stroke's parts render (and clip) individually while
+      // animating together.
+      expect(container.querySelectorAll('g > path')).toHaveLength(partCount * 2)
+    }
+  })
+
+  it('あ still counts as 3 logical strokes, not 4 paths — the third stroke\'s 2 parts render as extra <path>s but share one stroke-index-driven start delay', () => {
+    const glyph = STROKE_GLYPHS['a']
+    expect(glyph.logicalStrokes).toHaveLength(3)
+    const { container } = render(<StrokeOrderAnimation characterId="a" playToken={0} />)
+    // 3 logical strokes, but stroke 3 has 2 parts -> 4 total animated paths
+    // in the drawable group; the logical-stroke count must stay 3.
+    const drawableGroup = container.querySelectorAll('g')[1]
+    expect(drawableGroup.querySelectorAll('path')).toHaveLength(4)
+  })
+
+  it('ず: the transform on both parts of its multi-part logical stroke reaches the rendered guide and stroke paths', () => {
+    const { container } = render(<StrokeOrderAnimation characterId="zu" playToken={0} />)
+    const transformedPaths = [...container.querySelectorAll('path')].filter((p) => p.getAttribute('transform') === 'translate(0 .01)')
+    // 2 parts x 2 groups (guide + drawable) = 4 paths carrying the transform.
+    expect(transformedPaths).toHaveLength(4)
+  })
+
+  it('two simultaneous instances of the same prototype glyph do not collide on clip-path ids', () => {
+    const { container } = render(
+      <>
+        <StrokeOrderAnimation characterId="a" playToken={0} />
+        <StrokeOrderAnimation characterId="a" playToken={0} />
+      </>,
+    )
+    const clipIds = [...container.querySelectorAll('clipPath')].map((el) => el.id)
+    expect(clipIds.length).toBeGreaterThan(0)
+    expect(new Set(clipIds).size).toBe(clipIds.length)
+    // Every clip-path reference used by a <path> must resolve to a clipPath
+    // id that actually exists in this render — no dangling/collided refs.
+    const clipRefs = [...container.querySelectorAll('path[clip-path]')].map((p) =>
+      p.getAttribute('clip-path')!.replace(/^url\(#(.+)\)$/, '$1'),
+    )
+    for (const ref of clipRefs) {
+      expect(clipIds).toContain(ref)
+    }
+  })
+
+  it('replay: bumping playToken keeps rendering the prototype glyph\'s paths', () => {
+    const { container, rerender } = render(<StrokeOrderAnimation characterId="katakana-shi" playToken={0} />)
+    const before = container.querySelectorAll('path').length
+    expect(before).toBeGreaterThan(0)
+    rerender(<StrokeOrderAnimation characterId="katakana-shi" playToken={1} />)
+    expect(container.querySelectorAll('path')).toHaveLength(before)
+  })
+
+  it('a non-prototype glyph still uses the existing KanjiVG fallback safely (no STROKE_GLYPHS entry, no crash)', () => {
+    expect(STROKE_GLYPHS['ka']).toBeUndefined()
+    const { container } = render(<StrokeOrderAnimation characterId="ka" playToken={0} />)
+    const svg = container.querySelector('svg')
+    expect(svg?.getAttribute('viewBox')).toBe('0 0 109 109')
+    expect(container.querySelectorAll('path').length).toBeGreaterThan(0)
+    expect(container.querySelectorAll('clipPath')).toHaveLength(0)
   })
 })
