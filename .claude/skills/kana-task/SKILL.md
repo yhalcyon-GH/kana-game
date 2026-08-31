@@ -62,11 +62,13 @@ Otherwise, proceed without demanding a lengthy plan confirmation from the user.
 
 ## 4. Implement
 
-Prefer the smallest change that satisfies the Acceptance Criteria. Do not silently change any of, per `CLAUDE.md`:
+Prefer the smallest change that satisfies the Acceptance Criteria. Do not silently change any of, per the v1 safety guardrails (CLAUDE.md's guardrail list plus additions specific to this Skill):
 
 - Game rules.
 - Answer-correctness behavior.
 - SRS/review/unlock thresholds.
+- Feedback/reaction behavior.
+- Deliberately removed curriculum content.
 - Curriculum structure.
 - Paid/external audio.
 - Licensing/provenance of assets.

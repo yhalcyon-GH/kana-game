@@ -14,7 +14,7 @@ User
       → Diff review
       → Fix (if needed)
       → Commit / Push / PR
-  → GitHub Actions (lint + test + build on PR / deploy on merge to main)
+  → GitHub Actions (npm run verify on PR / Claude code review on PR / lint + test + build + deploy on merge to main)
   → Claude Code Review (automated PR review, .github/workflows/claude-code-review.yml)
   → Human/ChatGPT merge gate
   → Learnings (Learnings.md / CLAUDE.md, when the task produced a reusable lesson)
