@@ -4,6 +4,7 @@ import { AnswerFeedbackRow } from '../../components/AnswerFeedbackRow'
 import { PracticeScoreVisual } from '../../components/PracticeScoreVisual'
 import { RESTAURANT_DISHES, type RestaurantDish, type RestaurantStageId } from '../../data/restaurantDishes'
 import { useTTS } from '../../hooks/useTTS'
+import { pickIncorrectFeedback, pickResultFeedback } from '../../lib/feedbackVoice'
 import { menuKey, pickRoundFromPools, shuffleRestaurantChoices, type RestaurantRound } from '../../lib/restaurantRound'
 import { checkMultipleDishOrderAlternatives, checkOrderAlternatives, type OrderCheckResult } from '../../lib/restaurantMatching'
 
@@ -73,6 +74,14 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
   const speechRetryUsedRef = useRef(false)
   const [speechRetryUsed, setSpeechRetryUsed] = useState(false)
   const [speechSupported, setSpeechSupported] = useState(false)
+  // Shared Practice incorrect-reaction pool/picker (lib/feedbackVoice.ts) —
+  // reused as-is rather than a Restaurant-only pool. Tracked so the same
+  // line never repeats back-to-back, same rule as normal Practice.
+  const lastWrongFeedbackIdRef = useRef<string | null>(null)
+  // Guards the shared end-of-session Tamamizu result line (pickResultFeedback)
+  // so it plays exactly once per completed session, even across StrictMode's
+  // double-invoked effects or an unrelated re-render while `completed` is true.
+  const resultAnnouncedRef = useRef(false)
 
   useEffect(() => {
     setSpeechSupported(getSpeechRecognitionCtor() !== null)
@@ -96,6 +105,20 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
     }
   }, [stop])
 
+  // Same shared end-of-session Tamamizu voice line Practice's results screen
+  // uses (lib/feedbackVoice.ts's pickResultFeedback, judged on accuracy out
+  // of 8 questions — see useAnswerFeedback.onFinish for the Practice-side
+  // equivalent), reused rather than a parallel Restaurant judgment table.
+  // Guarded by a ref (not just the `completed` dependency) so it plays
+  // exactly once even under StrictMode's double-invoked effects.
+  useEffect(() => {
+    if (!completed || resultAnnouncedRef.current) return
+    resultAnnouncedRef.current = true
+    const correctCount = sessionResults.filter((result) => result.correct).length
+    const { id, text } = pickResultFeedback(correctCount, 8)
+    speak(`feedback/${id}`, text)
+  }, [completed, sessionResults, speak])
+
   function finalizeQuestion(correct: boolean) {
     setSessionResults((previous) => {
       const index = questionNumber - 1
@@ -106,19 +129,43 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
     })
   }
 
+  // Records the mistake (exactly once, via finalizeQuestion's existing
+  // index-guard) and plays the SAME shared Tamamizu incorrect-reaction pool
+  // normal Practice uses (see lib/feedbackVoice.ts's pickIncorrectFeedback /
+  // useAnswerFeedback's onWrong) — reused directly rather than duplicated,
+  // per every place a Restaurant answer becomes definitively wrong.
+  function finalizeWrong() {
+    finalizeQuestion(false)
+    const { id, text } = pickIncorrectFeedback(lastWrongFeedbackIdRef.current)
+    lastWrongFeedbackIdRef.current = id
+    speak(`feedback/${id}`, text)
+  }
+
   function evaluate(source: 'speech' | 'romaji', transcript: string | null, check: OrderCheckResult) {
-    setState({ kind: 'result', source, transcript, check, revealed: false })
     if (check.outcome === 'success') {
+      setState({ kind: 'result', source, transcript, check, revealed: false })
       finalizeQuestion(true)
       speak('restaurant/staff/kashikomarimashita', 'かしこまりました。')
     } else if (source === 'romaji') {
-      finalizeQuestion(false)
+      // A wrong Romaji pick (whether the initial choice or the post-speech-
+      // failure rescue) is always definitively final — there is no further
+      // retry/rescue path from here — so auto-reveal the correct answer
+      // immediately instead of showing a "Show Answer" button.
+      finalizeWrong()
+      setState({ kind: 'result', source, transcript, check, revealed: true })
+    } else {
+      // A speech-recognition miss is NOT final yet — Try Again / Romaji
+      // rescue may still be available, so leave it unrevealed.
+      setState({ kind: 'result', source, transcript, check, revealed: false })
     }
   }
 
+  // Manual "give up" reveal, only reachable while a speech-failure retry/
+  // rescue path is still technically available (see the isSpeechFailure
+  // render branch) — the learner opts out early rather than retrying.
   function revealAnswer() {
     if (state.kind !== 'result' || state.revealed) return
-    finalizeQuestion(false)
+    finalizeWrong()
     setState({ ...state, revealed: true })
   }
 
@@ -272,6 +319,8 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
     setSelectedRomaji([])
     speechRetryUsedRef.current = false
     setSpeechRetryUsed(false)
+    lastWrongFeedbackIdRef.current = null
+    resultAnnouncedRef.current = false
     setState({ kind: 'idle' })
   }
 
@@ -309,7 +358,7 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
   }
 
   function revealRomajiRescueAnswer() {
-    finalizeQuestion(false)
+    finalizeWrong()
     setState({ kind: 'result', source: 'romaji', transcript: null, check: { outcome: 'wrong-dish', identified: round.menu[0] }, revealed: true })
     setShowRomaji(false)
   }
@@ -389,7 +438,7 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
               >
                 Try Again
               </button>}
-              {isSpeechFailure && <button type="button" onClick={showRomajiRescue} className="rounded-full border px-5 py-2 text-sm font-semibold">Show Romaji</button>}
+              {isSpeechFailure && <button type="button" onClick={showRomajiRescue} className="rounded-full border px-5 py-2 text-sm font-semibold">Choose in Romaji</button>}
               <button type="button" onClick={revealAnswer} className="rounded-full border px-5 py-2 text-sm font-semibold">Show Answer</button>
               <AnswerFeedbackRow mood="incorrect" showNext={false} onNext={nextOrder} />
             </>
@@ -448,11 +497,10 @@ function RestaurantMenuSheet({ dishes }: { dishes: RestaurantDish[] }) {
       data-testid="restaurant-menu"
       className="w-full max-w-md overflow-hidden rounded-lg border border-amber-300/70 bg-[#fff8e7] shadow-[0_8px_24px_rgba(120,75,25,0.12)] dark:border-amber-800/80 dark:bg-[#2b2118] dark:shadow-[0_8px_24px_rgba(0,0,0,0.24)]"
     >
-      <header className="px-4 pt-4 pb-3 sm:px-6">
-        <h2 id="restaurant-menu-title" className="font-kana text-center text-2xl font-bold tracking-[0.14em] text-amber-950 dark:text-amber-100">
+      <header className="px-4 pt-3 pb-1 sm:px-6">
+        <h2 id="restaurant-menu-title" className="font-kana text-center text-xs font-semibold tracking-[0.14em] text-amber-800/80 dark:text-amber-200/70">
           メニュー
         </h2>
-        <div data-testid="restaurant-menu-divider" aria-hidden="true" className="mx-auto mt-2 w-full border-t border-amber-300/80 dark:border-amber-700/80" />
       </header>
       <div className="divide-y divide-amber-200/90 px-3 sm:px-5 dark:divide-amber-800/80">
         {dishes.map((dish) => (
@@ -462,7 +510,7 @@ function RestaurantMenuSheet({ dishes }: { dishes: RestaurantDish[] }) {
             className="grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-2.5 py-2.5 text-left sm:grid-cols-[4.25rem_minmax(0,1fr)_auto] sm:gap-3 sm:py-3"
           >
             <DishGlyph dish={dish} className="h-12 w-12 text-2xl sm:h-14 sm:w-14 sm:text-3xl" menu />
-            <span className="font-kana min-w-0 break-words text-[clamp(1rem,4.5vw,1.25rem)] leading-snug font-bold text-amber-950 dark:text-amber-100">
+            <span className="font-kana min-w-0 break-words text-[clamp(1.25rem,6vw,1.75rem)] leading-snug font-bold text-amber-950 dark:text-amber-100">
               {dish.displayKana}
             </span>
             <span className="whitespace-nowrap text-right text-xs font-medium tabular-nums text-amber-900/75 sm:text-sm dark:text-amber-200/75">
