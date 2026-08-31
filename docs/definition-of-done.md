@@ -1,6 +1,6 @@
 # Definition of Done
 
-Applies to non-trivial KanaGame changes carried out via [`/kana-task`](../.claude/skills/kana-task/SKILL.md) or an equivalent manual workflow. See [ai-development-loop.md](./ai-development-loop.md) for how this fits into the overall loop.
+Applies to non-trivial KanaGame changes carried out through the shared [`ai-development-loop.md`](./ai-development-loop.md), whether the coding agent is Claude Code, Codex, or an equivalent manual workflow.
 
 A task is Done when all of the following are true:
 
@@ -12,7 +12,7 @@ A task is Done when all of the following are true:
 - **`git diff --check` pass** — no trailing whitespace / conflict-marker errors in the diff.
 - **Diff self-review pass** — the full `git diff` was read and checked for unintended files, debug code, stale comments, accidental generated files, secrets, unnecessary refactors, and documentation mismatches.
 - **No unintended files** — only files relevant to the task are staged/committed.
-- **Required docs updated** — if the change affects behavior described in `CLAUDE.md`, `docs/`, or `Learnings.md`, those were updated (or a stale contradiction was fixed) — not skipped in favor of code-only changes.
+- **Required docs updated** — if the change affects behavior described in `CLAUDE.md`, `AGENTS.md`, `docs/`, or `Learnings.md`, those were updated (or a stale contradiction was fixed) — not skipped in favor of code-only changes.
 - **PR created** — with Goal, What changed, Acceptance Criteria, Tests/verification, and Risks/notes.
 - **Known risks explicitly reported** — anything uncertain, deferred, or flagged for human judgment is stated in the PR/report, not silently omitted.
 
