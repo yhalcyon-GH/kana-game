@@ -248,16 +248,24 @@ describe('RestaurantPage', () => {
     expect(targetPositions.size).toBeGreaterThan(1)
   })
 
-  it('treats an initial Romaji wrong answer as final and offers only Show Answer', () => {
+  it('treats an initial Romaji wrong answer as final and auto-reveals the answer with no Show Answer button', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0)
     renderPage()
     clickWrongAnswer()
     expect(mascotSource()).toContain('mascot/incorrect.webp')
     expect(screen.queryByRole('button', { name: 'Try Again' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Show Romaji' })).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Show Answer' }))
-    expect(mascotSource()).toContain('mascot/incorrect.webp')
+    expect(screen.queryByRole('button', { name: 'Choose in Romaji' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Show Answer' })).not.toBeInTheDocument()
     expect(screen.getAllByText('sushi').length).toBeGreaterThan(0)
+  })
+
+  it('plays the shared Tamamizu incorrect reaction (not the correct reaction) on a final wrong answer', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    renderPage()
+    clickWrongAnswer()
+    const incorrectCalls = tts.speak.mock.calls.filter(([key]) => typeof key === 'string' && key.startsWith('feedback/'))
+    expect(incorrectCalls.length).toBe(1)
+    expect(tts.speak).not.toHaveBeenCalledWith('restaurant/staff/kashikomarimashita', 'かしこまりました。')
   })
 
   it('shows the correct mascot after a correct answer', () => {
@@ -265,6 +273,42 @@ describe('RestaurantPage', () => {
     renderPage()
     clickTargetAnswer()
     expect(mascotSource()).toContain('mascot/correct.webp')
+  })
+
+  it('plays only かしこまりました on a correct answer, never the generic Practice correct reaction', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    renderPage()
+    clickTargetAnswer()
+    expect(tts.speak).toHaveBeenCalledWith('restaurant/staff/kashikomarimashita', 'かしこまりました。')
+    const feedbackCalls = tts.speak.mock.calls.filter(([key]) => typeof key === 'string' && key.startsWith('feedback/'))
+    expect(feedbackCalls.length).toBe(0)
+  })
+
+  it('plays the shared Tamamizu result reaction exactly once when the session completes', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    renderPage()
+    for (let question = 1; question <= 8; question++) {
+      clickTargetAnswer()
+      fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    }
+    expect(screen.getByText('Completed!')).toBeInTheDocument()
+    const resultCalls = tts.speak.mock.calls.filter(([key]) => key === 'feedback/kanpeki')
+    expect(resultCalls.length).toBe(1)
+  })
+
+  it('does not replay the Tamamizu result reaction on an unrelated re-render after completion', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    const view = renderPage()
+    for (let question = 1; question <= 8; question++) {
+      clickTargetAnswer()
+      fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    }
+    expect(screen.getByText('Completed!')).toBeInTheDocument()
+    const countAfterFirstRender = tts.speak.mock.calls.filter(([key]) => key === 'feedback/kanpeki').length
+    expect(countAfterFirstRender).toBe(1)
+    view.rerender(<MemoryRouter><RestaurantPage /></MemoryRouter>)
+    const countAfterRerender = tts.speak.mock.calls.filter(([key]) => key === 'feedback/kanpeki').length
+    expect(countAfterRerender).toBe(1)
   })
 
   it('keeps the session on questions 1 through 7 and shows results after question 8', () => {
@@ -289,11 +333,11 @@ describe('RestaurantPage', () => {
     expect(screen.getByRole('link', { name: 'Back' })).toBeInTheDocument()
   })
 
-  it('counts Show Answer as a mistake before advancing to the final score', () => {
+  it('counts an auto-revealed final wrong answer as a mistake exactly once before advancing to the final score', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0)
     renderPage()
     clickWrongAnswer()
-    fireEvent.click(screen.getByRole('button', { name: 'Show Answer' }))
+    expect(screen.queryByRole('button', { name: 'Show Answer' })).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Next' }))
     for (let question = 2; question <= 8; question++) {
       clickTargetAnswer()
@@ -308,14 +352,15 @@ describe('RestaurantPage', () => {
     expect(screen.getByText('Question 1 / 8')).toBeInTheDocument()
   })
 
-  it('renders a labelled Menu Sheet with an HTML title and CSS divider', () => {
+  it('renders a labelled Menu Sheet with a small header and no decorative divider', () => {
     renderPage()
     const menu = screen.getByTestId('restaurant-menu')
     const title = screen.getByRole('heading', { name: 'メニュー' })
     expect(menu.tagName).toBe('SECTION')
     expect(title).toHaveClass('font-kana')
+    expect(title).toHaveClass('text-xs')
     expect(menu).toHaveAttribute('aria-labelledby', title.id)
-    expect(screen.getByTestId('restaurant-menu-divider')).toHaveClass('border-t')
+    expect(screen.queryByTestId('restaurant-menu-divider')).not.toBeInTheDocument()
   })
 
   it('renders 4 unique dishes with kana, prices, and contained illustrations only', () => {
@@ -489,7 +534,7 @@ describe('RestaurantPage SpeechRecognition lifecycle', () => {
     expect(screen.getByText("That's not quite it.")).toBeInTheDocument()
     expect(mascotSource()).toContain('mascot/incorrect.webp')
     expect(screen.getByRole('button', { name: 'Try Again' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Show Romaji' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Choose in Romaji' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Show Answer' })).toBeInTheDocument()
   })
 
@@ -515,7 +560,7 @@ describe('RestaurantPage SpeechRecognition lifecycle', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Try Again' }))
     act(() => FakeSpeechRecognition.instances[1].error())
     expect(screen.queryByRole('button', { name: 'Try Again' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Show Romaji' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Choose in Romaji' })).toBeInTheDocument()
   })
 
   it('recovers successfully through Romaji after both speech attempts fail', async () => {
@@ -528,9 +573,9 @@ describe('RestaurantPage SpeechRecognition lifecycle', () => {
     const second = FakeSpeechRecognition.instances[1]
     act(() => second.error())
     expect(screen.queryByRole('button', { name: 'Try Again' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Show Romaji' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Choose in Romaji' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Show Answer' })).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Show Romaji' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Choose in Romaji' }))
     clickTargetAnswer()
     expect(screen.getByText('Great!')).toBeInTheDocument()
     finishSessionWithCorrectRomajiAnswers()
@@ -553,13 +598,13 @@ describe('RestaurantPage SpeechRecognition lifecycle', () => {
     expect(screen.getByText("Perfect! You're ready to order!")).toBeInTheDocument()
   })
 
-  it('uses Show Romaji after speech failure without recording an interim mistake', async () => {
+  it('uses Choose in Romaji rescue after speech failure without recording an interim mistake', async () => {
     vi.spyOn(Math, 'random').mockReturnValue(0)
     installFakeSpeechRecognition()
     renderSpeechPage()
     const recognizer = await startSpeech()
     act(() => recognizer.error())
-    fireEvent.click(screen.getByRole('button', { name: 'Show Romaji' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Choose in Romaji' }))
     expect(screen.getByTestId('restaurant-romaji-fallback')).toBeInTheDocument()
     clickTargetAnswer()
     expect(screen.getByText('Great!')).toBeInTheDocument()
@@ -581,16 +626,17 @@ describe('RestaurantPage SpeechRecognition lifecycle', () => {
     expect(screen.getByText('Missed this round (1)')).toBeInTheDocument()
   })
 
-  it('finalizes a wrong Romaji rescue and offers only Show Answer', async () => {
+  it('finalizes a wrong Romaji rescue by auto-revealing the answer with no Show Answer/Try Again/rescue buttons', async () => {
     installFakeSpeechRecognition()
     renderSpeechPage()
     const recognizer = await startSpeech()
     act(() => recognizer.error())
-    fireEvent.click(screen.getByRole('button', { name: 'Show Romaji' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Choose in Romaji' }))
     fireEvent.click(screen.getByTestId(`restaurant-romaji-${currentWrongMenuDish().id}`))
     expect(screen.queryByRole('button', { name: 'Try Again' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Show Romaji' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Show Answer' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Choose in Romaji' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Show Answer' })).not.toBeInTheDocument()
+    expect(mascotSource()).toContain('mascot/incorrect.webp')
   })
 
   it('supports the speech-to-Romaji rescue flow for a two-dish question', async () => {
@@ -604,7 +650,7 @@ describe('RestaurantPage SpeechRecognition lifecycle', () => {
     }
     const recognizer = await startSpeech()
     act(() => recognizer.error())
-    fireEvent.click(screen.getByRole('button', { name: 'Show Romaji' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Choose in Romaji' }))
     clickTargetAnswer()
     expect(screen.getByText('Great!')).toBeInTheDocument()
   })
@@ -627,20 +673,19 @@ describe('RestaurantPage SpeechRecognition lifecycle', () => {
     expect(screen.getByText("Perfect! You're ready to order!")).toBeInTheDocument()
   })
 
-  it('records one mistake for a wrong Q5 Romaji rescue pair even after Show Answer', async () => {
+  it('records exactly one mistake for a wrong Q5 Romaji rescue pair, auto-revealed with no Show Answer button', async () => {
     vi.spyOn(Math, 'random').mockReturnValue(0)
     installFakeSpeechRecognition()
     renderSpeechPage()
     advanceToQuestion5()
     const recognizer = await startSpeech()
     act(() => recognizer.error())
-    fireEvent.click(screen.getByRole('button', { name: 'Show Romaji' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Choose in Romaji' }))
     clickWrongTwoDishAnswer()
     expect(mascotSource()).toContain('mascot/incorrect.webp')
     expect(screen.queryByRole('button', { name: 'Try Again' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Show Romaji' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Show Answer' })).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Show Answer' }))
+    expect(screen.queryByRole('button', { name: 'Choose in Romaji' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Show Answer' })).not.toBeInTheDocument()
     finishSessionFromQuestionFive()
     expect(screen.getByText('Missed this round (1)')).toBeInTheDocument()
   })
@@ -712,7 +757,10 @@ describe('RestaurantPage progress isolation', () => {
     // Click a button that isn't guaranteed correct — assert isolation
     // regardless of which one it happens to be.
     buttons[0].click()
-    expect(await screen.findByText(/show answer|great!/i)).toBeInTheDocument()
+    // Whichever outcome, the result panel now settles on the Next control
+    // (a wrong answer auto-reveals immediately, so there's no separate
+    // "Show Answer" affordance to wait for any more).
+    expect(await screen.findByRole('button', { name: 'Next' })).toBeInTheDocument()
     expect(snapshotProgress()).toBe(before.progress)
     expect(snapshotSaved()).toBe(before.saved)
   })
