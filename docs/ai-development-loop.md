@@ -50,7 +50,9 @@ Do not maintain two independent copies of the shared workflow. Add a separate ag
 
 ## AI review policy
 
-`.github/workflows/claude-code-review.yml` is intentionally triggered by `ready_for_review`, not every `synchronize` push. This keeps model review concentrated on a merge candidate instead of spending usage during iteration.
+`.github/workflows/claude-code-review.yml` is intentionally **not** triggered by `synchronize` pushes. Normally, marking a Draft PR `ready_for_review` requests the model-review pass. If a PR is exceptionally opened as non-Draft, that opening is treated as already reviewable and also receives one pass.
+
+Opening a normal Draft PR may create a skipped Claude Review workflow/job depending on GitHub event evaluation, but it must not enter the model-review step or spend Claude usage. Later pushes while Draft do not request model review.
 
 Binary-only changes may skip model review when the workflow determines there is no reviewable text diff.
 
