@@ -1,11 +1,11 @@
 ---
 name: kana-task
-description: Run a standard non-trivial KanaGame development task end-to-end — Explore, Plan, Implement, Verify, Inspect, Fix, Commit, Push, PR — from a Goal and Acceptance Criteria, without requiring a long implementation prompt each time.
+description: Run a standard non-trivial KanaGame development task end-to-end — Explore, Plan, Implement, Verify, Inspect, Fix, Commit, Push, Draft PR — from a Goal and Acceptance Criteria, without requiring a long implementation prompt each time.
 ---
 
-Standard loop for non-trivial KanaGame work. Input is a Goal and Acceptance Criteria (from the user, or an issue). Output is an open PR against `main` that meets [`docs/definition-of-done.md`](../../../docs/definition-of-done.md). Overall context: [`docs/ai-development-loop.md`](../../../docs/ai-development-loop.md).
+Standard loop for non-trivial KanaGame work. Input is a Goal and Acceptance Criteria (from the user, or an issue). Output is a **Draft PR** against `main` that meets [`docs/definition-of-done.md`](../../../docs/definition-of-done.md). Overall context: [`docs/ai-development-loop.md`](../../../docs/ai-development-loop.md).
 
-Never merge to `main`. This Skill stops at "PR opened"; merge is a separate human/review gate.
+Never merge to `main`. This Skill stops at "Draft PR opened"; review, Ready-for-Review transition, AI review, and merge are separate gates.
 
 ## 1. Preflight
 
@@ -127,7 +127,9 @@ Commit only the files relevant to this task. Use a clear message describing why,
 
 Push the branch (never `main`) to `origin`.
 
-## 12. Open PR
+## 12. Open Draft PR
+
+Open the PR against `main` as **Draft**, not Ready for Review. Draft is the normal state while ChatGPT/human review and bundled follow-up fixes are still possible; it prevents expensive AI review from running on every push.
 
 PR body must include at minimum:
 
@@ -137,7 +139,7 @@ PR body must include at minimum:
 - **Tests / verification** (what was run, results)
 - **Risks / notes** (anything uncertain, deferred, or worth human attention)
 
-Do not merge. Leave merge to the human/review gate described in `docs/ai-development-loop.md`.
+Do not mark it Ready and do not merge. Leave those transitions to the review/merge gate described in `docs/ai-development-loop.md`.
 
 ## 13. Final report
 
@@ -152,6 +154,6 @@ Report back to the user with at least:
 7. `git diff --check` result
 8. Any stale docs/CLAUDE.md rules fixed, and why
 9. Unresolved concerns / open risks
-10. PR URL
+10. Draft PR URL
 
 If any Definition of Done item was intentionally skipped, name it and say why (see "When some items don't apply" in `docs/definition-of-done.md`) — never skip silently.
