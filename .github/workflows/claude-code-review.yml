@@ -2,15 +2,18 @@ name: Claude Code Review
 
 on:
   pull_request:
-    # AI review is intentionally not triggered by synchronize events.
-    # Normal work happens in Draft; marking the PR Ready requests one review pass.
-    # Opening a PR as non-Draft is treated as already Ready and also gets one pass.
+    # Model review is intentionally not triggered by synchronize events.
+    # It is opt-in: the review gate adds `AI review: Claude` to the PR body only
+    # when Claude is the chosen independent reviewer and the usage is warranted.
     types: [opened, ready_for_review]
 
 jobs:
   claude-review:
-    # Draft PRs opened normally should not spend model usage.
-    if: github.event.action == 'ready_for_review' || github.event.pull_request.draft == false
+    # Draft iteration should not spend model usage. A reviewable PR only enters
+    # Claude review when the PR body explicitly requests it.
+    if: >-
+      (github.event.action == 'ready_for_review' || github.event.pull_request.draft == false) &&
+      contains(github.event.pull_request.body || '', 'AI review: Claude')
     runs-on: ubuntu-latest
     permissions:
       contents: read

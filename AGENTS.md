@@ -7,28 +7,38 @@ Guidance for Codex and other coding agents that honor `AGENTS.md` in this reposi
 For non-trivial work, use these shared documents rather than inventing an agent-specific process:
 
 - `docs/global-ai-development-charter.md` — project-independent principles.
-- `docs/ai-development-loop.md` — standard Goal + Acceptance Criteria → PR workflow.
-- `docs/definition-of-done.md` — completion criteria.
+- `docs/ai-development-loop.md` — shared role-based development/review workflow.
+- `docs/definition-of-done.md` — Builder completion criteria.
 - `CLAUDE.md` — currently also carries the concise KanaGame project contract: architecture boundaries, curriculum rules, commands, and product-behavior guardrails. Apply those repository rules to Codex too; Claude-specific invocation details such as `/kana-task` and `.claude/` mechanics do not need to be copied literally.
 - `docs/claude-reference.md` — deeper repository reference despite the historical filename; read only the sections relevant to the current task.
 
-Current code/tests and explicit user instructions outrank stale narrative documentation. If a material doc contradiction is found, fix it in scope.
+Use the source-of-truth order in `docs/ai-development-loop.md`. Current code/tests are evidence of implemented behavior, but they do not automatically override an accepted current Goal, Acceptance Criteria, or approved product/decision specification.
 
-## Standard task loop
+## Role assignment
+
+Codex is not permanently assigned to implementation or review. The task determines the role.
+
+- **When assigned as Builder:** follow the Standard task loop below and stop at a Draft PR.
+- **When assigned as independent reviewer:** use a fresh review context, read the current Goal/Acceptance Criteria and full relevant diff, look for correctness/regression/scope/test gaps, and report findings before style preferences. Do not modify the branch unless explicitly asked to implement accepted findings.
+
+Prefer a reviewer that did not produce the implementation when practical. Independence of context and role matters more than a fixed vendor assignment.
+
+## Standard task loop (Builder)
 
 Given a Goal and Acceptance Criteria:
 
-1. Preflight: confirm repository, `git status`, branch, and current `origin/main`.
-2. Work on a fresh dedicated branch from current `origin/main`, unless resuming the exact existing task branch/PR.
-3. Preserve unrelated uncommitted work; never silently discard or overwrite it.
-4. Explore only the relevant code/tests/docs. Search narrowly and stop when evidence is sufficient.
-5. Plan scope, non-goals, tests, and risks.
-6. Implement the smallest change that satisfies the Acceptance Criteria.
-7. Run focused tests during iteration.
-8. On the final candidate, run `npm run verify`.
-9. Read the full diff and remove unintended changes.
-10. Commit only task-relevant files, push the branch, and open a **Draft PR** against `main`.
-11. Do not mark the PR Ready and do not merge it; leave review, Ready-for-Review transition, AI review, and merge to the separate human/ChatGPT gate.
+1. Preflight: refresh `origin`, then confirm repository, `git status`, branch, current `origin/main`, and any existing task PR/issue.
+2. If this task came from another agent/environment, do not trust the inherited checkout implicitly. Verify the branch/HEAD/diff before continuing.
+3. Work on a fresh dedicated branch from current `origin/main`, unless resuming the exact existing task branch/PR.
+4. Preserve unrelated work; never silently discard or overwrite it.
+5. Explore only the relevant code/tests/docs. Search narrowly and stop when evidence is sufficient.
+6. Plan only to the depth the task needs. An obvious bounded fix may proceed directly; uncertain, multi-concern, or hard-to-review work should be planned/decomposed first.
+7. Implement the smallest change that satisfies the Acceptance Criteria.
+8. Run focused tests during iteration.
+9. On the final candidate, run `npm run verify`.
+10. Read the full diff and remove unintended changes.
+11. Commit only task-relevant files, push the branch, and open a **Draft PR** against `main`.
+12. Do not mark the PR Ready and do not merge it; leave review depth, independent review, Ready-for-Review transition, and merge to the separate ChatGPT/human gate.
 
 Stop and escalate before destructive operations, paid external calls, secrets/API-key setup, irreversible migrations, new unresolved licensing/legal judgments, or product-behavior ambiguity with meaningful consequences.
 
@@ -47,6 +57,6 @@ npm run verify
 ## Agent-specific adapters
 
 - **Codex:** this `AGENTS.md` is the persistent adapter. Follow the shared loop directly; do not require the Claude `/kana-task` command.
-- **Claude Code:** `CLAUDE.md` plus `.claude/skills/kana-task/SKILL.md` provide the Claude-specific adapter.
+- **Claude Code:** `CLAUDE.md` plus `.claude/skills/kana-task/SKILL.md` provide the Claude-specific Builder adapter.
 
-Keep shared behavior in the shared docs. Add agent-specific instructions only when the difference is genuinely caused by that agent or harness.
+Keep shared behavior in the shared docs. Add agent-specific instructions only when repeated evidence shows the difference is genuinely caused by that agent or harness.
