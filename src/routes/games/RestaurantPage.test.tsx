@@ -352,6 +352,14 @@ describe('RestaurantPage', () => {
     expect(screen.getByText('Question 1 / 8')).toBeInTheDocument()
   })
 
+  it('keeps the order bubble shrinkable and wraps its two-dish contents', () => {
+    renderPage()
+    const bubble = screen.getByTestId('restaurant-target-bubble')
+    const targetRow = bubble.firstElementChild
+    expect(bubble).toHaveClass('min-w-0')
+    expect(targetRow).toHaveClass('flex-wrap')
+  })
+
   it('renders a labelled Menu Sheet with a prominent header and restrained frame', () => {
     renderPage()
     const menu = screen.getByTestId('restaurant-menu')

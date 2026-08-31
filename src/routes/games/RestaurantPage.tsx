@@ -404,11 +404,11 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
       <div className="flex w-full max-w-md items-end gap-3">
         <img src={`${import.meta.env.BASE_URL}mascot/order.png`} alt="Tamamizu" className="h-28 w-28 shrink-0 object-contain sm:h-32 sm:w-32" />
         <div
-          className="relative flex-1 rounded-2xl border border-neutral-200 bg-white px-4 py-3 text-center shadow-sm dark:border-neutral-700 dark:bg-neutral-800"
+          className="relative min-w-0 flex-1 rounded-2xl border border-neutral-200 bg-white px-3 py-3 text-center shadow-sm dark:border-neutral-700 dark:bg-neutral-800 sm:px-4"
           data-testid="restaurant-target-bubble"
           aria-label="What Tamamizu wants to order"
         >
-          <div className="flex min-w-0 items-center justify-center gap-1">{targets.map((dish, index) => <span key={dish.id} data-testid={`restaurant-target-${dish.id}`} className="flex min-w-0 items-center"><DishGlyph dish={dish} className={targets.length === 2 ? 'h-20 w-20 max-w-[40vw] text-3xl' : 'h-24 w-24 text-4xl'} target />{index < targets.length - 1 && <span className="font-kana shrink-0 px-0.5 text-2xl">と</span>}</span>)}</div>
+          <div className="flex min-w-0 flex-wrap items-center justify-center gap-1">{targets.map((dish, index) => <span key={dish.id} data-testid={`restaurant-target-${dish.id}`} className="flex min-w-0 items-center"><DishGlyph dish={dish} className={targets.length === 2 ? 'h-16 w-16 max-w-[28vw] text-3xl sm:h-20 sm:w-20 sm:max-w-[40vw]' : 'h-24 w-24 text-4xl'} target />{index < targets.length - 1 && <span className="font-kana shrink-0 px-0.5 text-2xl">と</span>}</span>)}</div>
         </div>
       </div>
 
