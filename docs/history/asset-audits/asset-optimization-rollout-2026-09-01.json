@@ -1,0 +1,1305 @@
+{
+  "generated": "2026-09-01",
+  "issue": 153,
+  "files_changed": 53,
+  "totals_by_directory": {
+    "public/mascot": {
+      "before": 8302329,
+      "after": 360014
+    },
+    "public/guide": {
+      "before": 18067810,
+      "after": 3438236
+    },
+    "public/restaurant-dishes": {
+      "before": 31583480,
+      "after": 594006
+    },
+    "public/summary-results": {
+      "before": 5978450,
+      "after": 886924
+    },
+    "public/similar-letters": {
+      "before": 444604,
+      "after": 37922
+    }
+  },
+  "runtime_total_before_bytes": 64376673,
+  "runtime_total_after_bytes": 5317102,
+  "runtime_total_saved_bytes": 59059571,
+  "runtime_total_reduction_pct": 91.7,
+  "files": [
+    {
+      "runtime_path_after": "public/mascot/normal.webp",
+      "original_backup_path": "mascot/normal.webp",
+      "kind": "in-place-recompress",
+      "before_bytes": 813688,
+      "after_bytes": 30452,
+      "saved_bytes": 783236,
+      "reduction_pct": 96.3,
+      "before_dims": {
+        "width": 1672,
+        "height": 941,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 512,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/mascot/correct.webp",
+      "original_backup_path": "mascot/correct.webp",
+      "kind": "in-place-recompress",
+      "before_bytes": 1115282,
+      "after_bytes": 43420,
+      "saved_bytes": 1071862,
+      "reduction_pct": 96.1,
+      "before_dims": {
+        "width": 1672,
+        "height": 941,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 512,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/mascot/incorrect.webp",
+      "original_backup_path": "mascot/incorrect.webp",
+      "kind": "in-place-recompress",
+      "before_bytes": 980210,
+      "after_bytes": 38546,
+      "saved_bytes": 941664,
+      "reduction_pct": 96.1,
+      "before_dims": {
+        "width": 1672,
+        "height": 941,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 512,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/mascot/streak.webp",
+      "original_backup_path": "mascot/streak.webp",
+      "kind": "in-place-recompress",
+      "before_bytes": 1115282,
+      "after_bytes": 43420,
+      "saved_bytes": 1071862,
+      "reduction_pct": 96.1,
+      "before_dims": {
+        "width": 1672,
+        "height": 941,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 512,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/mascot/order.webp",
+      "original_backup_path": "mascot/order.png",
+      "kind": "png-to-webp",
+      "before_bytes": 2082142,
+      "after_bytes": 27132,
+      "saved_bytes": 2055010,
+      "reduction_pct": 98.7,
+      "before_dims": {
+        "width": 1254,
+        "height": 1254,
+        "pix_fmt": "rgb24"
+      },
+      "after_dims": {
+        "width": 384,
+        "height": 384,
+        "pix_fmt": "yuv420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": false,
+      "alpha_after": false,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/mascot/restaurant-intro.webp",
+      "original_backup_path": "mascot/restaurant-intro.png",
+      "kind": "png-to-webp",
+      "before_bytes": 2195725,
+      "after_bytes": 177044,
+      "saved_bytes": 2018681,
+      "reduction_pct": 91.9,
+      "before_dims": {
+        "width": 1254,
+        "height": 1254,
+        "pix_fmt": "rgb24"
+      },
+      "after_dims": {
+        "width": 1254,
+        "height": 1254,
+        "pix_fmt": "yuv420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": false,
+      "alpha_after": false,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/guide/ask-tamamizu-hiragana.webp",
+      "original_backup_path": "guide/ask-tamamizu-hiragana.webp",
+      "kind": "in-place-recompress",
+      "before_bytes": 1158326,
+      "after_bytes": 218062,
+      "saved_bytes": 940264,
+      "reduction_pct": 81.2,
+      "before_dims": {
+        "width": 1672,
+        "height": 941,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 1672,
+        "height": 941,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/guide/ask-tamamizu-katakana.webp",
+      "original_backup_path": "guide/ask-tamamizu-katakana.webp",
+      "kind": "in-place-recompress",
+      "before_bytes": 1159118,
+      "after_bytes": 212050,
+      "saved_bytes": 947068,
+      "reduction_pct": 81.7,
+      "before_dims": {
+        "width": 1672,
+        "height": 941,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 1672,
+        "height": 941,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/guide/ask-tamamizu-long-vowels.webp",
+      "original_backup_path": "guide/ask-tamamizu-long-vowels.webp",
+      "kind": "in-place-recompress",
+      "before_bytes": 1173112,
+      "after_bytes": 217400,
+      "saved_bytes": 955712,
+      "reduction_pct": 81.5,
+      "before_dims": {
+        "width": 1672,
+        "height": 941,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 1672,
+        "height": 941,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/guide/ask-tamamizu-small-tsu.webp",
+      "original_backup_path": "guide/ask-tamamizu-small-tsu.webp",
+      "kind": "in-place-recompress",
+      "before_bytes": 1132746,
+      "after_bytes": 210996,
+      "saved_bytes": 921750,
+      "reduction_pct": 81.4,
+      "before_dims": {
+        "width": 1672,
+        "height": 941,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 1672,
+        "height": 941,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/guide/ask-tamamizu-small-youon.webp",
+      "original_backup_path": "guide/ask-tamamizu-small-youon.webp",
+      "kind": "in-place-recompress",
+      "before_bytes": 1160854,
+      "after_bytes": 217794,
+      "saved_bytes": 943060,
+      "reduction_pct": 81.2,
+      "before_dims": {
+        "width": 1672,
+        "height": 941,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 1672,
+        "height": 941,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/guide/ask-tamamizu-particle.webp",
+      "original_backup_path": "guide/ask-tamamizu-particle.png",
+      "kind": "png-to-webp",
+      "before_bytes": 1918018,
+      "after_bytes": 180264,
+      "saved_bytes": 1737754,
+      "reduction_pct": 90.6,
+      "before_dims": {
+        "width": 1672,
+        "height": 941,
+        "pix_fmt": "rgb24"
+      },
+      "after_dims": {
+        "width": 1672,
+        "height": 941,
+        "pix_fmt": "yuv420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": false,
+      "alpha_after": false,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/guide/slide-particle-1.webp",
+      "original_backup_path": "guide/slide-particle-1.png",
+      "kind": "png-to-webp",
+      "before_bytes": 2007652,
+      "after_bytes": 126846,
+      "saved_bytes": 1880806,
+      "reduction_pct": 93.7,
+      "before_dims": {
+        "width": 1086,
+        "height": 1448,
+        "pix_fmt": "rgb24"
+      },
+      "after_dims": {
+        "width": 1086,
+        "height": 1448,
+        "pix_fmt": "yuv420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": false,
+      "alpha_after": false,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/guide/slide-particle-2.webp",
+      "original_backup_path": "guide/slide-particle-2.png",
+      "kind": "png-to-webp",
+      "before_bytes": 1723615,
+      "after_bytes": 94206,
+      "saved_bytes": 1629409,
+      "reduction_pct": 94.5,
+      "before_dims": {
+        "width": 990,
+        "height": 1321,
+        "pix_fmt": "rgba"
+      },
+      "after_dims": {
+        "width": 990,
+        "height": 1321,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/guide/slide-particle-3.webp",
+      "original_backup_path": "guide/slide-particle-3.png",
+      "kind": "png-to-webp",
+      "before_bytes": 2048773,
+      "after_bytes": 139396,
+      "saved_bytes": 1909377,
+      "reduction_pct": 93.2,
+      "before_dims": {
+        "width": 1086,
+        "height": 1448,
+        "pix_fmt": "rgb24"
+      },
+      "after_dims": {
+        "width": 1086,
+        "height": 1448,
+        "pix_fmt": "yuv420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": false,
+      "alpha_after": false,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/guide/slide-special-katakana.webp",
+      "original_backup_path": "guide/slide-special-katakana.png",
+      "kind": "png-to-webp",
+      "before_bytes": 1850394,
+      "after_bytes": 109758,
+      "saved_bytes": 1740636,
+      "reduction_pct": 94.1,
+      "before_dims": {
+        "width": 1024,
+        "height": 1536,
+        "pix_fmt": "rgb24"
+      },
+      "after_dims": {
+        "width": 1024,
+        "height": 1536,
+        "pix_fmt": "yuv420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": false,
+      "alpha_after": false,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/guide/review-guide.webp",
+      "original_backup_path": "guide/review-guide.webp",
+      "kind": "in-place-recompress",
+      "before_bytes": 1037978,
+      "after_bytes": 203520,
+      "saved_bytes": 834458,
+      "reduction_pct": 80.4,
+      "before_dims": {
+        "width": 1599,
+        "height": 984,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 1599,
+        "height": 984,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/guide/learn-tracing.webp",
+      "original_backup_path": "guide/learn-tracing.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 313460,
+      "after_bytes": 124180,
+      "saved_bytes": 189280,
+      "reduction_pct": 60.4,
+      "before_dims": {
+        "width": 1224,
+        "height": 1285,
+        "pix_fmt": "yuva420p"
+      },
+      "after_dims": {
+        "width": 732,
+        "height": 768,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/similar-letters/shi-tsu.webp",
+      "original_backup_path": "similar-letters/shi-tsu.webp",
+      "kind": "in-place-recompress",
+      "before_bytes": 235158,
+      "after_bytes": 22934,
+      "saved_bytes": 212224,
+      "reduction_pct": 90.2,
+      "before_dims": {
+        "width": 1249,
+        "height": 594,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 1249,
+        "height": 594,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/similar-letters/so-n.webp",
+      "original_backup_path": "similar-letters/so-n.webp",
+      "kind": "in-place-recompress",
+      "before_bytes": 209446,
+      "after_bytes": 14988,
+      "saved_bytes": 194458,
+      "reduction_pct": 92.8,
+      "before_dims": {
+        "width": 1161,
+        "height": 550,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 1161,
+        "height": 550,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/summary-results/summary-result-1.webp",
+      "original_backup_path": "summary-results/summary-result-1.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 1010306,
+      "after_bytes": 138418,
+      "saved_bytes": 871888,
+      "reduction_pct": 86.3,
+      "before_dims": {
+        "width": 1672,
+        "height": 941,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 1365,
+        "height": 768,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/summary-results/summary-result-2.webp",
+      "original_backup_path": "summary-results/summary-result-2.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 1204188,
+      "after_bytes": 160200,
+      "saved_bytes": 1043988,
+      "reduction_pct": 86.7,
+      "before_dims": {
+        "width": 1672,
+        "height": 941,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 1365,
+        "height": 768,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/summary-results/summary-result-3.webp",
+      "original_backup_path": "summary-results/summary-result-3.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 1242172,
+      "after_bytes": 193124,
+      "saved_bytes": 1049048,
+      "reduction_pct": 84.5,
+      "before_dims": {
+        "width": 1659,
+        "height": 948,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 1344,
+        "height": 768,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/summary-results/summary-result-4.webp",
+      "original_backup_path": "summary-results/summary-result-4.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 1134112,
+      "after_bytes": 180320,
+      "saved_bytes": 953792,
+      "reduction_pct": 84.1,
+      "before_dims": {
+        "width": 1659,
+        "height": 948,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 1344,
+        "height": 768,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/summary-results/summary-result-5.webp",
+      "original_backup_path": "summary-results/summary-result-5.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 1387672,
+      "after_bytes": 214862,
+      "saved_bytes": 1172810,
+      "reduction_pct": 84.5,
+      "before_dims": {
+        "width": 1659,
+        "height": 948,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 1344,
+        "height": 768,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/restaurant-dishes/katakana/chikin.webp",
+      "original_backup_path": "restaurant-dishes/katakana/chikin.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 1507448,
+      "after_bytes": 28646,
+      "saved_bytes": 1478802,
+      "reduction_pct": 98.1,
+      "before_dims": {
+        "width": 1254,
+        "height": 1254,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 288,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/restaurant-dishes/katakana/hanbaagaa.webp",
+      "original_backup_path": "restaurant-dishes/katakana/hanbaagaa.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 1325984,
+      "after_bytes": 24750,
+      "saved_bytes": 1301234,
+      "reduction_pct": 98.1,
+      "before_dims": {
+        "width": 1254,
+        "height": 1254,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 288,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/restaurant-dishes/katakana/miruku.webp",
+      "original_backup_path": "restaurant-dishes/katakana/miruku.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 590820,
+      "after_bytes": 13550,
+      "saved_bytes": 577270,
+      "reduction_pct": 97.7,
+      "before_dims": {
+        "width": 1254,
+        "height": 1254,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 288,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/restaurant-dishes/katakana/poteto.webp",
+      "original_backup_path": "restaurant-dishes/katakana/poteto.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 1326292,
+      "after_bytes": 22788,
+      "saved_bytes": 1303504,
+      "reduction_pct": 98.3,
+      "before_dims": {
+        "width": 1254,
+        "height": 1254,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 288,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/restaurant-dishes/katakana/purin.webp",
+      "original_backup_path": "restaurant-dishes/katakana/purin.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 815516,
+      "after_bytes": 15296,
+      "saved_bytes": 800220,
+      "reduction_pct": 98.1,
+      "before_dims": {
+        "width": 1254,
+        "height": 1254,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 288,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/restaurant-dishes/katakana/raamen.webp",
+      "original_backup_path": "restaurant-dishes/katakana/raamen.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 1450204,
+      "after_bytes": 27696,
+      "saved_bytes": 1422508,
+      "reduction_pct": 98.1,
+      "before_dims": {
+        "width": 1254,
+        "height": 1254,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 288,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/restaurant-dishes/katakana/suteeki.webp",
+      "original_backup_path": "restaurant-dishes/katakana/suteeki.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 1459954,
+      "after_bytes": 26718,
+      "saved_bytes": 1433236,
+      "reduction_pct": 98.2,
+      "before_dims": {
+        "width": 1254,
+        "height": 1254,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 288,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/restaurant-dishes/katakana/suupu.webp",
+      "original_backup_path": "restaurant-dishes/katakana/suupu.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 985496,
+      "after_bytes": 18578,
+      "saved_bytes": 966918,
+      "reduction_pct": 98.1,
+      "before_dims": {
+        "width": 1254,
+        "height": 1254,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 288,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/restaurant-dishes/katakana/zerii.webp",
+      "original_backup_path": "restaurant-dishes/katakana/zerii.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 1043848,
+      "after_bytes": 18956,
+      "saved_bytes": 1024892,
+      "reduction_pct": 98.2,
+      "before_dims": {
+        "width": 1254,
+        "height": 1254,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 288,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/restaurant-dishes/other/hanbaagaa-setto.webp",
+      "original_backup_path": "restaurant-dishes/other/hanbaagaa-setto.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 1466470,
+      "after_bytes": 27024,
+      "saved_bytes": 1439446,
+      "reduction_pct": 98.2,
+      "before_dims": {
+        "width": 1254,
+        "height": 1254,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 288,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/restaurant-dishes/other/hotto-doggu.webp",
+      "original_backup_path": "restaurant-dishes/other/hotto-doggu.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 992376,
+      "after_bytes": 18812,
+      "saved_bytes": 973564,
+      "reduction_pct": 98.1,
+      "before_dims": {
+        "width": 1254,
+        "height": 1254,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 288,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/restaurant-dishes/other/hotto-kokoa.webp",
+      "original_backup_path": "restaurant-dishes/other/hotto-kokoa.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 987146,
+      "after_bytes": 20674,
+      "saved_bytes": 966472,
+      "reduction_pct": 97.9,
+      "before_dims": {
+        "width": 1254,
+        "height": 1254,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 288,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/restaurant-dishes/other/korokke.webp",
+      "original_backup_path": "restaurant-dishes/other/korokke.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 1477610,
+      "after_bytes": 26778,
+      "saved_bytes": 1450832,
+      "reduction_pct": 98.2,
+      "before_dims": {
+        "width": 1254,
+        "height": 1254,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 288,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/restaurant-dishes/other/kukkii.webp",
+      "original_backup_path": "restaurant-dishes/other/kukkii.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 1399178,
+      "after_bytes": 23936,
+      "saved_bytes": 1375242,
+      "reduction_pct": 98.3,
+      "before_dims": {
+        "width": 1254,
+        "height": 1254,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 288,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/restaurant-dishes/other/sandoicchi.webp",
+      "original_backup_path": "restaurant-dishes/other/sandoicchi.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 1424368,
+      "after_bytes": 26636,
+      "saved_bytes": 1397732,
+      "reduction_pct": 98.1,
+      "before_dims": {
+        "width": 1254,
+        "height": 1254,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 288,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/restaurant-dishes/other/toufu.webp",
+      "original_backup_path": "restaurant-dishes/other/toufu.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 1187450,
+      "after_bytes": 21252,
+      "saved_bytes": 1166198,
+      "reduction_pct": 98.2,
+      "before_dims": {
+        "width": 1254,
+        "height": 1254,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 288,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/restaurant-dishes/hiragana/edamame.webp",
+      "original_backup_path": "restaurant-dishes/hiragana/edamame.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 861332,
+      "after_bytes": 17368,
+      "saved_bytes": 843964,
+      "reduction_pct": 98,
+      "before_dims": {
+        "width": 1254,
+        "height": 1254,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 288,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/restaurant-dishes/hiragana/oden.webp",
+      "original_backup_path": "restaurant-dishes/hiragana/oden.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 1102646,
+      "after_bytes": 18112,
+      "saved_bytes": 1084534,
+      "reduction_pct": 98.4,
+      "before_dims": {
+        "width": 1254,
+        "height": 1254,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 288,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/restaurant-dishes/hiragana/udon.webp",
+      "original_backup_path": "restaurant-dishes/hiragana/udon.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 943326,
+      "after_bytes": 18810,
+      "saved_bytes": 924516,
+      "reduction_pct": 98,
+      "before_dims": {
+        "width": 1254,
+        "height": 1254,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 288,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/restaurant-dishes/hiragana/yakitori.webp",
+      "original_backup_path": "restaurant-dishes/hiragana/yakitori.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 1342388,
+      "after_bytes": 25978,
+      "saved_bytes": 1316410,
+      "reduction_pct": 98.1,
+      "before_dims": {
+        "width": 1254,
+        "height": 1254,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 288,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/restaurant-dishes/special-katakana/chaahan.webp",
+      "original_backup_path": "restaurant-dishes/special-katakana/chaahan.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 1305650,
+      "after_bytes": 22658,
+      "saved_bytes": 1282992,
+      "reduction_pct": 98.3,
+      "before_dims": {
+        "width": 1254,
+        "height": 1254,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 288,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/restaurant-dishes/special-katakana/choko-aisu.webp",
+      "original_backup_path": "restaurant-dishes/special-katakana/choko-aisu.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 970752,
+      "after_bytes": 19060,
+      "saved_bytes": 951692,
+      "reduction_pct": 98,
+      "before_dims": {
+        "width": 1254,
+        "height": 1254,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 288,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/restaurant-dishes/special-katakana/kaferate.webp",
+      "original_backup_path": "restaurant-dishes/special-katakana/kaferate.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 1010386,
+      "after_bytes": 17720,
+      "saved_bytes": 992666,
+      "reduction_pct": 98.2,
+      "before_dims": {
+        "width": 1254,
+        "height": 1254,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 288,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/restaurant-dishes/special-katakana/orenji-juusu.webp",
+      "original_backup_path": "restaurant-dishes/special-katakana/orenji-juusu.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 729860,
+      "after_bytes": 15070,
+      "saved_bytes": 714790,
+      "reduction_pct": 97.9,
+      "before_dims": {
+        "width": 1254,
+        "height": 1254,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 288,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/restaurant-dishes/special-katakana/pafe.webp",
+      "original_backup_path": "restaurant-dishes/special-katakana/pafe.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 698712,
+      "after_bytes": 17026,
+      "saved_bytes": 681686,
+      "reduction_pct": 97.6,
+      "before_dims": {
+        "width": 1254,
+        "height": 1254,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 288,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/restaurant-dishes/special-katakana/ryokucha.webp",
+      "original_backup_path": "restaurant-dishes/special-katakana/ryokucha.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 783734,
+      "after_bytes": 15172,
+      "saved_bytes": 768562,
+      "reduction_pct": 98.1,
+      "before_dims": {
+        "width": 1254,
+        "height": 1254,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 288,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/restaurant-dishes/special-katakana/shichuu.webp",
+      "original_backup_path": "restaurant-dishes/special-katakana/shichuu.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 1066368,
+      "after_bytes": 19342,
+      "saved_bytes": 1047026,
+      "reduction_pct": 98.2,
+      "before_dims": {
+        "width": 1254,
+        "height": 1254,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 288,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    },
+    {
+      "runtime_path_after": "public/restaurant-dishes/special-katakana/tiramisu.webp",
+      "original_backup_path": "restaurant-dishes/special-katakana/tiramisu.webp",
+      "kind": "in-place-downscale",
+      "before_bytes": 1328166,
+      "after_bytes": 25600,
+      "saved_bytes": 1302566,
+      "reduction_pct": 98.1,
+      "before_dims": {
+        "width": 1254,
+        "height": 1254,
+        "pix_fmt": "argb"
+      },
+      "after_dims": {
+        "width": 288,
+        "height": 288,
+        "pix_fmt": "yuva420p"
+      },
+      "aspect_ratio_preserved": true,
+      "no_upscale": true,
+      "alpha_before": true,
+      "alpha_after": true,
+      "alpha_preserved": true
+    }
+  ]
+}

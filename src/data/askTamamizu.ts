@@ -36,6 +36,6 @@ export const ASK_TAMAMIZU_SPECIAL_KATAKANA = {
 } as const
 
 export const ASK_TAMAMIZU_PARTICLE = {
-  imageAsset: 'guide/ask-tamamizu-particle.png',
+  imageAsset: 'guide/ask-tamamizu-particle.webp',
   ariaLabel: 'Ask Tamamizu about particles',
 } as const

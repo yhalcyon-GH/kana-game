@@ -21,9 +21,9 @@
 export type ParticleGuideStepId = 'particle.intro' | 'particle.haHeWo' | 'particle.greetings'
 
 export const PARTICLE_GUIDE_STEPS: { id: ParticleGuideStepId; slideAsset: string }[] = [
-  { id: 'particle.intro', slideAsset: 'guide/slide-particle-1.png' },
-  { id: 'particle.haHeWo', slideAsset: 'guide/slide-particle-2.png' },
-  { id: 'particle.greetings', slideAsset: 'guide/slide-particle-3.png' },
+  { id: 'particle.intro', slideAsset: 'guide/slide-particle-1.webp' },
+  { id: 'particle.haHeWo', slideAsset: 'guide/slide-particle-2.webp' },
+  { id: 'particle.greetings', slideAsset: 'guide/slide-particle-3.webp' },
 ]
 
 export const PARTICLE_GUIDE = {

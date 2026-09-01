@@ -18,5 +18,5 @@ export const SPECIAL_KATAKANA_GUIDE = {
   // this Guide's first-time auto-display (see PracticeHubPage's
   // showSpecialKatakanaGuide), not the shared /youon page itself.
   target: { categoryId: 'special-katakana', rowId: 'special-katakana-fa-row' },
-  slideAsset: 'guide/slide-special-katakana.png',
+  slideAsset: 'guide/slide-special-katakana.webp',
 } as const
