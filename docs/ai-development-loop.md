@@ -122,13 +122,15 @@ Add agent-specific rules only when repeated evidence shows that a difference is 
 
 Model review is a targeted quality layer, not a mandatory call on every PR.
 
-The repository's Claude GitHub review workflow is **opt-in**. It only enters the Claude model-review step for a reviewable PR whose body contains the exact marker:
+The repository's Claude GitHub review workflow is **opt-in**. It only enters the Claude model-review step for a reviewable PR whose body contains a **dedicated line exactly equal to**:
 
 ```text
 AI review: Claude
 ```
 
-The ChatGPT/human review gate should add that marker only when Claude is the chosen independent reviewer and the review is worth the usage. Standard low-risk PRs normally omit it. If Claude is quota-limited, choose another independent reviewer for Enhanced work rather than making Claude availability a development blocker.
+Prose or negated mentions do not count as opt-in. For example, `No AI review: Claude marker is requested.` and `AI review: Claude is not requested` must not trigger the model. The dedicated-line matcher treats LF and CRLF bodies equivalently.
+
+The ChatGPT/human review gate should add that line only when Claude is the chosen independent reviewer and the review is worth the usage. Standard low-risk PRs normally omit it. If Claude is quota-limited, choose another independent reviewer for Enhanced work rather than making Claude availability a development blocker.
 
 Binary-only changes may still skip model review when there is no reviewable text diff.
 
