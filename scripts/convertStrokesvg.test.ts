@@ -1,11 +1,12 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
-import { describe, expect, it } from 'vitest'
-import { DERIVED_SMALL_TSU_GLYPHS, generateOutput, isFreshOutput, parseGlyph, PROTOTYPE_GLYPHS, VENDOR_DIR } from './convertStrokesvg'
+import { beforeAll, describe, expect, it } from 'vitest'
+import { DERIVED_SMALL_TSU_GLYPHS, DIRECT_GLYPHS, generateOutput, isFreshOutput, parseGlyph, VENDOR_DIR } from './convertStrokesvg'
 import { STROKE_GLYPHS } from '../src/data/strokeGlyphs'
+import { CHARACTERS } from '../src/data/characters'
 
 async function loadGlyph(characterId: string) {
-  const relPath = PROTOTYPE_GLYPHS[characterId]
+  const relPath = DIRECT_GLYPHS[characterId]
   const svgText = await readFile(path.join(VENDOR_DIR, relPath), 'utf-8')
   return parseGlyph(characterId, svgText)
 }
@@ -73,7 +74,7 @@ describe('convertStrokesvg: parseGlyph on vendored prototype SVGs', () => {
   })
 
   it('fails loudly (does not silently drop data) on a stroke path with an unsupported attribute', async () => {
-    const svgText = await readFile(path.join(VENDOR_DIR, PROTOTYPE_GLYPHS['katakana-a']), 'utf-8')
+    const svgText = await readFile(path.join(VENDOR_DIR, DIRECT_GLYPHS['katakana-a']), 'utf-8')
     const tampered = svgText.replace(
       '<path style="--i:0" d="M103 245c146 107 431-31 741-55 62-4-75 104-305 274" clip-path="url(#30a2c)"/>',
       '<path style="--i:0" d="M103 245c146 107 431-31 741-55 62-4-75 104-305 274" clip-path="url(#30a2c)" fill-opacity="0.5"/>',
@@ -83,13 +84,13 @@ describe('convertStrokesvg: parseGlyph on vendored prototype SVGs', () => {
   })
 
   it('fails loudly on a stroke path whose clip-path references an unknown clipPath id', async () => {
-    const svgText = await readFile(path.join(VENDOR_DIR, PROTOTYPE_GLYPHS['katakana-a']), 'utf-8')
+    const svgText = await readFile(path.join(VENDOR_DIR, DIRECT_GLYPHS['katakana-a']), 'utf-8')
     const tampered = svgText.replace('clip-path="url(#30a2c)"', 'clip-path="url(#nonexistent)"')
     expect(() => parseGlyph('katakana-a', tampered)).toThrow(/unknown clipPath id/)
   })
 
   it('fails loudly on an unexpected top-level element in the strokes group', async () => {
-    const svgText = await readFile(path.join(VENDOR_DIR, PROTOTYPE_GLYPHS['katakana-a']), 'utf-8')
+    const svgText = await readFile(path.join(VENDOR_DIR, DIRECT_GLYPHS['katakana-a']), 'utf-8')
     const tampered = svgText.replace(
       '<path style="--i:0" d="M103 245c146 107 431-31 741-55 62-4-75 104-305 274" clip-path="url(#30a2c)"/>',
       '<circle style="--i:0" cx="0" cy="0" r="1"/>',
@@ -98,13 +99,13 @@ describe('convertStrokesvg: parseGlyph on vendored prototype SVGs', () => {
   })
 
   it('fails loudly when the shadows group is missing', async () => {
-    const svgText = await readFile(path.join(VENDOR_DIR, PROTOTYPE_GLYPHS['katakana-a']), 'utf-8')
+    const svgText = await readFile(path.join(VENDOR_DIR, DIRECT_GLYPHS['katakana-a']), 'utf-8')
     const tampered = svgText.replace('data-strokesvg="shadows"', 'data-strokesvg="not-shadows"')
     expect(() => parseGlyph('katakana-a', tampered)).toThrow(/missing shadows group/)
   })
 
   it('is deterministic: parsing the same SVG twice produces identical output', async () => {
-    const svgText = await readFile(path.join(VENDOR_DIR, PROTOTYPE_GLYPHS['a']), 'utf-8')
+    const svgText = await readFile(path.join(VENDOR_DIR, DIRECT_GLYPHS['a']), 'utf-8')
     const first = parseGlyph('a', svgText)
     const second = parseGlyph('a', svgText)
     expect(first).toEqual(second)
@@ -130,20 +131,20 @@ describe('convertStrokesvg: parseGlyph on vendored prototype SVGs', () => {
   // --i:1) as the tampering base.
   describe('logical-stroke "--i" metadata validation', () => {
     it('fails loudly when a top-level stroke element is missing --i entirely', async () => {
-      const svgText = await readFile(path.join(VENDOR_DIR, PROTOTYPE_GLYPHS['katakana-a']), 'utf-8')
+      const svgText = await readFile(path.join(VENDOR_DIR, DIRECT_GLYPHS['katakana-a']), 'utf-8')
       const tampered = svgText.replace('<path style="--i:0"', '<path')
       expect(tampered).not.toBe(svgText)
       expect(() => parseGlyph('katakana-a', tampered)).toThrow(/missing "--i"/)
     })
 
     it('fails loudly on a duplicate --i value across top-level stroke elements', async () => {
-      const svgText = await readFile(path.join(VENDOR_DIR, PROTOTYPE_GLYPHS['katakana-a']), 'utf-8')
+      const svgText = await readFile(path.join(VENDOR_DIR, DIRECT_GLYPHS['katakana-a']), 'utf-8')
       const tampered = svgText.replace('<path style="--i:1"', '<path style="--i:0"')
       expect(() => parseGlyph('katakana-a', tampered)).toThrow(/duplicate logical-stroke "--i:0"/)
     })
 
     it('fails loudly when --i values are out of order relative to document order', async () => {
-      const svgText = await readFile(path.join(VENDOR_DIR, PROTOTYPE_GLYPHS['katakana-tsu']), 'utf-8')
+      const svgText = await readFile(path.join(VENDOR_DIR, DIRECT_GLYPHS['katakana-tsu']), 'utf-8')
       // ツ has --i:0, --i:1, --i:2 in document order; swapping the first two
       // values keeps them a valid 0..2 SET but out of DOCUMENT order.
       const tampered = svgText.replace('style="--i:0"', 'style="--i:9"').replace('style="--i:1"', 'style="--i:0"').replace('style="--i:9"', 'style="--i:1"')
@@ -151,15 +152,133 @@ describe('convertStrokesvg: parseGlyph on vendored prototype SVGs', () => {
     })
 
     it('fails loudly on a non-sequential --i run (e.g. 0, 2 for a 2-stroke glyph — a gap, not just reordering)', async () => {
-      const svgText = await readFile(path.join(VENDOR_DIR, PROTOTYPE_GLYPHS['katakana-a']), 'utf-8')
+      const svgText = await readFile(path.join(VENDOR_DIR, DIRECT_GLYPHS['katakana-a']), 'utf-8')
       const tampered = svgText.replace('<path style="--i:1"', '<path style="--i:2"')
       expect(() => parseGlyph('katakana-a', tampered)).toThrow(/sequential run 0\.\.1/)
     })
 
     it('fails loudly on an unsupported (non-numeric) --i value', async () => {
-      const svgText = await readFile(path.join(VENDOR_DIR, PROTOTYPE_GLYPHS['katakana-a']), 'utf-8')
+      const svgText = await readFile(path.join(VENDOR_DIR, DIRECT_GLYPHS['katakana-a']), 'utf-8')
       const tampered = svgText.replace('<path style="--i:0"', '<path style="--i:foo"')
       expect(() => parseGlyph('katakana-a', tampered)).toThrow(/missing "--i"/)
+    })
+  })
+
+  // Issue #129 full-kana expansion: inventory-wide invariants proving
+  // complete, correct coverage without one brittle test per glyph.
+  describe('current-curriculum inventory coverage (Issue #129)', () => {
+    const singleGlyphCharacters = CHARACTERS.filter((c) => [...c.kana].length === 1)
+    const multiGlyphCharacters = CHARACTERS.filter((c) => [...c.kana].length > 1)
+    const derivedIds = new Set(Object.keys(DERIVED_SMALL_TSU_GLYPHS))
+
+    it('every current single-glyph CHARACTERS id has a STROKE_GLYPHS entry', () => {
+      for (const character of singleGlyphCharacters) {
+        expect(STROKE_GLYPHS[character.id], `missing STROKE_GLYPHS entry for ${character.id}`).toBeDefined()
+      }
+      expect(singleGlyphCharacters.length).toBe(145)
+    })
+
+    // Parses all 143 vendored SVGs individually (via jsdom) — comfortably
+    // under a couple seconds standalone, but slow enough alongside the rest
+    // of this suite to occasionally miss vitest's default 5s per-test
+    // timeout, hence the explicit longer timeout here.
+    it(
+      'every non-derived single-glyph id has a DIRECT_GLYPHS source spec pointing at an existing vendored SVG that parses successfully',
+      async () => {
+        const nonDerived = singleGlyphCharacters.filter((c) => !derivedIds.has(c.id))
+        expect(nonDerived.length).toBe(143)
+        for (const character of nonDerived) {
+          const relPath = DIRECT_GLYPHS[character.id]
+          expect(relPath, `missing DIRECT_GLYPHS entry for ${character.id}`).toBeDefined()
+          const svgText = await readFile(path.join(VENDOR_DIR, relPath), 'utf-8')
+          expect(() => parseGlyph(character.id, svgText)).not.toThrow()
+        }
+      },
+      15000,
+    )
+
+    it('every DIRECT_GLYPHS source path matches the character\'s actual kana and script (hiragana vs. katakana Unicode block)', () => {
+      for (const character of singleGlyphCharacters) {
+        if (derivedIds.has(character.id)) continue
+        const relPath = DIRECT_GLYPHS[character.id]
+        const codePoint = character.kana.codePointAt(0)!
+        const expectedScript = codePoint >= 0x3040 && codePoint <= 0x309f ? 'hiragana' : 'katakana'
+        expect(relPath).toBe(`${expectedScript}/${character.kana}.svg`)
+      }
+    })
+
+    it('sokuon / katakana-sokuon retain their derived source + glyphTransform behavior and are excluded from DIRECT_GLYPHS', () => {
+      expect(DIRECT_GLYPHS['sokuon']).toBeUndefined()
+      expect(DIRECT_GLYPHS['katakana-sokuon']).toBeUndefined()
+      expect(DERIVED_SMALL_TSU_GLYPHS['sokuon'].sourcePath).toBe('hiragana/つ.svg')
+      expect(DERIVED_SMALL_TSU_GLYPHS['katakana-sokuon'].sourcePath).toBe('katakana/ツ.svg')
+      expect(STROKE_GLYPHS['sokuon'].glyphTransform).toBeTruthy()
+      expect(STROKE_GLYPHS['katakana-sokuon'].glyphTransform).toBeTruthy()
+    })
+
+    it('no multi-glyph yōon / Special Katakana characterId gets a direct combined STROKE_GLYPHS entry of its own', () => {
+      expect(multiGlyphCharacters.length).toBe(78)
+      for (const character of multiGlyphCharacters) {
+        expect(DIRECT_GLYPHS[character.id], `unexpected DIRECT_GLYPHS entry for multi-glyph id ${character.id}`).toBeUndefined()
+        // A multi-glyph id must never collide with a single-glyph STROKE_GLYPHS
+        // key either — it only ever renders by composing its constituent
+        // single glyphs via buildTracingUnit, never as a combined entry.
+        expect(
+          singleGlyphCharacters.some((c) => c.id === character.id),
+          `multi-glyph id ${character.id} unexpectedly also appears as a single-glyph CHARACTERS entry`,
+        ).toBe(false)
+      }
+    })
+
+    it('no current drawable strokeSourceId needs the KanjiVG STROKE_PATHS fallback: every buildTracingUnit glyph for every current characterId resolves in STROKE_GLYPHS', async () => {
+      const { buildTracingUnit } = await import('../src/lib/tracingUnits')
+      for (const character of CHARACTERS) {
+        const unit = buildTracingUnit(character.id)
+        for (const glyph of unit.glyphs) {
+          expect(
+            STROKE_GLYPHS[glyph.strokeSourceId],
+            `${character.id} -> glyph strokeSourceId "${glyph.strokeSourceId}" has no STROKE_GLYPHS entry (would fall back to KanjiVG)`,
+          ).toBeDefined()
+        }
+      }
+    })
+
+    // Representative high-risk structural cases (Issue #129's required list),
+    // covered via buildTracingUnit so ordinary yōon and Special Katakana
+    // small-vowel composition is exercised alongside direct glyphs.
+    it('representative high-risk cases compose/resolve correctly', async () => {
+      const { buildTracingUnit } = await import('../src/lib/tracingUnits')
+
+      // あ: multi-part logical stroke preserved end-to-end.
+      expect(STROKE_GLYPHS['a'].logicalStrokes.some((s) => s.parts.length > 1)).toBe(true)
+      // ず: per-part transform preserved end-to-end.
+      const zuMultiPart = STROKE_GLYPHS['zu'].logicalStrokes.find((s) => s.parts.length > 1)
+      expect(zuMultiPart).toBeDefined()
+      expect(zuMultiPart!.parts.every((p) => p.transform)).toBe(true)
+      // っ/ッ: derived glyphTransform present.
+      expect(STROKE_GLYPHS['sokuon'].glyphTransform).toBeTruthy()
+      expect(STROKE_GLYPHS['katakana-sokuon'].glyphTransform).toBeTruthy()
+      // ー: chōon long-vowel mark has a direct entry.
+      expect(STROKE_GLYPHS['katakana-chouon']).toBeDefined()
+      // シ/ツ: direction/order contrast, both present with distinct stroke counts.
+      expect(STROKE_GLYPHS['katakana-shi'].logicalStrokes).toHaveLength(3)
+      expect(STROKE_GLYPHS['katakana-tsu'].logicalStrokes).toHaveLength(3)
+      // dakuten/handakuten: が (dakuten), ぱ (handakuten).
+      expect(STROKE_GLYPHS['ga']).toBeDefined()
+      expect(STROKE_GLYPHS['pa']).toBeDefined()
+      // ん/ン
+      expect(STROKE_GLYPHS['n']).toBeDefined()
+      expect(STROKE_GLYPHS['katakana-n']).toBeDefined()
+      // ordinary yōon (きゃ) composes into base き + small (borrowed や).
+      const kya = buildTracingUnit('kya')
+      expect(kya.glyphs).toHaveLength(2)
+      expect(kya.glyphs[0].strokeSourceId).toBe('ki')
+      expect(kya.glyphs[1].strokeSourceId).toBe('ya')
+      // Special Katakana small-vowel example (ファ) composes into base フ + small ア.
+      const fa = buildTracingUnit('katakana-fa')
+      expect(fa.glyphs).toHaveLength(2)
+      expect(fa.glyphs[0].strokeSourceId).toBe('katakana-fu')
+      expect(fa.glyphs[1].strokeSourceId).toBe('katakana-a')
     })
   })
 
@@ -228,22 +347,29 @@ describe('convertStrokesvg: parseGlyph on vendored prototype SVGs', () => {
     // (0x0A) vs. committed `\r\n` (0x0D 0x0A) — and finding zero remaining
     // differences of any other kind after normalizing line endings on both
     // sides).
+    // generateOutput() now reads all 143 vendored SVGs (Issue #129, up from
+    // the original 6-glyph prototype set) — computed once via beforeAll and
+    // shared across this describe block's assertions rather than re-run per
+    // `it` (each full run takes long enough that 6 independent calls could
+    // exceed vitest's default 5s per-test timeout).
+    let generated: string
+    beforeAll(async () => {
+      generated = await generateOutput()
+    })
+
     it('generateOutput() is fresh relative to the committed src/data/strokeGlyphs.ts, regardless of the committed file\'s checked-out line endings', async () => {
-      const generated = await generateOutput()
       const committed = await readFile(path.resolve(import.meta.dirname, '../src/data/strokeGlyphs.ts'), 'utf-8')
       expect(isFreshOutput(generated, committed)).toBe(true)
     })
 
-    it('isFreshOutput: matches generateOutput() exactly -> fresh', async () => {
-      const generated = await generateOutput()
+    it('isFreshOutput: matches generateOutput() exactly -> fresh', () => {
       expect(isFreshOutput(generated, generated)).toBe(true)
     })
 
     // The platform-independence fix: the same content as `generated`, but
     // with every LF rewritten to CRLF (simulating a Windows/autocrlf
     // checkout of an otherwise up-to-date file), must still be fresh.
-    it('isFreshOutput: the same content with CRLF line endings (simulated Windows checkout) -> still fresh', async () => {
-      const generated = await generateOutput()
+    it('isFreshOutput: the same content with CRLF line endings (simulated Windows checkout) -> still fresh', () => {
       const crlfVersion = generated.replace(/\n/g, '\r\n')
       expect(crlfVersion).not.toBe(generated)
       expect(isFreshOutput(generated, crlfVersion)).toBe(true)
@@ -252,8 +378,7 @@ describe('convertStrokesvg: parseGlyph on vendored prototype SVGs', () => {
     // Line-ending normalization must never mask an actual content
     // difference — a non-newline tamper stays stale even though it also
     // happens to be compared through the same normalizing helper.
-    it('isFreshOutput: a deliberate non-newline content tamper -> stale (normalization does not mask real content changes)', async () => {
-      const generated = await generateOutput()
+    it('isFreshOutput: a deliberate non-newline content tamper -> stale (normalization does not mask real content changes)', () => {
       const tampered = generated.replace('"sokuon"', '"sokuon-tampered"')
       expect(tampered).not.toBe(generated)
       expect(isFreshOutput(generated, tampered)).toBe(false)
@@ -263,14 +388,12 @@ describe('convertStrokesvg: parseGlyph on vendored prototype SVGs', () => {
     // Windows-checkout-of-a-stale-file case) must also stay stale — proves
     // normalization only collapses newline representation, never weakens
     // the underlying equality check.
-    it('isFreshOutput: a non-newline content tamper with CRLF line endings -> still stale', async () => {
-      const generated = await generateOutput()
+    it('isFreshOutput: a non-newline content tamper with CRLF line endings -> still stale', () => {
       const tamperedCrlf = generated.replace('"sokuon"', '"sokuon-tampered"').replace(/\n/g, '\r\n')
       expect(isFreshOutput(generated, tamperedCrlf)).toBe(false)
     })
 
-    it('isFreshOutput: a missing committed file (null) -> stale', async () => {
-      const generated = await generateOutput()
+    it('isFreshOutput: a missing committed file (null) -> stale', () => {
       expect(isFreshOutput(generated, null)).toBe(false)
     })
   })
