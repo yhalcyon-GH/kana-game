@@ -214,25 +214,59 @@ describe('convertStrokesvg: parseGlyph on vendored prototype SVGs', () => {
   })
 
   describe('generated-output freshness check (--check mode support)', () => {
-    it('generateOutput() is deterministic (matches the committed src/data/strokeGlyphs.ts exactly)', async () => {
+    // isFreshOutput — not raw string/toBe equality — is the exact
+    // comparison the CLI's --check mode calls (see main() in
+    // convertStrokesvg.ts), so this is the single shared comparison path
+    // for both the CLI and every test below (Issue #132's requirement that
+    // "the CLI --check and tests must use the same helper/function path").
+    // A raw `generated === committed` (or `toBe`) comparison here would be
+    // exactly the bug this issue fixes: on a Windows checkout with
+    // core.autocrlf=true, the committed file round-trips through git with
+    // CRLF line endings while generateOutput() always emits LF, so a byte-
+    // for-byte comparison reports every up-to-date file as stale (confirmed
+    // by measuring the actual first mismatch — index 70, generated `\n`
+    // (0x0A) vs. committed `\r\n` (0x0D 0x0A) — and finding zero remaining
+    // differences of any other kind after normalizing line endings on both
+    // sides).
+    it('generateOutput() is fresh relative to the committed src/data/strokeGlyphs.ts, regardless of the committed file\'s checked-out line endings', async () => {
       const generated = await generateOutput()
       const committed = await readFile(path.resolve(import.meta.dirname, '../src/data/strokeGlyphs.ts'), 'utf-8')
-      expect(generated).toBe(committed)
+      expect(isFreshOutput(generated, committed)).toBe(true)
     })
 
-    // isFreshOutput is the exact pure function the CLI's --check mode calls
-    // (see main() in convertStrokesvg.ts) — exercised directly here, with
-    // in-memory strings only, rather than via any file mutation.
     it('isFreshOutput: matches generateOutput() exactly -> fresh', async () => {
       const generated = await generateOutput()
       expect(isFreshOutput(generated, generated)).toBe(true)
     })
 
-    it('isFreshOutput: a deliberately tampered committed string -> stale', async () => {
+    // The platform-independence fix: the same content as `generated`, but
+    // with every LF rewritten to CRLF (simulating a Windows/autocrlf
+    // checkout of an otherwise up-to-date file), must still be fresh.
+    it('isFreshOutput: the same content with CRLF line endings (simulated Windows checkout) -> still fresh', async () => {
+      const generated = await generateOutput()
+      const crlfVersion = generated.replace(/\n/g, '\r\n')
+      expect(crlfVersion).not.toBe(generated)
+      expect(isFreshOutput(generated, crlfVersion)).toBe(true)
+    })
+
+    // Line-ending normalization must never mask an actual content
+    // difference — a non-newline tamper stays stale even though it also
+    // happens to be compared through the same normalizing helper.
+    it('isFreshOutput: a deliberate non-newline content tamper -> stale (normalization does not mask real content changes)', async () => {
       const generated = await generateOutput()
       const tampered = generated.replace('"sokuon"', '"sokuon-tampered"')
       expect(tampered).not.toBe(generated)
       expect(isFreshOutput(generated, tampered)).toBe(false)
+    })
+
+    // A content tamper combined with CRLF line endings (the realistic
+    // Windows-checkout-of-a-stale-file case) must also stay stale — proves
+    // normalization only collapses newline representation, never weakens
+    // the underlying equality check.
+    it('isFreshOutput: a non-newline content tamper with CRLF line endings -> still stale', async () => {
+      const generated = await generateOutput()
+      const tamperedCrlf = generated.replace('"sokuon"', '"sokuon-tampered"').replace(/\n/g, '\r\n')
+      expect(isFreshOutput(generated, tamperedCrlf)).toBe(false)
     })
 
     it('isFreshOutput: a missing committed file (null) -> stale', async () => {
