@@ -296,12 +296,32 @@ ${body}
 `
 }
 
+// Normalizes CRLF/CR line endings to LF, for freshness comparison only
+// (Issue #132) — a Windows checkout with core.autocrlf=true (or any other
+// line-ending-rewriting checkout config) reads committed text files back
+// with CRLF, while generateOutput() always produces LF (it is never made to
+// depend on os.EOL — see isFreshOutput below). Comparing those raw strings
+// makes every Windows checkout of an up-to-date file report stale, even
+// though the only difference is newline representation. This function is
+// intentionally narrow: it only collapses line-ending bytes, so it cannot
+// mask any actual content tamper — a change to non-newline content still
+// fails the comparison after normalization (see isFreshOutput below and its
+// tests).
+function normalizeLineEndings(text: string): string {
+  return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+}
+
 // Pure freshness check, reused by both the CLI's --check mode and focused
 // tests: `existing` (the currently committed src/data/strokeGlyphs.ts
-// content, or null if it doesn't exist) is fresh iff it matches
-// `generated` (this run's generateOutput() result) exactly.
+// content, or null if it doesn't exist) is fresh iff it matches `generated`
+// (this run's generateOutput() result) once both sides' line endings are
+// normalized to LF (Issue #132 — see normalizeLineEndings for why this
+// normalization exists and what it does and does not paper over).
+// generateOutput() itself still always emits LF; only this comparison
+// boundary is platform-independent.
 export function isFreshOutput(generated: string, existing: string | null): boolean {
-  return existing === generated
+  if (existing === null) return false
+  return normalizeLineEndings(existing) === normalizeLineEndings(generated)
 }
 
 async function main() {
