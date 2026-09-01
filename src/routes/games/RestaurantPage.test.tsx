@@ -171,11 +171,11 @@ describe('RestaurantPage', () => {
   it('shows the intro before the first question and a one-line order template after Start', () => {
     renderPage(false)
     expect(screen.getByText("Let's order at a restaurant.")).toBeInTheDocument()
-    expect(screen.getByAltText('Restaurant introduction')).toHaveAttribute('src', expect.stringContaining('restaurant-intro.png'))
+    expect(screen.getByAltText('Restaurant introduction')).toHaveAttribute('src', expect.stringContaining('restaurant-intro.webp'))
     expect(screen.getByText('and')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Start' }))
     expect(screen.getByTestId('restaurant-order-template')).toHaveTextContent('すみません、＿＿＿＿ おねがいします。')
-    expect(screen.getByAltText('Tamamizu')).toHaveAttribute('src', expect.stringContaining('mascot/order.png'))
+    expect(screen.getByAltText('Tamamizu')).toHaveAttribute('src', expect.stringContaining('mascot/order.webp'))
   })
 
   it.each(['katakana', 'other', 'special-katakana'] as const)('uses tenpura and misoshiru in the %s introduction', (stage) => {

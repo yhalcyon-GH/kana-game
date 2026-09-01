@@ -402,7 +402,7 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
           the whole point is the learner has to read the menu to figure out
           what to say. */}
       <div className="flex w-full max-w-md items-end gap-3">
-        <img src={`${import.meta.env.BASE_URL}mascot/order.png`} alt="Tamamizu" className="h-28 w-28 shrink-0 object-contain sm:h-32 sm:w-32" />
+        <img src={`${import.meta.env.BASE_URL}mascot/order.webp`} alt="Tamamizu" className="h-28 w-28 shrink-0 object-contain sm:h-32 sm:w-32" />
         <div
           className="relative min-w-0 flex-1 rounded-2xl border border-neutral-200 bg-white px-3 py-3 text-center shadow-sm dark:border-neutral-700 dark:bg-neutral-800 sm:px-4"
           data-testid="restaurant-target-bubble"
@@ -550,7 +550,7 @@ function RestaurantIntro({ onStart, backPath }: { onStart: () => void; backPath:
   return <div className="flex w-full flex-col items-center gap-4">
     <Link to={backPath} className="self-start rounded-full border px-4 py-1.5 text-sm font-semibold">← Back</Link>
     <p className="whitespace-nowrap text-center text-lg font-bold">Let's order at a restaurant.</p>
-    <img src={`${import.meta.env.BASE_URL}mascot/restaurant-intro.png`} alt="Restaurant introduction" className="h-auto w-full max-w-md rounded-2xl object-contain" />
+    <img src={`${import.meta.env.BASE_URL}mascot/restaurant-intro.webp`} alt="Restaurant introduction" className="h-auto w-full max-w-md rounded-2xl object-contain" />
     <p className="text-sm">When ordering, say:</p>
     <div className="font-kana text-center text-lg"><p>すみません</p><p className="font-sans text-xs">(Excuse me)</p></div>
     <div className="flex items-center gap-2"><DishGlyph dish={tenpura} className="h-16 w-16" menu /><div className="text-center"><p className="font-kana text-2xl">と</p><p className="text-xs">and</p></div><DishGlyph dish={misoshiru} className="h-16 w-16" menu /></div>

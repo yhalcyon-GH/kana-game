@@ -71,7 +71,7 @@ describe('Particle Guide content', () => {
 
   it('maps each step to its own distinct slide image', () => {
     const assets = PARTICLE_GUIDE_STEPS.map((s) => s.slideAsset)
-    expect(assets).toEqual(['guide/slide-particle-1.png', 'guide/slide-particle-2.png', 'guide/slide-particle-3.png'])
+    expect(assets).toEqual(['guide/slide-particle-1.webp', 'guide/slide-particle-2.webp', 'guide/slide-particle-3.webp'])
     expect(new Set(assets).size).toBe(3)
   })
 
@@ -101,7 +101,7 @@ describe('Particle button entry point on /hiragana', () => {
     fireEvent.click(page.getByTestId('ask-tamamizu-particle'))
 
     expect(page.getByTestId('particle-guide')).toBeInTheDocument()
-    expect(page.getByTestId('particle-guide-image')).toHaveAttribute('src', '/guide/slide-particle-1.png')
+    expect(page.getByTestId('particle-guide-image')).toHaveAttribute('src', '/guide/slide-particle-1.webp')
     expect(particleDialog(page).getByText(locale.steps['particle.intro'].subtitle)).toBeInTheDocument()
     expect(tts.speak).toHaveBeenCalledWith(
       locale.steps['particle.intro'].audioKey,
@@ -117,7 +117,7 @@ describe('Particle Guide step navigation', () => {
     fireEvent.click(page.getByTestId('ask-tamamizu-particle'))
 
     fireEvent.click(particleDialog(page).getByText(locale.nextLabel))
-    expect(page.getByTestId('particle-guide-image')).toHaveAttribute('src', '/guide/slide-particle-2.png')
+    expect(page.getByTestId('particle-guide-image')).toHaveAttribute('src', '/guide/slide-particle-2.webp')
     expect(particleDialog(page).getByText(locale.steps['particle.haHeWo'].subtitle)).toBeInTheDocument()
     expect(tts.speak).toHaveBeenLastCalledWith(
       locale.steps['particle.haHeWo'].audioKey,
@@ -126,7 +126,7 @@ describe('Particle Guide step navigation', () => {
     )
 
     fireEvent.click(particleDialog(page).getByText(locale.nextLabel))
-    expect(page.getByTestId('particle-guide-image')).toHaveAttribute('src', '/guide/slide-particle-3.png')
+    expect(page.getByTestId('particle-guide-image')).toHaveAttribute('src', '/guide/slide-particle-3.webp')
     expect(particleDialog(page).getByText(locale.steps['particle.greetings'].subtitle)).toBeInTheDocument()
     expect(tts.speak).toHaveBeenLastCalledWith(
       locale.steps['particle.greetings'].audioKey,
@@ -146,7 +146,7 @@ describe('Particle Guide step navigation', () => {
     tts.speak.mockClear()
     fireEvent.click(particleDialog(page).getByText('Back'))
 
-    expect(page.getByTestId('particle-guide-image')).toHaveAttribute('src', '/guide/slide-particle-2.png')
+    expect(page.getByTestId('particle-guide-image')).toHaveAttribute('src', '/guide/slide-particle-2.webp')
     expect(particleDialog(page).getByText(locale.steps['particle.haHeWo'].subtitle)).toBeInTheDocument()
     expect(tts.speak).toHaveBeenCalledWith(
       locale.steps['particle.haHeWo'].audioKey,

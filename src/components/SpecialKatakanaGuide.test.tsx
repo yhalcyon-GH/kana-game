@@ -69,7 +69,7 @@ describe('Special Katakana Guide initial display', () => {
     expect(hub.getByTestId('special-katakana-guide')).toHaveAttribute('role', 'dialog')
     expect(hub.getByRole('img', { name: 'Tamamizu explains Special Katakana' })).toHaveAttribute(
       'src',
-      '/guide/slide-special-katakana.png',
+      '/guide/slide-special-katakana.webp',
     )
     expect(hub.getByText(locale.steps['specialKatakana.intro'].subtitle)).toBeInTheDocument()
     expect(tts.speak).toHaveBeenCalledWith(
