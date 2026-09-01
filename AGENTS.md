@@ -18,7 +18,7 @@ Use the source-of-truth order in `docs/ai-development-loop.md`. Current code/tes
 
 Codex is not permanently assigned to implementation or review. The task determines the role.
 
-- **When assigned as Builder:** follow the Standard task loop below and stop at a Draft PR.
+- **When assigned as Builder:** follow the Standard task loop below and stop after opening the task PR. Normal completed work uses a non-Draft reviewable PR; use Draft only for an explicitly incomplete/WIP handoff.
 - **When assigned as independent reviewer:** use a fresh review context, read the current Goal/Acceptance Criteria and full relevant diff, look for correctness/regression/scope/test gaps, and report findings before style preferences. Do not modify the branch unless explicitly asked to implement accepted findings.
 
 Prefer a reviewer that did not produce the implementation when practical. Independence of context and role matters more than a fixed vendor assignment.
@@ -37,8 +37,8 @@ Given a Goal and Acceptance Criteria:
 8. Run focused tests during iteration.
 9. On the final candidate, run `npm run verify`.
 10. Read the full diff and remove unintended changes.
-11. Commit only task-relevant files, push the branch, and open a **Draft PR** against `main`.
-12. Do not mark the PR Ready and do not merge it; leave review depth, independent review, Ready-for-Review transition, and merge to the separate ChatGPT/human gate.
+11. Commit only task-relevant files, push the branch, and open a **normal non-Draft PR** against `main`. Use Draft only if the handoff is genuinely incomplete/WIP and explicitly needs later Builder work before review.
+12. Do not merge. Do not add a model-review opt-in unless the user/ChatGPT review gate explicitly assigns that reviewer; review depth, independent review, human approval when required, and merge remain separate gates.
 
 Stop and escalate before destructive operations, paid external calls, secrets/API-key setup, irreversible migrations, new unresolved licensing/legal judgments, or product-behavior ambiguity with meaningful consequences.
 
