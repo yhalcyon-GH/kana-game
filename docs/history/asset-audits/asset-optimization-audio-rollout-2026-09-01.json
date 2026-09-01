@@ -14160,7 +14160,7 @@
       },
       {
         "from": "words/wa-tonkatsu.mp3",
-        "to": "words/ra-tonkatsu.mp3"
+        "to": "words/ta-tonkatsu.mp3"
       }
     ],
     "note": "MP3 blobs were reused byte-for-byte after current-main word-id renames; validation rows retain the pre-sync source path names."
