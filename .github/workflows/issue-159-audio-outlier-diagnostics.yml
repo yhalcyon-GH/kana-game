@@ -1,4 +1,4 @@
-name: Issue 159 audio outlier diagnostics
+name: Issue 159 audio listening set
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - issue-159-audio-outlier-diagnostics
 
 jobs:
-  diagnose:
+  package:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -14,99 +14,57 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
-      - name: Diagnose current RMS-boundary outliers
+      - name: Build 10-file A/B listening set
         run: |
           set -euo pipefail
-          python3 <<'PY'
-          import array, math, os, pathlib, subprocess, wave
+          mkdir -p review-set/original review-set/mp3
 
-          paths = [
-              pathlib.Path('public/audio/characters/ni.wav'),
-              pathlib.Path('public/audio/characters/nu.wav'),
-              pathlib.Path('public/audio/characters/ro.wav'),
-              pathlib.Path('public/audio/characters/so.wav'),
-          ]
+          while IFS='|' read -r n rel; do
+            [ -n "$n" ] || continue
+            src="public/audio/$rel"
+            stem="${n}_$(basename "${rel%.wav}")"
+            cp "$src" "review-set/original/${stem}.wav"
+            rate="$(ffprobe -v error -select_streams a:0 -show_entries stream=sample_rate -of default=nw=1:nk=1 "$src")"
+            ffmpeg -hide_banner -loglevel error -nostdin -y -i "$src" \
+              -c:a libmp3lame -b:a 96k -ar "$rate" -ac 1 \
+              "review-set/mp3/${stem}.mp3"
+          done <<'EOF'
+          01|characters/chi.wav
+          02|characters/kyu.wav
+          03|feedback/correct_seikai.wav
+          04|guide/chouon-8.wav
+          05|restaurant/hiragana/misoshiru.wav
+          06|restaurant/hiragana/tonkatsu.wav
+          07|restaurant/katakana/zerii.wav
+          08|words/special-katakana-fa-paatii.wav
+          09|words/wa-tenpura.wav
+          10|words/youon-sha-juu.wav
+          EOF
 
-          def wav_pcm(path):
-              with wave.open(str(path), 'rb') as w:
-                  rate = w.getframerate()
-                  raw = w.readframes(w.getnframes())
-              a = array.array('h'); a.frombytes(raw)
-              if os.sys.byteorder != 'little': a.byteswap()
-              return rate, a
+          cat > review-set/README.txt <<'EOF'
+          KanaGame Issue #159 — 10-file A/B listening set
 
-          def decode(path, rate):
-              p = subprocess.run([
-                  'ffmpeg','-hide_banner','-loglevel','error','-nostdin','-i',str(path),
-                  '-f','s16le','-acodec','pcm_s16le','-ac','1','-ar',str(rate),'pipe:1'
-              ], check=True, capture_output=True)
-              a = array.array('h'); a.frombytes(p.stdout)
-              if os.sys.byteorder != 'little': a.byteswap()
-              return a
+          Compare files with the same number in:
+            original/ = current mastered WAV
+            mp3/      = proposed production MP3 (libmp3lame 96 kbps CBR, mono, source sample rate preserved)
 
-          def sample_edge(samples, rate, db):
-              t = 32767 * 10 ** (db / 20)
-              first = next((i for i,v in enumerate(samples) if abs(v) > t), len(samples))
-              last = next((i for i in range(len(samples)-1,-1,-1) if abs(samples[i]) > t), -1)
-              if last < 0: return len(samples)/rate, len(samples)/rate
-              return first/rate, (len(samples)-1-last)/rate
+          Please only check whether the MP3 has a concrete audible problem versus the WAV:
+          - beginning cut/delayed
+          - ending cut/extra sound
+          - click/pop
+          - obvious pronunciation or quality degradation
 
-          def frame_edge(samples, rate, db, frame_ms):
-              n = max(1, round(rate * frame_ms / 1000))
-              t = 32767 * 10 ** (db / 20)
-              rms=[]
-              for start in range(0, len(samples), n):
-                  frame = samples[start:start+n]
-                  if not frame: continue
-                  val = math.sqrt(sum(v*v for v in frame)/len(frame))
-                  rms.append((start, val))
-              active=[start for start,val in rms if val > t]
-              if not active: return len(samples)/rate, len(samples)/rate
-              first=active[0]
-              last_start=active[-1]
-              last_end=min(len(samples), last_start+n)
-              return first/rate, (len(samples)-last_end)/rate
+          A simple result like "10本とも問題なし" is enough if all pass.
+          If one differs, report only its number and what you heard.
+          EOF
 
-          def window_rms_db(samples, rate, start_ms, end_ms):
-              a=max(0, round(rate*start_ms/1000)); b=min(len(samples), round(rate*end_ms/1000))
-              frame=samples[a:b]
-              if not frame: return -999.0
-              rms=math.sqrt(sum(v*v for v in frame)/len(frame))
-              return 20*math.log10(max(rms,1e-12)/32767)
+          sha256sum review-set/original/* review-set/mp3/* > review-set/SHA256SUMS.txt
+          find review-set -type f -maxdepth 2 -print | sort
 
-          for src in paths:
-              rate, original = wav_pcm(src)
-              mp3 = src.with_suffix('.diag.mp3')
-              subprocess.run([
-                  'ffmpeg','-hide_banner','-loglevel','error','-nostdin','-y','-i',str(src),
-                  '-c:a','libmp3lame','-b:a','96k','-ar',str(rate),'-ac','1',str(mp3)
-              ], check=True)
-              decoded=decode(mp3, rate)
-              duration_ms=len(original)/rate*1000
-              print(f'=== {src} rate={rate} duration_ms={duration_ms:.3f} src_samples={len(original)} dec_samples={len(decoded)} duration_delta_ms={(len(decoded)-len(original))/rate*1000:.3f}')
-              print(f'peaks src={max(map(abs,original))} dec={max(map(abs,decoded))}')
-              for db in (-30,-35,-40,-42,-45,-48,-50,-55,-60):
-                  sl,st=sample_edge(original,rate,db); dl,dt=sample_edge(decoded,rate,db)
-                  print(f'sample threshold {db}dB: lead_delta_ms={(dl-sl)*1000:.3f} trail_delta_ms={(dt-st)*1000:.3f}')
-              for frame_ms in (5,10,20,30):
-                  for db in (-35,-40,-42,-45,-48,-50):
-                      sl,st=frame_edge(original,rate,db,frame_ms); dl,dt=frame_edge(decoded,rate,db,frame_ms)
-                      print(f'RMS {frame_ms}ms {db}dB: lead_delta_ms={(dl-sl)*1000:.3f} trail_delta_ms={(dt-st)*1000:.3f}')
-              # Fixed end-window RMS reveals whether a boundary shift is just a frame near threshold.
-              for ms in (20,40,60,100,150,250,500):
-                  n=min(len(decoded), round(rate*ms/1000))
-                  for label,a in [('src',original),('dec',decoded)]:
-                      frame=a[-n:]
-                      rms=math.sqrt(sum(v*v for v in frame)/len(frame)) if frame else 0
-                      db=20*math.log10(max(rms,1e-12)/32767)
-                      print(f'tail {ms}ms {label}_rms_dbfs={db:.2f}')
-              # Fixed start windows for onset-sensitive `so` case.
-              for ms in (20,40,60,100,150):
-                  n=min(len(decoded), round(rate*ms/1000))
-                  for label,a in [('src',original),('dec',decoded)]:
-                      frame=a[:n]
-                      rms=math.sqrt(sum(v*v for v in frame)/len(frame)) if frame else 0
-                      db=20*math.log10(max(rms,1e-12)/32767)
-                      print(f'head {ms}ms {label}_rms_dbfs={db:.2f}')
-              mp3.unlink()
-          PY
+      - name: Upload listening set
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue-159-10-audio-listening-set
+          path: review-set
+          if-no-files-found: error
+          retention-days: 7
