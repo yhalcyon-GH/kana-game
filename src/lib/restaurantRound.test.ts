@@ -54,7 +54,7 @@ describe('shuffleRestaurantChoices', () => {
   it('returns the same four dishes in an order independent from the menu order', () => {
     const menu = HIRAGANA_RESTAURANT_DISHES.slice(0, 4)
     const shuffled = shuffleRestaurantChoices(menu, () => 0)
-    expect(shuffled.map((dish) => dish.id)).toEqual(['soba', 'udon', 'tenpura', 'sushi'])
+    expect(shuffled.map((dish) => dish.id)).toEqual(['udon', 'tonkatsu', 'katsudon', 'sushi'])
     expect(new Set(shuffled.map((dish) => dish.id))).toEqual(new Set(menu.map((dish) => dish.id)))
   })
 })

@@ -545,15 +545,19 @@ function DishGlyph({ dish, className, target = false, menu = false }: { dish: Re
 }
 
 function RestaurantIntro({ onStart, backPath }: { onStart: () => void; backPath: string }) {
-  const tenpura = RESTAURANT_DISHES.find((dish) => dish.id === 'tenpura')!
-  const misoshiru = RESTAURANT_DISHES.find((dish) => dish.id === 'misoshiru')!
+  // Issue #158: すし + うどん replace the former てんぷら + みそしる example —
+  // both are still-approved Restaurant 1 dishes with existing art/audio
+  // (see data/restaurantDishes.ts), unlike てんぷら/みそしる which moved out
+  // of the active Hiragana Restaurant pool since they need later-row kana.
+  const sushi = RESTAURANT_DISHES.find((dish) => dish.id === 'sushi')!
+  const udon = RESTAURANT_DISHES.find((dish) => dish.id === 'udon')!
   return <div className="flex w-full flex-col items-center gap-4">
     <Link to={backPath} className="self-start rounded-full border px-4 py-1.5 text-sm font-semibold">← Back</Link>
     <p className="whitespace-nowrap text-center text-lg font-bold">Let's order at a restaurant.</p>
     <img src={`${import.meta.env.BASE_URL}mascot/restaurant-intro.webp`} alt="Restaurant introduction" className="h-auto w-full max-w-md rounded-2xl object-contain" />
     <p className="text-sm">When ordering, say:</p>
     <div className="font-kana text-center text-lg"><p>すみません</p><p className="font-sans text-xs">(Excuse me)</p></div>
-    <div className="flex items-center gap-2"><DishGlyph dish={tenpura} className="h-16 w-16" menu /><div className="text-center"><p className="font-kana text-2xl">と</p><p className="text-xs">and</p></div><DishGlyph dish={misoshiru} className="h-16 w-16" menu /></div>
+    <div className="flex items-center gap-2"><DishGlyph dish={sushi} className="h-16 w-16" menu /><div className="text-center"><p className="font-kana text-2xl">と</p><p className="text-xs">and</p></div><DishGlyph dish={udon} className="h-16 w-16" menu /></div>
     <div className="font-kana text-center text-lg"><p>おねがいします</p><p className="font-sans text-xs">(please)</p></div>
     <button type="button" onClick={onStart} className="rounded-full bg-blue-600 px-6 py-3 font-semibold text-white">Start</button>
   </div>
