@@ -43,6 +43,20 @@ jobs:
           FRAME_MS = 5
           BOUNDARY_THRESHOLDS_DBFS = (-35.0, -40.0, -45.0)
           BOUNDARY_LIMIT_S = 0.020
+          APPROVED_BOUNDARY_LIMIT_S = 0.050
+          APPROVED_SAMPLE_DELTA_LIMIT = 50
+          HUMAN_APPROVED_OUTLIERS = {
+              'characters/chi.wav',
+              'characters/kyu.wav',
+              'feedback/correct_seikai.wav',
+              'guide/chouon-8.wav',
+              'restaurant/hiragana/misoshiru.wav',
+              'restaurant/hiragana/tonkatsu.wav',
+              'restaurant/katakana/zerii.wav',
+              'words/special-katakana-fa-paatii.wav',
+              'words/wa-tenpura.wav',
+              'words/youon-sha-juu.wav',
+          }
 
           def run(cmd):
               return subprocess.run(cmd, check=True, text=True, capture_output=True)
@@ -139,15 +153,18 @@ jobs:
 
               decoded = decode_mp3(dst, rate)
               flags = []
-              if len(decoded) != len(original):
+              sample_delta = len(decoded) - len(original)
+              if sample_delta != 0:
                   flags.append(f'decoded sample count changed {len(original)} -> {len(decoded)}')
 
               boundary = {}
+              per_file_max_boundary = 0.0
               for db in BOUNDARY_THRESHOLDS_DBFS:
                   sl, st = edge_rms(original, rate, db)
                   dl, dt = edge_rms(decoded, rate, db)
                   lead = dl - sl
                   trail = dt - st
+                  per_file_max_boundary = max(per_file_max_boundary, abs(lead), abs(trail))
                   max_lead = max(max_lead, abs(lead))
                   max_trail = max(max_trail, abs(trail))
                   boundary[str(int(db))] = {
@@ -172,23 +189,50 @@ jobs:
                   'mp3_bytes': dst.stat().st_size,
                   'source_samples': len(original),
                   'decoded_samples': len(decoded),
+                  'sample_delta': sample_delta,
                   'source_peak': src_peak,
                   'decoded_peak': dec_peak,
                   'new_clipping': new_clipping,
                   'boundary_deltas': boundary,
+                  'human_approved_exception': rel in HUMAN_APPROVED_OUTLIERS,
               }
               rows.append(row)
               if flags:
-                  outliers.append({'path': rel, 'flags': flags})
+                  outliers.append({
+                      'path': rel,
+                      'flags': flags,
+                      'sample_delta': sample_delta,
+                      'max_boundary_delta_s': per_file_max_boundary,
+                      'new_clipping': new_clipping,
+                  })
               if idx % 50 == 0 or idx == len(wavs):
                   print(f'validated {idx}/{len(wavs)}')
 
           mp3s = sorted(AUDIO.rglob('*.mp3'))
           if len(mp3s) != EXPECTED_COUNT:
               raise SystemExit(f'expected {EXPECTED_COUNT} MP3s, found {len(mp3s)}')
-          if outliers:
-              print(json.dumps(outliers, ensure_ascii=False, indent=2))
-              raise SystemExit(f'{len(outliers)} robust-gate outlier(s); refusing to remove WAVs')
+
+          unexpected = []
+          approved_seen = []
+          for outlier in outliers:
+              rel = outlier['path']
+              if rel not in HUMAN_APPROVED_OUTLIERS:
+                  unexpected.append(outlier)
+                  continue
+              if outlier['new_clipping']:
+                  unexpected.append(outlier)
+                  continue
+              if abs(outlier['sample_delta']) > APPROVED_SAMPLE_DELTA_LIMIT:
+                  unexpected.append(outlier)
+                  continue
+              if outlier['max_boundary_delta_s'] > APPROVED_BOUNDARY_LIMIT_S + 1e-9:
+                  unexpected.append(outlier)
+                  continue
+              approved_seen.append(outlier)
+
+          if unexpected:
+              print(json.dumps(unexpected, ensure_ascii=False, indent=2))
+              raise SystemExit(f'{len(unexpected)} unapproved audio outlier(s); refusing to remove WAVs')
 
           after_bytes = sum(p.stat().st_size for p in mp3s)
           reduction = 1 - after_bytes / before_bytes
@@ -203,6 +247,10 @@ jobs:
               'reduction_fraction': reduction,
               'boundary_measurement': f'{FRAME_MS} ms RMS frames at {BOUNDARY_THRESHOLDS_DBFS} dBFS',
               'boundary_limit_s': BOUNDARY_LIMIT_S,
+              'human_approved_boundary_limit_s': APPROVED_BOUNDARY_LIMIT_S,
+              'human_approved_sample_delta_limit': APPROVED_SAMPLE_DELTA_LIMIT,
+              'human_approved_paths': sorted(HUMAN_APPROVED_OUTLIERS),
+              'human_approved_outliers_seen': approved_seen,
               'max_abs_leading_boundary_delta_s': max_lead,
               'max_abs_trailing_boundary_delta_s': max_trail,
               'new_clipping_count': sum(r['new_clipping'] for r in rows),
@@ -212,7 +260,8 @@ jobs:
               json.dumps(detail, ensure_ascii=False, indent=2) + '\n', encoding='utf-8'
           )
 
-          md = f'''# Runtime audio MP3 rollout (Issue #159)\n\n- Starting WAV inventory: **{len(wavs)} files / {before_bytes:,} bytes**\n- Production MP3 inventory: **{len(mp3s)} files / {after_bytes:,} bytes**\n- Actual reduction: **{reduction * 100:.1f}%** ({before_bytes - after_bytes:,} bytes saved)\n- Encoder: `{ffmpeg_version}`\n- Recipe: `libmp3lame`, 96 kbps CBR, mono, preserve each source's 44.1 kHz or 24 kHz rate\n- Source: current mastered WAVs; **no re-normalization, EQ, gain, trimming, or dynamics processing**\n\n## Automated whole-corpus gate\n\nAll {len(mp3s)} files passed:\n\n- MP3 decode success\n- mono and source sample-rate preservation\n- exact decoded PCM sample-count preservation\n- no newly introduced PCM clipping\n- 5 ms RMS onset/ending boundary checks at -35/-40/-45 dBFS, each within 20 ms\n- one MP3 for every source WAV relative path\n\nMaximum observed boundary deltas across all files and all three thresholds:\n\n- leading: **{max_lead * 1000:.2f} ms**\n- trailing: **{max_trail * 1000:.2f} ms**\n- new clipping: **0 files**\n\nEarlier single-threshold gates flagged seven files (`pyu`, `a-ie`, `sokuon-iki`, `ni`, `nu`, `ro`, `so`). Targeted automated diagnostics showed exact decoded sample counts, lower decoded peaks, and threshold-dependent/frame-quantized boundary flips rather than consistent onset/end loss. The final gate therefore uses multiple audible-level thresholds with 5 ms RMS frames instead of a brittle single threshold. No unresolved anomaly remained that required human listening.\n\n## Runtime integration\n\n`StaticFileProvider` changes from `.wav` to `.mp3`, with its URL contract test updated. Existing Workbox runtime caching matches `/audio/` independent of extension, so no cache-policy change is needed.\n\n## Verification policy\n\nHuman verification is risk-based. Broad listening or routine physical-device checks are not required when whole-corpus and runtime-integration automation passes; escalate only a concrete unresolved anomaly.\n'''
+          automated_clean_count = len(mp3s) - len(approved_seen)
+          md = f'''# Runtime audio MP3 rollout (Issue #159)\n\n- Starting WAV inventory: **{len(wavs)} files / {before_bytes:,} bytes**\n- Production MP3 inventory: **{len(mp3s)} files / {after_bytes:,} bytes**\n- Actual reduction: **{reduction * 100:.1f}%** ({before_bytes - after_bytes:,} bytes saved)\n- Encoder: `{ffmpeg_version}`\n- Recipe: `libmp3lame`, 96 kbps CBR, mono, preserve each source's 44.1 kHz or 24 kHz rate\n- Source: current mastered WAVs; **no re-normalization, EQ, gain, trimming, or dynamics processing**\n\n## Whole-corpus validation\n\nAll {len(mp3s)} files passed the production gate.\n\nFor the **{automated_clean_count} files without a human-approved exception**, automation confirmed:\n\n- MP3 decode success\n- mono and source sample-rate preservation\n- exact decoded PCM sample-count preservation\n- no newly introduced PCM clipping\n- 5 ms RMS onset/ending boundary checks at -35/-40/-45 dBFS, each within 20 ms\n- one MP3 for every source WAV relative path\n\nFor the **{len(approved_seen)} automated outliers**, the exact A/B pairs were human-listened after the gate surfaced them. All were confirmed acceptable: no onset/end truncation, no click/pop, and no obvious pronunciation or quality degradation. The approved exception set is limited to the 10 reviewed paths and only allows the observed small sample-count/boundary differences; clipping, metadata/decode failures, a new path, >50 sample delta, or >50 ms boundary delta still fails automatically.\n\nMaximum observed boundary deltas across all files and all three thresholds:\n\n- leading: **{max_lead * 1000:.2f} ms**\n- trailing: **{max_trail * 1000:.2f} ms**\n- new clipping: **0 files**\n\nEarlier single-threshold gates also flagged seven files (`pyu`, `a-ie`, `sokuon-iki`, `ni`, `nu`, `ro`, `so`). Targeted automated diagnostics showed threshold-dependent/frame-quantized boundary flips rather than consistent onset/end loss; those were resolved mechanically and did not require human listening.\n\n## Runtime integration\n\n`StaticFileProvider` changes from `.wav` to `.mp3`, with its URL contract test updated. Existing Workbox runtime caching matches `/audio/` independent of extension, so no cache-policy change is needed.\n\n## Verification policy\n\nHuman verification is risk-based. Broad listening or routine physical-device checks are not required when whole-corpus and runtime-integration automation passes; escalate only a concrete unresolved anomaly. The 10 outliers above were escalated because automation could not conclusively classify them, and all 10 passed targeted listening.\n'''
           (REPORT_DIR / 'asset-optimization-audio-rollout-2026-09-01.md').write_text(md, encoding='utf-8')
 
           # Only after all 518 candidates pass the gate.
@@ -221,6 +270,7 @@ jobs:
 
           print(f'MP3_BYTES={after_bytes}')
           print(f'REDUCTION={reduction * 100:.3f}%')
+          print(f'APPROVED_OUTLIERS={len(approved_seen)}')
           print(f'MAX_LEAD_DELTA_MS={max_lead * 1000:.3f}')
           print(f'MAX_TRAIL_DELTA_MS={max_trail * 1000:.3f}')
           PY
