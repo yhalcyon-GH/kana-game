@@ -1,6 +1,9 @@
 // Converts vendored strokesvg SVGs (see vendor/strokesvg/PROVENANCE.md) into
-// runtime StrokeGlyph data for the stroke-order animation (Phase 1A
-// prototype — see Issue #122). Run whenever the vendored SVG set changes:
+// runtime StrokeGlyph data for the stroke-order animation. Covers every
+// current-curriculum single-glyph character (Issue #129 full-kana
+// expansion), building on the Phase 1A prototype (Issue #122) and Phase 1B
+// small-tsu derivation (Issue #126). Run whenever the vendored SVG set or
+// CHARACTERS changes:
 //   npx tsx scripts/convertStrokesvg.ts
 //
 // This is a build-time/generation-time step only. It reads exclusively from
@@ -10,6 +13,7 @@ import { JSDOM } from 'jsdom'
 import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { CHARACTERS } from '../src/data/characters'
 
 // "kana-svgs", not upstream's own "dist" directory name — this repo's
 // .gitignore has a generic (non-root-anchored) `dist` rule for build output,
@@ -17,19 +21,45 @@ import { fileURLToPath } from 'node:url'
 export const VENDOR_DIR = path.resolve(import.meta.dirname, '../vendor/strokesvg/kana-svgs')
 const OUT_FILE = path.resolve(import.meta.dirname, '../src/data/strokeGlyphs.ts')
 
-// Maps this app's character ids (see src/data/characters.ts /
-// src/data/strokes.ts) to the vendored strokesvg source file for that
-// glyph. Prototype-scoped: only the six representative glyphs from Issue
-// #122. Do not add entries here without also vendoring the corresponding
-// /dist SVG (see vendor/strokesvg/PROVENANCE.md).
-export const PROTOTYPE_GLYPHS: Record<string, string> = {
-  a: 'hiragana/あ.svg',
-  ki: 'hiragana/き.svg',
-  zu: 'hiragana/ず.svg',
-  'katakana-a': 'katakana/ア.svg',
-  'katakana-shi': 'katakana/シ.svg',
-  'katakana-tsu': 'katakana/ツ.svg',
+// Small-tsu ids are already handled as generated derivatives (see
+// DERIVED_SMALL_TSU_GLYPHS below) rather than direct upstream glyphs, so
+// they're excluded from the mechanical CHARACTERS -> source-path mapping.
+const DERIVED_IDS = new Set(['sokuon', 'katakana-sokuon'])
+
+// Unicode block ranges used to route a single-glyph character's actual
+// `kana` value to the matching pinned-upstream `/dist` subdirectory. Covers
+// the hiragana block (U+3040–U+309F) and the katakana block (U+30A0–U+30FF,
+// which also contains the chōon mark ー at U+30FC) — the only two scripts
+// any current single-glyph CHARACTERS entry uses.
+function scriptDirFor(characterId: string, kana: string): 'hiragana' | 'katakana' {
+  const codePoint = kana.codePointAt(0)
+  if (codePoint === undefined) fail(characterId, `empty kana for single-glyph character`)
+  if (codePoint >= 0x3040 && codePoint <= 0x309f) return 'hiragana'
+  if (codePoint >= 0x30a0 && codePoint <= 0x30ff) return 'katakana'
+  fail(characterId, `kana "${kana}" (U+${codePoint.toString(16)}) is outside the known hiragana/katakana ranges`)
 }
+
+// Mechanically derives every current single-glyph CHARACTERS entry's
+// vendored source path from its actual `kana` value (Issue #129) — CHARACTERS
+// is the source of truth; no second hand-written id->path manifest is
+// maintained here. A single-glyph entry is one where `kana` is exactly one
+// Unicode character (yōon / Special Katakana characterIds are 2 characters
+// and excluded by construction — see characters.ts). sokuon /
+// katakana-sokuon are excluded here because they're generated derivatives
+// (DERIVED_SMALL_TSU_GLYPHS below), not direct upstream glyphs.
+export function buildDirectGlyphMap(characters: typeof CHARACTERS): Record<string, string> {
+  const map: Record<string, string> = {}
+  for (const character of characters) {
+    const chars = [...character.kana]
+    if (chars.length !== 1) continue
+    if (DERIVED_IDS.has(character.id)) continue
+    const scriptDir = scriptDirFor(character.id, character.kana)
+    map[character.id] = `${scriptDir}/${character.kana}.svg`
+  }
+  return map
+}
+
+export const DIRECT_GLYPHS: Record<string, string> = buildDirectGlyphMap(CHARACTERS)
 
 // Small-tsu (促音) ids have no dedicated glyph in pinned strokesvg — Issue
 // #125 confirmed (evidence spike) that deriving them from the pinned full
@@ -236,7 +266,7 @@ export function parseGlyph(characterId: string, svgText: string): StrokeGlyph {
 
 export async function generateOutput(): Promise<string> {
   const entries: [string, StrokeGlyph][] = []
-  for (const [characterId, relPath] of Object.entries(PROTOTYPE_GLYPHS)) {
+  for (const [characterId, relPath] of Object.entries(DIRECT_GLYPHS)) {
     const filePath = path.join(VENDOR_DIR, relPath)
     const svgText = await readFile(filePath, 'utf-8')
     const glyph = parseGlyph(characterId, svgText)
@@ -255,9 +285,17 @@ export async function generateOutput(): Promise<string> {
   }
 
   // Sort by character id for deterministic, diff-stable output regardless
-  // of iteration/insertion order across PROTOTYPE_GLYPHS and
+  // of iteration/insertion order across DIRECT_GLYPHS and
   // DERIVED_SMALL_TSU_GLYPHS.
   entries.sort(([a], [b]) => a.localeCompare(b))
+
+  const singleGlyphTotal = CHARACTERS.filter((c) => [...c.kana].length === 1).length
+  const multiGlyphExcluded = CHARACTERS.length - singleGlyphTotal
+  console.log(`\nCounts:`)
+  console.log(`  current single-glyph characterIds total: ${singleGlyphTotal}`)
+  console.log(`  direct upstream-backed entries: ${Object.keys(DIRECT_GLYPHS).length}`)
+  console.log(`  derived small-tsu entries: ${Object.keys(DERIVED_SMALL_TSU_GLYPHS).length}`)
+  console.log(`  multi-glyph characterIds excluded from direct generation: ${multiGlyphExcluded}`)
 
   const body = entries.map(([id, glyph]) => `  ${JSON.stringify(id)}: ${JSON.stringify(glyph, null, 2).replace(/\n/g, '\n  ')},`).join('\n')
 
@@ -267,15 +305,23 @@ export async function generateOutput(): Promise<string> {
 // see vendor/strokesvg/LICENSE. Generated by scripts/convertStrokesvg.ts —
 // do not hand-edit; re-run the script instead.
 //
-// Phase 1A prototype (Issue #122): the six representative glyphs listed in
-// scripts/convertStrokesvg.ts's PROTOTYPE_GLYPHS. All other characters
-// continue to use src/data/strokes.ts's KanjiVG-derived STROKE_PATHS via
-// StrokeOrderAnimation's existing fallback.
+// Issue #129 full-kana expansion: every current single-glyph CHARACTERS
+// entry (see scripts/convertStrokesvg.ts's DIRECT_GLYPHS, mechanically
+// derived from CHARACTERS) gets a direct entry here, building on the Phase
+// 1A prototype (Issue #122: the original six representative glyphs). Any
+// current single-glyph characterId not covered here would fail generation
+// loudly rather than silently keep using src/data/strokes.ts's KanjiVG-
+// derived STROKE_PATHS fallback in StrokeOrderAnimation — that fallback
+// remains only for non-current/legacy ids until the KanjiVG cleanup phase.
 //
 // Phase 1B (Issue #126): sokuon / katakana-sokuon are additionally derived
 // from the pinned full つ/ツ via one glyph-level affine transform (see
 // scripts/convertStrokesvg.ts's DERIVED_SMALL_TSU_GLYPHS for the fitted
 // constants and derivation method) rather than a dedicated upstream glyph.
+//
+// Multi-glyph yōon / Special Katakana characterIds (kana length 2) are
+// intentionally excluded from direct generation and continue to compose at
+// render time via buildTracingUnit (see lib/tracingUnits.ts).
 export type StrokeGlyph = {
   viewBox: string
   strokeWidth: number

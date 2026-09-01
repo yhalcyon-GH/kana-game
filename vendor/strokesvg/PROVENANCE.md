@@ -1,4 +1,4 @@
-# Vendored strokesvg source (Phase 1A prototype + Phase 1B small-tsu)
+# Vendored strokesvg source (current-curriculum full-kana expansion)
 
 - Upstream repo: [`zhengkyl/strokesvg`](https://github.com/zhengkyl/strokesvg)
 - Pinned commit: `e4c2c91034e03c9c2f4e95f14f2361a948f52cd0`
@@ -9,25 +9,28 @@
 
 ## What's vendored here
 
-The six upstream `/dist` SVGs needed for the Phase 1A prototype (see Issue
-#122), plus `hiragana/つ.svg` added in Phase 1B (see Issue #126), plus the
+Every pinned upstream `/dist/hiragana/*.svg` and `/dist/katakana/*.svg` SVG
+needed by a current single-glyph `CHARACTERS` entry (Issue #129), plus the
 pinned upstream `LICENSE`. They live under `kana-svgs/` here, not `dist/` —
 this repo's `.gitignore` has a generic (non-root-anchored) `dist` rule for
 build output that would otherwise silently swallow these files; the content
 is otherwise an unmodified copy of upstream's `/dist/hiragana/*.svg` and
-`/dist/katakana/*.svg`:
+`/dist/katakana/*.svg`.
 
-- `kana-svgs/hiragana/あ.svg`
-- `kana-svgs/hiragana/き.svg`
-- `kana-svgs/hiragana/つ.svg`
-- `kana-svgs/hiragana/ず.svg`
-- `kana-svgs/katakana/ア.svg`
-- `kana-svgs/katakana/シ.svg`
-- `kana-svgs/katakana/ツ.svg`
+`kana-svgs/hiragana/` holds 71 files and `kana-svgs/katakana/` holds 72 files
+(143 total) — one per current single-glyph `CHARACTERS` id, excluding
+`sokuon`/`katakana-sokuon` (generated derivatives, see below) and every
+multi-glyph yōon / Special Katakana id (composed at render time instead, see
+`src/lib/tracingUnits.ts`). `scripts/convertStrokesvg.ts`'s `DIRECT_GLYPHS`
+derives each id's exact source path mechanically from `CHARACTERS`, rather
+than this file (or any other manifest) hand-listing every filename — that
+mapping, not this doc, is the source of truth for which files are required;
+`scripts/convertStrokesvg.ts --check` fails loudly if a required file is
+missing.
 
-This is a deliberately partial vendor set for the prototype phase. Full-kana
-expansion (vendoring the remaining `/dist` SVGs and generating runtime data
-for every character) is out of scope for this task and tracked separately.
+The original Phase 1A prototype (Issue #122) vendored only six representative
+glyphs (あ/き/ず/ア/シ/ツ); that set is now a subset of the full vendor set
+above.
 
 ## Generated derivatives: sokuon / katakana-sokuon (Phase 1B, Issue #126)
 
@@ -48,6 +51,21 @@ coordinate space — the font-space constants from the spike are not reused
 verbatim) and the full derivation method. No hand-authored centerline data
 is used for these two ids.
 
+## What's intentionally not vendored/generated here
+
+Multi-glyph yōon / Special Katakana characterIds (`kana` length 2, e.g.
+`kya` -> きゃ) have no direct `STROKE_GLYPHS` entry of their own — they
+continue to compose their base consonant glyph + a reused full-size small-
+vowel glyph at render time (`src/lib/tracingUnits.ts`'s `buildTracingUnit`),
+unchanged by this expansion.
+
+KanjiVG-derived `src/data/strokes.ts` (`STROKE_PATHS`) and
+`scripts/fetchStrokeData.ts` remain in the repo as the fallback renderer path
+for any non-current-curriculum id; removing them is a separate follow-up
+cleanup phase once full current-curriculum coverage from this vendor set is
+proven (this task's `STROKE_GLYPHS` inventory-coverage test provides that
+proof for current single-glyph ids).
+
 ## Regenerating runtime data from these files
 
 Run:
@@ -61,8 +79,8 @@ It does not fetch anything from the network — vendored files are the only
 input.
 
 To check (without writing) whether the committed `src/data/strokeGlyphs.ts`
-is stale relative to the vendored SVGs and the converter's fitted transform
-constants — e.g. as part of `npm run verify` — run:
+is stale relative to the vendored SVGs, `CHARACTERS`, and the converter's
+fitted transform constants — e.g. as part of `npm run verify` — run:
 
 ```bash
 npx tsx scripts/convertStrokesvg.ts --check

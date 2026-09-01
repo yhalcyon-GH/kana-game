@@ -228,12 +228,20 @@ describe('StrokeOrderAnimation with prototype strokesvg glyphs', () => {
     expect(container.querySelectorAll('path')).toHaveLength(before)
   })
 
-  it('a non-prototype glyph still uses the existing KanjiVG fallback safely (no STROKE_GLYPHS entry, no crash)', () => {
-    expect(STROKE_GLYPHS['ka']).toBeUndefined()
-    const { container } = render(<StrokeOrderAnimation characterId="ka" playToken={0} />)
+  // Issue #129 expanded STROKE_GLYPHS to cover every current single-glyph
+  // CHARACTERS id, so no current id is left to exercise the KanjiVG fallback
+  // with real stroke data (see convertStrokesvg.test.ts's inventory-coverage
+  // test, which proves this directly against CHARACTERS/STROKE_PATHS). This
+  // test instead uses a synthetic non-current id to prove the fallback path
+  // itself — StrokeOrderAnimation falling through to KanjivgStrokeAnimation
+  // when STROKE_GLYPHS has no entry — still renders safely rather than
+  // crashing, independent of whether any real character currently needs it.
+  it('an id with no STROKE_GLYPHS entry still uses the existing KanjiVG fallback safely (no crash)', () => {
+    expect(STROKE_GLYPHS['not-a-real-character-id']).toBeUndefined()
+    const { container } = render(<StrokeOrderAnimation characterId="not-a-real-character-id" playToken={0} />)
     const svg = container.querySelector('svg')
     expect(svg?.getAttribute('viewBox')).toBe('0 0 109 109')
-    expect(container.querySelectorAll('path').length).toBeGreaterThan(0)
+    expect(container.querySelectorAll('path')).toHaveLength(0)
     expect(container.querySelectorAll('clipPath')).toHaveLength(0)
   })
 })
