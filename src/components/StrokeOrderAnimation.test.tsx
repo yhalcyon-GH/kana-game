@@ -260,36 +260,47 @@ describe('StrokeOrderAnimation with derived small-tsu glyphs (sokuon, katakana-s
     expect(svg?.getAttribute('viewBox')).toBe(STROKE_GLYPHS['katakana-sokuon'].viewBox)
   })
 
-  it('sokuon: renders exactly 1 guide path and 1 animated path (1 logical stroke, 1 part)', () => {
+  it('sokuon: renders exactly 1 guide path and 1 animated path (1 logical stroke, 1 part), nested inside the glyphTransform wrapping <g>', () => {
     const { container } = render(<StrokeOrderAnimation characterId="sokuon" playToken={0} />)
-    const groups = container.querySelectorAll(':scope svg > g')
+    const transformGroup = container.querySelector(':scope svg > g')!
+    const groups = transformGroup.querySelectorAll(':scope > g')
     expect(groups[0].querySelectorAll('path')).toHaveLength(1)
     expect(groups[1].querySelectorAll('path')).toHaveLength(1)
   })
 
-  it('katakana-sokuon: renders 3 guide paths and 3 animated paths (3 logical strokes, 1 part each)', () => {
+  it('katakana-sokuon: renders 3 guide paths and 3 animated paths (3 logical strokes, 1 part each), nested inside the glyphTransform wrapping <g>', () => {
     const { container } = render(<StrokeOrderAnimation characterId="katakana-sokuon" playToken={0} />)
-    const groups = container.querySelectorAll(':scope svg > g')
+    const transformGroup = container.querySelector(':scope svg > g')!
+    const groups = transformGroup.querySelectorAll(':scope > g')
     expect(groups[0].querySelectorAll('path')).toHaveLength(3)
     expect(groups[1].querySelectorAll('path')).toHaveLength(3)
   })
 
-  it('glyphTransform is applied identically to every guide path, every clipPath shape, and every animated stroke path', () => {
+  it('glyphTransform is applied once, on a wrapping <g> ancestor of the guide/drawable groups — never repeated on individual guide paths, clipPath shapes, or stroke paths', () => {
     const { container } = render(<StrokeOrderAnimation characterId="katakana-sokuon" playToken={0} />)
     const glyph = STROKE_GLYPHS['katakana-sokuon']
     const svg = container.querySelector('svg')!
-    const guideGroup = svg.querySelectorAll(':scope > g')[0]
-    const drawableGroup = svg.querySelectorAll(':scope > g')[1]
+    const transformGroup = svg.querySelector(':scope > g')!
+    expect(transformGroup.getAttribute('transform')).toBe(glyph.glyphTransform)
 
+    const guideGroup = transformGroup.querySelectorAll(':scope > g')[0]
+    const drawableGroup = transformGroup.querySelectorAll(':scope > g')[1]
+
+    // Putting glyphTransform on both a clipPath shape and the stroke path it
+    // clips (rather than once on their shared ancestor) is exactly the bug
+    // this test guards against: Chromium resolves a userSpaceOnUse
+    // clip-path in the clipped element's pre-transform user space, so a
+    // repeated non-identity transform on both sides silently clips away
+    // most of the stroke instead of canceling out.
     for (const p of guideGroup.querySelectorAll('path')) {
-      expect(p.getAttribute('transform')).toBe(glyph.glyphTransform)
+      expect(p.hasAttribute('transform')).toBe(false)
     }
     for (const p of svg.querySelectorAll('clipPath path')) {
-      expect(p.getAttribute('transform')).toBe(glyph.glyphTransform)
+      expect(p.hasAttribute('transform')).toBe(false)
     }
     for (const p of drawableGroup.querySelectorAll('path')) {
-      // No per-part transform on these source parts (only glyphTransform applies).
-      expect(p.getAttribute('transform')).toBe(glyph.glyphTransform)
+      // No per-part transform on these source parts.
+      expect(p.hasAttribute('transform')).toBe(false)
     }
   })
 
