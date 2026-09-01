@@ -1,11 +1,11 @@
 ---
 name: kana-task
-description: Run a standard non-trivial KanaGame development task end-to-end — Explore, Plan when useful, Implement, Verify, Inspect, Fix, Commit, Push, Draft PR — from a Goal and Acceptance Criteria, without requiring a long implementation prompt each time.
+description: Run a standard non-trivial KanaGame development task end-to-end — Explore, Plan when useful, Implement, Verify, Inspect, Fix, Commit, Push, PR — from a Goal and Acceptance Criteria, without requiring a long implementation prompt each time.
 ---
 
-Standard Builder loop for non-trivial KanaGame work. Input is a Goal and Acceptance Criteria (from the user, or an issue). Output is a **Draft PR** against `main` that meets [`docs/definition-of-done.md`](../../../docs/definition-of-done.md). Overall context: [`docs/ai-development-loop.md`](../../../docs/ai-development-loop.md).
+Standard Builder loop for non-trivial KanaGame work. Input is a Goal and Acceptance Criteria (from the user, or an issue). Output is a **reviewable PR** against `main` that meets [`docs/definition-of-done.md`](../../../docs/definition-of-done.md). Overall context: [`docs/ai-development-loop.md`](../../../docs/ai-development-loop.md).
 
-Never merge to `main`. This Skill stops at "Draft PR opened"; review-depth assignment, independent review, Ready-for-Review transition, human approval when required, and merge are separate gates.
+Never merge to `main`. This Skill stops at "PR opened"; review-depth assignment, independent review, human approval when required, live merge-gate checks, and merge are separate gates. Normal completed work opens one **non-Draft** PR and keeps using that same PR through review/fixes/merge. Use Draft only for a genuinely incomplete/WIP handoff.
 
 ## 1. Preflight
 
@@ -101,7 +101,7 @@ Before considering the task complete, run:
 npm run verify
 ```
 
-(Runs `npm test && npm run lint && npm run build && git diff --check`.)
+(Runs the repository's full test/lint/build/diff checks, including any fail-fast generated-data gates configured in `package.json`.)
 
 If it fails:
 
@@ -141,9 +141,11 @@ Commit only the files relevant to this task. Use a clear message describing why,
 
 Push the branch (never `main`) to `origin`.
 
-## 12. Open Draft PR
+## 12. Open one reviewable PR
 
-Open the PR against `main` as **Draft**, not Ready for Review. Draft is the normal state while ChatGPT/human review and bundled follow-up fixes are still possible.
+For a completed Builder candidate, open a **normal non-Draft PR** against `main`. This is the default handoff. ChatGPT/human review, follow-up pushes, deterministic PR Verify, optional independent review, and merge should stay on this same PR instead of creating a Draft → Ready → replacement loop.
+
+Use a Draft PR only when the task is genuinely incomplete/WIP and the handoff explicitly needs more Builder work before normal review. Do not use Draft merely as routine ceremony.
 
 PR body must include at minimum:
 
@@ -153,7 +155,7 @@ PR body must include at minimum:
 - **Tests / verification** (what was run, results)
 - **Risks / notes** (anything uncertain, deferred, or worth human attention)
 
-Do not add the `AI review: Claude` marker yourself unless the user/ChatGPT review gate explicitly assigned Claude as the independent reviewer. If it is explicitly assigned, put `AI review: Claude` on its own dedicated line; prose or negated mentions are not opt-ins. Do not mark the PR Ready and do not merge.
+Do not add the Claude model-review opt-in yourself unless the user/ChatGPT review gate explicitly assigns Claude as the independent reviewer. When explicitly assigned, the gate adds the exact dedicated line to the existing PR. Do not merge.
 
 ## 13. Final report
 
@@ -169,6 +171,6 @@ Report back to the user with at least:
 8. `git diff --check` result
 9. Any stale docs/CLAUDE.md rules fixed, and why
 10. Unresolved concerns / open risks
-11. Draft PR URL
+11. PR URL and whether it is normal reviewable or intentionally Draft/WIP
 
 If any Definition of Done item was intentionally skipped, name it and say why — never skip silently.
