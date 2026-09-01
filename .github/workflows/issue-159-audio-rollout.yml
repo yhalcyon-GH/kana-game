@@ -9,18 +9,295 @@ permissions:
   contents: write
 
 jobs:
-  probe:
+  rollout:
     if: ${{ !contains(github.event.head_commit.message, '[audio-rollout-complete]') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Probe runtime audio and ffmpeg
+
+      - name: Install ffmpeg
         run: |
-          set -euo pipefail
-          echo "HEAD=$(git rev-parse HEAD)"
-          echo "WAV_COUNT=$(find public/audio -type f -name '*.wav' | wc -l)"
-          echo "WAV_BYTES=$(find public/audio -type f -name '*.wav' -printf '%s\n' | awk '{s+=$1} END {print s+0}')"
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
           ffmpeg -version | head -1
           ffprobe -version | head -1
+
+      - name: Convert and validate all runtime audio
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import array
+          import json
+          import math
+          import os
+          import pathlib
+          import shutil
+          import subprocess
+          import wave
+
+          ROOT = pathlib.Path('.')
+          AUDIO = ROOT / 'public' / 'audio'
+          REPORT_DIR = ROOT / 'docs' / 'history' / 'asset-audits'
+          REPORT_DIR.mkdir(parents=True, exist_ok=True)
+          EXPECTED_COUNT = 518
+          EXPECTED_BYTES = 49_373_726
+          SILENCE_DBFS = -50.0
+          SILENCE_THRESHOLD = int(round(32767 * (10 ** (SILENCE_DBFS / 20))))
+          OUTLIER_SECONDS = 0.020
+
+          def run(cmd, capture=True):
+              return subprocess.run(cmd, check=True, text=True, capture_output=capture)
+
+          def probe(path):
+              p = run([
+                  'ffprobe', '-v', 'error', '-select_streams', 'a:0',
+                  '-show_entries', 'stream=codec_name,sample_rate,channels',
+                  '-show_entries', 'format=duration,size',
+                  '-of', 'json', str(path)
+              ])
+              data = json.loads(p.stdout)
+              stream = data['streams'][0]
+              fmt = data['format']
+              return {
+                  'codec': stream.get('codec_name'),
+                  'sample_rate': int(stream['sample_rate']),
+                  'channels': int(stream['channels']),
+                  'duration': float(fmt['duration']),
+                  'size': int(fmt['size']),
+              }
+
+          def read_wav_pcm(path):
+              with wave.open(str(path), 'rb') as w:
+                  assert w.getnchannels() == 1, f'expected mono WAV: {path}'
+                  assert w.getsampwidth() == 2, f'expected PCM16 WAV: {path}'
+                  rate = w.getframerate()
+                  frames = w.readframes(w.getnframes())
+              samples = array.array('h')
+              samples.frombytes(frames)
+              if os.sys.byteorder != 'little':
+                  samples.byteswap()
+              return rate, samples
+
+          def decode_mp3(path, rate):
+              p = subprocess.run([
+                  'ffmpeg', '-hide_banner', '-loglevel', 'error', '-nostdin',
+                  '-i', str(path), '-f', 's16le', '-acodec', 'pcm_s16le',
+                  '-ac', '1', '-ar', str(rate), 'pipe:1'
+              ], check=True, capture_output=True)
+              samples = array.array('h')
+              samples.frombytes(p.stdout)
+              if os.sys.byteorder != 'little':
+                  samples.byteswap()
+              return samples
+
+          def edge_silence(samples, rate):
+              if not samples:
+                  return 0.0, 0.0
+              first = None
+              last = None
+              for i, v in enumerate(samples):
+                  if abs(v) > SILENCE_THRESHOLD:
+                      first = i
+                      break
+              if first is None:
+                  return len(samples) / rate, len(samples) / rate
+              for i in range(len(samples) - 1, -1, -1):
+                  if abs(samples[i]) > SILENCE_THRESHOLD:
+                      last = i
+                      break
+              return first / rate, (len(samples) - 1 - last) / rate
+
+          wavs = sorted(AUDIO.rglob('*.wav'))
+          before_bytes = sum(p.stat().st_size for p in wavs)
+          if len(wavs) != EXPECTED_COUNT:
+              raise SystemExit(f'expected {EXPECTED_COUNT} WAVs, found {len(wavs)}')
+          if before_bytes != EXPECTED_BYTES:
+              raise SystemExit(f'expected {EXPECTED_BYTES} WAV bytes, found {before_bytes}')
+
+          rows = []
+          outliers = []
+          ffmpeg_version = run(['ffmpeg', '-version']).stdout.splitlines()[0]
+
+          for idx, src in enumerate(wavs, 1):
+              rel = src.relative_to(AUDIO)
+              dst = src.with_suffix('.mp3')
+              src_probe = probe(src)
+              rate, src_samples = read_wav_pcm(src)
+              if src_probe['channels'] != 1:
+                  raise SystemExit(f'non-mono source: {rel}')
+              if rate != src_probe['sample_rate']:
+                  raise SystemExit(f'source rate mismatch: {rel}')
+              if rate not in (24000, 44100):
+                  raise SystemExit(f'unexpected source rate {rate}: {rel}')
+
+              subprocess.run([
+                  'ffmpeg', '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
+                  '-i', str(src), '-c:a', 'libmp3lame', '-b:a', '96k',
+                  '-ar', str(rate), '-ac', '1', str(dst)
+              ], check=True)
+
+              mp3_probe = probe(dst)
+              if mp3_probe['codec'] != 'mp3':
+                  raise SystemExit(f'wrong codec: {rel}')
+              if mp3_probe['channels'] != 1:
+                  raise SystemExit(f'non-mono MP3: {rel}')
+              if mp3_probe['sample_rate'] != rate:
+                  raise SystemExit(f'sample rate changed: {rel}: {rate} -> {mp3_probe["sample_rate"]}')
+
+              decoded = decode_mp3(dst, rate)
+              src_dur = len(src_samples) / rate
+              dec_dur = len(decoded) / rate
+              src_lead, src_trail = edge_silence(src_samples, rate)
+              dec_lead, dec_trail = edge_silence(decoded, rate)
+              duration_delta = dec_dur - src_dur
+              lead_delta = dec_lead - src_lead
+              trail_delta = dec_trail - src_trail
+              src_peak = max((abs(v) for v in src_samples), default=0)
+              dec_peak = max((abs(v) for v in decoded), default=0)
+              clipping = dec_peak >= 32767 and src_peak < 32767
+
+              flags = []
+              if abs(duration_delta) > OUTLIER_SECONDS:
+                  flags.append(f'duration delta {duration_delta:.6f}s')
+              if abs(lead_delta) > OUTLIER_SECONDS:
+                  flags.append(f'lead delta {lead_delta:.6f}s')
+              if abs(trail_delta) > OUTLIER_SECONDS:
+                  flags.append(f'trail delta {trail_delta:.6f}s')
+              if clipping:
+                  flags.append('new clipping')
+              if flags:
+                  outliers.append({'path': str(rel), 'flags': flags})
+
+              rows.append({
+                  'path': str(rel).replace('\\', '/'),
+                  'source_rate': rate,
+                  'source_bytes': src.stat().st_size,
+                  'mp3_bytes': dst.stat().st_size,
+                  'source_duration_s': round(src_dur, 6),
+                  'decoded_duration_s': round(dec_dur, 6),
+                  'duration_delta_s': round(duration_delta, 6),
+                  'leading_silence_delta_s': round(lead_delta, 6),
+                  'trailing_silence_delta_s': round(trail_delta, 6),
+                  'source_peak': src_peak,
+                  'decoded_peak': dec_peak,
+                  'new_clipping': clipping,
+              })
+              if idx % 50 == 0 or idx == len(wavs):
+                  print(f'validated {idx}/{len(wavs)}')
+
+          mp3s = sorted(AUDIO.rglob('*.mp3'))
+          if len(mp3s) != EXPECTED_COUNT:
+              raise SystemExit(f'expected {EXPECTED_COUNT} MP3s, found {len(mp3s)}')
+          if outliers:
+              print(json.dumps(outliers, ensure_ascii=False, indent=2))
+              raise SystemExit(f'{len(outliers)} automated audio outlier(s); refusing to modify runtime WAV inventory')
+
+          after_bytes = sum(p.stat().st_size for p in mp3s)
+          reduction = 1 - (after_bytes / before_bytes)
+          max_duration = max(abs(r['duration_delta_s']) for r in rows)
+          max_lead = max(abs(r['leading_silence_delta_s']) for r in rows)
+          max_trail = max(abs(r['trailing_silence_delta_s']) for r in rows)
+
+          detail = {
+              'date': '2026-09-01',
+              'ffmpeg_version': ffmpeg_version,
+              'recipe': 'libmp3lame 96 kbps CBR, mono, preserve source sample rate, no normalization/remastering',
+              'source_count': len(wavs),
+              'source_bytes': before_bytes,
+              'mp3_count': len(mp3s),
+              'mp3_bytes': after_bytes,
+              'reduction_fraction': reduction,
+              'silence_threshold_dbfs': SILENCE_DBFS,
+              'outlier_threshold_seconds': OUTLIER_SECONDS,
+              'max_abs_duration_delta_s': max_duration,
+              'max_abs_leading_silence_delta_s': max_lead,
+              'max_abs_trailing_silence_delta_s': max_trail,
+              'new_clipping_count': sum(1 for r in rows if r['new_clipping']),
+              'rows': rows,
+          }
+          (REPORT_DIR / 'asset-optimization-audio-rollout-2026-09-01.json').write_text(
+              json.dumps(detail, ensure_ascii=False, indent=2) + '\n', encoding='utf-8'
+          )
+
+          md = f'''# Runtime audio MP3 rollout (Issue #159)\n\n- Starting runtime WAV inventory: **{len(wavs)} files / {before_bytes:,} bytes**\n- Production MP3 inventory: **{len(mp3s)} files / {after_bytes:,} bytes**\n- Actual reduction: **{reduction * 100:.1f}%** ({before_bytes - after_bytes:,} bytes saved)\n- Encoder: `{ffmpeg_version}`\n- Recipe: `libmp3lame`, 96 kbps CBR, mono, preserve each source's 44.1 kHz or 24 kHz sample rate\n- Source: existing mastered runtime WAVs; **no re-normalization, EQ, gain, trimming, or dynamics processing**\n\n## Automated whole-corpus validation\n\nAll {len(mp3s)} generated MP3 files passed:\n\n- decode success\n- mono channel check\n- source sample-rate preservation\n- duration delta <= {OUTLIER_SECONDS * 1000:.0f} ms\n- leading/trailing silence delta <= {OUTLIER_SECONDS * 1000:.0f} ms at {SILENCE_DBFS:.0f} dBFS threshold\n- no newly introduced PCM clipping\n- one MP3 generated for every source WAV path\n\nObserved maxima across the full corpus:\n\n- max |decoded duration delta|: **{max_duration * 1000:.2f} ms**\n- max |leading-silence delta|: **{max_lead * 1000:.2f} ms**\n- max |trailing-silence delta|: **{max_trail * 1000:.2f} ms**\n- new clipping: **0 files**\n\nNo automated anomaly remained that required human listening/device escalation.\n\n## Runtime integration\n\n`StaticFileProvider` is changed from `.wav` to `.mp3`, and its URL contract test is updated accordingly. The existing Workbox runtime caching rule matches `/audio/` independent of extension, so no cache-policy change is required.\n\n## Verification policy\n\nHuman verification is risk-based. Broad listening or routine physical-device checks are not required when whole-corpus and runtime-integration automation passes. Human review is requested only for a concrete anomaly that cannot be resolved mechanically.\n'''
+          (REPORT_DIR / 'asset-optimization-audio-rollout-2026-09-01.md').write_text(md, encoding='utf-8')
+
+          # Remove production WAV copies only after every MP3 passed validation.
+          for src in wavs:
+              src.unlink()
+
+          print(f'MP3_BYTES={after_bytes}')
+          print(f'REDUCTION={reduction * 100:.3f}%')
+          print(f'MAX_DURATION_DELTA_MS={max_duration * 1000:.3f}')
+          print(f'MAX_LEAD_DELTA_MS={max_lead * 1000:.3f}')
+          print(f'MAX_TRAIL_DELTA_MS={max_trail * 1000:.3f}')
+          PY
+
+      - name: Update runtime MP3 references and generator safeguards
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          provider = Path('src/audio/staticFileProvider.ts')
+          text = provider.read_text(encoding='utf-8')
+          old = "audio/${request.key}.wav`"
+          new = "audio/${request.key}.mp3`"
+          if old not in text:
+              raise SystemExit('StaticFileProvider WAV reference not found')
+          provider.write_text(text.replace(old, new), encoding='utf-8')
+
+          test = Path('src/audio/staticFileProvider.test.ts')
+          text = test.read_text(encoding='utf-8')
+          if 'audio/characters/ka.wav' not in text:
+              raise SystemExit('StaticFileProvider test WAV expectation not found')
+          test.write_text(text.replace('audio/characters/ka.wav', 'audio/characters/ka.mp3'), encoding='utf-8')
+
+          # Protect the main character/word ElevenLabs generator from treating
+          # the entire MP3 production corpus as missing after WAV removal.
+          gen = Path('scripts/generateAudioElevenLabs.ts')
+          text = gen.read_text(encoding='utf-8')
+          old_block = """    const outPath = path.join(dir, `${id}.wav`)\n    if (await fileExists(outPath)) {\n      console.log(`  skip ${subdir}/${id}.wav (already exists)`)\n      continue\n    }\n"""
+          new_block = """    const outPath = path.join(dir, `${id}.wav`)\n    const productionMp3Path = path.join(dir, `${id}.mp3`)\n    if (await fileExists(outPath) || await fileExists(productionMp3Path)) {\n      console.log(`  skip ${subdir}/${id} (runtime clip already exists)`)\n      continue\n    }\n"""
+          if old_block not in text:
+              raise SystemExit('generateAudioElevenLabs skip block not found')
+          text = text.replace(old_block, new_block)
+          text = text.replace(
+              '// SKIPS any id that already has a clip on disk (same safety convention as\n',
+              '// SKIPS any id that already has either a source WAV or production MP3 on disk\n// (same safety convention as\n'
+          )
+          gen.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Automated integration checks
+        run: |
+          set -euo pipefail
+          test "$(find public/audio -type f -name '*.mp3' | wc -l)" -eq 518
+          test "$(find public/audio -type f -name '*.wav' | wc -l)" -eq 0
+          grep -q 'audio/${request.key}.mp3' src/audio/staticFileProvider.ts
+          grep -q 'audio/characters/ka.mp3' src/audio/staticFileProvider.test.ts
+          ! grep -R -nE "audio/[^\"'[:space:]]+\.wav|request\.key\}\.wav" src --include='*.ts' --include='*.tsx'
+          grep -q '/\\/audio\\//' vite.config.ts
+          echo 'Remaining script WAV references (informational; generators may intentionally produce source WAV):'
+          grep -R -n '\.wav' scripts --include='*.ts' --include='*.mjs' || true
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Verify application
+        run: npm run verify
+
+      - name: Check exact branch diff
+        run: git diff --check origin/main...HEAD
+
+      - name: Commit rollout to branch
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git status --short
+          git commit -m "feat: roll out MP3 runtime audio [audio-rollout-complete]"
+          git push origin HEAD:issue-159-runtime-audio-mp3-rollout
