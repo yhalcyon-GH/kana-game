@@ -1,0 +1,26 @@
+name: Issue 159 audio rollout
+
+on:
+  push:
+    branches:
+      - issue-159-runtime-audio-mp3-rollout
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    if: ${{ !contains(github.event.head_commit.message, '[audio-rollout-complete]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Probe runtime audio and ffmpeg
+        run: |
+          set -euo pipefail
+          echo "HEAD=$(git rev-parse HEAD)"
+          echo "WAV_COUNT=$(find public/audio -type f -name '*.wav' | wc -l)"
+          echo "WAV_BYTES=$(find public/audio -type f -name '*.wav' -printf '%s\n' | awk '{s+=$1} END {print s+0}')"
+          ffmpeg -version | head -1
+          ffprobe -version | head -1
