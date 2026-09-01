@@ -75,6 +75,16 @@ jobs:
           text = text.replace('a WAV file exists on disk for each of the 12 audio ids', 'an MP3 file exists on disk for each of the 12 audio ids')
           curriculum.write_text(text, encoding='utf-8')
 
+          replace_once(
+              'src/routes/games/KanaQuizPage.test.tsx',
+              '/\\/audio\\/characters\\/([^/]+)\\.wav$/',
+              '/\\/audio\\/characters\\/([^/]+)\\.mp3$/',
+          )
+          kana_quiz = Path('src/routes/games/KanaQuizPage.test.tsx')
+          text = kana_quiz.read_text(encoding='utf-8')
+          text = text.replace('characters/<id>.wav', 'characters/<id>.mp3')
+          kana_quiz.write_text(text, encoding='utf-8')
+
           gen = Path('scripts/generateAudioElevenLabs.ts')
           text = gen.read_text(encoding='utf-8')
           old = '''    const outPath = path.join(dir, `${id}.wav`)\n    if (await fileExists(outPath)) {\n      console.log(`  skip ${subdir}/${id}.wav (already exists)`)'''
@@ -104,7 +114,7 @@ jobs:
               ('words/wa-niwatori.mp3', 'words/ra-niwatori.mp3'),
               ('words/wa-tenpura.mp3', 'words/ra-tenpura.mp3'),
               ('words/wa-watashi.mp3', 'words/ra-watashi.mp3'),
-              ('words/wa-tonkatsu.mp3', 'words/ta-tonkatsu.mp3'),
+              ('words/wa-tonkatsu.mp3', 'words/ra-tonkatsu.mp3'),
           ]
           report_json = Path('docs/history/asset-audits/asset-optimization-audio-rollout-2026-09-01.json')
           detail = json.loads(report_json.read_text(encoding='utf-8'))
