@@ -1,0 +1,95 @@
+name: Issue 159 audio outlier diagnostics
+
+on:
+  push:
+    branches:
+      - issue-159-audio-outlier-diagnostics
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ffmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+      - name: Diagnose three silence-gate outliers
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import array, math, os, pathlib, subprocess, wave
+
+          paths = [
+              pathlib.Path('public/audio/characters/pyu.wav'),
+              pathlib.Path('public/audio/words/a-ie.wav'),
+              pathlib.Path('public/audio/words/sokuon-iki.wav'),
+          ]
+
+          def wav_pcm(path):
+              with wave.open(str(path), 'rb') as w:
+                  rate = w.getframerate()
+                  raw = w.readframes(w.getnframes())
+              a = array.array('h'); a.frombytes(raw)
+              if os.sys.byteorder != 'little': a.byteswap()
+              return rate, a
+
+          def decode(path, rate):
+              p = subprocess.run([
+                  'ffmpeg','-hide_banner','-loglevel','error','-nostdin','-i',str(path),
+                  '-f','s16le','-acodec','pcm_s16le','-ac','1','-ar',str(rate),'pipe:1'
+              ], check=True, capture_output=True)
+              a = array.array('h'); a.frombytes(p.stdout)
+              if os.sys.byteorder != 'little': a.byteswap()
+              return a
+
+          def sample_edge(samples, rate, db):
+              t = 32767 * 10 ** (db / 20)
+              first = next((i for i,v in enumerate(samples) if abs(v) > t), len(samples))
+              last = next((i for i in range(len(samples)-1,-1,-1) if abs(samples[i]) > t), -1)
+              if last < 0: return len(samples)/rate, len(samples)/rate
+              return first/rate, (len(samples)-1-last)/rate
+
+          def frame_edge(samples, rate, db, frame_ms):
+              n = max(1, round(rate * frame_ms / 1000))
+              t = 32767 * 10 ** (db / 20)
+              rms=[]
+              for start in range(0, len(samples), n):
+                  frame = samples[start:start+n]
+                  if not frame: continue
+                  val = math.sqrt(sum(v*v for v in frame)/len(frame))
+                  rms.append((start, val))
+              active=[start for start,val in rms if val > t]
+              if not active: return len(samples)/rate, len(samples)/rate
+              first=active[0]
+              last_start=active[-1]
+              last_end=min(len(samples), last_start+n)
+              return first/rate, (len(samples)-last_end)/rate
+
+          for src in paths:
+              rate, original = wav_pcm(src)
+              mp3 = src.with_suffix('.diag.mp3')
+              subprocess.run([
+                  'ffmpeg','-hide_banner','-loglevel','error','-nostdin','-y','-i',str(src),
+                  '-c:a','libmp3lame','-b:a','96k','-ar',str(rate),'-ac','1',str(mp3)
+              ], check=True)
+              decoded=decode(mp3, rate)
+              print(f'=== {src} rate={rate} src_samples={len(original)} dec_samples={len(decoded)} duration_delta_ms={(len(decoded)-len(original))/rate*1000:.3f}')
+              print(f'peaks src={max(map(abs,original))} dec={max(map(abs,decoded))}')
+              for db in (-35,-40,-45,-50,-55,-60):
+                  sl,st=sample_edge(original,rate,db); dl,dt=sample_edge(decoded,rate,db)
+                  print(f'sample threshold {db}dB: lead_delta_ms={(dl-sl)*1000:.3f} trail_delta_ms={(dt-st)*1000:.3f}')
+              for frame_ms in (5,10,20):
+                  for db in (-40,-45,-50):
+                      sl,st=frame_edge(original,rate,db,frame_ms); dl,dt=frame_edge(decoded,rate,db,frame_ms)
+                      print(f'RMS {frame_ms}ms {db}dB: lead_delta_ms={(dl-sl)*1000:.3f} trail_delta_ms={(dt-st)*1000:.3f}')
+              # Tail RMS in fixed windows quantifies whether the MP3 tail is low-level codec residue.
+              for ms in (50,100,250,500):
+                  n=min(len(decoded), round(rate*ms/1000))
+                  for label,a in [('src',original),('dec',decoded)]:
+                      frame=a[-n:]
+                      rms=math.sqrt(sum(v*v for v in frame)/len(frame)) if frame else 0
+                      db=20*math.log10(max(rms,1e-12)/32767)
+                      print(f'tail {ms}ms {label}_rms_dbfs={db:.2f}')
+              mp3.unlink()
+          PY
