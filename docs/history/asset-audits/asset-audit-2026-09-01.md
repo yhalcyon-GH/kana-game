@@ -63,11 +63,11 @@ Total: **1548 files, 567,316,983 bytes (541 MiB)**.
 
 ## Largest 25 runtime assets
 
-See `largest_25_runtime_assets` in [`asset-summary-2026-09-01.json`](./asset-summary-2026-09-01.json). Top entries are all in `public/guide/`, `public/summary-results/`, `public/mascot/`, and `public/restaurant-dishes/` — WebP illustrations in the 800 KB–1.2 MB range, all at 1254–1800 px wide.
+See `largest_25_runtime_assets` in [`asset-summary-2026-09-01.json`](./asset-summary-2026-09-01.json). The largest entries include multi-megabyte PNGs under `public/mascot/` and `public/guide/` (~1.7–2.2 MB), followed by large WebP illustrations under `public/restaurant-dishes/`, `public/summary-results/`, `public/mascot/`, and `public/guide/` (~1.1–1.5 MB). These are the highest-value image optimization candidates.
 
 ## Exact duplicates (by SHA-256)
 
-5 duplicate groups found, none of them two different runtime files with the same content (so no wasted *runtime* bytes from duplication):
+5 duplicate groups found. Four are runtime↔design or design-only duplicates; one group is two different runtime paths with identical content and therefore may waste runtime/cache bytes if both URLs are fetched:
 
 1. `public/audio/words/ma-ame.wav` ≡ `design/audio/words/ai-generated-2026-08/words/ma-ame.wav` — expected (design source retained alongside shipped copy).
 2. `public/audio/words/youon-sha-juu.wav` ≡ `design/audio/words/ai-generated-2026-08/words/youon-sha-juu.wav` — same pattern.
@@ -79,7 +79,7 @@ Full list with hashes: `exact_duplicates` in the summary JSON.
 
 ## Large PNGs (>200 KB)
 
-338 files, almost entirely under `design/images/` (AI-generation batches, originals). Only a handful of runtime `.png` files exist at all (icons); the bulk of large PNGs are non-shipping design references and are out of scope for optimization. Full list in the summary JSON (`large_pngs_over_200kb`).
+338 files, mostly under `design/images/` (AI-generation batches, originals). However, several multi-megabyte runtime PNGs also exist under `public/guide/` and `public/mascot/`; these are high-priority runtime optimization candidates. Full list in the summary JSON (`large_pngs_over_200kb`).
 
 ## Large WebPs (>100 KB)
 
