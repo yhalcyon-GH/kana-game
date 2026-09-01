@@ -1,0 +1,158 @@
+name: Issue 159 finalize MP3 rollout
+
+on:
+  push:
+    branches:
+      - issue-159-runtime-audio-mp3-final
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    if: ${{ !contains(github.event.head_commit.message, '[audio-finalize-complete]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Overlay validated MP3 corpus onto current main
+        run: |
+          set -euo pipefail
+          git fetch origin issue-159-runtime-audio-mp3-rollout
+          git rm -r public/audio
+          git checkout origin/issue-159-runtime-audio-mp3-rollout -- public/audio \
+            docs/history/asset-audits/asset-optimization-audio-rollout-2026-09-01.md \
+            docs/history/asset-audits/asset-optimization-audio-rollout-2026-09-01.json
+
+          git mv public/audio/words/wa-en.mp3 public/audio/words/a-en.mp3
+          git mv public/audio/words/wa-hon.mp3 public/audio/words/ha-hon.mp3
+          git mv public/audio/words/wa-kanpai.mp3 public/audio/words/ha-kanpai.mp3
+          git mv public/audio/words/wa-nihon.mp3 public/audio/words/ha-nihon.mp3
+          git mv public/audio/words/wa-nihongo.mp3 public/audio/words/ha-nihongo.mp3
+          git mv public/audio/words/wa-denwa.mp3 public/audio/words/ra-denwa.mp3
+          git mv public/audio/words/wa-konbanwa.mp3 public/audio/words/ra-konbanwa.mp3
+          git mv public/audio/words/wa-konnichiwa.mp3 public/audio/words/ra-konnichiwa.mp3
+          git mv public/audio/words/wa-mizu-wo-nomu.mp3 public/audio/words/ra-mizu-wo-nomu.mp3
+          git mv public/audio/words/wa-niwatori.mp3 public/audio/words/ra-niwatori.mp3
+          git mv public/audio/words/wa-tenpura.mp3 public/audio/words/ra-tenpura.mp3
+          git mv public/audio/words/wa-watashi.mp3 public/audio/words/ra-watashi.mp3
+          git mv public/audio/words/wa-tonkatsu.mp3 public/audio/words/ta-tonkatsu.mp3
+
+      - name: Patch current-main runtime references and generator safeguards
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          import json
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected exactly one occurrence of {old!r}, found {count}')
+              p.write_text(text.replace(old, new), encoding='utf-8')
+
+          replace_once(
+              'src/audio/staticFileProvider.ts',
+              'audio/${request.key}.wav`',
+              'audio/${request.key}.mp3`',
+          )
+          replace_once(
+              'src/audio/staticFileProvider.test.ts',
+              'audio/characters/ka.wav',
+              'audio/characters/ka.mp3',
+          )
+          replace_once(
+              'src/data/curriculum.test.ts',
+              '`${audioId}.wav`',
+              '`${audioId}.mp3`',
+          )
+          curriculum = Path('src/data/curriculum.test.ts')
+          text = curriculum.read_text(encoding='utf-8')
+          text = text.replace('a WAV file exists on disk for each of the 12 audio ids', 'an MP3 file exists on disk for each of the 12 audio ids')
+          curriculum.write_text(text, encoding='utf-8')
+
+          gen = Path('scripts/generateAudioElevenLabs.ts')
+          text = gen.read_text(encoding='utf-8')
+          old = '''    const outPath = path.join(dir, `${id}.wav`)\n    if (await fileExists(outPath)) {\n      console.log(`  skip ${subdir}/${id}.wav (already exists)`)'''
+          new = '''    const outPath = path.join(dir, `${id}.wav`)\n    const productionMp3Path = path.join(dir, `${id}.mp3`)\n    if (await fileExists(outPath) || await fileExists(productionMp3Path)) {\n      console.log(`  skip ${subdir}/${id} (runtime clip already exists)`)'''
+          if text.count(old) != 1:
+              raise SystemExit('generateAudioElevenLabs.ts: expected WAV-only skip block not found exactly once')
+          gen.write_text(text.replace(old, new), encoding='utf-8')
+
+          feedback = Path('scripts/generateFeedbackAudio.ts')
+          text = feedback.read_text(encoding='utf-8')
+          old = '''    const outPath = path.join(OUT_DIR, `${id}.wav`)\n    if (await exists(outPath)) {\n      console.log(`  skip ${id}.wav (already exists)`)'''
+          new = '''    const outPath = path.join(OUT_DIR, `${id}.wav`)\n    const productionMp3Path = path.join(OUT_DIR, `${id}.mp3`)\n    if (await exists(outPath) || await exists(productionMp3Path)) {\n      console.log(`  skip ${id} (runtime clip already exists)`)'''
+          if text.count(old) != 1:
+              raise SystemExit('generateFeedbackAudio.ts: expected WAV-only skip block not found exactly once')
+          feedback.write_text(text.replace(old, new), encoding='utf-8')
+
+          renames = [
+              ('words/wa-en.mp3', 'words/a-en.mp3'),
+              ('words/wa-hon.mp3', 'words/ha-hon.mp3'),
+              ('words/wa-kanpai.mp3', 'words/ha-kanpai.mp3'),
+              ('words/wa-nihon.mp3', 'words/ha-nihon.mp3'),
+              ('words/wa-nihongo.mp3', 'words/ha-nihongo.mp3'),
+              ('words/wa-denwa.mp3', 'words/ra-denwa.mp3'),
+              ('words/wa-konbanwa.mp3', 'words/ra-konbanwa.mp3'),
+              ('words/wa-konnichiwa.mp3', 'words/ra-konnichiwa.mp3'),
+              ('words/wa-mizu-wo-nomu.mp3', 'words/ra-mizu-wo-nomu.mp3'),
+              ('words/wa-niwatori.mp3', 'words/ra-niwatori.mp3'),
+              ('words/wa-tenpura.mp3', 'words/ra-tenpura.mp3'),
+              ('words/wa-watashi.mp3', 'words/ra-watashi.mp3'),
+              ('words/wa-tonkatsu.mp3', 'words/ta-tonkatsu.mp3'),
+          ]
+          report_json = Path('docs/history/asset-audits/asset-optimization-audio-rollout-2026-09-01.json')
+          detail = json.loads(report_json.read_text(encoding='utf-8'))
+          detail['main_sync'] = {
+              'base_sha': 'c5422a24e6640ef84eefeedc6031ee35cfbed368',
+              'runtime_path_renames': [{'from': a, 'to': b} for a, b in renames],
+              'note': 'MP3 blobs were reused byte-for-byte after current-main word-id renames; validation rows retain the pre-sync source path names.',
+          }
+          report_json.write_text(json.dumps(detail, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+          report_md = Path('docs/history/asset-audits/asset-optimization-audio-rollout-2026-09-01.md')
+          with report_md.open('a', encoding='utf-8') as f:
+              f.write('\n## Current-main synchronization\n\n')
+              f.write('The final rollout was rebased onto main `c5422a24e6640ef84eefeedc6031ee35cfbed368`. Main had renamed 13 word IDs after the corpus validation run. Their already-validated MP3 blobs were reused byte-for-byte under the new IDs, so no re-encoding or audio-content change occurred. The detailed JSON records the 13 path mappings under `main_sync`.\n')
+          PY
+
+      - name: Runtime inventory checks
+        run: |
+          set -euo pipefail
+          test "$(find public/audio -type f -name '*.mp3' | wc -l)" -eq 518
+          test "$(find public/audio -type f -name '*.wav' | wc -l)" -eq 0
+          test "$(find public/audio -type f -name '*.mp3' -printf '%s\n' | awk '{s+=$1} END {print s}')" -eq 11556483
+          grep -F 'audio/${request.key}.mp3' src/audio/staticFileProvider.ts
+          ! grep -F 'audio/${request.key}.wav' src/audio/staticFileProvider.ts
+          for f in a-en ha-hon ha-kanpai ha-nihon ha-nihongo ra-denwa ra-konbanwa ra-konnichiwa ra-mizu-wo-nomu ra-niwatori ra-tenpura ra-watashi ta-tonkatsu; do
+            test -f "public/audio/words/$f.mp3"
+          done
+          for f in wa-en wa-hon wa-kanpai wa-nihon wa-nihongo wa-denwa wa-konbanwa wa-konnichiwa wa-mizu-wo-nomu wa-niwatori wa-tenpura wa-watashi wa-tonkatsu; do
+            test ! -e "public/audio/words/$f.mp3"
+          done
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify application
+        run: npm run verify
+
+      - name: Diff checks
+        run: |
+          set -euo pipefail
+          git diff --check
+          git status --short
+
+      - name: Commit current-main rollout
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m 'feat: finalize MP3 runtime audio on current main [audio-finalize-complete]'
+          git push origin HEAD:issue-159-runtime-audio-mp3-final
