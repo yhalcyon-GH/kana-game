@@ -27,7 +27,7 @@ Before considering data/logic changes complete, run the relevant focused tests a
 
 Roles are assigned per task; Claude Code is not permanently required to be the Builder or Reviewer.
 
-For normal implementation work, use the `/kana-task` Skill (`.claude/skills/kana-task/SKILL.md`): Explore → Plan when useful → Implement → Verify → Inspect → Fix → Commit → Push → Draft PR, from a Goal and Acceptance Criteria. See `docs/ai-development-loop.md` for the shared role-based loop and review-depth policy, and `docs/definition-of-done.md` for what Builder completion means.
+For normal implementation work, use the `/kana-task` Skill (`.claude/skills/kana-task/SKILL.md`): Explore → Plan when useful → Implement → Verify → Inspect → Fix → Commit → Push → reviewable PR, from a Goal and Acceptance Criteria. See `docs/ai-development-loop.md` for the shared role-based loop and review-depth policy, and `docs/definition-of-done.md` for what Builder completion means.
 
 When assigned as an independent reviewer, use a fresh session/subagent or the review tooling rather than grading the same implementation in the same context. Review the current Goal/Acceptance Criteria and full diff for correctness, regressions, scope drift, and test gaps; do not modify the branch unless explicitly asked to implement accepted findings.
 
@@ -68,7 +68,7 @@ Category dependencies are explicit through `dependsOnCategoryIds`; never infer d
 
 `src/data/curriculum.test.ts` enforces key content invariants. New vocabulary/rows should preserve them rather than bypassing the tests.
 
-Yōon is multi-glyph/one-mora. Pitch-accent code already handles mora boundaries, but the stroke generator is unsafe for multi-glyph ids. **Do not run `scripts/fetchStrokeData.ts` for yōon or future multi-glyph character ids.**
+Yōon is multi-glyph/one-mora. Pitch-accent code already handles mora boundaries, but the legacy KanjiVG stroke generator is unsafe for multi-glyph ids. **Do not run `scripts/fetchStrokeData.ts` for yōon or future multi-glyph character ids.**
 
 Chōon rows may have `characterIds: []`; do not assume every row introduces characters.
 
