@@ -33,13 +33,38 @@ const imageById: Record<string, string> = {
   karee: 'word-icons/katakana-ra-karee.webp', pasuta: 'word-icons/katakana-ha-pasuta.webp', sarada: 'word-icons/katakana-ra-sarada.webp', piza: 'word-icons/katakana-ha-piza.webp',
   koohii: 'word-icons/chouon-katakana-koohii.webp', koora: 'word-icons/chouon-katakana-koora.webp', aisu: 'word-icons/katakana-sa-aisu.webp', keeki: 'word-icons/katakana-a-keeki.webp', gyouza: 'word-icons/youon-ka-gyouza.webp', mirukutii: 'word-icons/special-katakana-fa-mirukutii.webp',
 }
-const placeholderById: Record<string, string> = { udon: '🍲', yakitori: '🍗', oden: '🍢', edamame: '🫛', purin: '🍮', zerii: '🍧', suupu: '🥣', hanbaagaa: '🍔', suteeki: '🥩', poteto: '🍟', chikin: '🍖', raamen: '🍜', miruku: '🥛', hotto: '☕', 'hotto-doggu': '🌭', sandoicchi: '🥪', 'hanbaagaa-setto': '🍔➕', korokke: '🥔', kukkii: '🍪', 'hotto-kokoa': '☕🍫', toufu: '🧈', chaahan: '🍳', shichuu: '🍲🥕', kaferate: '☕🥛', 'orenji-juusu': '🍊🥤', ryokucha: '🍵', pafe: '🍨🍓', tiramisu: '🍰☕', 'choko-aisu': '🍫🍨' }
-const englishById: Record<string, string> = { sushi: 'sushi', soba: 'soba noodles', udon: 'udon noodles', tenpura: 'tempura', onigiri: 'rice ball', yakitori: 'grilled chicken skewers', sashimi: 'sashimi', tonkatsu: 'pork cutlet', oden: 'Japanese stew', edamame: 'edamame', misoshiru: 'miso soup', karee: 'curry', pasuta: 'pasta', sarada: 'salad', piza: 'pizza', suupu: 'soup', hanbaagaa: 'hamburger', suteeki: 'steak', poteto: 'French fries', chikin: 'chicken', raamen: 'ramen', koohii: 'coffee', koora: 'cola', miruku: 'milk', purin: 'pudding', zerii: 'jelly', aisu: 'ice cream', keeki: 'cake', 'hotto-doggu': 'hot dog', sandoicchi: 'sandwich', 'hanbaagaa-setto': 'hamburger set', korokke: 'croquette', kukkii: 'cookie', 'hotto-kokoa': 'hot cocoa', toufu: 'tofu', chaahan: 'fried rice', gyouza: 'dumplings', shichuu: 'stew', kaferate: 'cafe latte', mirukutii: 'milk tea', 'orenji-juusu': 'orange juice', ryokucha: 'green tea', pafe: 'parfait', tiramisu: 'tiramisu', 'choko-aisu': 'chocolate ice cream' }
+// Restaurant 1's 7 new dishes (Issue #158) don't have art/audio yet — the
+// user is producing those assets separately (see the issue's exact reserved
+// paths) and this task must not invent placeholder binaries. Listed here so
+// dish() can skip guessing an `image` path for them and fall straight to
+// the existing missing-image behavior (DishGlyph's placeholderEmoji
+// fallback in routes/games/RestaurantPage.tsx) instead of pointing at a
+// public/ file that doesn't exist yet. Remove an id from this set once its
+// real restaurant-dishes/hiragana/<id>.webp lands.
+const PENDING_ASSET_IDS = new Set(['katsudon', 'unagi', 'dango', 'tendon', 'kaisendon', 'unidon', 'kani'])
+const placeholderById: Record<string, string> = { udon: '🍲', yakitori: '🍗', oden: '🍢', edamame: '🫛', purin: '🍮', zerii: '🍧', suupu: '🥣', hanbaagaa: '🍔', suteeki: '🥩', poteto: '🍟', chikin: '🍖', raamen: '🍜', miruku: '🥛', hotto: '☕', 'hotto-doggu': '🌭', sandoicchi: '🥪', 'hanbaagaa-setto': '🍔➕', korokke: '🥔', kukkii: '🍪', 'hotto-kokoa': '☕🍫', toufu: '🧈', chaahan: '🍳', shichuu: '🍲🥕', kaferate: '☕🥛', 'orenji-juusu': '🍊🥤', ryokucha: '🍵', pafe: '🍨🍓', tiramisu: '🍰☕', 'choko-aisu': '🍫🍨', katsudon: '🍚', unagi: '🐟', dango: '🍡', tendon: '🍤', kaisendon: '🍣', unidon: '🐚', kani: '🦀' }
+const englishById: Record<string, string> = { sushi: 'sushi', soba: 'soba noodles', udon: 'udon noodles', tenpura: 'tempura', onigiri: 'rice ball', yakitori: 'grilled chicken skewers', sashimi: 'sashimi', tonkatsu: 'pork cutlet', oden: 'Japanese stew', edamame: 'edamame', misoshiru: 'miso soup', karee: 'curry', pasuta: 'pasta', sarada: 'salad', piza: 'pizza', suupu: 'soup', hanbaagaa: 'hamburger', suteeki: 'steak', poteto: 'French fries', chikin: 'chicken', raamen: 'ramen', koohii: 'coffee', koora: 'cola', miruku: 'milk', purin: 'pudding', zerii: 'jelly', aisu: 'ice cream', keeki: 'cake', 'hotto-doggu': 'hot dog', sandoicchi: 'sandwich', 'hanbaagaa-setto': 'hamburger set', korokke: 'croquette', kukkii: 'cookie', 'hotto-kokoa': 'hot cocoa', toufu: 'tofu', chaahan: 'fried rice', gyouza: 'dumplings', shichuu: 'stew', kaferate: 'cafe latte', mirukutii: 'milk tea', 'orenji-juusu': 'orange juice', ryokucha: 'green tea', pafe: 'parfait', tiramisu: 'tiramisu', 'choko-aisu': 'chocolate ice cream', katsudon: 'pork cutlet rice bowl', unagi: 'eel', dango: 'dango', tendon: 'tempura rice bowl', kaisendon: 'seafood rice bowl', unidon: 'sea urchin rice bowl', kani: 'crab' }
 function dish(stage: RestaurantStageId, id: string, displayKana: string, romaji: string, priceYen: number, recognitionAliases: string[]): RestaurantDish {
-  return { id, stage, displayKana, english: englishById[id] ?? displayKana, romaji, priceYen, recognitionAliases, placeholderEmoji: placeholderById[id] ?? '🍽️', requiredCategories: [stage], image: imageById[id] ?? `restaurant-dishes/${stage}/${id}.webp`, audioPath: `/audio/restaurant/${stage}/${id}.wav` }
+  return { id, stage, displayKana, english: englishById[id] ?? displayKana, romaji, priceYen, recognitionAliases, placeholderEmoji: placeholderById[id] ?? '🍽️', requiredCategories: [stage], image: PENDING_ASSET_IDS.has(id) ? undefined : (imageById[id] ?? `restaurant-dishes/${stage}/${id}.webp`), audioPath: `/audio/restaurant/${stage}/${id}.wav` }
 }
+// Restaurant 1 (Issue #158): the first early real-life checkpoint, placed
+// right after な行 — every dish below is readable using only kana taught
+// through na-row (see curriculum.test.ts's cross-check). そば/てんぷら/
+// おにぎり/やきとり/さしみ/えだまめ/みそしる need later rows (は/や/ら-row
+// kana) and moved out of this active pool; their existing art/audio stay on
+// disk for a later Restaurant checkpoint to reuse (see docs in the issue).
 const h = [
-  ['sushi','すし','sushi',680,['すし','寿司','鮨']],['soba','そば','soba',650,['そば','蕎麦']],['udon','うどん','udon',650,['うどん']],['tenpura','てんぷら','tenpura',900,['てんぷら','天ぷら','天麩羅']],['onigiri','おにぎり','onigiri',250,['おにぎり','お握り','御握り']],['yakitori','やきとり','yakitori',480,['やきとり','焼き鳥','焼鳥']],['sashimi','さしみ','sashimi',980,['さしみ','刺身']],['tonkatsu','とんかつ','tonkatsu',950,['とんかつ','トンカツ','豚カツ']],['oden','おでん','oden',580,['おでん']],['edamame','えだまめ','edamame',380,['えだまめ','枝豆']],['misoshiru','みそしる','misoshiru',300,['みそしる','味噌汁','みそ汁']],
+  ['sushi','すし','sushi',680,['すし','寿司','鮨']],
+  ['udon','うどん','udon',650,['うどん']],
+  ['tonkatsu','とんかつ','tonkatsu',950,['とんかつ','トンカツ','豚カツ','豚かつ']],
+  ['katsudon','かつどん','katsudon',900,['かつどん','カツ丼','かつ丼']],
+  ['oden','おでん','oden',580,['おでん']],
+  ['unagi','うなぎ','unagi',1600,['うなぎ','ウナギ','鰻']],
+  ['dango','だんご','dango',350,['だんご','団子']],
+  ['tendon','てんどん','tendon',980,['てんどん','天丼','てん丼']],
+  ['kaisendon','かいせんどん','kaisendon',1480,['かいせんどん','海鮮丼','かいせん丼']],
+  ['unidon','うにどん','unidon',1800,['うにどん','ウニ丼','うに丼','雲丹丼']],
+  ['kani','かに','kani',680,['かに','カニ','蟹']],
 ]
 const k = [['karee','カレー','karee',780,['カレー','かれー','カレエ','カレーライス']],['pasuta','パスタ','pasuta',850,['パスタ','ぱすた']],['sarada','サラダ','sarada',480,['サラダ','さらだ']],['piza','ピザ','piza',980,['ピザ','ぴざ']],['suupu','スープ','suupu',380,['スープ','すーぷ']],['hanbaagaa','ハンバーガー','hanbaagaa',650,['ハンバーガー','はんばーがー']],['suteeki','ステーキ','suteeki',1480,['ステーキ','すてーき']],['poteto','ポテト','poteto',350,['ポテト','ぽてと','フライドポテト']],['chikin','チキン','chikin',780,['チキン','ちきん']],['raamen','ラーメン','raamen',750,['ラーメン','らーめん','拉麺']],['koohii','コーヒー','koohii',350,['コーヒー','こーひー','珈琲']],['koora','コーラ','koora',300,['コーラ','こーら']],['miruku','ミルク','miruku',280,['ミルク','みるく','牛乳']],['purin','プリン','purin',380,['プリン','ぷりん']],['zerii','ゼリー','zerii',350,['ゼリー','ぜりー']],['aisu','アイス','aisu',350,['アイス','あいす','アイスクリーム']],['keeki','ケーキ','keeki',480,['ケーキ','けーき']]]
 const o = [['hotto-doggu','ホットドッグ','hottodoggu',520,['ホットドッグ','ほっとどっぐ','ホットドック']],['sandoicchi','サンドイッチ','sandoicchi',580,['サンドイッチ','さんどいっち']],['hanbaagaa-setto','ハンバーガーセット','hanbaagaa setto',980,['ハンバーガーセット','はんばーがーせっと']],['korokke','コロッケ','korokke',250,['コロッケ','ころっけ']],['kukkii','クッキー','kukkii',300,['クッキー','くっきー']],['hotto-kokoa','ホットココア','hotto kokoa',380,['ホットココア','ほっとここあ']],['toufu','とうふ','toufu',350,['とうふ','豆腐']]]

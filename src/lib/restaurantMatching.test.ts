@@ -1,9 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { HIRAGANA_RESTAURANT_DISHES, RESTAURANT_DISHES } from '../data/restaurantDishes'
+import { HIRAGANA_RESTAURANT_DISHES, RESTAURANT_DISHES, type RestaurantDish } from '../data/restaurantDishes'
 import { checkMultipleDishOrder, checkMultipleDishOrderAlternatives, checkOrder, checkOrderAlternatives, hasOrderIntent, identifyDish, normalizeJapanese } from './restaurantMatching'
 
 const sushi = HIRAGANA_RESTAURANT_DISHES.find((d) => d.id === 'sushi')!
-const soba = HIRAGANA_RESTAURANT_DISHES.find((d) => d.id === 'soba')!
+// Issue #158 moved そば out of the active Restaurant 1 menu pool (it needs
+// later-row kana), but these tests exercise the generic matching algorithm,
+// not the current menu contents — so it's a local synthetic fixture instead
+// of a HIRAGANA_RESTAURANT_DISHES lookup, decoupled from future menu edits.
+const soba: RestaurantDish = {
+  id: 'soba', stage: 'hiragana', displayKana: 'そば', english: 'soba noodles', romaji: 'soba', priceYen: 650,
+  recognitionAliases: ['そば', '蕎麦'], placeholderEmoji: '🍽️', requiredCategories: ['hiragana'], audioPath: '/audio/restaurant/hiragana/soba.wav',
+}
 const udon = HIRAGANA_RESTAURANT_DISHES.find((d) => d.id === 'udon')!
 const oden = HIRAGANA_RESTAURANT_DISHES.find((d) => d.id === 'oden')!
 const menu = [sushi, soba, udon, oden]

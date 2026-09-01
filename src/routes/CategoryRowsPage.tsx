@@ -9,6 +9,7 @@ import { AskTamamizuButton } from '../components/AskTamamizuButton'
 import {
   CATEGORIES_BY_ID,
   CHOUON_CATEGORY_ID,
+  DEFAULT_CATEGORY_ID,
   ROWS_BY_ID,
   SOKUON_CATEGORY_ID,
   SPECIAL_KATAKANA_CATEGORY_ID,
@@ -39,6 +40,13 @@ const SOKUON_TARGET_PATH = `/practice/${SOKUON_GUIDE.target.categoryId}/${SOKUON
 const CHOUON_TARGET_PATH = `/practice/${CHOUON_GUIDE.target.categoryId}/${CHOUON_GUIDE.target.rowId}`
 const YOUON_TARGET_PATH = `/practice/${YOUON_GUIDE.target.categoryId}/${YOUON_GUIDE.target.rowId}`
 const SPECIAL_KATAKANA_TARGET_PATH = `/practice/${SPECIAL_KATAKANA_GUIDE.target.categoryId}/${SPECIAL_KATAKANA_GUIDE.target.rowId}`
+
+// Issue #158: Hiragana Restaurant 1 is the first early real-life checkpoint,
+// positioned right after な行 (the last row its 11-dish menu needs — see
+// data/restaurantDishes.ts) rather than at the bottom of the whole page.
+// Deliberately just a row-id split point rather than a generic
+// Mission/checkpoint framework — only the Hiragana page has one today.
+const HIRAGANA_RESTAURANT_CHECKPOINT_AFTER_ROW_ID = 'na-row'
 
 type Props = {
   title: string
@@ -208,6 +216,15 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
           const isChouonGroup = category?.id === CHOUON_CATEGORY_ID
           const isYouonGroup = category?.id === YOUON_CATEGORY_ID
           const isSpecialKatakanaGroup = category?.id === SPECIAL_KATAKANA_CATEGORY_ID
+          // Only the Hiragana group ever has an inline Restaurant checkpoint
+          // (see the constant's comment above) — every other page keeps the
+          // CTA at the very bottom, unchanged from before Issue #158.
+          const showInlineRestaurantCheckpoint = restaurantStage === 'hiragana' && category?.id === DEFAULT_CATEGORY_ID
+          const checkpointIndex = showInlineRestaurantCheckpoint
+            ? groupRows.findIndex((row) => row.id === HIRAGANA_RESTAURANT_CHECKPOINT_AFTER_ROW_ID)
+            : -1
+          const rowsBeforeCheckpoint = checkpointIndex >= 0 ? groupRows.slice(0, checkpointIndex + 1) : groupRows
+          const rowsAfterCheckpoint = checkpointIndex >= 0 ? groupRows.slice(checkpointIndex + 1) : []
           return (
             <div key={category?.id} className="flex w-full flex-col items-center gap-4">
               {/* displayLabel (○+っ, ○+ー, ...) instead of the real kanji
@@ -250,12 +267,30 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
                 )
               )}
               <RowMap
-                rows={groupRows}
+                rows={rowsBeforeCheckpoint}
                 isUnlocked={isRowUnlocked}
                 isTaught={isRowTaught}
                 isMastered={isRowMastered}
                 isRecommended={isRowRecommended}
               />
+              {/* Hiragana Restaurant 1 CTA (Issue #158) — an inline checkpoint
+                  right after な行, the last row its 11-dish menu needs (see
+                  data/restaurantDishes.ts), instead of at the very bottom of
+                  the page. See HIRAGANA_RESTAURANT_CHECKPOINT_AFTER_ROW_ID's
+                  comment above; every other Restaurant stage keeps its CTA at
+                  the bottom, unchanged (see below). */}
+              {showInlineRestaurantCheckpoint && checkpointIndex >= 0 && (
+                <RestaurantCta onClick={() => navigate(`/restaurant/${restaurantStage}`)} />
+              )}
+              {rowsAfterCheckpoint.length > 0 && (
+                <RowMap
+                  rows={rowsAfterCheckpoint}
+                  isUnlocked={isRowUnlocked}
+                  isTaught={isRowTaught}
+                  isMastered={isRowMastered}
+                  isRecommended={isRowRecommended}
+                />
+              )}
             </div>
           )
         })
@@ -267,34 +302,14 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
       )}
       {/* Restaurant CTA — standalone repeatable
           mini-game (see routes/games/RestaurantPage.tsx and
-          data/restaurantDishes.ts). Deliberately placed right before the
-          particle button below and styled the same way (a full-width
-          rounded button, matching this page's other CTAs) rather than a new
-          visual pattern, but it navigates directly instead of opening a
-          Guide overlay. Not a curriculum row, not in Recommended Path, no
-          completion flag — see RestaurantPage's own comment for the full
-          progress-isolation guarantee. Gated on its own `restaurantStage`
+          data/restaurantDishes.ts). Not a curriculum row, not in Recommended
+          Path, no completion flag — see RestaurantPage's own comment for the
+          full progress-isolation guarantee. Gated on its own `restaurantStage`
           prop, not on askTamamizuKanaIntroVariant — those are unrelated
-          features that happen to both currently only be wired up on the
-          Hiragana page (see App.tsx). Only 'hiragana' has a route/dishes
-          today. */}
-      {restaurantStage && (
-        <button
-          type="button"
-          onClick={() => navigate(`/restaurant/${restaurantStage}`)}
-          data-testid="restaurant-cta"
-          className="w-full max-w-md rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-left shadow-md transition hover:border-amber-400 hover:bg-amber-100 active:scale-[0.98] dark:border-amber-700 dark:bg-amber-950/40 dark:hover:bg-amber-900/50"
-        >
-          <span className="block text-xs font-bold tracking-[0.16em] text-amber-700 dark:text-amber-300">REAL-LIFE PRACTICE</span>
-          <span className="mt-1 flex items-center justify-between gap-3">
-            <span>
-              <span className="block text-lg font-bold text-amber-950 dark:text-amber-50">🍽️ Restaurant Practice</span>
-              <span className="mt-1 block text-sm font-normal text-amber-900/75 dark:text-amber-200/75">Order food using what you&apos;ve learned</span>
-            </span>
-            <span className="shrink-0 text-sm font-bold text-amber-800 dark:text-amber-200">Try it →</span>
-          </span>
-        </button>
-      )}
+          features. Hiragana's CTA renders inline above instead (Issue #158);
+          every other stage (katakana/other/special-katakana) still renders
+          it here at the bottom, unchanged from before Issue #158. */}
+      {restaurantStage && restaurantStage !== 'hiragana' && <RestaurantCta onClick={() => navigate(`/restaurant/${restaurantStage}`)} />}
       {/* Optional supplementary "Ask Tamamizu about particles" entry point
           (は/へ/を pronunciation quirks) — Hiragana page only, deliberately
           not a new Home category card, Recommended Path step, or curriculum
@@ -346,5 +361,29 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
         />
       )}
     </div>
+  )
+}
+
+// Shared markup for both the Hiragana inline checkpoint placement and every
+// other stage's bottom placement (see the two call sites above) — same
+// full-width rounded-button styling as this page's other CTAs, navigating
+// directly instead of opening a Guide overlay.
+function RestaurantCta({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      data-testid="restaurant-cta"
+      className="w-full max-w-md rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-left shadow-md transition hover:border-amber-400 hover:bg-amber-100 active:scale-[0.98] dark:border-amber-700 dark:bg-amber-950/40 dark:hover:bg-amber-900/50"
+    >
+      <span className="block text-xs font-bold tracking-[0.16em] text-amber-700 dark:text-amber-300">REAL-LIFE PRACTICE</span>
+      <span className="mt-1 flex items-center justify-between gap-3">
+        <span>
+          <span className="block text-lg font-bold text-amber-950 dark:text-amber-50">🍽️ Restaurant Practice</span>
+          <span className="mt-1 block text-sm font-normal text-amber-900/75 dark:text-amber-200/75">Order food using what you&apos;ve learned</span>
+        </span>
+        <span className="shrink-0 text-sm font-bold text-amber-800 dark:text-amber-200">Try it →</span>
+      </span>
+    </button>
   )
 }

@@ -637,6 +637,30 @@ describe('Hiragana Restaurant CTA', () => {
     expect(getByTestId('restaurant-cta')).toBeInTheDocument()
   })
 
+  // Issue #158: Restaurant 1's 11-dish menu is readable through な行, so the
+  // CTA now sits right after な行's row card and before は行's — not at the
+  // bottom of the page anymore (see CategoryRowsPage.tsx's
+  // HIRAGANA_RESTAURANT_CHECKPOINT_AFTER_ROW_ID).
+  it('renders after な行 and before は行 (Issue #158 checkpoint placement)', () => {
+    const { getByTestId, getByText } = renderHiraganaWithParticleEntry()
+    const cta = getByTestId('restaurant-cta')
+    const naRowCard = getByText('な〜の')
+    const haRowCard = getByText('は〜ほ')
+    expect(naRowCard.compareDocumentPosition(cta) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(cta.compareDocumentPosition(haRowCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('does not move the Katakana Restaurant CTA — still after all of that page\'s rows (Issue #158)', () => {
+    const { getByTestId, getByText } = render(
+      <MemoryRouter>
+        <CategoryRowsPage title="カタカナ" description="" categoryIds={[KATAKANA_CATEGORY_ID]} restaurantStage="katakana" />
+      </MemoryRouter>,
+    )
+    const cta = getByTestId('restaurant-cta')
+    const lastKatakanaRowCard = getByText('ラ〜ロ')
+    expect(lastKatakanaRowCard.compareDocumentPosition(cta) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
   it('appears before the "Ask Tamamizu about particles" button in DOM order', () => {
     const { getByTestId, getByRole } = renderHiraganaWithParticleEntry()
     const restaurantCta = getByTestId('restaurant-cta')

@@ -178,10 +178,10 @@ describe('RestaurantPage', () => {
     expect(screen.getByAltText('Tamamizu')).toHaveAttribute('src', expect.stringContaining('mascot/order.webp'))
   })
 
-  it.each(['katakana', 'other', 'special-katakana'] as const)('uses tenpura and misoshiru in the %s introduction', (stage) => {
+  it.each(['katakana', 'other', 'special-katakana'] as const)('uses sushi and udon in the %s introduction (Issue #158)', (stage) => {
     render(<MemoryRouter><RestaurantPage stage={stage} /></MemoryRouter>)
-    expect(screen.getByAltText('てんぷら')).toBeInTheDocument()
-    expect(screen.getByAltText('みそしる')).toBeInTheDocument()
+    expect(screen.getByAltText('すし')).toBeInTheDocument()
+    expect(screen.getByAltText('うどん')).toBeInTheDocument()
   })
 
   it('keeps Romaji hidden after Start until Choose in Romaji is pressed', () => {
@@ -372,7 +372,7 @@ describe('RestaurantPage', () => {
     expect(screen.getByTestId('restaurant-menu-divider')).toHaveClass('border-t')
   })
 
-  it('renders 4 unique dishes with kana, prices, and contained illustrations only', () => {
+  it('renders 4 unique dishes with kana, prices, and contained illustrations or placeholder emoji only', () => {
     renderPage()
     const menu = screen.getByTestId('restaurant-menu')
     const rows = [...menu.querySelectorAll('[data-testid^="restaurant-dish-"]')]
@@ -386,7 +386,14 @@ describe('RestaurantPage', () => {
       expect(row).toHaveTextContent(`¥${dish.priceYen}`)
       expect(row).not.toHaveTextContent(dish.romaji)
       expect(row).not.toHaveTextContent(dish.english)
-      expect(row.querySelector('img')).toHaveClass('object-contain')
+      // Restaurant 1's 7 pending-asset dishes (Issue #158) have no `image`
+      // yet and fall back to their placeholder emoji instead of an <img>.
+      if (dish.image) {
+        expect(row.querySelector('img')).toHaveClass('object-contain')
+      } else {
+        expect(row.querySelector('img')).toBeNull()
+        expect(row).toHaveTextContent(dish.placeholderEmoji)
+      }
     }
   })
 
