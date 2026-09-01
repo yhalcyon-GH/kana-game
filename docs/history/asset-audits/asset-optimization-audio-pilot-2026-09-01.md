@@ -137,7 +137,7 @@ Notes:
 ## Human listening evidence and review scope
 
 The pilot deliberately uses **representative human checks rather than an
-exhaustive 10 × 3 listening matrix**.
+exhaustive listening matrix**.
 
 Recorded human evidence:
 
@@ -148,38 +148,42 @@ Recorded human evidence:
   therefore not selected for rollout.
 - **Opus:** human quality evaluation was not completed in the user's original
   comparison environment because the Opus candidate could not be played
-  there. This is not evidence that Opus quality is bad; it simply leaves the
-  human gate incomplete for that candidate.
+  there. This is not evidence that Opus quality is bad; it simply means it did
+  not gain a project-specific human-quality advantage over MP3.
 
-Given the existing representative MP3 listening pass, MP3's mature/lower-risk
-browser support, the clean objective checks above, and the project's goal of
-reducing unnecessary human verification cost, **no additional manual MP3
-listening is required for this pilot**. The rollout should rely on automated
-whole-corpus checks plus a small representative end-to-end smoke test rather
-than asking the user to listen to hundreds of files.
+Given the existing representative MP3 listening pass, MP3's mature browser
+support, the clean objective checks above, and the project's goal of reducing
+unnecessary human verification cost, **no additional manual MP3 listening is
+required for this pilot or full-corpus rollout unless automated checks expose
+a concrete anomaly**.
 
-## Browser / PWA compatibility
+## Browser / PWA compatibility and verification policy
 
 Production runtime (`src/audio/staticFileProvider.ts`) was not modified in
 this pilot and still resolves `.wav` assets.
 
 A temporary standalone desktop `<audio>` page was used during codec
-exploration. That check confirmed browser-level playback for tested AAC/Opus
-files, but it is **not** treated as a KanaGame runtime integration test.
+exploration. That check is useful codec evidence, but it is not treated as a
+KanaGame runtime integration test.
 
-For MP3, broad browser compatibility is one reason it is preferred over the
-more compressed alternatives. Nevertheless, Issue #151 explicitly requires a
-real browser/PWA rollout gate. Keep that gate small and integration-focused:
+MP3 is supported by all major current browsers, including current Safari/iOS
+Safari and Chrome/Android. Therefore **physical-device human playback is not
+a mandatory gate solely to prove MP3 codec support**. The production rollout
+should first cover integration risk with automated checks wherever possible:
 
-- one representative short pronunciation clip through the actual KanaGame
-  audio path on desktop;
-- one representative playback check on iPhone Safari / installed PWA;
-- one representative playback check on Android Chrome / installed PWA.
+- every generated MP3 decodes successfully;
+- file inventory and URL mapping are complete (no missing/stale WAV references);
+- source-rate handling and duration/padding sanity stay within the established
+  bounds;
+- runtime audio-provider tests verify `.mp3` resolution;
+- PWA/cache configuration includes the new runtime audio files correctly;
+- build/test/lint/CI pass on the exact rollout HEAD.
 
-These checks are for **format/integration compatibility**, not another broad
-subjective audio-quality review. They may be completed during the separate
-production rollout before merge; they do not require re-listening to all 10
-pilot samples.
+A human/device check should be requested **only if those checks leave a
+meaningful behavior that cannot be established mechanically, or if they find
+an anomaly that needs subjective confirmation**. This replaces a blanket
+"always require human device verification" approach and keeps human review
+focused on risks that automation cannot answer.
 
 ## Decision
 
@@ -203,10 +207,10 @@ Why MP3 rather than AAC or Opus:
   reduction from the current WAV footprint.
 - AAC offers almost no size advantage over MP3 in this pilot (76.9% vs 76.0%)
   and the checked shortest AAC sample produced a slight click/pop.
-- Opus compresses substantially better (90.8%), but its human gate remained
-  incomplete and it introduces more container/platform validation burden.
-  The additional savings are not worth increasing verification complexity for
-  this project when MP3 already meets the core size/reliability objective.
+- Opus compresses substantially better (90.8%), but adopting it would require
+  more platform/container validation. The additional savings are not worth
+  increasing verification complexity when MP3 already meets the core
+  size/reliability objective.
 - There is no evidence justifying a short-vs-long codec split; one format is
   simpler for URLs, caching, testing, and future asset production.
 
@@ -240,11 +244,11 @@ all 518 files are converted.
 
 ## Verification
 
-- `npm run verify` — pass on the original report commit (1344 tests / 83 files,
-  lint clean, `tsc -b && vite build` succeeded). CI must rerun on the amended
-  report HEAD before merge.
-- `git diff --check origin/main...HEAD` — pass on the original report commit;
-  rerun/CI confirmation required on the amended HEAD.
+- `npm run verify` — passed on the original report commit (1344 tests / 83
+  files, lint clean, `tsc -b && vite build` succeeded). CI must rerun on the
+  amended report HEAD before merge.
+- `git diff --check origin/main...HEAD` — passed on the original report
+  commit; exact-HEAD CI/diff confirmation is required after this amendment.
 - The committed change remains documentation-only; no runtime code or audio is
   part of this pilot PR.
 
@@ -252,6 +256,6 @@ all 518 files are converted.
 
 After this pilot PR is accepted, create a separate production rollout
 Issue/PR that converts all 518 mastered WAVs to the exact MP3 recipe above,
-updates runtime URLs/cache handling, runs automated whole-corpus validation,
-and performs only the minimal representative cross-device integration checks
-listed above before merge.
+updates runtime URLs/cache handling, and uses automated whole-corpus and
+runtime-integration validation as the default gate. Escalate to human/device
+checking only if a concrete residual risk cannot be resolved mechanically.
