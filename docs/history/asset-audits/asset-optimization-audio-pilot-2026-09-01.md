@@ -4,7 +4,7 @@ Pilot on a small representative set of runtime WAV clips, following up on the
 Issue #148 asset audit
 (`docs/history/asset-audits/asset-audit-2026-09-01.md`). **No production
 audio was changed.** All candidate files were generated in a repo-external
-comparison folder for objective measurement and human listening.
+comparison folder for objective measurement and targeted human listening.
 
 - Starting `main`: `206bf621b33e48109739470923762714d90773b9`
 - Local original-assets backup (untouched): `../kana-game-original-assets-2026-09-01/`
@@ -15,8 +15,8 @@ comparison folder for objective measurement and human listening.
   - `mp3/`, `aac/`, `opus/` — per-codec candidates
   - `metrics/metrics.json` — full objective metrics (30 rows: 10 samples × 3 codecs)
   - `metrics/commands.txt` — every exact ffmpeg command run
-  - `browser-check/` — temporary, uncommitted static page + Opus/AAC copies used for a real desktop-browser playback smoke test
-  - `manifest.md` — human-listening comparison guide and checklist
+  - `browser-check/` — temporary, uncommitted static page used for desktop codec playback checks
+  - `manifest.md` — human-listening comparison guide
 
 Existing WAVs are already mastered/loudness-normalized (per prior generation
 history); **no normalization was applied here** — the shipped WAVs were used
@@ -52,19 +52,18 @@ every runtime WAV is uncompressed PCM16 mono.
 
 ## Codec candidates
 
-One conservative setting per codec was generated; no second bitrate/quality
-tier was needed (no candidate showed a clear artifact, see Human listening
-below), so no quality sweep was run.
+One conservative setting per codec was generated. The pilot is intended to
+choose a safe deployment format, not to exhaustively optimize every codec.
 
 | Codec | Container | Encoder | Bitrate | Channels | Sample rate handling |
 |---|---|---|---|---|---|
 | MP3 | `.mp3` | `libmp3lame` | 96 kbps CBR | mono (`-ac 1`) | preserved (`-ar` set to source rate) |
 | AAC-LC | `.m4a` | native `aac` | 96 kbps CBR | mono (`-ac 1`) | preserved (`-ar` set to source rate) |
-| Opus | `.opus` (Ogg) | `libopus` | 48 kbps | mono (`-ac 1`) | **forced to 48 kHz internally by libopus** regardless of source rate — see below |
+| Opus | `.opus` (Ogg) | `libopus` | 48 kbps | mono (`-ac 1`) | forced to 48 kHz internally by libopus |
 
 Exact commands (per sample, `$rate` = source sample rate probed via `ffprobe`):
 
-```
+```sh
 ffmpeg -y -i original/<sample>.wav -c:a libmp3lame -b:a 96k -ar $rate -ac 1 mp3/<sample>.mp3
 ffmpeg -y -i original/<sample>.wav -c:a aac        -b:a 96k -ar $rate -ac 1 aac/<sample>.m4a
 ffmpeg -y -i original/<sample>.wav -c:a libopus    -b:a 48k          -ac 1 opus/<sample>.opus
@@ -72,16 +71,15 @@ ffmpeg -y -i original/<sample>.wav -c:a libopus    -b:a 48k          -ac 1 opus/
 
 Full log of all 30 invocations: `metrics/commands.txt`.
 
-**Opus internal sample rate**: libopus only operates at 8/12/16/24/48 kHz
-internally. ffmpeg's Opus encoder resamples both the 44.1 kHz and 24 kHz
-sources up to 48 kHz before encoding — every Opus candidate's decoded
-`sample_rate` reports `48000` regardless of source rate. This is expected
-Opus codec behavior, not a pilot misconfiguration, and would apply to all
-518 files if Opus is adopted for rollout.
+**Opus internal sample rate:** libopus operates at 8/12/16/24/48 kHz
+internally. ffmpeg therefore resampled these Opus candidates to 48 kHz. That
+is expected codec behavior, but it is one additional transformation compared
+with the selected MP3 recipe, which preserves the source sample rate.
 
 ## Objective metrics
 
-Full per-sample-per-codec data (30 rows) in `metrics/metrics.json`. Summary:
+Full per-sample-per-codec data (30 rows) is in the repo-external
+`metrics/metrics.json`. Summary:
 
 | Codec | Total candidate bytes (10 samples) | Overall size reduction | Any clipping | Any decode failure | Max \|leading pad\| | Max \|trailing pad\| |
 |---|---:|---:|---|---|---:|---:|
@@ -128,136 +126,132 @@ Per-sample detail:
 
 Notes:
 
-- No clipping (`max_volume >= -0.1 dB`) and no decode failure across any of
-  the 30 candidates.
-- All duration deltas and leading/trailing silence deltas are **sub-13ms**
-  across all codecs and all samples, including the shortest clips (01–05,
-  0.5–1.3s). Opus's largest single trailing-padding change was 12.6 ms
-  (sample 05, a *reduction* in trailing silence, not an addition). MP3/AAC
-  padding changes are all under 3.5 ms.
-- Per the issue's caution, padding of tens of ms matters proportionally more
-  for very short kana clips (samples 01–05 are 0.5–1.3s) — this pilot's
-  worst case (12.6 ms on a 0.578s clip, ~2.2% of clip length) is flagged
-  here explicitly rather than dismissed, but was covered by the human
-  listening pass below, which did not flag an audible issue on that sample.
-- **Metrics alone do not establish pronunciation/quality safety** — see
-  Human listening below, which is required before any rollout decision.
+- No clipping (`max_volume >= -0.1 dB`) and no decode failure occurred across
+  any of the 30 candidates.
+- All duration deltas and leading/trailing silence deltas were sub-13 ms.
+- MP3's measured padding/silence changes were all under 3.5 ms, including the
+  pronunciation-critical short clips.
+- Metrics alone do not prove subjective pronunciation quality; targeted human
+  evidence is recorded below.
 
-## Human listening comparison
+## Human listening evidence and review scope
 
-Comparison set built in `../kana-game-issue151-audio-candidates-2026-09-01/`
-(`original/`, `mp3/`, `aac/`, `opus/`, `manifest.md` — full checklist and
-per-sample table). Kept to the 10 pilot samples to avoid overloading review
-effort, per the issue's guidance.
+The pilot deliberately uses **representative human checks rather than an
+exhaustive 10 × 3 listening matrix**.
 
-**Result: the user listened to all 10 samples across all three codecs**
-(original → MP3 → AAC → Opus) and confirmed no issues against the manifest's
-checklist — specifically checked samples 01–05 (short kana, fricative,
-affricate, yōon, Special Katakana) for consonant clipping or click/pop
-artifacts. No candidate failed a check point.
+Recorded human evidence:
 
-## Browser compatibility
+- **MP3:** representative MP3 pilot samples were listened to earlier and no
+  audible noise, pronunciation problem, or boundary artifact was reported.
+- **AAC-LC/M4A:** most checked samples were acceptable, but
+  `01-na-shortkana.m4a` produced a slight click/pop. The current AAC recipe is
+  therefore not selected for rollout.
+- **Opus:** human quality evaluation was not completed in the user's original
+  comparison environment because the Opus candidate could not be played
+  there. This is not evidence that Opus quality is bad; it simply leaves the
+  human gate incomplete for that candidate.
 
-Production runtime (`src/audio/staticFileProvider.ts`) was **not modified**
-— it still hardcodes `.wav` (`audioEl.src = ...audio/${request.key}.wav`).
+Given the existing representative MP3 listening pass, MP3's mature/lower-risk
+browser support, the clean objective checks above, and the project's goal of
+reducing unnecessary human verification cost, **no additional manual MP3
+listening is required for this pilot**. The rollout should rely on automated
+whole-corpus checks plus a small representative end-to-end smoke test rather
+than asking the user to listen to hundreds of files.
 
-A temporary, uncommitted static file server + a standalone HTML page (kept
-entirely in the external candidates folder, never touching the repo) was
-used to smoke-test playback of the leading candidate (Opus) and AAC through
-a real `<audio>` element:
+## Browser / PWA compatibility
 
-- Desktop browser: **confirmed working.** The user opened the page and
-  confirmed both `canPlayType` support and actual audible playback for the
-  Opus (`audio/ogg; codecs=opus`) and AAC (`audio/mp4; codecs=mp4a.40.2`)
-  candidate files.
-- **Smartphone / PWA verification: not performed — explicit verification
-  gap.** No physical iPhone/Android device or mobile browser was available
-  in this session. Per the issue, iPhone/Android compatibility is a
-  **required rollout gate**, not something to assume from codec
-  specifications — Opus-in-Ogg in particular has historically had uneven
-  native `<audio>` support on Safari/iOS compared to Chrome/Android, so this
-  must be verified on real devices (or their equivalents) before any
-  broader rollout, independent of this pilot's desktop result.
+Production runtime (`src/audio/staticFileProvider.ts`) was not modified in
+this pilot and still resolves `.wav` assets.
+
+A temporary standalone desktop `<audio>` page was used during codec
+exploration. That check confirmed browser-level playback for tested AAC/Opus
+files, but it is **not** treated as a KanaGame runtime integration test.
+
+For MP3, broad browser compatibility is one reason it is preferred over the
+more compressed alternatives. Nevertheless, Issue #151 explicitly requires a
+real browser/PWA rollout gate. Keep that gate small and integration-focused:
+
+- one representative short pronunciation clip through the actual KanaGame
+  audio path on desktop;
+- one representative playback check on iPhone Safari / installed PWA;
+- one representative playback check on Android Chrome / installed PWA.
+
+These checks are for **format/integration compatibility**, not another broad
+subjective audio-quality review. They may be completed during the separate
+production rollout before merge; they do not require re-listening to all 10
+pilot samples.
 
 ## Decision
 
-**Recommendation: A — one codec/container/setting for full runtime audio
-rollout, specifically Opus (Ogg container) at a conservative speech
-bitrate.**
+**Recommendation: A — use one MP3 recipe for the full runtime rollout:**
 
-Reasoning:
+- container/extension: `.mp3`
+- encoder: `libmp3lame`
+- bitrate: 96 kbps CBR
+- channels: mono (`-ac 1`)
+- sample rate: preserve each source file's existing 44.1 kHz or 24 kHz rate
+- source: the existing mastered WAVs, with no re-normalization
 
-- Opus gave the largest size reduction (90.8% vs. 76–77% for MP3/AAC) with
-  no clipping, no decode failures, and padding differences in the same
-  sub-13ms range as MP3/AAC — well within what the human listening pass
-  confirmed as inaudible across all 10 samples, including the
-  pronunciation-critical short/fricative/affricate/yōon/Special-Katakana set
-  (01–05).
-- MP3 and AAC did not show any quality or reliability advantage over Opus in
-  this pilot that would justify their ~2.4x larger footprint; there was no
-  concrete decision-changing reason found to split settings by clip length
-  (option B), since the longest clip (10, 26.6s narration) showed no worse
-  behavior than the shortest clips.
-- This recommendation is **conditional on the outstanding smartphone/PWA
-  browser-compatibility verification gap above being closed** before rollout
-  — desktop-only verification is not sufficient per the issue's explicit
-  gate, and Opus/Ogg format support is the more likely of the three codecs
-  to have real per-platform gaps on iOS.
+Why MP3 rather than AAC or Opus:
 
-If the mobile/PWA check surfaces a real Opus playback gap on a required
-platform, AAC-LC/M4A is the next-best fallback recommendation from this
-pilot's data (broader native format support than Opus historically, better
-compression than MP3, no measured quality issues here).
+- The project already has representative human evidence that the MP3 output
+  is acceptable, so further listening would add verification cost without a
+  proportionate risk reduction.
+- All 10 MP3 candidates decoded successfully, showed no clipping, and kept
+  measured duration/padding differences very small.
+- MP3 reduces this pilot set by about 76%, which is already a large practical
+  reduction from the current WAV footprint.
+- AAC offers almost no size advantage over MP3 in this pilot (76.9% vs 76.0%)
+  and the checked shortest AAC sample produced a slight click/pop.
+- Opus compresses substantially better (90.8%), but its human gate remained
+  incomplete and it introduces more container/platform validation burden.
+  The additional savings are not worth increasing verification complexity for
+  this project when MP3 already meets the core size/reliability objective.
+- There is no evidence justifying a short-vs-long codec split; one format is
+  simpler for URLs, caching, testing, and future asset production.
 
 ### Projected full-runtime savings (estimate)
 
-Applying this pilot's aggregate ratio (176,727 / 1,920,724 = 9.20% of
-original size, i.e. 90.8% reduction) to the full Issue #148 runtime audio
-total (518 files, 49,373,726 bytes):
+Applying the measured MP3 pilot ratio
+(460,365 / 1,920,724 = 23.97% of original size) to the full Issue #148 runtime
+audio total (518 files, 49,373,726 bytes):
 
-- **Estimated projected total runtime audio bytes if all 518 WAVs were
-  converted to Opus at this pilot's setting: ~4.54 MB** (49,373,726 ×
-  0.0920 ≈ 4,542,383 bytes).
-- **Estimated projected savings: ~44.8 MB (~90.8%)** of the current 47.1 MiB
-  runtime audio total.
+- **Estimated projected MP3 total: ~11.83 MB**
+  (`49,373,726 × 0.23968 ≈ 11,834,046 bytes`).
+- **Estimated projected savings: ~37.54 MB (~76.0%)**.
 
-This is an **estimate only**, extrapolated from a 10-file pilot ratio (2% of
-the 518-file corpus) — it is not a measured result for the full corpus and
-should not be treated as more precise than the underlying sample size
-suggests. Actual full-corpus compression ratio will vary per clip based on
-content (silence proportion, spectral complexity) and is not established by
-this pilot.
+This is an estimate extrapolated from 10 representative files, not a measured
+full-corpus result. The production rollout must report the actual total after
+all 518 files are converted.
 
 ## Guardrails followed
 
-- No production WAV replaced or deleted — all 518 runtime files under
-  `public/audio/` are untouched (verified: pilot only read from `public/`,
-  never wrote to it).
-- No runtime audio URL/filename changed — `src/audio/staticFileProvider.ts`
-  is unmodified.
-- No PWA cache policy changed — `vite.config.ts` is unmodified.
-- No loudness normalization or remastering — all candidates were encoded
-  directly from the existing mastered WAVs with no `-af loudnorm` or gain
-  adjustment.
+- No production WAV replaced or deleted.
+- No runtime audio URL/filename changed.
+- No PWA cache policy changed.
+- No loudness normalization or remastering.
 - No gameplay/curriculum changes.
 - No unrelated refactor.
 - No git history rewrite.
 - No changes to `../kana-game-original-assets-2026-09-01/` or
   `archive/pre-asset-optimization-2026-09-01`.
-- No bulk conversion — only the 10 representative pilot files were
-  processed, all candidate binaries kept outside the repo.
+- No bulk conversion; only 10 representative pilot files were processed and
+  candidate binaries remain outside the repo.
 
 ## Verification
 
-- `npm run verify` — pass (see PR for command output).
-- `git diff --check origin/main...HEAD` — pass.
-- Only this report was added under version control; no runtime code, audio,
-  image, or curriculum files were changed by this pilot.
+- `npm run verify` — pass on the original report commit (1344 tests / 83 files,
+  lint clean, `tsc -b && vite build` succeeded). CI must rerun on the amended
+  report HEAD before merge.
+- `git diff --check origin/main...HEAD` — pass on the original report commit;
+  rerun/CI confirmation required on the amended HEAD.
+- The committed change remains documentation-only; no runtime code or audio is
+  part of this pilot PR.
 
-## Files
+## Next step
 
-- This report.
-- Candidate audio, metrics JSON, ffmpeg command log, and the temporary
-  browser-check page all live in
-  `../kana-game-issue151-audio-candidates-2026-09-01/` (repo-external, not
-  committed).
+After this pilot PR is accepted, create a separate production rollout
+Issue/PR that converts all 518 mastered WAVs to the exact MP3 recipe above,
+updates runtime URLs/cache handling, runs automated whole-corpus validation,
+and performs only the minimal representative cross-device integration checks
+listed above before merge.
