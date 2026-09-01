@@ -6,7 +6,8 @@ import { useProgressStore } from '../../store/progressStore'
 import { useSavedItemsStore } from '../../store/savedItemsStore'
 import { KanaTypingPage } from './KanaTypingPage'
 
-const MEANING_TO_KANA: Record<string, string> = { love: 'あい', house: 'いえ', 'up / above': 'うえ', blue: 'あお' }
+// a-row now has 5 words, not 4 (Issue #155 added えん/'yen' alongside ん).
+const MEANING_TO_KANA: Record<string, string> = { love: 'あい', house: 'いえ', 'up / above': 'うえ', blue: 'あお', yen: 'えん' }
 
 function renderRowTyping() {
   return render(

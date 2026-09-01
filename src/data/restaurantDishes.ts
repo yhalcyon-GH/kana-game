@@ -29,7 +29,7 @@ export type RestaurantDish = {
 }
 
 const imageById: Record<string, string> = {
-  sushi: 'word-icons/sa-sushi.webp', soba: 'word-icons/ha-soba.webp', tenpura: 'word-icons/wa-tenpura.webp', onigiri: 'word-icons/ra-onigiri.webp', sashimi: 'word-icons/ma-sashimi.webp', tonkatsu: 'word-icons/wa-tonkatsu.webp', misoshiru: 'word-icons/ra-misoshiru.webp',
+  sushi: 'word-icons/sa-sushi.webp', soba: 'word-icons/ha-soba.webp', tenpura: 'word-icons/ra-tenpura.webp', onigiri: 'word-icons/ra-onigiri.webp', sashimi: 'word-icons/ma-sashimi.webp', tonkatsu: 'word-icons/ta-tonkatsu.webp', misoshiru: 'word-icons/ra-misoshiru.webp',
   karee: 'word-icons/katakana-ra-karee.webp', pasuta: 'word-icons/katakana-ha-pasuta.webp', sarada: 'word-icons/katakana-ra-sarada.webp', piza: 'word-icons/katakana-ha-piza.webp',
   koohii: 'word-icons/chouon-katakana-koohii.webp', koora: 'word-icons/chouon-katakana-koora.webp', aisu: 'word-icons/katakana-sa-aisu.webp', keeki: 'word-icons/katakana-a-keeki.webp', gyouza: 'word-icons/youon-ka-gyouza.webp', mirukutii: 'word-icons/special-katakana-fa-mirukutii.webp',
 }

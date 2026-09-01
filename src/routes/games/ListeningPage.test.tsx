@@ -46,8 +46,10 @@ function clickThroughListeningRound(container: HTMLElement) {
   }
 }
 
-const MEANING_TO_KANA: Record<string, string> = { love: 'あい', house: 'いえ', 'up / above': 'うえ', blue: 'あお' }
-const MEANING_TO_ROMAJI: Record<string, string> = { love: 'ai', house: 'ie', 'up / above': 'ue', blue: 'ao' }
+// a-row now has 5 words, not 4 (Issue #155 added えん/'yen' alongside ん).
+const MEANING_TO_KANA: Record<string, string> = { love: 'あい', house: 'いえ', 'up / above': 'うえ', blue: 'あお', yen: 'えん' }
+// a-row now has 5 words, not 4 (Issue #155 added えん/'yen' alongside ん).
+const MEANING_TO_ROMAJI: Record<string, string> = { love: 'ai', house: 'ie', 'up / above': 'ue', blue: 'ao', yen: 'en' }
 
 function renderReviewListening() {
   return render(

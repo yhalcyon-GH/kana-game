@@ -8,11 +8,13 @@
 //
 // Particles aren't a curriculum category of their own (see CLAUDE.md's
 // category list), so this Guide has no category to trigger from — but it
-// does have a natural ROW: hiragana wa-row is where わ/を and the topic
-// particle は land, and where the greetings こんにちは/こんばんは (Step 3's
-// content) enter the vocabulary. `target` below is that row's Practice Hub,
-// which auto-shows this Guide on the first visit exactly like every other
-// concept Guide's target (see PracticeHubPage's showParticleGuide).
+// does have a natural ROW: hiragana ra-row (the final combined row, since
+// Issue #155 merged わ・を into it) is where わ/を and the greetings
+// こんにちは/こんばんは (Step 3's content) live — the topic particle は itself
+// is taught earlier, at ha-row (see `autoTargets` below). `target` below is
+// ra-row's Practice Hub, which auto-shows this Guide on the first visit
+// exactly like every other concept Guide's target (see PracticeHubPage's
+// showParticleGuide).
 //
 // The supplementary "Ask Tamamizu about particles" button on the Hiragana
 // page (see CategoryRowsPage.tsx) is unchanged and independent: it's a
@@ -27,9 +29,9 @@ export const PARTICLE_GUIDE_STEPS: { id: ParticleGuideStepId; slideAsset: string
 ]
 
 export const PARTICLE_GUIDE = {
-  target: { categoryId: 'hiragana', rowId: 'wa-row' },
+  target: { categoryId: 'hiragana', rowId: 'ra-row' },
   autoTargets: [
     { categoryId: 'hiragana', rowId: 'ha-row' },
-    { categoryId: 'hiragana', rowId: 'wa-row' },
+    { categoryId: 'hiragana', rowId: 'ra-row' },
   ],
 } as const

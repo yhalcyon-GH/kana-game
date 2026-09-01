@@ -288,10 +288,11 @@ describe('progressStore', () => {
 
   it('unlocks ka-row only once every a-row character clears the advance threshold', () => {
     const { recordResult } = useProgressStore.getState()
-    const aRowChars = ['a', 'i', 'u', 'e', 'o']
+    // a-row now includes ん (Issue #155), so it must clear too.
+    const aRowChars = ['a', 'i', 'u', 'e', 'o', 'n']
 
-    // Bring every character except 'o' past the threshold.
-    for (const id of ['a', 'i', 'u', 'e']) {
+    // Bring every character except 'n' past the threshold.
+    for (const id of ['a', 'i', 'u', 'e', 'o']) {
       recordResult(id, true)
       recordResult(id, true)
       recordResult(id, true)
@@ -299,9 +300,9 @@ describe('progressStore', () => {
     expect(useProgressStore.getState().unlockedRowIds).not.toContain('ka-row')
 
     // Now clear the last one.
-    recordResult('o', true)
-    recordResult('o', true)
-    recordResult('o', true)
+    recordResult('n', true)
+    recordResult('n', true)
+    recordResult('n', true)
     expect(useProgressStore.getState().unlockedRowIds).toContain('ka-row')
     expect(aRowChars.every((id) => useProgressStore.getState().characters[id].box >= 2)).toBe(true)
   })
@@ -699,6 +700,169 @@ describe('progressStore', () => {
     })
   })
 
+  // Issue #155: ん moved into a-row and わ/を merged into the final combined
+  // ra-row, deleting the standalone wa-row. 13 words that lived under
+  // wa-row were renamed to match their new row; existing Review state and
+  // stale row-level bookkeeping for the deleted row must survive/migrate.
+  describe('v19 -> v20 wa-row removal migration (Issue #155)', () => {
+    it('remaps existing Review state for all 13 renamed words to their new ids', async () => {
+      localStorage.setItem(
+        'kana-game-progress',
+        JSON.stringify({
+          version: 19,
+          state: {
+            words: {
+              'wa-en': { reviewActive: true, reviewStreak: 1 },
+              'wa-tonkatsu': { reviewActive: false, reviewStreak: 0 },
+              'wa-hon': { reviewActive: true, reviewStreak: 0 },
+              'wa-nihon': { reviewActive: false, reviewStreak: 0 },
+              'wa-kanpai': { reviewActive: true, reviewStreak: 1 },
+              'wa-nihongo': { reviewActive: false, reviewStreak: 0 },
+              'wa-tenpura': { reviewActive: true, reviewStreak: 1 },
+              'wa-watashi': { reviewActive: false, reviewStreak: 0 },
+              'wa-mizu-wo-nomu': { reviewActive: true, reviewStreak: 1 },
+              'wa-niwatori': { reviewActive: false, reviewStreak: 0 },
+              'wa-denwa': { reviewActive: true, reviewStreak: 0 },
+              'wa-konnichiwa': { reviewActive: false, reviewStreak: 0 },
+              'wa-konbanwa': { reviewActive: true, reviewStreak: 0 },
+              'a-ai': { reviewActive: false, reviewStreak: 0 },
+            },
+          },
+        }),
+      )
+
+      await useProgressStore.persist.rehydrate()
+
+      const state = useProgressStore.getState()
+      expect(state.words['a-en']).toMatchObject({ reviewActive: true, reviewStreak: 1 })
+      expect(state.words['ta-tonkatsu']).toMatchObject({ reviewActive: false, reviewStreak: 0 })
+      expect(state.words['ha-hon']).toMatchObject({ reviewActive: true, reviewStreak: 0 })
+      expect(state.words['ha-nihon']).toMatchObject({ reviewActive: false, reviewStreak: 0 })
+      expect(state.words['ha-kanpai']).toMatchObject({ reviewActive: true, reviewStreak: 1 })
+      expect(state.words['ha-nihongo']).toMatchObject({ reviewActive: false, reviewStreak: 0 })
+      expect(state.words['ra-tenpura']).toMatchObject({ reviewActive: true, reviewStreak: 1 })
+      expect(state.words['ra-watashi']).toMatchObject({ reviewActive: false, reviewStreak: 0 })
+      expect(state.words['ra-mizu-wo-nomu']).toMatchObject({ reviewActive: true, reviewStreak: 1 })
+      expect(state.words['ra-niwatori']).toMatchObject({ reviewActive: false, reviewStreak: 0 })
+      expect(state.words['ra-denwa']).toMatchObject({ reviewActive: true, reviewStreak: 0 })
+      expect(state.words['ra-konnichiwa']).toMatchObject({ reviewActive: false, reviewStreak: 0 })
+      expect(state.words['ra-konbanwa']).toMatchObject({ reviewActive: true, reviewStreak: 0 })
+
+      // Every old wa-* id is gone.
+      for (const oldId of [
+        'wa-en',
+        'wa-tonkatsu',
+        'wa-hon',
+        'wa-nihon',
+        'wa-kanpai',
+        'wa-nihongo',
+        'wa-tenpura',
+        'wa-watashi',
+        'wa-mizu-wo-nomu',
+        'wa-niwatori',
+        'wa-denwa',
+        'wa-konnichiwa',
+        'wa-konbanwa',
+      ]) {
+        expect(state.words[oldId]).toBeUndefined()
+      }
+      // Unrelated word state is untouched.
+      expect(state.words['a-ai']).toMatchObject({ reviewActive: false, reviewStreak: 0 })
+    })
+
+    it('is a no-op when none of the renamed words have any persisted state', async () => {
+      localStorage.setItem(
+        'kana-game-progress',
+        JSON.stringify({ version: 19, state: { words: { 'a-ai': { reviewActive: true, reviewStreak: 1 } } } }),
+      )
+
+      await useProgressStore.persist.rehydrate()
+
+      const state = useProgressStore.getState()
+      expect(state.words['a-ai']).toMatchObject({ reviewActive: true, reviewStreak: 1 })
+      expect(Object.keys(state.words)).toEqual(['a-ai'])
+    })
+
+    it('folds a stale wa-row into ra-row for unlockedRowIds/taughtRowIds, and drops wa-row entirely', async () => {
+      localStorage.setItem(
+        'kana-game-progress',
+        JSON.stringify({
+          version: 19,
+          state: {
+            unlockedRowIds: ['a-row', 'ka-row', 'ra-row', 'wa-row', 'hiragana-summary'],
+            taughtRowIds: ['a-row', 'ra-row', 'wa-row'],
+          },
+        }),
+      )
+
+      await useProgressStore.persist.rehydrate()
+
+      const state = useProgressStore.getState()
+      expect(state.unlockedRowIds).not.toContain('wa-row')
+      expect(state.taughtRowIds).not.toContain('wa-row')
+      // ra-row was already present in both — no duplicate gets added.
+      expect(state.unlockedRowIds.filter((id) => id === 'ra-row')).toHaveLength(1)
+      expect(state.taughtRowIds.filter((id) => id === 'ra-row')).toHaveLength(1)
+      expect(state.unlockedRowIds).toEqual(expect.arrayContaining(['a-row', 'ka-row', 'ra-row', 'hiragana-summary']))
+    })
+
+    it('adds ra-row to unlockedRowIds/taughtRowIds if a stale wa-row was present without it (ra-row always precedes wa-row, but stale/corrupt data is handled safely anyway)', async () => {
+      localStorage.setItem(
+        'kana-game-progress',
+        JSON.stringify({
+          version: 19,
+          state: { unlockedRowIds: ['a-row', 'wa-row'], taughtRowIds: ['a-row', 'wa-row'] },
+        }),
+      )
+
+      await useProgressStore.persist.rehydrate()
+
+      const state = useProgressStore.getState()
+      expect(state.unlockedRowIds).toContain('ra-row')
+      expect(state.unlockedRowIds).not.toContain('wa-row')
+      expect(state.taughtRowIds).toContain('ra-row')
+      expect(state.taughtRowIds).not.toContain('wa-row')
+    })
+
+    it('merges stale wa-row rowActivityCompletion flags into ra-row instead of dropping them', async () => {
+      localStorage.setItem(
+        'kana-game-progress',
+        JSON.stringify({
+          version: 19,
+          state: {
+            rowActivityCompletion: {
+              'ra-row': { tracing: true },
+              'wa-row': { kanaQuiz: true, listening: true },
+            },
+          },
+        }),
+      )
+
+      await useProgressStore.persist.rehydrate()
+
+      const state = useProgressStore.getState()
+      expect(state.rowActivityCompletion['wa-row']).toBeUndefined()
+      expect(state.rowActivityCompletion['ra-row']).toMatchObject({ tracing: true, kanaQuiz: true, listening: true })
+    })
+
+    it('is a no-op when there is no stale wa-row state at all', async () => {
+      localStorage.setItem(
+        'kana-game-progress',
+        JSON.stringify({
+          version: 19,
+          state: { unlockedRowIds: ['a-row', 'ra-row'], taughtRowIds: ['a-row'], rowActivityCompletion: { 'ra-row': { tracing: true } } },
+        }),
+      )
+
+      await useProgressStore.persist.rehydrate()
+
+      const state = useProgressStore.getState()
+      expect(state.unlockedRowIds).toEqual(['a-row', 'ra-row'])
+      expect(state.taughtRowIds).toEqual(['a-row'])
+      expect(state.rowActivityCompletion).toEqual({ 'ra-row': { tracing: true } })
+    })
+  })
+
   describe('lastStudied (Issue #23)', () => {
     it('defaults to null for a fresh install', () => {
       expect(useProgressStore.getState().lastStudied).toBeNull()
@@ -790,7 +954,8 @@ describe('progressStore', () => {
   describe('isRowMastered stays dynamic (unrelated to Recommended Path completion)', () => {
     it('is true once every character in the row reaches box 4', () => {
       useProgressStore.getState().markRowTaught('a-row')
-      for (const id of ['a', 'i', 'u', 'e', 'o']) {
+      // a-row now includes ん (Issue #155), so mastery requires it too.
+      for (const id of ['a', 'i', 'u', 'e', 'o', 'n']) {
         for (let i = 0; i < 4; i++) useProgressStore.getState().recordResult(id, true)
       }
       expect(useProgressStore.getState().characters['a'].box).toBe(4)
@@ -799,7 +964,8 @@ describe('progressStore', () => {
 
     it('drops back to false the moment a single character falls below box 4', () => {
       useProgressStore.getState().markRowTaught('a-row')
-      for (const id of ['a', 'i', 'u', 'e', 'o']) {
+      // a-row now includes ん (Issue #155), so mastery requires it too.
+      for (const id of ['a', 'i', 'u', 'e', 'o', 'n']) {
         for (let i = 0; i < 4; i++) useProgressStore.getState().recordResult(id, true)
       }
       expect(useProgressStore.getState().isRowMastered('a-row')).toBe(true)
@@ -811,7 +977,8 @@ describe('progressStore', () => {
 
     it('becomes true again once every character is back at box 4', () => {
       useProgressStore.getState().markRowTaught('a-row')
-      for (const id of ['a', 'i', 'u', 'e', 'o']) {
+      // a-row now includes ん (Issue #155), so mastery requires it too.
+      for (const id of ['a', 'i', 'u', 'e', 'o', 'n']) {
         for (let i = 0; i < 4; i++) useProgressStore.getState().recordResult(id, true)
       }
       useProgressStore.getState().recordResult('a', false) // box 4 -> 3

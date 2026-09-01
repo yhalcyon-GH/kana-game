@@ -7,7 +7,7 @@ import { SaveWordToggle } from '../components/SaveWordToggle'
 import { PitchAccentNote, PITCH_ACCENT_NOTE_ROW_ID } from '../components/PitchAccentNote'
 import { WordCard } from '../components/WordCard'
 import { CHARACTERS_BY_ID, getCharacterAudioId } from '../data/characters'
-import { CATEGORIES_BY_ID, isSpecialKatakanaRowId, ROWS_BY_ID, SPECIAL_KATAKANA_CATEGORY_ID } from '../data/curriculum'
+import { CATEGORIES_BY_ID, getSummaryDisplayCharacterIds, isSpecialKatakanaRowId, ROWS_BY_ID, SPECIAL_KATAKANA_CATEGORY_ID } from '../data/curriculum'
 import { getSimilarLetterExplanationImage } from '../data/similarLetterExplanations'
 import { WORDS_BY_ROW } from '../data/words'
 import { useCurriculum } from '../hooks/useCurriculum'
@@ -104,8 +104,17 @@ export function LearnPage() {
       // empty placeholder slots (see CharacterGrid's `compact` prop and
       // isSpecialKatakanaRowId). No extra explanatory heading needed
       // between the two groups.
-      const specialChars = characters.filter((c) => isSpecialKatakanaRowId(c.rowId))
-      const nonSpecialChars = characters.filter((c) => !isSpecialKatakanaRowId(c.rowId))
+      //
+      // Displayed in CANONICAL gojūon order (getSummaryDisplayCharacterIds),
+      // not learning order (Issue #155) — hiragana-summary/katakana-summary
+      // are the only rows with a canonical order defined, so ん/ー (taught
+      // early, see a-row/katakana-a-row) render LAST here despite sitting
+      // earlier in `characters`/`characterIds`, while every other summary
+      // row (youon/other) falls back to its existing learning-order display,
+      // unchanged.
+      const displayCharacters = getSummaryDisplayCharacterIds(rowId).map((id) => CHARACTERS_BY_ID[id])
+      const specialChars = displayCharacters.filter((c) => isSpecialKatakanaRowId(c.rowId))
+      const nonSpecialChars = displayCharacters.filter((c) => !isSpecialKatakanaRowId(c.rowId))
       return (
         <div className="flex flex-col items-center gap-6">
           <h1 className="text-2xl font-bold">⭐ {row.label} — every character</h1>

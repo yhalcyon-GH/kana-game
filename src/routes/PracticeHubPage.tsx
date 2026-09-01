@@ -255,9 +255,10 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   // would be with no `?guide=` at all (Issue #46's "invalid replay ids fail
   // safely and show the normal page" / "never shows two Guides
   // simultaneously").
-  // Particles' one auto-trigger row — hiragana wa-row, where わ/を and the
-  // topic-marker は (plus the こんにちは/こんばんは greetings that are this
-  // Guide's Step 3) are introduced. Same shape as the concept Guides above.
+  // Particles' auto-trigger rows — hiragana ha-row (topic-marker は) and
+  // ra-row (わ/を, plus the こんにちは/こんばんは greetings that are this
+  // Guide's Step 3 — see particleGuide.ts). Same shape as the concept Guides
+  // above.
   // The /hiragana page's supplementary "Ask Tamamizu about particles" button
   // is unaffected: it still starts a manual `?guide=particle` replay there at
   // any time, before or after this automatic first showing, without writing

@@ -6,12 +6,16 @@ import type { KanaChar } from './types'
 // curriculum teaches them together (see curriculum.ts).
 export const CHARACTERS: KanaChar[] = [
   // ===== ひらがな (hiragana) =====
-  // あ行
+  // あ行, plus ん (Issue #155: moved here from its old standalone final
+  // wa-row so it's taught as part of the FIRST hiragana lesson — mirrors
+  // katakana-a-row's ン/ー bundling below. Keeps character id 'n' — a row
+  // move, not a new character identity.)
   { id: 'a', kana: 'あ', romaji: 'a', rowId: 'a-row', type: 'base' },
   { id: 'i', kana: 'い', romaji: 'i', rowId: 'a-row', type: 'base' },
   { id: 'u', kana: 'う', romaji: 'u', rowId: 'a-row', type: 'base' },
   { id: 'e', kana: 'え', romaji: 'e', rowId: 'a-row', type: 'base' },
   { id: 'o', kana: 'お', romaji: 'o', rowId: 'a-row', type: 'base' },
+  { id: 'n', kana: 'ん', romaji: 'n', rowId: 'a-row', type: 'base' },
 
   // か行
   { id: 'ka', kana: 'か', romaji: 'ka', rowId: 'ka-row', type: 'base' },
@@ -91,17 +95,17 @@ export const CHARACTERS: KanaChar[] = [
   { id: 'yu', kana: 'ゆ', romaji: 'yu', rowId: 'ya-row', type: 'base' },
   { id: 'yo', kana: 'よ', romaji: 'yo', rowId: 'ya-row', type: 'base' },
 
-  // ら行 (no dakuten)
+  // ら行 (no dakuten), plus わ・を folded in as the final hiragana row
+  // (Issue #155: previously their own standalone wa-row, now merged in here
+  // rather than left with only two kana of their own — ん already moved up
+  // to あ行, above). Mirrors katakana-ra-row's identical わ・を absorption.
   { id: 'ra', kana: 'ら', romaji: 'ra', rowId: 'ra-row', type: 'base' },
   { id: 'ri', kana: 'り', romaji: 'ri', rowId: 'ra-row', type: 'base' },
   { id: 'ru', kana: 'る', romaji: 'ru', rowId: 'ra-row', type: 'base' },
   { id: 're', kana: 'れ', romaji: 're', rowId: 'ra-row', type: 'base' },
   { id: 'ro', kana: 'ろ', romaji: 'ro', rowId: 'ra-row', type: 'base' },
-
-  // わ行 + ん (final row, no dakuten)
-  { id: 'wa', kana: 'わ', romaji: 'wa', rowId: 'wa-row', type: 'base' },
-  { id: 'wo', kana: 'を', romaji: 'wo', displayLabel: 'o/wo', rowId: 'wa-row', type: 'base', note: 'を → Usually pronounced "o" and used as a particle.' },
-  { id: 'n', kana: 'ん', romaji: 'n', rowId: 'wa-row', type: 'base' },
+  { id: 'wa', kana: 'わ', romaji: 'wa', rowId: 'ra-row', type: 'base' },
+  { id: 'wo', kana: 'を', romaji: 'wo', displayLabel: 'o/wo', rowId: 'ra-row', type: 'base', note: 'を → Usually pronounced "o" and used as a particle.' },
 
   // ===== カタカナ (katakana) =====
   // Same 71-character set as hiragana (46 base + 20 dakuten + 5 handakuten),
