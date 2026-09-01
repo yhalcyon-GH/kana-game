@@ -15,14 +15,13 @@ import { CHARACTERS, CHARACTERS_BY_ID } from '../data/characters'
 
 export type TracingGlyph = {
   kana: string
-  // characterId whose STROKE_PATHS entry this glyph's strokes should be
+  // characterId whose STROKE_GLYPHS entry this glyph's strokes should be
   // drawn from. For a normal character this is just its own id. For the
   // small ゃ/ゅ/ょ half of a yōon character, this points at the full-size
   // や/ゆ/よ character (there is no dedicated stroke entry for the small
-  // form, and there must never be one hand-authored — see strokes.ts's
-  // generated-file header and scripts/fetchStrokeData.ts's yōon guard) —
-  // the small glyph is rendered by scaling those reused paths down, never
-  // by inventing new stroke geometry.
+  // form, and there must never be one hand-authored) — the small glyph is
+  // rendered by scaling those reused paths down, never by inventing new
+  // stroke geometry.
   strokeSourceId: string
   isSmall: boolean
 }

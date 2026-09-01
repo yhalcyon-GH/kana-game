@@ -21,32 +21,26 @@ export function AboutPage() {
       <div className="w-full rounded-xl border border-neutral-300 bg-white p-3 text-sm text-neutral-600 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
         <span className="font-semibold text-neutral-700 dark:text-neutral-300">About the Stroke Order Data</span>
         <p className="mt-1">
-          Stroke order animations use path data from the <strong>KanjiVG</strong> project.
+          Stroke order animations use path data converted from the{' '}
+          <a href="https://github.com/zhengkyl/strokesvg" target="_blank" rel="noreferrer" className="underline">
+            strokesvg
+          </a>{' '}
+          project's kana SVGs, which are derived from the <strong>Klee One</strong> font.
         </p>
         <ul className="mt-2 list-disc pl-5">
-          <li>Copyright (C) 2009/2010/2011 Ulrich Apel.</li>
+          <li>Klee One is Copyright 2020 The Klee Project Authors.</li>
           <li>
-            Project website:{' '}
-            <a href="https://kanjivg.tagaini.net/" target="_blank" rel="noreferrer" className="underline">
-              https://kanjivg.tagaini.net/
-            </a>
-          </li>
-          <li>
-            Licensed under{' '}
-            <a
-              href="https://creativecommons.org/licenses/by-sa/3.0/"
-              target="_blank"
-              rel="noreferrer"
-              className="underline"
-            >
-              CC BY-SA 3.0
+            Licensed under the{' '}
+            <a href="https://openfontlicense.org/" target="_blank" rel="noreferrer" className="underline">
+              SIL Open Font License, Version 1.1
             </a>
             .
           </li>
         </ul>
         <p className="mt-2">
-          The stroke path data bundled in this app (<code>src/data/strokes.ts</code>) is a derivative work — the
-          original stroke paths, re-keyed to this app's character ids — and is itself licensed under CC BY-SA 3.0.
+          The stroke path data bundled in this app (<code>src/data/strokeGlyphs.ts</code>) is generated from these
+          vendored SVGs; see <code>vendor/strokesvg/LICENSE</code> and <code>vendor/strokesvg/PROVENANCE.md</code>{' '}
+          for full attribution and license text.
         </p>
       </div>
     </div>

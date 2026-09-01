@@ -309,10 +309,9 @@ export async function generateOutput(): Promise<string> {
 // entry (see scripts/convertStrokesvg.ts's DIRECT_GLYPHS, mechanically
 // derived from CHARACTERS) gets a direct entry here, building on the Phase
 // 1A prototype (Issue #122: the original six representative glyphs). Any
-// current single-glyph characterId not covered here would fail generation
-// loudly rather than silently keep using src/data/strokes.ts's KanjiVG-
-// derived STROKE_PATHS fallback in StrokeOrderAnimation — that fallback
-// remains only for non-current/legacy ids until the KanjiVG cleanup phase.
+// current single-glyph characterId not covered here fails generation loudly
+// (see convertStrokesvg.test.ts's inventory-coverage test) rather than
+// silently rendering an empty guide.
 //
 // Phase 1B (Issue #126): sokuon / katakana-sokuon are additionally derived
 // from the pinned full つ/ツ via one glyph-level affine transform (see
@@ -394,12 +393,10 @@ async function main() {
 
 // Only run when invoked directly (`npx tsx scripts/convertStrokesvg.ts`),
 // not when imported by scripts/convertStrokesvg.test.ts for parseGlyph
-// coverage — matches this repo's existing convention (see
-// scripts/fetchStrokeData.ts), applied explicitly here since this module is
-// actually imported elsewhere, unlike that one. Compares resolved file
-// paths (via the `file:` URL -> path conversion) rather than raw strings,
-// since a raw `file://${process.argv[1]}` comparison breaks on Windows
-// (backslash path separators, drive-letter casing).
+// coverage. Compares resolved file paths (via the `file:` URL -> path
+// conversion) rather than raw strings, since a raw
+// `file://${process.argv[1]}` comparison breaks on Windows (backslash path
+// separators, drive-letter casing).
 if (path.resolve(fileURLToPath(import.meta.url)) === path.resolve(process.argv[1] ?? '')) {
   main()
 }

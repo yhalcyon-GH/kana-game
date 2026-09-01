@@ -1,21 +1,16 @@
 import { render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { STROKE_GLYPHS } from '../data/strokeGlyphs'
-import { STROKE_PATHS } from '../data/strokes'
 import { GAP_MS, STROKE_MS, StrokeOrderAnimation, TracingUnitAnimation } from './StrokeOrderAnimation'
 
-// きゃ (kya) — a real yōon character. KanjiVG (the stroke-data source; see
-// scripts/fetchStrokeData.ts) has no combined-glyph entry for a 2-character
-// digraph like this, and this project deliberately did NOT run that script
-// for yōon characters — re-running it naively would key kya's entry off
-// kana.codePointAt(0) (き's codepoint alone), silently writing き's stroke
-// data mislabeled as きゃ's, which is worse than having none. So STROKE_PATHS
-// has no entry for 'kya' at all, and this test proves the `?? []` fallback
-// in StrokeOrderAnimation actually renders safely (empty guide, no crash)
-// rather than just assuming it does.
-describe('StrokeOrderAnimation with a yōon character (no KanjiVG data)', () => {
-  it('STROKE_PATHS genuinely has no entry for it (not just theoretically missing)', () => {
-    expect(STROKE_PATHS['kya']).toBeUndefined()
+// きゃ (kya) — a real yōon character, composed at render time from its base
+// き + small ゃ glyphs (see lib/tracingUnits.ts) rather than a combined
+// STROKE_GLYPHS entry of its own. Calling StrokeOrderAnimation directly with
+// the combined 'kya' id (which TracingUnitAnimation never actually does)
+// proves the no-entry-found path still renders safely.
+describe('StrokeOrderAnimation with an id that has no STROKE_GLYPHS entry (kya, the combined yōon id)', () => {
+  it('STROKE_GLYPHS genuinely has no entry for it (not just theoretically missing)', () => {
+    expect(STROKE_GLYPHS['kya']).toBeUndefined()
   })
 
   it('renders without crashing, as an empty guide (zero stroke paths)', () => {
@@ -86,11 +81,9 @@ describe('TracingUnitAnimation', () => {
   })
 })
 
-// StrokeGlyphAnimation (Phase 1A prototype — Issue #122): the six
-// representative glyphs (あ/き/ず/ア/シ/ツ) render from the new
-// strokesvg-derived STROKE_GLYPHS data path instead of KanjiVG's
-// STROKE_PATHS. Every other character keeps using StrokeOrderAnimation's
-// existing KanjiVG fallback unchanged (verified above).
+// StrokeGlyphAnimation is the sole stroke renderer for current glyphs
+// (strokesvg-derived STROKE_GLYPHS data). These representative glyphs
+// (あ/き/ず/ア/シ/ツ) exercise its rendering behavior.
 describe('StrokeOrderAnimation with prototype strokesvg glyphs', () => {
   it('all six prototype glyphs actually have STROKE_GLYPHS entries (precondition for the tests below)', () => {
     for (const id of ['a', 'ki', 'zu', 'katakana-a', 'katakana-shi', 'katakana-tsu']) {
@@ -229,14 +222,12 @@ describe('StrokeOrderAnimation with prototype strokesvg glyphs', () => {
   })
 
   // Issue #129 expanded STROKE_GLYPHS to cover every current single-glyph
-  // CHARACTERS id, so no current id is left to exercise the KanjiVG fallback
-  // with real stroke data (see convertStrokesvg.test.ts's inventory-coverage
-  // test, which proves this directly against CHARACTERS/STROKE_PATHS). This
-  // test instead uses a synthetic non-current id to prove the fallback path
-  // itself — StrokeOrderAnimation falling through to KanjivgStrokeAnimation
-  // when STROKE_GLYPHS has no entry — still renders safely rather than
-  // crashing, independent of whether any real character currently needs it.
-  it('an id with no STROKE_GLYPHS entry still uses the existing KanjiVG fallback safely (no crash)', () => {
+  // CHARACTERS id (see convertStrokesvg.test.ts's inventory-coverage test,
+  // which proves this directly against CHARACTERS/STROKE_GLYPHS). This test
+  // uses a synthetic non-current id to prove StrokeOrderAnimation still
+  // renders safely (empty guide, no crash) when STROKE_GLYPHS has no entry,
+  // independent of whether any real character currently needs that path.
+  it('an id with no STROKE_GLYPHS entry renders a safe empty guide (no crash)', () => {
     expect(STROKE_GLYPHS['not-a-real-character-id']).toBeUndefined()
     const { container } = render(<StrokeOrderAnimation characterId="not-a-real-character-id" playToken={0} />)
     const svg = container.querySelector('svg')
@@ -248,19 +239,19 @@ describe('StrokeOrderAnimation with prototype strokesvg glyphs', () => {
 
 // Derived small-tsu entries (Issue #126, Phase 1B): sokuon/katakana-sokuon
 // are generated from the pinned full つ/ツ via one glyph-level affine
-// transform rather than a dedicated upstream glyph or KanjiVG. These tests
-// cover the Acceptance Criteria: no KanjiVG fallthrough, correct logical
-// stroke counts, and glyphTransform applied consistently to guide/shadow,
-// clip geometry, and animated stroke geometry alike.
+// transform rather than a dedicated upstream glyph. These tests cover the
+// Acceptance Criteria: correct logical stroke counts, and glyphTransform
+// applied consistently to guide/shadow, clip geometry, and animated stroke
+// geometry alike.
 describe('StrokeOrderAnimation with derived small-tsu glyphs (sokuon, katakana-sokuon)', () => {
-  it('sokuon (っ) no longer falls through to KanjiVG: STROKE_GLYPHS has an entry, and it renders via the strokesvg viewBox', () => {
+  it('sokuon (っ): STROKE_GLYPHS has an entry, and it renders via the strokesvg viewBox', () => {
     expect(STROKE_GLYPHS['sokuon']).toBeDefined()
     const { container } = render(<StrokeOrderAnimation characterId="sokuon" playToken={0} />)
     const svg = container.querySelector('svg')
     expect(svg?.getAttribute('viewBox')).toBe(STROKE_GLYPHS['sokuon'].viewBox)
   })
 
-  it('katakana-sokuon (ッ) no longer falls through to KanjiVG: STROKE_GLYPHS has an entry with 3 logical strokes', () => {
+  it('katakana-sokuon (ッ): STROKE_GLYPHS has an entry with 3 logical strokes', () => {
     expect(STROKE_GLYPHS['katakana-sokuon']).toBeDefined()
     expect(STROKE_GLYPHS['katakana-sokuon'].logicalStrokes).toHaveLength(3)
     const { container } = render(<StrokeOrderAnimation characterId="katakana-sokuon" playToken={0} />)

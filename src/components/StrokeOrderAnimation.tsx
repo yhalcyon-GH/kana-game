@@ -1,18 +1,16 @@
 import type { ReactNode } from 'react'
 import { useId, useLayoutEffect, useRef } from 'react'
 import { STROKE_GLYPHS } from '../data/strokeGlyphs'
-import { STROKE_PATHS } from '../data/strokes'
 import { buildTracingUnit } from '../lib/tracingUnits'
 
 type Props = {
   characterId: string
   playToken: number
   size?: number
-  // Which STROKE_PATHS entry to animate. Defaults to `characterId` — only
+  // Which STROKE_GLYPHS entry to animate. Defaults to `characterId` — only
   // yōon's small ゃ/ゅ/ょ glyph passes a different id here (see
   // TracingUnitAnimation), reusing や/ゆ/よ's full stroke data rather than
-  // any hand-authored/newly-fetched small-glyph path (see strokes.ts's
-  // generated-file header).
+  // any hand-authored small-glyph path.
   strokeSourceId?: string
   // Delay (ms) before this glyph's first stroke starts, on top of each
   // stroke's own per-index delay below — used by TracingUnitAnimation to
@@ -21,7 +19,7 @@ type Props = {
   startDelayMs?: number
 }
 
-const VIEWBOX_SIZE = 109 // KanjiVG's standard canvas size for every stroke path
+const EMPTY_VIEWBOX = '0 0 109 109' // no STROKE_GLYPHS entry for this id: render an empty guide at a fixed canvas size
 export const STROKE_MS = 500
 export const GAP_MS = 200
 
@@ -44,80 +42,16 @@ export function StrokeOrderAnimation({ characterId, playToken, size = 160, strok
   if (glyph) {
     return <StrokeGlyphAnimation glyph={glyph} playToken={playToken} size={size} startDelayMs={startDelayMs} sourceId={sourceId} />
   }
-  return <KanjivgStrokeAnimation sourceId={sourceId} playToken={playToken} size={size} startDelayMs={startDelayMs} />
-}
-
-// Existing KanjiVG-derived renderer (STROKE_PATHS), unchanged in behavior —
-// every non-prototype glyph still uses this path (Issue #122: prototype
-// glyphs only switch to StrokeGlyphAnimation; everything else keeps this
-// fallback).
-function KanjivgStrokeAnimation({
-  sourceId,
-  playToken,
-  size,
-  startDelayMs,
-}: {
-  sourceId: string
-  playToken: number
-  size: number
-  startDelayMs: number
-}) {
-  const strokes = STROKE_PATHS[sourceId] ?? []
-  const pathRefs = useRef<(SVGPathElement | null)[]>([])
-
-  useLayoutEffect(() => {
-    const animations = strokes.map((_, i) => {
-      const el = pathRefs.current[i]
-      if (!el) return null
-      const length = el.getTotalLength() || 1
-      el.style.strokeDasharray = String(length)
-      if (typeof el.animate !== 'function') {
-        el.style.strokeDashoffset = '0'
-        return null
-      }
-      el.style.strokeDashoffset = String(length)
-      return el.animate([{ strokeDashoffset: length }, { strokeDashoffset: 0 }], {
-        duration: STROKE_MS,
-        delay: startDelayMs + i * (STROKE_MS + GAP_MS),
-        easing: 'ease-in-out',
-        fill: 'forwards',
-      })
-    })
-    return () => animations.forEach((a) => a?.cancel())
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sourceId, playToken, startDelayMs])
-
+  // No STROKE_GLYPHS entry for this id (e.g. a non-current/legacy id): a
+  // safe empty guide, never a crash — see the "no crash" regression test in
+  // StrokeOrderAnimation.test.tsx.
   return (
     <svg
-      viewBox={`0 0 ${VIEWBOX_SIZE} ${VIEWBOX_SIZE}`}
+      viewBox={EMPTY_VIEWBOX}
       width={size}
       height={size}
       className="rounded-xl border border-neutral-200 bg-white dark:border-neutral-700 dark:bg-neutral-800"
-    >
-      <g
-        fill="none"
-        stroke="currentColor"
-        strokeWidth={3}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className="text-neutral-300 dark:text-neutral-600"
-      >
-        {strokes.map((d, i) => (
-          <path key={`guide-${i}`} d={d} />
-        ))}
-      </g>
-      <g fill="none" stroke="#2563eb" strokeWidth={4} strokeLinecap="round" strokeLinejoin="round">
-        {strokes.map((d, i) => (
-          <path
-            key={`stroke-${i}`}
-            ref={(el) => {
-              pathRefs.current[i] = el
-            }}
-            d={d}
-          />
-        ))}
-      </g>
-    </svg>
+    />
   )
 }
 
@@ -131,9 +65,9 @@ function GlyphTransformGroup({ transform, children }: { transform?: string; chil
   return transform ? <g transform={transform}>{children}</g> : children
 }
 
-// strokesvg-derived renderer (STROKE_GLYPHS) — Phase 1A prototype (Issue
-// #122). Uses the glyph's own viewBox (1024 corpus) rather than the fixed
-// KanjiVG 109 canvas, clips each animated centerline to its own shadow
+// strokesvg-derived renderer (STROKE_GLYPHS) — the sole stroke renderer for
+// current glyphs. Uses the glyph's own viewBox (1024 corpus), clips each
+// animated centerline to its own shadow
 // shape via a runtime-generated clip path (unique per component instance —
 // see useId() — so multiple simultaneous instances on the same page never
 // collide on clip ids), and animates in logical-stroke order: a multi-part
@@ -310,7 +244,7 @@ export function TracingUnitAnimation({
     )
   }
   const [base, small] = unit.glyphs
-  const baseStrokeCount = STROKE_GLYPHS[base.strokeSourceId]?.logicalStrokes.length ?? STROKE_PATHS[base.strokeSourceId]?.length ?? 0
+  const baseStrokeCount = STROKE_GLYPHS[base.strokeSourceId]?.logicalStrokes.length ?? 0
   const smallStartDelayMs = baseStrokeCount * (STROKE_MS + GAP_MS)
   return (
     <div className="flex gap-0">

@@ -8,10 +8,9 @@
 // entry (see scripts/convertStrokesvg.ts's DIRECT_GLYPHS, mechanically
 // derived from CHARACTERS) gets a direct entry here, building on the Phase
 // 1A prototype (Issue #122: the original six representative glyphs). Any
-// current single-glyph characterId not covered here would fail generation
-// loudly rather than silently keep using src/data/strokes.ts's KanjiVG-
-// derived STROKE_PATHS fallback in StrokeOrderAnimation — that fallback
-// remains only for non-current/legacy ids until the KanjiVG cleanup phase.
+// current single-glyph characterId not covered here fails generation loudly
+// (see convertStrokesvg.test.ts's inventory-coverage test) rather than
+// silently rendering an empty guide.
 //
 // Phase 1B (Issue #126): sokuon / katakana-sokuon are additionally derived
 // from the pinned full つ/ツ via one glyph-level affine transform (see

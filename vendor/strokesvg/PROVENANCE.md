@@ -59,12 +59,12 @@ continue to compose their base consonant glyph + a reused full-size small-
 vowel glyph at render time (`src/lib/tracingUnits.ts`'s `buildTracingUnit`),
 unchanged by this expansion.
 
-KanjiVG-derived `src/data/strokes.ts` (`STROKE_PATHS`) and
-`scripts/fetchStrokeData.ts` remain in the repo as the fallback renderer path
-for any non-current-curriculum id; removing them is a separate follow-up
-cleanup phase once full current-curriculum coverage from this vendor set is
-proven (this task's `STROKE_GLYPHS` inventory-coverage test provides that
-proof for current single-glyph ids).
+The legacy KanjiVG-derived `src/data/strokes.ts` (`STROKE_PATHS`) and
+`scripts/fetchStrokeData.ts` generator have been removed (Issue #142) now
+that full current-curriculum coverage from this vendor set is proven (this
+task's `STROKE_GLYPHS` inventory-coverage test provides that proof for
+current single-glyph ids). `StrokeOrderAnimation` renders a safe empty guide
+for any id with no `STROKE_GLYPHS` entry.
 
 ## Regenerating runtime data from these files
 
