@@ -1,4 +1,4 @@
-name: Issue 159 patch verified rollout fixes
+name: Issue 159 apply verified rollout fixes
 
 on:
   push:
@@ -12,56 +12,26 @@ jobs:
   patch-rollout:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout patch helper
+        uses: actions/checkout@v4
+        with:
+          ref: issue-159-verify-diagnostics
+          path: helper
+
+      - name: Checkout rollout branch
+        uses: actions/checkout@v4
         with:
           ref: issue-159-runtime-audio-mp3-rollout
           fetch-depth: 0
+          path: target
 
-      - name: Patch verified MP3 test assumptions
-        shell: bash
+      - name: Apply verified patch
+        run: python3 helper/scripts/issue159PatchRolloutWorkflow.py target/.github/workflows/issue-159-audio-rollout.yml
+
+      - name: Commit rollout workflow fix
+        working-directory: target
         run: |
           set -euo pipefail
-          python3 <<'PY'
-          from pathlib import Path
-
-          path = Path('.github/workflows/issue-159-audio-rollout.yml')
-          text = path.read_text(encoding='utf-8')
-          if "curriculum_test = Path('src/data/curriculum.test.ts')" in text:
-              raise SystemExit('rollout workflow is already patched')
-
-          needle = """          test.write_text(text.replace('audio/characters/ka.wav', 'audio/characters/ka.mp3'), encoding='utf-8')
-
-          gen = Path('scripts/generateAudioElevenLabs.ts')
-"""
-          replacement = """          test.write_text(text.replace('audio/characters/ka.wav', 'audio/characters/ka.mp3'), encoding='utf-8')
-
-          curriculum_test = Path('src/data/curriculum.test.ts')
-          text = curriculum_test.read_text(encoding='utf-8')
-          old_description = \"it('a WAV file exists on disk for each of the 12 audio ids', () => {\"
-          old_path = \"`${audioId}.wav`\"
-          if old_description not in text or old_path not in text:
-              raise SystemExit('curriculum WAV audio assertion not found')
-          text = text.replace(old_description, \"it('an MP3 file exists on disk for each of the 12 audio ids', () => {\")
-          text = text.replace(old_path, \"`${audioId}.mp3`\", 1)
-          curriculum_test.write_text(text, encoding='utf-8')
-
-          quiz_test = Path('src/routes/games/KanaQuizPage.test.tsx')
-          text = quiz_test.read_text(encoding='utf-8')
-          old_comment = 'round-start autoplay — its .src encodes \"characters/<id>.wav\",'
-          old_regex = r'promptAudio.src.match(/\\/audio\\/characters\\/([^/]+)\\.wav$/)'
-          if old_comment not in text or old_regex not in text:
-              raise SystemExit('KanaQuiz WAV URL assertion not found')
-          text = text.replace(old_comment, 'round-start autoplay — its .src encodes \"characters/<id>.mp3\",')
-          text = text.replace(old_regex, r'promptAudio.src.match(/\\/audio\\/characters\\/([^/]+)\\.mp3$/)')
-          quiz_test.write_text(text, encoding='utf-8')
-
-          gen = Path('scripts/generateAudioElevenLabs.ts')
-"""
-          if needle not in text:
-              raise SystemExit('rollout patch anchor not found')
-          path.write_text(text.replace(needle, replacement, 1), encoding='utf-8')
-          PY
-
           git diff --check
           git diff -- .github/workflows/issue-159-audio-rollout.yml
           git config user.name "github-actions[bot]"
