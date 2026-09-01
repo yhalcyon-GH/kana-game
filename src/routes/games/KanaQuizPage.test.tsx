@@ -284,10 +284,10 @@ describe('KanaQuizPage character Review streak (both directions)', () => {
     advanceUntilMode(container, 'recall')
 
     // The most recent play() call at this point is this round's own
-    // round-start autoplay — its .src encodes "characters/<id>.wav",
+    // round-start autoplay — its .src encodes "characters/<id>.mp3",
     // identifying the target deterministically without guessing.
     const promptAudio = playSpy.mock.instances[playSpy.mock.instances.length - 1] as HTMLAudioElement
-    const match = promptAudio.src.match(/\/audio\/characters\/([^/]+)\.wav$/)
+    const match = promptAudio.src.match(/\/audio\/characters\/([^/]+)\.mp3$/)
     expect(match).not.toBeNull()
     const targetId = match![1]
     const targetKana = CHARACTERS_BY_ID[targetId].kana

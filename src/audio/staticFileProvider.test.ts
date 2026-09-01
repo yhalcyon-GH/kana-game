@@ -30,7 +30,7 @@ describe('StaticFileProvider', () => {
     const provider = new StaticFileProvider()
     await provider.speak({ key: 'characters/ka', text: 'か' }, { volume: 1, rate: 1 })
     const audioEl = playSpy.mock.instances[0] as HTMLAudioElement
-    expect(audioEl.src).toContain('audio/characters/ka.wav')
+    expect(audioEl.src).toContain('audio/characters/ka.mp3')
   })
 
   it('applies volume and playback rate from the given options', async () => {

@@ -77,8 +77,9 @@ async function main() {
   await mkdir(OUT_DIR, { recursive: true })
   for (const { id, text } of lines) {
     const outPath = path.join(OUT_DIR, `${id}.wav`)
-    if (await exists(outPath)) {
-      console.log(`  skip ${id}.wav (already exists)`)
+    const productionMp3Path = path.join(OUT_DIR, `${id}.mp3`)
+    if (await exists(outPath) || await exists(productionMp3Path)) {
+      console.log(`  skip ${id} (runtime clip already exists)`)
       continue
     }
     const wav = await synthesize(text)

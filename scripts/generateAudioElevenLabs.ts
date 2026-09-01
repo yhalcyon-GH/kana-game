@@ -36,8 +36,9 @@ async function generateAll(subdir: string, items: { id: string; text: string }[]
   const dir = path.join(OUT_DIR, subdir)
   for (const { id, text } of items) {
     const outPath = path.join(dir, `${id}.wav`)
-    if (await fileExists(outPath)) {
-      console.log(`  skip ${subdir}/${id}.wav (already exists)`)
+    const productionMp3Path = path.join(dir, `${id}.mp3`)
+    if (await fileExists(outPath) || await fileExists(productionMp3Path)) {
+      console.log(`  skip ${subdir}/${id} (runtime clip already exists)`)
       continue
     }
     await synthesizeToFile(outPath, text, apiKey, voice)
