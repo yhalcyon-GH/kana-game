@@ -68,7 +68,7 @@ Category dependencies are explicit through `dependsOnCategoryIds`; never infer d
 
 `src/data/curriculum.test.ts` enforces key content invariants. New vocabulary/rows should preserve them rather than bypassing the tests.
 
-Yōon is multi-glyph/one-mora. Pitch-accent code already handles mora boundaries, but the legacy KanjiVG stroke generator is unsafe for multi-glyph ids. **Do not run `scripts/fetchStrokeData.ts` for yōon or future multi-glyph character ids.**
+Yōon is multi-glyph/one-mora. Pitch-accent code already handles mora boundaries. Stroke data for yōon/Special Katakana composes two single-glyph `STROKE_GLYPHS` entries at render time via `buildTracingUnit` (`src/lib/tracingUnits.ts`); there is no combined-glyph entry and there must never be a hand-authored one. **Do not run `scripts/convertStrokesvg.ts`'s generation for a multi-glyph character id.**
 
 Chōon rows may have `characterIds: []`; do not assume every row introduces characters.
 

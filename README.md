@@ -17,4 +17,4 @@ npm test          # vitest
 ## Credits
 
 - Character/word pronunciation and the mascot's in-game reactions are generated with **ElevenLabs**.
-- Stroke-order animations use path data from the **KanjiVG** project (Copyright © 2009/2010/2011 Ulrich Apel), licensed under [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/). See the in-app About page for full attribution.
+- Stroke-order animations use path data converted from the [strokesvg](https://github.com/zhengkyl/strokesvg) project's kana SVGs, derived from the **Klee One** font (Copyright 2020 The Klee Project Authors), licensed under the [SIL Open Font License 1.1](https://openfontlicense.org/). See the in-app About page and `vendor/strokesvg/PROVENANCE.md` for full attribution.

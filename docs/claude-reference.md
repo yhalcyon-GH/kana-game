@@ -59,7 +59,7 @@ Yōon ids represent two glyphs but one mora (for example きゃ). This breaks na
 
 Pitch-accent rendering and `scripts/buildAccentData.mjs` already align by mora through `src/lib/mora.ts`.
 
-Stroke data is different: `scripts/fetchStrokeData.ts` keys off the first code point, so running it for a multi-glyph yōon id would silently store the first glyph's stroke data under the wrong id. **Do not run stroke generation for yōon/multi-glyph character ids.** Missing stroke data should fall back to the existing empty-guide behavior.
+Stroke data is different: yōon/Special Katakana ids have no combined-glyph `STROKE_GLYPHS` entry — they compose their base glyph + a reused small-vowel glyph at render time via `buildTracingUnit` (`src/lib/tracingUnits.ts`). **Do not generate a combined-glyph stroke entry for a multi-glyph character id.** An id with no `STROKE_GLYPHS` entry falls back to the existing empty-guide behavior.
 
 Word Builder intentionally splits a yōon spelling into separate glyph tiles during the interaction even though the curriculum character id represents the combined spelling.
 
@@ -111,7 +111,7 @@ Katakana ids are namespaced (`katakana-*`) because the character dictionary is f
 Learn/Practice/Tracing behavior is already generalized by `learnStyle`. Treat additions as content work unless the requested behavior itself changes.
 
 ### Generated data
-- `src/data/strokes.ts`: generated from KanjiVG; do not hand-edit.
+- `src/data/strokeGlyphs.ts`: generated from vendored strokesvg SVGs (`scripts/convertStrokesvg.ts`, see `vendor/strokesvg/PROVENANCE.md`); do not hand-edit.
 - `src/data/accents.ts`: generated from the accent dataset pipeline; do not guess pitch accent from memory.
 
 ## Architecture map

@@ -447,10 +447,10 @@ describe('character-set learnStyle with yōon (multi-glyph, one-mora characters)
   })
 
   it('/practice/youon/youon-ka-row/tracing starts in the character phase and does not crash on a yōon character with no stroke data', () => {
-    // きゃ (kya, this row's first character) has no KanjiVG stroke data (see
-    // StrokeOrderAnimation.test.tsx) — this just confirms the whole Tracing
-    // page still renders normally around that empty guide, not only the
-    // stroke component in isolation.
+    // きゃ (kya, this row's first character) composes at render time from its
+    // base き + small ゃ glyphs (see StrokeOrderAnimation.test.tsx) — this
+    // just confirms the whole Tracing page still renders normally, not only
+    // the stroke component in isolation.
     renderAt('/practice/youon/youon-ka-row/tracing')
     startTracing()
     expect(screen.getByText('Trace each character')).toBeInTheDocument()

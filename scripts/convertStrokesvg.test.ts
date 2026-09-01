@@ -230,14 +230,14 @@ describe('convertStrokesvg: parseGlyph on vendored prototype SVGs', () => {
       }
     })
 
-    it('no current drawable strokeSourceId needs the KanjiVG STROKE_PATHS fallback: every buildTracingUnit glyph for every current characterId resolves in STROKE_GLYPHS', async () => {
+    it('every buildTracingUnit glyph for every current characterId resolves in STROKE_GLYPHS (no id falls back to an empty guide)', async () => {
       const { buildTracingUnit } = await import('../src/lib/tracingUnits')
       for (const character of CHARACTERS) {
         const unit = buildTracingUnit(character.id)
         for (const glyph of unit.glyphs) {
           expect(
             STROKE_GLYPHS[glyph.strokeSourceId],
-            `${character.id} -> glyph strokeSourceId "${glyph.strokeSourceId}" has no STROKE_GLYPHS entry (would fall back to KanjiVG)`,
+            `${character.id} -> glyph strokeSourceId "${glyph.strokeSourceId}" has no STROKE_GLYPHS entry (would render an empty guide)`,
           ).toBeDefined()
         }
       }
@@ -286,8 +286,8 @@ describe('convertStrokesvg: parseGlyph on vendored prototype SVGs', () => {
   // have no dedicated upstream strokesvg glyph and are generated from the
   // pinned full つ/ツ via one glyph-level affine transform instead (Option A
   // from the Issue #125 evidence spike). These tests cover the Acceptance
-  // Criteria: correct logical-stroke counts, no fallthrough to KanjiVG, and
-  // preserved source part structure.
+  // Criteria: correct logical-stroke counts and preserved source part
+  // structure.
   describe('derived small-tsu entries: sokuon (from つ.svg), katakana-sokuon (from ツ.svg)', () => {
     it('sokuon: exists in STROKE_GLYPHS, has exactly 1 logical stroke, and carries a glyphTransform', () => {
       const glyph = STROKE_GLYPHS['sokuon']
