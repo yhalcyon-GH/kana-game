@@ -9,8 +9,9 @@ import type { AnchorWord } from './types'
 // for the row at once (unlike a per-character drip-feed).
 //
 // Special case: を is a grammatical particle that essentially never appears
-// inside a standalone Japanese word, so its row (wa-row) includes one short
-// phrase (みずをのむ) instead of a single word to demonstrate real usage.
+// inside a standalone Japanese word, so its row (the final combined ra-row,
+// which を is folded into — see curriculum.ts's ra-row comment) includes one
+// short phrase (みずをのむ) instead of a single word to demonstrate real usage.
 //
 // `audioText`, where present, is what's actually sent to TTS instead of
 // `kana` — bare hiragana is lexically ambiguous (no word boundaries, no way
@@ -26,6 +27,9 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'a-ie', kana: 'いえ', romaji: 'ie', meaning: 'house', image: 'word-icons/a-ie.webp', characterIds: ['i', 'e'], audioText: '家。' },
     { id: 'a-ue', kana: 'うえ', romaji: 'ue', meaning: 'up / above', image: 'word-icons/a-ue.webp', characterIds: ['u', 'e'] },
     { id: 'a-ao', kana: 'あお', romaji: 'ao', meaning: 'blue', image: 'word-icons/a-ao.webp', characterIds: ['a', 'o'], audioText: '青。' },
+    // Moved from hiragana wa-row (Issue #155) — ん now belongs to a-row, so
+    // えん can be taught in the very first hiragana lesson.
+    { id: 'a-en', kana: 'えん', romaji: 'en', meaning: 'yen', image: 'word-icons/a-en.webp', characterIds: ['e', 'n'], audioText: '円' },
   ],
   'ka-row': [
     { id: 'ka-aka', kana: 'あか', romaji: 'aka', meaning: 'red', image: 'word-icons/ka-aka.webp', characterIds: ['a', 'ka'], audioText: '赤。' },
@@ -63,6 +67,9 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'ta-shigoto', kana: 'しごと', romaji: 'shigoto', meaning: 'job / work', image: 'word-icons/ta-shigoto.webp', characterIds: ['shi', 'go', 'to'], audioText: '仕事' },
     { id: 'ta-chikatetsu', kana: 'ちかてつ', romaji: 'chikatetsu', meaning: 'subway', image: 'word-icons/ta-chikatetsu.webp', characterIds: ['chi', 'ka', 'te', 'tsu'], audioText: '地下鉄。' },
     { id: 'ta-tokei', kana: 'とけい', romaji: 'tokei', meaning: 'clock / watch', image: 'word-icons/ta-tokei.webp', characterIds: ['to', 'ke', 'i'], audioText: '時計' },
+    // Moved from hiragana wa-row (Issue #155) — ん now belongs to a-row
+    // (before ta-row), so とんかつ can be taught here instead of waiting.
+    { id: 'ta-tonkatsu', kana: 'とんかつ', romaji: 'tonkatsu', meaning: 'pork cutlet', image: 'word-icons/ta-tonkatsu.webp', characterIds: ['to', 'n', 'ka', 'tsu'], audioText: '豚カツ。' },
   ],
   'na-row': [
     { id: 'na-neko', kana: 'ねこ', romaji: 'neko', meaning: 'cat', image: 'word-icons/na-neko.webp', characterIds: ['ne', 'ko'], audioText: '猫。' },
@@ -85,6 +92,13 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'ha-soba', kana: 'そば', romaji: 'soba', meaning: 'soba noodles', image: 'word-icons/ha-soba.webp', characterIds: ['so', 'ba'], audioText: '蕎麦' },
     { id: 'ha-hako', kana: 'はこ', romaji: 'hako', meaning: 'box', image: 'word-icons/ha-hako.webp', characterIds: ['ha', 'ko'], audioText: '箱' },
     { id: 'ha-fuku', kana: 'ふく', romaji: 'fuku', meaning: 'clothes', image: 'word-icons/ha-fuku.webp', characterIds: ['fu', 'ku'], audioText: '服' },
+    // Moved from hiragana wa-row (Issue #155) — ん now belongs to a-row
+    // (before ha-row), so these ん-words can be taught here instead of
+    // waiting for the old final row.
+    { id: 'ha-hon', kana: 'ほん', romaji: 'hon', meaning: 'book', image: 'word-icons/ha-hon.webp', characterIds: ['ho', 'n'], audioText: '本。' },
+    { id: 'ha-nihon', kana: 'にほん', romaji: 'nihon', meaning: 'Japan', image: 'word-icons/ha-nihon.webp', characterIds: ['ni', 'ho', 'n'], audioText: '日本。' },
+    { id: 'ha-kanpai', kana: 'かんぱい', romaji: 'kanpai', meaning: 'cheers', image: 'word-icons/ha-kanpai.webp', characterIds: ['ka', 'n', 'pa', 'i'], audioText: '乾杯。' },
+    { id: 'ha-nihongo', kana: 'にほんご', romaji: 'nihongo', meaning: 'Japanese (language)', image: 'word-icons/ha-nihongo.webp', characterIds: ['ni', 'ho', 'n', 'go'], audioText: '日本語' },
   ],
   'ma-row': [
     { id: 'ma-mizu', kana: 'みず', romaji: 'mizu', meaning: 'water', image: 'word-icons/ma-mizu.webp', characterIds: ['mi', 'zu'], audioText: '水' },
@@ -122,33 +136,31 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'ra-karaage', kana: 'からあげ', romaji: 'karaage', meaning: 'fried chicken', image: 'word-icons/ra-karaage.webp', characterIds: ['ka', 'ra', 'a', 'ge'], audioText: '唐揚げ。' },
     { id: 'ra-misoshiru', kana: 'みそしる', romaji: 'misoshiru', meaning: 'miso soup', image: 'word-icons/ra-misoshiru.webp', characterIds: ['mi', 'so', 'shi', 'ru'], audioText: '味噌汁' },
     { id: 'ra-onigiri', kana: 'おにぎり', romaji: 'onigiri', meaning: 'rice ball', image: 'word-icons/ra-onigiri.webp', characterIds: ['o', 'ni', 'gi', 'ri'] },
-  ],
-  'wa-row': [
-    { id: 'wa-watashi', kana: 'わたし', romaji: 'watashi', meaning: 'I / me', image: 'word-icons/wa-watashi.webp', characterIds: ['wa', 'ta', 'shi'] },
-    { id: 'wa-hon', kana: 'ほん', romaji: 'hon', meaning: 'book', image: 'word-icons/wa-hon.webp', characterIds: ['ho', 'n'], audioText: '本。' },
-    { id: 'wa-nihon', kana: 'にほん', romaji: 'nihon', meaning: 'Japan', image: 'word-icons/wa-nihon.webp', characterIds: ['ni', 'ho', 'n'], audioText: '日本。' },
-    { id: 'wa-en', kana: 'えん', romaji: 'en', meaning: 'yen', image: 'word-icons/wa-en.webp', characterIds: ['e', 'n'], audioText: '円' },
+    // Moved from hiragana wa-row (Issue #155): wa-row itself is gone (only
+    // two kana, わ・を, folded into this final combined row above — see
+    // curriculum.ts's ra-row comment), so its vocabulary moves here too.
+    { id: 'ra-watashi', kana: 'わたし', romaji: 'watashi', meaning: 'I / me', image: 'word-icons/ra-watashi.webp', characterIds: ['wa', 'ta', 'shi'] },
     {
-      id: 'wa-mizu-wo-nomu',
+      id: 'ra-mizu-wo-nomu',
       kana: 'みずをのむ',
       romaji: 'mizu wo nomu',
       meaning: 'drink water (phrase — を is a particle, not part of a word)',
-      image: 'word-icons/wa-mizu-wo-nomu.webp',
+      image: 'word-icons/ra-mizu-wo-nomu.webp',
       characterIds: ['mi', 'zu', 'wo', 'no', 'mu'],
       audioText: '水を飲む',
     },
-    { id: 'wa-niwatori', kana: 'にわとり', romaji: 'niwatori', meaning: 'chicken (bird)', image: 'word-icons/wa-niwatori.webp', characterIds: ['ni', 'wa', 'to', 'ri'] },
-    { id: 'wa-kanpai', kana: 'かんぱい', romaji: 'kanpai', meaning: 'cheers', image: 'word-icons/wa-kanpai.webp', characterIds: ['ka', 'n', 'pa', 'i'], audioText: '乾杯。' },
-    { id: 'wa-tenpura', kana: 'てんぷら', romaji: 'tenpura', meaning: 'tempura', image: 'word-icons/wa-tenpura.webp', characterIds: ['te', 'n', 'pu', 'ra'], audioText: '天ぷら' },
-    { id: 'wa-tonkatsu', kana: 'とんかつ', romaji: 'tonkatsu', meaning: 'pork cutlet', image: 'word-icons/wa-tonkatsu.webp', characterIds: ['to', 'n', 'ka', 'tsu'], audioText: '豚カツ。' },
-    { id: 'wa-nihongo', kana: 'にほんご', romaji: 'nihongo', meaning: 'Japanese (language)', image: 'word-icons/wa-nihongo.webp', characterIds: ['ni', 'ho', 'n', 'go'], audioText: '日本語' },
-    { id: 'wa-denwa', kana: 'でんわ', romaji: 'denwa', meaning: 'telephone', image: 'word-icons/wa-denwa.webp', characterIds: ['de', 'n', 'wa'], audioText: '電話' },
+    { id: 'ra-niwatori', kana: 'にわとり', romaji: 'niwatori', meaning: 'chicken (bird)', image: 'word-icons/ra-niwatori.webp', characterIds: ['ni', 'wa', 'to', 'ri'] },
+    { id: 'ra-tenpura', kana: 'てんぷら', romaji: 'tenpura', meaning: 'tempura', image: 'word-icons/ra-tenpura.webp', characterIds: ['te', 'n', 'pu', 'ra'], audioText: '天ぷら' },
+    { id: 'ra-denwa', kana: 'でんわ', romaji: 'denwa', meaning: 'telephone', image: 'word-icons/ra-denwa.webp', characterIds: ['de', 'n', 'wa'], audioText: '電話' },
     // The two greetings below are historical topic-marker spellings: both END
     // in は (read "wa"), NOT わ — see the Particle Guide's Step 3, which
     // teaches exactly this. `characterIds` therefore ends in 'ha', which is
     // what Word Builder tiles, so the learner assembles the real orthography.
-    { id: 'wa-konnichiwa', kana: 'こんにちは', romaji: 'konnichiwa', meaning: 'hello / good afternoon', image: 'word-icons/wa-konnichiwa.webp', characterIds: ['ko', 'n', 'ni', 'chi', 'ha'], audioText: 'こんにちは。' },
-    { id: 'wa-konbanwa', kana: 'こんばんは', romaji: 'konbanwa', meaning: 'good evening', image: 'word-icons/wa-konbanwa.webp', characterIds: ['ko', 'n', 'ba', 'n', 'ha'], audioText: 'こんばんは。' },
+    // They intentionally stay in this final row even though every literal
+    // kana they use is available earlier (Issue #155) — see PARTICLE_GUIDE's
+    // comment in particleGuide.ts.
+    { id: 'ra-konnichiwa', kana: 'こんにちは', romaji: 'konnichiwa', meaning: 'hello / good afternoon', image: 'word-icons/ra-konnichiwa.webp', characterIds: ['ko', 'n', 'ni', 'chi', 'ha'], audioText: 'こんにちは。' },
+    { id: 'ra-konbanwa', kana: 'こんばんは', romaji: 'konbanwa', meaning: 'good evening', image: 'word-icons/ra-konbanwa.webp', characterIds: ['ko', 'n', 'ba', 'n', 'ha'], audioText: 'こんばんは。' },
   ],
 
   // ===== カタカナ (katakana) vocabulary =====

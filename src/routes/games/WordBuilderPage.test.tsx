@@ -14,14 +14,16 @@ beforeEach(() => {
   useProgressStore.getState().resetProgress()
 })
 
-// a-row's 4 words, each 2 characters — used to map the rendered "meaning"
-// text back to the actual target characterIds, since which word appears is
-// randomized by useGameSession's weighted queue.
+// a-row's 5 words (Issue #155 added えん/'yen' alongside ん), each 2
+// characters — used to map the rendered "meaning" text back to the actual
+// target characterIds, since which word appears is randomized by
+// useGameSession's weighted queue.
 const A_ROW_WORDS: Record<string, [string, string]> = {
   love: ['a', 'i'],
   house: ['i', 'e'],
   'up / above': ['u', 'e'],
   blue: ['a', 'o'],
+  yen: ['e', 'n'],
 }
 
 describe('WordBuilderPage per-character attribution', () => {
@@ -46,7 +48,7 @@ describe('WordBuilderPage per-character attribution', () => {
     expect(target0).toBeDefined()
 
     const trayButtons = () => Array.from(container.querySelectorAll('button.font-kana:not(.border-dashed)')) as HTMLButtonElement[]
-    const glyphOf = (id: string) => ({ a: 'あ', i: 'い', u: 'う', e: 'え', o: 'お' })[id]
+    const glyphOf = (id: string) => ({ a: 'あ', i: 'い', u: 'う', e: 'え', o: 'お', n: 'ん' })[id]
 
     // Slot 0: deliberately WRONG — click a tile that's neither target's
     // glyph (never target1's, so its own tile stays free for the next step).
@@ -391,7 +393,8 @@ describe('WordBuilderPage result summary (correct/total count)', () => {
   })
 })
 
-const A_ROW_MEANING_TO_ROMAJI: Record<string, string> = { love: 'ai', house: 'ie', 'up / above': 'ue', blue: 'ao' }
+// a-row now has 5 words, not 4 (Issue #155 added えん/'yen' alongside ん).
+const A_ROW_MEANING_TO_ROMAJI: Record<string, string> = { love: 'ai', house: 'ie', 'up / above': 'ue', blue: 'ao', yen: 'en' }
 
 describe('WordBuilderPage romaji hint (Issue #19)', () => {
   afterEach(() => {
@@ -489,7 +492,7 @@ describe('WordBuilderPage: Save checkbox on wrong answer only', () => {
     useSavedItemsStore.setState({ savedCharacterIds: [], savedWordIds: [] })
   })
 
-  const glyphOf = (id: string) => ({ a: 'あ', i: 'い', u: 'う', e: 'え', o: 'お' })[id]!
+  const glyphOf = (id: string) => ({ a: 'あ', i: 'い', u: 'う', e: 'え', o: 'お', n: 'ん' })[id]!
 
   it('does not show a Save checkbox before answering', () => {
     const { queryByRole } = renderRowWordBuilder()

@@ -3,16 +3,17 @@ import { ACCENT_PATTERNS } from './accents'
 import { WORDS_BY_ROW } from './words'
 import { toMorae } from '../lib/mora'
 
-// Focused check for the two new wa-row greetings (こんにちは/こんばんは):
-// both are heiban (accent pattern 0 — pitch rises after mora 1 and never
-// drops), which the H/L string represents as L followed by all H. This
-// also guards that the accent string's length always matches the word's
-// real mora count (via toMorae, the same mora-splitter WordCard uses to
-// draw the line), not just its character count.
-describe('accents: wa-konnichiwa / wa-konbanwa', () => {
-  const words = WORDS_BY_ROW['wa-row']
+// Focused check for the こんにちは/こんばんは greetings (moved from the
+// deleted wa-row into the final combined ra-row — Issue #155): both are
+// heiban (accent pattern 0 — pitch rises after mora 1 and never drops),
+// which the H/L string represents as L followed by all H. This also guards
+// that the accent string's length always matches the word's real mora
+// count (via toMorae, the same mora-splitter WordCard uses to draw the
+// line), not just its character count.
+describe('accents: ra-konnichiwa / ra-konbanwa', () => {
+  const words = WORDS_BY_ROW['ra-row']
 
-  it.each(['wa-konnichiwa', 'wa-konbanwa'])('%s has an accent pattern with mora count matching toMorae(kana)', (id) => {
+  it.each(['ra-konnichiwa', 'ra-konbanwa'])('%s has an accent pattern with mora count matching toMorae(kana)', (id) => {
     const word = words.find((w) => w.id === id)
     expect(word).toBeDefined()
     const pattern = ACCENT_PATTERNS[id]
@@ -21,7 +22,7 @@ describe('accents: wa-konnichiwa / wa-konbanwa', () => {
     expect(pattern!.length).toBe(morae.length)
   })
 
-  it.each(['wa-konnichiwa', 'wa-konbanwa'])('%s is heiban: low first mora, high for the rest', (id) => {
+  it.each(['ra-konnichiwa', 'ra-konbanwa'])('%s is heiban: low first mora, high for the rest', (id) => {
     const pattern = ACCENT_PATTERNS[id]
     expect(pattern![0]).toBe('L')
     expect(pattern!.slice(1)).toBe('H'.repeat(pattern!.length - 1))

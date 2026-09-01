@@ -79,7 +79,7 @@ function AccentedKana({ kana, accent, highlightLastKana }: { kana: string; accen
 // which is too small to hit reliably) — the icon stays as a visual hint.
 export function WordCard({ word }: Props) {
   const { speak } = useTTS()
-  const isParticleGreeting = word.id === 'wa-konnichiwa' || word.id === 'wa-konbanwa'
+  const isParticleGreeting = word.id === 'ra-konnichiwa' || word.id === 'ra-konbanwa'
 
   return (
     <button

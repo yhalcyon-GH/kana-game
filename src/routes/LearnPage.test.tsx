@@ -230,12 +230,15 @@ describe('LearnPage micro-batches: yōon uses the specified 3-sound groupings', 
   })
 })
 
-describe('LearnPage: rows with 5 or fewer characters keep the old flow (no intermediate batch recap)', () => {
-  it('a-row (5 characters) goes straight from the last character to the full recap, with the plain position indicator', () => {
+describe('LearnPage: rows with no learnBatches keep the old flow (no intermediate batch recap)', () => {
+  // a-row now has 6 characters (あいうえおん, Issue #155) but still defines
+  // no `learnBatches` — proves the old unbatched flow doesn't depend on
+  // staying at 5-or-fewer characters, just on learnBatches being absent.
+  it('a-row (6 characters, no learnBatches) goes straight from the last character to the full recap, with the plain position indicator', () => {
     renderLearn('/learn/hiragana/a-row')
-    expect(screen.getByText('1 / 5')).toBeInTheDocument()
-    for (let i = 0; i < 4; i++) fireEvent.click(screen.getByText('Next'))
-    expect(screen.getByText('5 / 5')).toBeInTheDocument()
+    expect(screen.getByText('1 / 6')).toBeInTheDocument()
+    for (let i = 0; i < 5; i++) fireEvent.click(screen.getByText('Next'))
+    expect(screen.getByText('6 / 6')).toBeInTheDocument()
     // "See them all" appears twice here too — primary button + jump link —
     // both leading to the same destination for an unbatched row.
     expect(screen.getAllByText('See them all')).toHaveLength(2)
@@ -272,6 +275,42 @@ describe('LearnPage: contrast-pairs and summary rows are unaffected', () => {
     renderLearn('/learn/hiragana/hiragana-summary')
     expect(screen.getByText(/every character/)).toBeInTheDocument()
     expect(screen.queryByText(/Set \d/)).not.toBeInTheDocument()
+  })
+})
+
+// Issue #155: Summary's "every character" grid renders in CANONICAL gojūon
+// order, not learning order — ん/ー are taught early (a-row/katakana-a-row)
+// but still display LAST here, matching what a learner familiar with the
+// gojūon table would expect. See curriculum.ts's getSummaryDisplayCharacterIds.
+describe('LearnPage: Summary "every character" grid uses canonical display order (Issue #155)', () => {
+  function kanaOrderInDom(container: HTMLElement): string[] {
+    return Array.from(container.querySelectorAll('.font-kana')).map((el) => el.textContent ?? '')
+  }
+
+  it('hiragana-summary shows ん as the very last character card, after わ/を, not right after お', () => {
+    const { container } = renderLearn('/learn/hiragana/hiragana-summary')
+    const order = kanaOrderInDom(container)
+    expect(order.at(-1)).toBe(CHARACTERS_BY_ID.n.kana)
+    expect(order.at(-2)).toBe(CHARACTERS_BY_ID.wo.kana)
+    expect(order.at(-3)).toBe(CHARACTERS_BY_ID.wa.kana)
+    expect(order.slice(0, 5)).toEqual([
+      CHARACTERS_BY_ID.a.kana,
+      CHARACTERS_BY_ID.i.kana,
+      CHARACTERS_BY_ID.u.kana,
+      CHARACTERS_BY_ID.e.kana,
+      CHARACTERS_BY_ID.o.kana,
+    ])
+  })
+
+  it('katakana-summary ends in ワ・ヲ・ン・ー, not learning order', () => {
+    const { container } = renderLearn('/learn/katakana/katakana-summary')
+    const order = kanaOrderInDom(container)
+    expect(order.slice(-4)).toEqual([
+      CHARACTERS_BY_ID['katakana-wa'].kana,
+      CHARACTERS_BY_ID['katakana-wo'].kana,
+      CHARACTERS_BY_ID['katakana-n'].kana,
+      CHARACTERS_BY_ID['katakana-chouon'].kana,
+    ])
   })
 })
 

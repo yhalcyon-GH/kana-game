@@ -50,13 +50,14 @@ describe('TracingPage', () => {
   it('advances only one round when Next is clicked twice before rerender', () => {
     const { getByRole, getByText } = renderTracing()
 
-    expect(getByText(/Round 1 \/ 5/)).toBeInTheDocument()
+    // a-row now has 6 characters (Issue #155 added ん).
+    expect(getByText(/Round 1 \/ 6/)).toBeInTheDocument()
     act(() => {
       fireEvent.click(getByRole('button', { name: 'Next' }))
       fireEvent.click(getByRole('button', { name: 'Next' }))
     })
 
-    expect(getByText(/Round 2 \/ 5/)).toBeInTheDocument()
+    expect(getByText(/Round 2 \/ 6/)).toBeInTheDocument()
   })
 
   // Issue #19: Tracing is a character-introduction stage alongside Learn,
@@ -328,13 +329,29 @@ function clickNext(container: HTMLElement) {
   fireEvent.click(next)
 }
 
-describe('TracingPage Back button — normal character-set row (a-row: 5 chars, 4 words)', () => {
+// a-row now has 6 characters (あいうえおん) and 5 words (Issue #155 added ん
+// and えん).
+describe('TracingPage Back button — normal character-set row (a-row: 6 chars, 5 words)', () => {
   beforeEach(() => {
     useProgressStore.getState().resetProgress()
   })
 
   it('A: on the 2nd character, Back returns to the 1st character', () => {
     const { container } = renderTracingBackTest('hiragana', 'a-row')
+    expect(roundLabel(container)).toContain('Round 1 / 6')
+    clickNext(container)
+    expect(roundLabel(container)).toContain('Round 2 / 6')
+
+    clickBack(container)
+
+    expect(roundLabel(container)).toContain('Round 1 / 6')
+    expect(container.querySelector('h2')?.textContent).toContain('character')
+  })
+
+  it('B: on the 2nd word, Back returns to the 1st word', () => {
+    const { container } = renderTracingBackTest('hiragana', 'a-row')
+    // Advance through all 6 characters into the words phase, then one more.
+    for (let i = 0; i < 6; i++) clickNext(container)
     expect(roundLabel(container)).toContain('Round 1 / 5')
     clickNext(container)
     expect(roundLabel(container)).toContain('Round 2 / 5')
@@ -342,38 +359,24 @@ describe('TracingPage Back button — normal character-set row (a-row: 5 chars, 
     clickBack(container)
 
     expect(roundLabel(container)).toContain('Round 1 / 5')
-    expect(container.querySelector('h2')?.textContent).toContain('character')
-  })
-
-  it('B: on the 2nd word, Back returns to the 1st word', () => {
-    const { container } = renderTracingBackTest('hiragana', 'a-row')
-    // Advance through all 5 characters into the words phase, then one more.
-    for (let i = 0; i < 5; i++) clickNext(container)
-    expect(roundLabel(container)).toContain('Round 1 / 4')
-    clickNext(container)
-    expect(roundLabel(container)).toContain('Round 2 / 4')
-
-    clickBack(container)
-
-    expect(roundLabel(container)).toContain('Round 1 / 4')
     expect(container.querySelector('h2')?.textContent).toContain('word')
   })
 
   it('C: on the 1st word, Back lands on the LAST character (chars phase)', () => {
     const { container } = renderTracingBackTest('hiragana', 'a-row')
-    for (let i = 0; i < 5; i++) clickNext(container)
-    expect(roundLabel(container)).toContain('Round 1 / 4')
+    for (let i = 0; i < 6; i++) clickNext(container)
+    expect(roundLabel(container)).toContain('Round 1 / 5')
     expect(container.querySelector('h2')?.textContent).toContain('word')
 
     clickBack(container)
 
     expect(container.querySelector('h2')?.textContent).toContain('character')
-    expect(roundLabel(container)).toContain('Round 5 / 5')
+    expect(roundLabel(container)).toContain('Round 6 / 6')
   })
 
   it('D: on the 1st character, Back navigates to the row hub route', () => {
     const { container, getByTestId } = renderTracingBackTest('hiragana', 'a-row')
-    expect(roundLabel(container)).toContain('Round 1 / 5')
+    expect(roundLabel(container)).toContain('Round 1 / 6')
 
     clickBack(container)
 
@@ -399,7 +402,7 @@ describe('TracingPage Back button — normal character-set row (a-row: 5 chars, 
 
     clickNext(container) // should work, not be stuck locked
 
-    expect(roundLabel(container)).toContain('Round 2 / 5')
+    expect(roundLabel(container)).toContain('Round 2 / 6')
   })
 })
 
@@ -944,7 +947,8 @@ describe('TracingPage Overview stage', () => {
     const { getByRole, getByText } = renderOverview('hiragana', 'a-row')
     fireEvent.click(getByRole('button', { name: 'Start Tracing' }))
     expect(getByText('Trace each character')).toBeInTheDocument()
-    expect(getByText(/Round 1 \/ 5/)).toBeInTheDocument()
+    // a-row now has 6 characters (Issue #155 added ん).
+    expect(getByText(/Round 1 \/ 6/)).toBeInTheDocument()
   })
 
   it('merely viewing the Overview never marks Tracing completed', () => {

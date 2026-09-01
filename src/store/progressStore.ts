@@ -466,7 +466,7 @@ export const useProgressStore = create<ProgressState>()(
     }),
     {
       name: 'kana-game-progress',
-      version: 19,
+      version: 20,
       // v1 -> v2: the default pronunciation speed changed from 1x to 0.5x;
       // carry that new default into browsers that already persisted a v1
       // state (which would otherwise keep the old 1x forever).
@@ -517,6 +517,17 @@ export const useProgressStore = create<ProgressState>()(
       // presented as a continuation of the /youon page — see curriculum.ts's
       // SPECIAL_KATAKANA_CATEGORY_ID) — same "new independent Guide flag,
       // defaults false" treatment as Sokuon/Chōon/Yōon before it.
+      // v19 -> v20: Issue #155 moved ん into a-row and merged わ・を into the
+      // final combined ra-row, deleting the standalone wa-row entirely. ん/
+      // わ/を keep their character ids ('n'/'wa'/'wo'), so per-character
+      // Review/box progress needs no migration. 13 words that lived under
+      // wa-row moved to their new row and were renamed to match (same
+      // "remap old word id -> new word id" treatment as the v7 -> v8
+      // がくせい/せんせい/いもうと migration above). wa-row itself no longer
+      // exists, so any stale unlockedRowIds/taughtRowIds/rowActivityCompletion
+      // entry for it is folded into ra-row (the row it merged into) instead
+      // of left dangling — lastStudied needs no migration here since
+      // lastStudiedOr already nulls out any rowId no longer in ROWS_BY_ID.
       migrate: (persistedState, version) => {
         const state = (isRecord(persistedState) ? persistedState : {}) as Partial<ProgressState>
         if (version < 2) {
@@ -637,6 +648,53 @@ export const useProgressStore = create<ProgressState>()(
           // New independent UI state. Existing learners see the explanation
           // the next time they open Special Katakana's first session.
           state.hasCompletedSpecialKatakanaGuide = false
+        }
+        if (version < 20) {
+          const RENAMED_WORD_IDS: Record<string, string> = {
+            'wa-en': 'a-en',
+            'wa-tonkatsu': 'ta-tonkatsu',
+            'wa-hon': 'ha-hon',
+            'wa-nihon': 'ha-nihon',
+            'wa-kanpai': 'ha-kanpai',
+            'wa-nihongo': 'ha-nihongo',
+            'wa-tenpura': 'ra-tenpura',
+            'wa-watashi': 'ra-watashi',
+            'wa-mizu-wo-nomu': 'ra-mizu-wo-nomu',
+            'wa-niwatori': 'ra-niwatori',
+            'wa-denwa': 'ra-denwa',
+            'wa-konnichiwa': 'ra-konnichiwa',
+            'wa-konbanwa': 'ra-konbanwa',
+          }
+          const words = isRecord(state.words) ? { ...state.words } : {}
+          for (const [oldId, newId] of Object.entries(RENAMED_WORD_IDS)) {
+            if (oldId in words) {
+              words[newId] = words[oldId]
+              delete words[oldId]
+            }
+          }
+          state.words = words as Record<string, WordProgress>
+
+          // wa-row no longer exists — fold any stale row-level bookkeeping
+          // for it into ra-row (the row it merged into) rather than leave a
+          // dangling, unreachable rowId around forever.
+          const unlockedRowIds = stringArrayOr(state.unlockedRowIds, [])
+          if (unlockedRowIds.includes('wa-row')) {
+            const withRaRow = unlockedRowIds.includes('ra-row') ? unlockedRowIds : [...unlockedRowIds, 'ra-row']
+            state.unlockedRowIds = withRaRow.filter((id) => id !== 'wa-row')
+          }
+          const taughtRowIds = stringArrayOr(state.taughtRowIds, [])
+          if (taughtRowIds.includes('wa-row')) {
+            const withRaRow = taughtRowIds.includes('ra-row') ? taughtRowIds : [...taughtRowIds, 'ra-row']
+            state.taughtRowIds = withRaRow.filter((id) => id !== 'wa-row')
+          }
+          const rowActivityCompletion = isRecord(state.rowActivityCompletion) ? { ...state.rowActivityCompletion } : {}
+          const waRowCompletion = rowActivityCompletion['wa-row']
+          if (isRecord(waRowCompletion)) {
+            const raRowCompletion = rowActivityCompletion['ra-row']
+            rowActivityCompletion['ra-row'] = { ...(isRecord(raRowCompletion) ? raRowCompletion : {}), ...waRowCompletion }
+          }
+          delete rowActivityCompletion['wa-row']
+          state.rowActivityCompletion = rowActivityCompletion as Record<string, RowActivityCompletion>
         }
         return state
       },

@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { CHARACTERS, CHARACTERS_BY_ID, getCharacterAudioId } from './characters'
-import { CATEGORIES, CATEGORIES_BY_ID, getCumulativeCharacterIds, getNextRowId, getPreviousRowId, ROWS, ROWS_BY_ID } from './curriculum'
+import { CATEGORIES, CATEGORIES_BY_ID, getCumulativeCharacterIds, getNextRowId, getPreviousRowId, getSummaryDisplayCharacterIds, ROWS, ROWS_BY_ID } from './curriculum'
 import { WORDS_BY_ID, WORDS_BY_ROW } from './words'
 
 describe('curriculum content integrity', () => {
@@ -82,10 +82,11 @@ describe('category-scoped row-order helpers', () => {
     expect(getNextRowId('a-row')).toBe('ka-row')
     expect(getPreviousRowId('ka-row')).toBe('a-row')
     expect(getPreviousRowId('a-row')).toBeNull()
-    // wa-row is the last REAL hiragana row, but hiragana-summary (⭐, see
+    // ra-row is the last REAL hiragana row (Issue #155 merged わ・を into it
+    // and deleted the standalone wa-row), but hiragana-summary (⭐, see
     // GojuonRow.isSummary) now follows it in the same order sequence, so
-    // it's the true end of the category, not wa-row.
-    expect(getNextRowId('wa-row')).toBe('hiragana-summary')
+    // it's the true end of the category, not ra-row.
+    expect(getNextRowId('ra-row')).toBe('hiragana-summary')
     expect(getNextRowId('hiragana-summary')).toBeNull()
   })
 
@@ -393,7 +394,8 @@ describe('row-selection display lines (Issue #38)', () => {
   })
 
   it('leaves single-group rows on the label fallback', () => {
-    expect(ROWS_BY_ID['a-row'].displayLines).toBeUndefined()
+    // a-row now has its own displayLines (['あ〜お', 'ん'], Issue #155) since
+    // ん was folded in — see the dedicated Issue #155 describe block below.
     expect(ROWS_BY_ID['na-row'].displayLines).toBeUndefined()
     expect(ROWS_BY_ID['sokuon-row'].displayLines).toBeUndefined()
   })
@@ -407,8 +409,10 @@ describe('row-selection display lines (Issue #38)', () => {
 // state under the old ids).
 describe('がくせい/せんせい/いもうと moved to chōon (Issue #13)', () => {
   it('are no longer present in their old hiragana rows', () => {
+    // wa-row itself no longer exists at all (Issue #155), let alone this
+    // word under it — WORDS_BY_ROW['wa-row'] is simply undefined now.
     expect(WORDS_BY_ROW['sa-row']?.some((w) => w.id === 'sa-gakusei')).toBe(false)
-    expect(WORDS_BY_ROW['wa-row']?.some((w) => w.id === 'wa-sensei')).toBe(false)
+    expect(WORDS_BY_ROW['wa-row']).toBeUndefined()
     expect(WORDS_BY_ROW['ma-row']?.some((w) => w.id === 'ma-imouto')).toBe(false)
     expect(WORDS_BY_ID['sa-gakusei']).toBeUndefined()
     expect(WORDS_BY_ID['wa-sensei']).toBeUndefined()
@@ -595,5 +599,149 @@ describe('Special Katakana single-sound character audio', () => {
     expect(getCharacterAudioId('katakana-a')).toBe('a') // shares hiragana あ's audio, as before
     expect(getCharacterAudioId('katakana-chouon')).toBe('katakana-chouon') // no hiragana counterpart, no-op
     expect(getCharacterAudioId('a')).toBe('a')
+  })
+})
+
+// Issue #155: ん moved from its own standalone final row (wa-row) into the
+// first hiragana lesson (a-row), and わ/を merged into the final combined
+// ra-row rather than kept in their own row. Hiragana-only — katakana's
+// curriculum structure (which already bundles ン/ー into katakana-a-row and
+// ワ/ヲ into katakana-ra-row) is untouched.
+describe('ん moved to a-row, わ・を merged into ra-row (Issue #155)', () => {
+  it('a-row now teaches ん alongside あいうえお, keeping character id "n"', () => {
+    expect(ROWS_BY_ID['a-row']?.characterIds).toEqual(['a', 'i', 'u', 'e', 'o', 'n'])
+    expect(CHARACTERS_BY_ID['n']?.rowId).toBe('a-row')
+    expect(CHARACTERS_BY_ID['n']?.kana).toBe('ん')
+    expect(ROWS_BY_ID['a-row']?.displayLines).toEqual(['あ〜お', 'ん'])
+  })
+
+  it('the final combined ra-row teaches らりるれろ + わ・を, keeping character ids "wa"/"wo"', () => {
+    expect(ROWS_BY_ID['ra-row']?.characterIds).toEqual(['ra', 'ri', 'ru', 're', 'ro', 'wa', 'wo'])
+    expect(CHARACTERS_BY_ID['wa']?.rowId).toBe('ra-row')
+    expect(CHARACTERS_BY_ID['wo']?.rowId).toBe('ra-row')
+    expect(ROWS_BY_ID['ra-row']?.learnBatches).toEqual([
+      ['ra', 'ri', 'ru', 're', 'ro'],
+      ['wa', 'wo'],
+    ])
+  })
+
+  it('no real hiragana wa-row remains anywhere (rows, characters, categories)', () => {
+    expect(ROWS_BY_ID['wa-row']).toBeUndefined()
+    expect(ROWS.some((r) => r.id === 'wa-row')).toBe(false)
+    expect(CHARACTERS.some((c) => c.rowId === 'wa-row')).toBe(false)
+  })
+
+  it('ra-row (the new last real hiragana row) flows straight to hiragana-summary', () => {
+    expect(getNextRowId('ra-row')).toBe('hiragana-summary')
+    expect(getPreviousRowId('hiragana-summary')).toBe('ra-row')
+    expect(getNextRowId('hiragana-summary')).toBeNull()
+  })
+
+  it('ん is usable (cumulative pool) from a-row itself, not just later rows', () => {
+    expect(getCumulativeCharacterIds('a-row')).toEqual(expect.arrayContaining(['a', 'i', 'u', 'e', 'o', 'n']))
+  })
+
+  it('わ・を are usable (cumulative pool) from ra-row itself, having never had their own row', () => {
+    const cumulative = getCumulativeCharacterIds('ra-row')
+    expect(cumulative).toEqual(expect.arrayContaining(['ra', 'ri', 'ru', 're', 'ro', 'wa', 'wo']))
+  })
+})
+
+// Issue #155: moved vocabulary lands in the approved earliest-appropriate
+// row now that ん is available from a-row. The generic "every word only
+// uses characters introduced at or before its row" test above already
+// proves this is valid; these are the specific approved placements.
+describe('vocabulary moved out of the deleted wa-row (Issue #155)', () => {
+  it('えん moved to a-row', () => {
+    expect(WORDS_BY_ROW['a-row']?.some((w) => w.id === 'a-en' && w.kana === 'えん')).toBe(true)
+  })
+
+  it('とんかつ moved to ta-row', () => {
+    expect(WORDS_BY_ROW['ta-row']?.some((w) => w.id === 'ta-tonkatsu' && w.kana === 'とんかつ')).toBe(true)
+  })
+
+  it('ほん/にほん/かんぱい/にほんご moved to ha-row', () => {
+    const haRowIds = (WORDS_BY_ROW['ha-row'] ?? []).map((w) => w.id)
+    expect(haRowIds).toEqual(expect.arrayContaining(['ha-hon', 'ha-nihon', 'ha-kanpai', 'ha-nihongo']))
+  })
+
+  it('てんぷら/わたし/みずをのむ/にわとり/でんわ/こんにちは/こんばんは moved to the final combined ra-row', () => {
+    const raRowIds = (WORDS_BY_ROW['ra-row'] ?? []).map((w) => w.id)
+    expect(raRowIds).toEqual(
+      expect.arrayContaining([
+        'ra-tenpura',
+        'ra-watashi',
+        'ra-mizu-wo-nomu',
+        'ra-niwatori',
+        'ra-denwa',
+        'ra-konnichiwa',
+        'ra-konbanwa',
+      ]),
+    )
+  })
+
+  it('no word anywhere still uses an old wa-* id', () => {
+    const staleIds = [
+      'wa-en',
+      'wa-tonkatsu',
+      'wa-hon',
+      'wa-nihon',
+      'wa-kanpai',
+      'wa-nihongo',
+      'wa-tenpura',
+      'wa-watashi',
+      'wa-mizu-wo-nomu',
+      'wa-niwatori',
+      'wa-denwa',
+      'wa-konnichiwa',
+      'wa-konbanwa',
+    ]
+    for (const id of staleIds) expect(WORDS_BY_ID[id], `stale id "${id}" should no longer exist`).toBeUndefined()
+  })
+})
+
+// Issue #155: Summary display order is canonical gojūon order, NOT learning
+// order — separate from `characterIds` (still learning order, still what
+// drives Practice/Kana Quiz/mastery for these rows). See
+// getSummaryDisplayCharacterIds's own comment in curriculum.ts.
+describe('canonical (non-learning) Summary display order (Issue #155)', () => {
+  it("hiragana-summary's own characterIds is still LEARNING order — ん sits right after お, not at the end", () => {
+    const learningOrder = ROWS_BY_ID['hiragana-summary']!.characterIds
+    const nIndex = learningOrder.indexOf('n')
+    const oIndex = learningOrder.indexOf('o')
+    expect(nIndex).toBe(oIndex + 1)
+    expect(nIndex).not.toBe(learningOrder.length - 1)
+  })
+
+  it('hiragana-summary display order is full canonical gojūon order, ending in わ, を, ん', () => {
+    const display = getSummaryDisplayCharacterIds('hiragana-summary')
+    expect(display).toHaveLength(ROWS_BY_ID['hiragana-summary']!.characterIds.length)
+    expect(display.slice(-3)).toEqual(['wa', 'wo', 'n'])
+    expect(display.slice(0, 5)).toEqual(['a', 'i', 'u', 'e', 'o'])
+  })
+
+  it("katakana-summary's own characterIds is still LEARNING order — ン/ー sit right after ゴ, not at the end", () => {
+    const learningOrder = ROWS_BY_ID['katakana-summary']!.characterIds
+    expect(learningOrder.slice(-2)).toEqual(['katakana-wa', 'katakana-wo'])
+    expect(learningOrder.indexOf('katakana-n')).toBeLessThan(learningOrder.indexOf('katakana-ra'))
+  })
+
+  it('katakana-summary display order is full canonical order, ending in ワ・ヲ・ン・ー (unlike its learning order)', () => {
+    const display = getSummaryDisplayCharacterIds('katakana-summary')
+    expect(display).toHaveLength(ROWS_BY_ID['katakana-summary']!.characterIds.length)
+    expect(display.slice(-4)).toEqual(['katakana-wa', 'katakana-wo', 'katakana-n', 'katakana-chouon'])
+    expect(display.slice(0, 5)).toEqual(['katakana-a', 'katakana-i', 'katakana-u', 'katakana-e', 'katakana-o'])
+  })
+
+  it('falls back to the row\'s own characterIds (no reordering) for a row with no canonical order defined', () => {
+    expect(getSummaryDisplayCharacterIds('youon-summary')).toEqual(ROWS_BY_ID['youon-summary']!.characterIds)
+    expect(getSummaryDisplayCharacterIds('other-summary')).toEqual(ROWS_BY_ID['other-summary']!.characterIds)
+  })
+
+  it('does not touch Similar Letters curated grouping/order', () => {
+    const hiraganaSimilar = ROWS_BY_ID['hiragana-similar-letters']
+    expect(hiraganaSimilar?.characterIds[0]).toBe('a')
+    expect(hiraganaSimilar?.characterIds[1]).toBe('o')
+    expect(hiraganaSimilar?.learnBatches?.[3]).toEqual(['ne', 'wa', 're'])
   })
 })

@@ -42,7 +42,9 @@ describe('routing', () => {
 
   it('/practice/hiragana/a-row renders that row\'s Practice Hub', () => {
     renderAt('/practice/hiragana/a-row')
-    expect(screen.getByRole('heading', { name: 'あ〜お' })).toBeInTheDocument()
+    // Label includes ん now (Issue #155: a-row's first lesson teaches
+    // あ・い・う・え・お・ん).
+    expect(screen.getByRole('heading', { name: 'あ〜お・ん' })).toBeInTheDocument()
   })
 
   it('/learn/hiragana/a-row renders the Learn flow for that row', () => {

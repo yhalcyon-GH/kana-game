@@ -47,7 +47,8 @@ describe('useCurriculum', () => {
     const { result } = renderHook(() => useCurriculum())
     const words = result.current.getScopeWords('a-row')
     expect(words.length).toBeGreaterThan(0)
-    expect(words.every((w) => w.characterIds.every((c) => ['a', 'i', 'u', 'e', 'o'].includes(c)))).toBe(true)
+    // a-row now includes ん (Issue #155), so a-en (えん) is a valid a-row word.
+    expect(words.every((w) => w.characterIds.every((c) => ['a', 'i', 'u', 'e', 'o', 'n'].includes(c)))).toBe(true)
   })
 
   it('getScopeCharacterIds returns the cumulative pool (including earlier rows) for a real row', () => {

@@ -130,7 +130,20 @@ export const CATEGORIES_BY_ID: Record<string, ScriptCategory> = Object.fromEntri
 // (see getCumulativeCharacterIds etc. below) — a second category starts
 // its own ordering from 0, independent of this one.
 const REAL_ROWS: GojuonRow[] = [
-  { id: 'a-row', categoryId: DEFAULT_CATEGORY_ID, label: 'あ〜お', order: 0, characterIds: ['a', 'i', 'u', 'e', 'o'], englishLabel: 'A Row' },
+  // ん folded into the first lesson (Issue #155) rather than kept in its own
+  // final row: this mirrors katakana-a-row's ン/ー bundling below, and gives
+  // real early vocabulary (えん, ほん, とんかつ, ...) a mora it would
+  // otherwise have to wait until the very last hiragana lesson for. Keeps
+  // character id 'n' — this is a row move, not a new character identity.
+  {
+    id: 'a-row',
+    categoryId: DEFAULT_CATEGORY_ID,
+    label: 'あ〜お・ん',
+    displayLines: ['あ〜お', 'ん'],
+    order: 0,
+    characterIds: ['a', 'i', 'u', 'e', 'o', 'n'],
+    englishLabel: 'A Row',
+  },
   {
     id: 'ka-row',
     categoryId: DEFAULT_CATEGORY_ID,
@@ -191,8 +204,23 @@ const REAL_ROWS: GojuonRow[] = [
   },
   { id: 'ma-row', categoryId: DEFAULT_CATEGORY_ID, label: 'ま〜も', order: 6, characterIds: ['ma', 'mi', 'mu', 'me', 'mo'], englishLabel: 'Ma Row' },
   { id: 'ya-row', categoryId: DEFAULT_CATEGORY_ID, label: 'や・ゆ・よ', order: 7, characterIds: ['ya', 'yu', 'yo'], englishLabel: 'Ya Row' },
-  { id: 'ra-row', categoryId: DEFAULT_CATEGORY_ID, label: 'ら〜ろ', order: 8, characterIds: ['ra', 'ri', 'ru', 're', 'ro'], englishLabel: 'Ra Row' },
-  { id: 'wa-row', categoryId: DEFAULT_CATEGORY_ID, label: 'わ〜ん', order: 9, characterIds: ['wa', 'wo', 'n'], englishLabel: 'Wa Row' },
+  // ら〜ろ・わ・を — the final hiragana row (Issue #155): わ/を folded in
+  // rather than kept in their own standalone wa-row (ん already moved up to
+  // あ行, above), leaving only two kana behind, which is too thin for its
+  // own row. Mirrors katakana-ra-row's identical わ・を absorption below.
+  {
+    id: 'ra-row',
+    categoryId: DEFAULT_CATEGORY_ID,
+    label: 'ら〜ろ・わ・を',
+    displayLines: ['ら〜ろ', 'わ・を'],
+    order: 8,
+    characterIds: ['ra', 'ri', 'ru', 're', 'ro', 'wa', 'wo'],
+    englishLabel: 'Ra Row',
+    learnBatches: [
+      ['ra', 'ri', 'ru', 're', 'ro'],
+      ['wa', 'wo'],
+    ],
+  },
 
   // ===== カタカナ (katakana) — own order sequence, starting at 0 again =====
   // ア~オ・カ~ゴ・ー・ン are all one combined first lesson, at the user's
@@ -635,7 +663,7 @@ const SUMMARY_ROWS: GojuonRow[] = [
     id: 'hiragana-summary',
     categoryId: DEFAULT_CATEGORY_ID,
     label: 'あ〜ん',
-    order: 10,
+    order: 9,
     characterIds: summaryCharacterIds(SUMMARY_ROW_SOURCE_CATEGORY_IDS['hiragana-summary']),
     englishLabel: 'All Hiragana',
     isSummary: true,
@@ -668,6 +696,72 @@ const SUMMARY_ROWS: GojuonRow[] = [
     isSummary: true,
   },
 ]
+
+// Canonical gojūon display order for the Hiragana/Katakana "see everything"
+// Summary pages (Issue #155) — deliberately SEPARATE from
+// hiragana-summary/katakana-summary's own `characterIds` above, which stays
+// in LEARNING order (REAL_ROWS declaration order) since that's what still
+// drives Practice/Kana Quiz/distractor pools for those rows. ん/ー are
+// taught early (a-row/katakana-a-row bundle them in for early vocabulary —
+// see those rows' comments) but a canonical あ〜ん / ア〜ン listing still
+// needs to show them LAST, where a learner familiar with the gojūon table
+// would expect them. Only used for display (see
+// getSummaryDisplayCharacterIds below); every other consumer of a summary
+// row's characters (Practice, Review, mastery, ...) keeps reading
+// `characterIds` directly and is completely unaffected by this list.
+const HIRAGANA_CANONICAL_ORDER: string[] = [
+  'a', 'i', 'u', 'e', 'o',
+  'ka', 'ki', 'ku', 'ke', 'ko', 'ga', 'gi', 'gu', 'ge', 'go',
+  'sa', 'shi', 'su', 'se', 'so', 'za', 'ji', 'zu', 'ze', 'zo',
+  'ta', 'chi', 'tsu', 'te', 'to', 'da', 'dji', 'dzu', 'de', 'do',
+  'na', 'ni', 'nu', 'ne', 'no',
+  'ha', 'hi', 'fu', 'he', 'ho', 'ba', 'bi', 'bu', 'be', 'bo', 'pa', 'pi', 'pu', 'pe', 'po',
+  'ma', 'mi', 'mu', 'me', 'mo',
+  'ya', 'yu', 'yo',
+  'ra', 'ri', 'ru', 're', 'ro',
+  'wa', 'wo',
+  'n',
+]
+
+const KATAKANA_CANONICAL_ORDER: string[] = [
+  'katakana-a', 'katakana-i', 'katakana-u', 'katakana-e', 'katakana-o',
+  'katakana-ka', 'katakana-ki', 'katakana-ku', 'katakana-ke', 'katakana-ko',
+  'katakana-ga', 'katakana-gi', 'katakana-gu', 'katakana-ge', 'katakana-go',
+  'katakana-sa', 'katakana-shi', 'katakana-su', 'katakana-se', 'katakana-so',
+  'katakana-za', 'katakana-ji', 'katakana-zu', 'katakana-ze', 'katakana-zo',
+  'katakana-ta', 'katakana-chi', 'katakana-tsu', 'katakana-te', 'katakana-to',
+  'katakana-da', 'katakana-dji', 'katakana-dzu', 'katakana-de', 'katakana-do',
+  'katakana-na', 'katakana-ni', 'katakana-nu', 'katakana-ne', 'katakana-no',
+  'katakana-ha', 'katakana-hi', 'katakana-fu', 'katakana-he', 'katakana-ho',
+  'katakana-ba', 'katakana-bi', 'katakana-bu', 'katakana-be', 'katakana-bo',
+  'katakana-pa', 'katakana-pi', 'katakana-pu', 'katakana-pe', 'katakana-po',
+  'katakana-ma', 'katakana-mi', 'katakana-mu', 'katakana-me', 'katakana-mo',
+  'katakana-ya', 'katakana-yu', 'katakana-yo',
+  'katakana-ra', 'katakana-ri', 'katakana-ru', 'katakana-re', 'katakana-ro',
+  'katakana-wa', 'katakana-wo',
+  'katakana-n', 'katakana-chouon',
+]
+
+const SUMMARY_CANONICAL_ORDER: Record<string, string[]> = {
+  'hiragana-summary': HIRAGANA_CANONICAL_ORDER,
+  'katakana-summary': KATAKANA_CANONICAL_ORDER,
+}
+
+// A summary row's characters, reordered into canonical gojūon order for
+// display — for any row without a canonical order defined (youon-summary,
+// other-summary), falls back to the row's own `characterIds` (i.e. no
+// reordering, identical to today's behavior). Filters the canonical list
+// down to characters actually present in the row rather than assuming the
+// two lists stay in exact lockstep, so this never silently drops or
+// duplicates a character if the underlying set ever changes.
+export function getSummaryDisplayCharacterIds(rowId: string): string[] {
+  const row = ROWS_BY_ID[rowId]
+  if (!row) return []
+  const canonicalOrder = SUMMARY_CANONICAL_ORDER[rowId]
+  if (!canonicalOrder) return row.characterIds
+  const present = new Set(row.characterIds)
+  return canonicalOrder.filter((id) => present.has(id))
+}
 
 // Similar Letters (one synthetic row per script) — see similarLetters.ts's
 // GojuonRow.isSimilarLetters comment. Ordered right after REAL_ROWS and

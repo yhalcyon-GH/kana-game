@@ -26,9 +26,10 @@ describe('Similar Letters synthetic rows', () => {
   })
 
   it('never gets spliced into the real hiragana/katakana row-to-row chain', () => {
-    // wa-row is the last real hiragana row; its "next" is still
-    // hiragana-summary, not Similar Letters — same for katakana-ra-row.
-    expect(getNextRowId('wa-row')).toBe('hiragana-summary')
+    // ra-row is the last real hiragana row (Issue #155 merged わ・を into it
+    // and deleted wa-row); its "next" is still hiragana-summary, not
+    // Similar Letters — same for katakana-ra-row.
+    expect(getNextRowId('ra-row')).toBe('hiragana-summary')
     expect(getNextRowId('katakana-ra-row')).toBe('katakana-summary')
     expect(getPreviousRowId(HIRAGANA_SIMILAR_LETTERS_ROW_ID)).toBeNull()
     expect(getNextRowId(HIRAGANA_SIMILAR_LETTERS_ROW_ID)).toBeNull()
