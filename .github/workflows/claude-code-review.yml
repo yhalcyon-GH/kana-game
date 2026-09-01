@@ -5,14 +5,15 @@ on:
     # Model review is intentionally not triggered by synchronize events.
     # It is opt-in: the review gate adds a dedicated `AI review: Claude` line
     # to the PR body only when Claude is the chosen independent reviewer and
-    # the usage is warranted.
-    types: [opened, ready_for_review]
+    # the usage is warranted. `edited` lets the gate opt in on the existing PR
+    # after reviewing the finished diff, without a Draft -> Ready transition.
+    types: [opened, ready_for_review, edited]
 
 jobs:
   claude-review:
-    # Draft iteration should not spend model usage. Reviewable PRs enter this
-    # cheap deterministic gate, but the model step only runs after an exact
-    # dedicated-line opt-in check below.
+    # Draft/WIP iteration should not spend model usage. Reviewable PRs enter
+    # this cheap deterministic gate, but the model step only runs after an
+    # exact dedicated-line opt-in check below.
     if: github.event.action == 'ready_for_review' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     permissions:
@@ -31,10 +32,18 @@ jobs:
             const hasExactMarkerLine = (body) =>
               (body ?? '').split(/\r?\n/).some((line) => line === marker);
 
-            // Regression cases from the real PR #124 usage failure. Keep the
-            // gate narrow: prose/negation must never opt in, while the exact
-            // dedicated line must work with either LF or CRLF bodies.
-            const cases = [
+            const shouldRequestReview = (action, currentBody, previousBody = currentBody) => {
+              if (!hasExactMarkerLine(currentBody)) return false;
+              // On an edit, review only on the transition from no exact marker
+              // to exact marker. This prevents unrelated edits or edits made
+              // after a review request from spending model usage again.
+              if (action === 'edited') return !hasExactMarkerLine(previousBody);
+              return true;
+            };
+
+            // Deterministic regression cases from the real PR #124 usage
+            // failure plus the Issue #139 single-PR opt-in transition.
+            const lineCases = [
               ['', false],
               ['No AI review: Claude marker is requested.', false],
               ['AI review: Claude is not requested', false],
@@ -43,20 +52,46 @@ jobs:
               ['summary\nAI review: Claude\nnotes', true],
               ['summary\r\nAI review: Claude\r\nnotes', true],
             ];
-            for (const [body, expected] of cases) {
+            for (const [body, expected] of lineCases) {
               const actual = hasExactMarkerLine(body);
               if (actual !== expected) {
-                throw new Error(`Claude review opt-in matcher regression for ${JSON.stringify(body)}: expected ${expected}, got ${actual}`);
+                throw new Error(`Claude review exact-line matcher regression for ${JSON.stringify(body)}: expected ${expected}, got ${actual}`);
               }
             }
 
-            const requested = hasExactMarkerLine(context.payload.pull_request?.body ?? '');
+            const transitionCases = [
+              ['opened', '', 'summary\nAI review: Claude', true],
+              ['ready_for_review', '', 'AI review: Claude', true],
+              ['edited', 'summary', 'summary\nAI review: Claude', true],
+              ['edited', 'AI review: Claude', 'AI review: Claude\nnotes changed', false],
+              ['edited', 'summary', 'No AI review: Claude marker is requested.', false],
+              ['edited', 'AI review: Claude', 'summary', false],
+              // Title-only edit: body did not change, so previous=current.
+              ['edited', 'AI review: Claude', 'AI review: Claude', false],
+            ];
+            for (const [action, previousBody, currentBody, expected] of transitionCases) {
+              const actual = shouldRequestReview(action, currentBody, previousBody);
+              if (actual !== expected) {
+                throw new Error(`Claude review transition regression for ${action}: expected ${expected}, got ${actual}`);
+              }
+            }
+
+            const action = context.payload.action;
+            const currentBody = context.payload.pull_request?.body ?? '';
+            const changes = context.payload.changes ?? {};
+            const bodyChanged = Object.prototype.hasOwnProperty.call(changes, 'body');
+            // For an edited event that did not change the body (for example a
+            // title edit), treat previous body as current body so it cannot
+            // create a false no-marker -> marker transition.
+            const previousBody = bodyChanged ? (changes.body?.from ?? '') : currentBody;
+            const requested = shouldRequestReview(action, currentBody, previousBody);
+
             core.setOutput('requested', requested.toString());
-            core.info(`Claude review explicitly requested: ${requested}`);
+            core.info(`Claude review explicitly requested on this event: ${requested}`);
 
       - name: Skip Claude review when not explicitly requested
         if: steps.opt_in.outputs.requested != 'true'
-        run: echo "No exact 'AI review: Claude' marker line; Claude review not requested."
+        run: echo "No new exact Claude-review opt-in line; model review not requested."
 
       - name: Detect reviewable changes
         id: changes
