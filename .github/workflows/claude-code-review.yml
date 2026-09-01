@@ -23,7 +23,7 @@ jobs:
 
     steps:
       - name: Detect exact Claude review opt-in
-        id: opt-in
+        id: opt_in
         uses: actions/github-script@v7
         with:
           script: |
@@ -55,12 +55,12 @@ jobs:
             core.info(`Claude review explicitly requested: ${requested}`);
 
       - name: Skip Claude review when not explicitly requested
-        if: steps.opt-in.outputs.requested != 'true'
+        if: steps.opt_in.outputs.requested != 'true'
         run: echo "No exact 'AI review: Claude' marker line; Claude review not requested."
 
       - name: Detect reviewable changes
         id: changes
-        if: steps.opt-in.outputs.requested == 'true'
+        if: steps.opt_in.outputs.requested == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -84,18 +84,18 @@ jobs:
             core.info(`Reviewable changes: ${reviewable}`);
 
       - name: Skip Claude review for binary-only changes
-        if: steps.opt-in.outputs.requested == 'true' && steps.changes.outputs.has_reviewable_changes != 'true'
+        if: steps.opt_in.outputs.requested == 'true' && steps.changes.outputs.has_reviewable_changes != 'true'
         run: echo "No reviewable text changes; Claude review not required."
 
       - name: Checkout repository
-        if: steps.opt-in.outputs.requested == 'true' && steps.changes.outputs.has_reviewable_changes == 'true'
+        if: steps.opt_in.outputs.requested == 'true' && steps.changes.outputs.has_reviewable_changes == 'true'
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
       - name: Run Claude Code Review
         id: claude-review
-        if: steps.opt-in.outputs.requested == 'true' && steps.changes.outputs.has_reviewable_changes == 'true'
+        if: steps.opt_in.outputs.requested == 'true' && steps.changes.outputs.has_reviewable_changes == 'true'
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
