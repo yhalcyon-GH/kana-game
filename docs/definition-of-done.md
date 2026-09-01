@@ -2,7 +2,7 @@
 
 Applies to non-trivial KanaGame changes carried out through the shared [`ai-development-loop.md`](./ai-development-loop.md), whether the coding agent is Claude Code, Codex, or an equivalent manual workflow.
 
-A task is Done when all of the following are true:
+A task is Done from the **Builder** perspective when all of the following are true:
 
 - **Acceptance Criteria satisfied** — every criterion the user gave is met; none silently dropped or reinterpreted.
 - **Focused tests pass** — the tests directly covering the changed behavior pass.
@@ -13,8 +13,10 @@ A task is Done when all of the following are true:
 - **Diff self-review pass** — the full `git diff` was read and checked for unintended files, debug code, stale comments, accidental generated files, secrets, unnecessary refactors, and documentation mismatches.
 - **No unintended files** — only files relevant to the task are staged/committed.
 - **Required docs updated** — if the change affects behavior described in `CLAUDE.md`, `AGENTS.md`, `docs/`, or `Learnings.md`, those were updated (or a stale contradiction was fixed) — not skipped in favor of code-only changes.
-- **Draft PR created** — against `main`, with Goal, What changed, Acceptance Criteria, Tests/verification, and Risks/notes. Ready-for-Review and merge are later review gates, not coding-agent completion steps.
+- **Reviewable PR created** — against `main`, with Goal, What changed, Acceptance Criteria, Tests/verification, and Risks/notes. Normal completed Builder work opens a **non-Draft PR** so review can continue on that same PR through merge. Use Draft only for a genuinely incomplete/WIP handoff that still needs Builder work before review.
 - **Known risks explicitly reported** — anything uncertain, deferred, or flagged for human judgment is stated in the PR/report, not silently omitted.
+
+Builder completion is not merge authorization. Independent review when required, consequential human approval, live exact-HEAD merge checks, and merge remain separate gates.
 
 ## When some items don't apply
 
