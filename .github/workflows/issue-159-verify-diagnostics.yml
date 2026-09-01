@@ -1,0 +1,66 @@
+name: Issue 159 verify diagnostics
+
+on:
+  push:
+    branches:
+      - issue-159-verify-diagnostics
+
+permissions:
+  contents: read
+
+jobs:
+  verify-diagnostics:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Mimic rollout working tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          find public/audio -type f -name '*.wav' -print0 | while IFS= read -r -d '' src; do
+            cp "$src" "${src%.wav}.mp3"
+            rm "$src"
+          done
+          python3 <<'PY'
+          from pathlib import Path
+
+          provider = Path('src/audio/staticFileProvider.ts')
+          text = provider.read_text(encoding='utf-8')
+          old = 'audio/${request.key}.wav`'
+          if old not in text:
+              raise SystemExit('StaticFileProvider WAV reference not found')
+          provider.write_text(text.replace(old, 'audio/${request.key}.mp3`'), encoding='utf-8')
+
+          test = Path('src/audio/staticFileProvider.test.ts')
+          text = test.read_text(encoding='utf-8')
+          if 'audio/characters/ka.wav' not in text:
+              raise SystemExit('provider test WAV expectation not found')
+          test.write_text(text.replace('audio/characters/ka.wav', 'audio/characters/ka.mp3'), encoding='utf-8')
+
+          gen = Path('scripts/generateAudioElevenLabs.ts')
+          text = gen.read_text(encoding='utf-8')
+          old_block = '''    const outPath = path.join(dir, `${id}.wav`)\n    if (await fileExists(outPath)) {\n      console.log(`  skip ${subdir}/${id}.wav (already exists)`)\n      continue\n    }\n'''
+          new_block = '''    const outPath = path.join(dir, `${id}.wav`)\n    const productionMp3Path = path.join(dir, `${id}.mp3`)\n    if (await fileExists(outPath) || await fileExists(productionMp3Path)) {\n      console.log(`  skip ${subdir}/${id} (runtime clip already exists)`)\n      continue\n    }\n'''
+          if old_block not in text:
+              raise SystemExit('generator safeguard block not found')
+          gen.write_text(text.replace(old_block, new_block), encoding='utf-8')
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify StrokeSVG
+        run: npx tsx scripts/convertStrokesvg.ts --check
+
+      - name: Verify tests
+        run: npm test
+
+      - name: Verify lint
+        run: npm run lint
+
+      - name: Verify build
+        run: npm run build
+
+      - name: Verify diff
+        run: git diff --check
