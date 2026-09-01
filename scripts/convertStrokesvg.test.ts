@@ -1,8 +1,7 @@
-import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
-import os from 'node:os'
+import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { DERIVED_SMALL_TSU_GLYPHS, generateOutput, parseGlyph, PROTOTYPE_GLYPHS, VENDOR_DIR } from './convertStrokesvg'
+import { DERIVED_SMALL_TSU_GLYPHS, generateOutput, isFreshOutput, parseGlyph, PROTOTYPE_GLYPHS, VENDOR_DIR } from './convertStrokesvg'
 import { STROKE_GLYPHS } from '../src/data/strokeGlyphs'
 
 async function loadGlyph(characterId: string) {
@@ -221,20 +220,24 @@ describe('convertStrokesvg: parseGlyph on vendored prototype SVGs', () => {
       expect(generated).toBe(committed)
     })
 
-    it('detects a deliberately tampered/stale generated file without leaving the repo dirty (writes only to a temp file)', async () => {
+    // isFreshOutput is the exact pure function the CLI's --check mode calls
+    // (see main() in convertStrokesvg.ts) — exercised directly here, with
+    // in-memory strings only, rather than via any file mutation.
+    it('isFreshOutput: matches generateOutput() exactly -> fresh', async () => {
+      const generated = await generateOutput()
+      expect(isFreshOutput(generated, generated)).toBe(true)
+    })
+
+    it('isFreshOutput: a deliberately tampered committed string -> stale', async () => {
       const generated = await generateOutput()
       const tampered = generated.replace('"sokuon"', '"sokuon-tampered"')
       expect(tampered).not.toBe(generated)
+      expect(isFreshOutput(generated, tampered)).toBe(false)
+    })
 
-      const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'convertStrokesvg-check-'))
-      const tmpFile = path.join(tmpDir, 'strokeGlyphs.ts')
-      await writeFile(tmpFile, tampered)
-      const writtenBack = await readFile(tmpFile, 'utf-8')
-      expect(writtenBack).not.toBe(generated) // simulates a stale/tampered committed file
-      expect(writtenBack).toBe(tampered)
-      // The real committed file itself is never touched by this test.
-      const committed = await readFile(path.resolve(import.meta.dirname, '../src/data/strokeGlyphs.ts'), 'utf-8')
-      expect(committed).toBe(generated)
+    it('isFreshOutput: a missing committed file (null) -> stale', async () => {
+      const generated = await generateOutput()
+      expect(isFreshOutput(generated, null)).toBe(false)
     })
   })
 })

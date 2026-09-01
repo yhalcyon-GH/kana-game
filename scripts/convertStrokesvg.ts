@@ -296,6 +296,14 @@ ${body}
 `
 }
 
+// Pure freshness check, reused by both the CLI's --check mode and focused
+// tests: `existing` (the currently committed src/data/strokeGlyphs.ts
+// content, or null if it doesn't exist) is fresh iff it matches
+// `generated` (this run's generateOutput() result) exactly.
+export function isFreshOutput(generated: string, existing: string | null): boolean {
+  return existing === generated
+}
+
 async function main() {
   const checkMode = process.argv.includes('--check')
   console.log(checkMode ? 'Checking generated strokeGlyphs.ts is up to date...' : 'Converting vendored strokesvg SVGs...')
@@ -303,7 +311,7 @@ async function main() {
 
   if (checkMode) {
     const existing = await readFile(OUT_FILE, 'utf-8').catch(() => null)
-    if (existing !== content) {
+    if (!isFreshOutput(content, existing)) {
       console.error(
         `\nsrc/data/strokeGlyphs.ts is stale relative to vendored SVGs + converter/spec constants.\nRun: npx tsx scripts/convertStrokesvg.ts`,
       )
