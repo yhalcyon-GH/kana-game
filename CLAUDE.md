@@ -25,9 +25,9 @@ Before considering data/logic changes complete, run the relevant focused tests a
 
 ## Role and standard task loop
 
-Roles are assigned per task; Claude Code is not permanently required to be the Builder or Reviewer.
+The workflow is role-based, but the **normal cost-aware default is Claude Code as the primary Builder**, with ChatGPT handling orchestration/review/merge and Codex reserved for fallback implementation or an independent second view when it adds value. This is a default assignment, not a permanent capability restriction; the task may assign Claude Code as reviewer instead.
 
-For normal implementation work, use the `/kana-task` Skill (`.claude/skills/kana-task/SKILL.md`): Explore → Plan when useful → Implement → Verify → Inspect → Fix → Commit → Push → reviewable PR, from a Goal and Acceptance Criteria. See `docs/ai-development-loop.md` for the shared role-based loop and review-depth policy, and `docs/definition-of-done.md` for what Builder completion means.
+For normal implementation work, use the `/kana-task` Skill (`.claude/skills/kana-task/SKILL.md`): Explore → Plan when useful → Implement → Verify → Inspect → Fix → Commit → Push → reviewable PR, from a Goal and Acceptance Criteria. See `docs/ai-development-loop.md` for the shared role-based loop, evidence-reuse rules, review-depth policy, and verification-gap handling; see `docs/definition-of-done.md` for what Builder completion means.
 
 When assigned as an independent reviewer, use a fresh session/subagent or the review tooling rather than grading the same implementation in the same context. Review the current Goal/Acceptance Criteria and full diff for correctness, regressions, scope drift, and test gaps; do not modify the branch unless explicitly asked to implement accepted findings.
 
@@ -39,6 +39,7 @@ Context is a limited resource. Keep the main session focused on the current task
 
 - Use `/clear` between unrelated tasks rather than carrying old implementation history forward.
 - Read focused files/docs on demand instead of loading broad repository context preemptively.
+- Reuse settled evidence/decisions from the current Issue, approved specs, and recent repository history. Do not repeat a completed evidence spike or broad architecture investigation unless new evidence creates a real reason to reopen it.
 - Use subagents when they provide isolated context, independent verification, or genuinely parallel investigation; do not spawn them for simple single-file/bounded work where direct tools are cheaper and clearer.
 - Prefer focused tests while iterating and `npm run verify` for the final candidate.
 

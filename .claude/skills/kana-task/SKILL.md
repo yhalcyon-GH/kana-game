@@ -39,6 +39,8 @@ Use the source-of-truth order from `docs/ai-development-loop.md`:
 4. Newer repository evidence (recent commits, recent PRs).
 5. Older narrative/historical docs.
 
+**Reuse settled evidence.** If a prior evidence spike, approved Issue, or recently merged implementation already established the architecture, constraints, pinned source, or tradeoff decision needed by this task, treat that as reusable evidence. Do not repeat the same broad corpus/research/architecture investigation unless new evidence creates a concrete reason to reopen it.
+
 If you find a stale doc that materially conflicts with the accepted current behavior or specification, fix it as part of the task when relevant — but keep that fix scoped and don't turn it into an unrelated documentation cleanup pass.
 
 ## 3. Plan
@@ -83,6 +85,8 @@ Prefer the smallest change that satisfies the Acceptance Criteria. Do not silent
 
 Only touch these when an Acceptance Criterion explicitly calls for it or the user has already approved the decision.
 
+For broad data/corpus migrations, separate structural proof from manual inspection: use inventory-wide deterministic invariants for completeness and mapping correctness, then a bounded representative sample for visual/source-sensitive cases. Do not manually inspect every entry when a mechanical invariant can prove the property better.
+
 ## 5. Focused Verify
 
 Run the tests directly covering the changed behavior first (fast feedback), e.g. `npx vitest run <path>` for the relevant file(s).
@@ -92,6 +96,8 @@ For UI changes, use available visual/browser verification when it would material
 For SVG `clipPath`/mask/transform/viewBox/geometry changes, browser verification must explicitly inspect complete geometry visibility, clipping/alignment, and the actual animated/replayed state at representative desktop and mobile widths. Merely confirming that the page renders is not enough for geometry that can be silently clipped or shifted by browser coordinate semantics.
 
 If the same reusable visual primitive has just produced a real-device-only failure, do one bounded real-device smoke check before broad rollout of that primitive/data family. This is a targeted regression gate for a demonstrated failure mode, not a requirement to test every ordinary UI change on a physical device.
+
+If a required browser/device/tool check is unavailable, report it as an explicit verification gap. Do not mark the criterion complete. The reviewer/orchestrator will either satisfy the gate elsewhere or explicitly decide that the changed surface makes the missing check non-material.
 
 ## 6. Full Verify
 
@@ -107,8 +113,11 @@ If it fails:
 
 - Investigate the actual cause — don't guess.
 - If the failure stems from this task's change, fix it.
-- If you suspect it's unrelated/pre-existing/flaky, gather evidence before treating it as unrelated.
-- Never report success while `npm run verify` is failing.
+- If you suspect it's unrelated/pre-existing/flaky, gather evidence before treating it as unrelated: isolate the failing test/check, compare with clean `origin/main` when practical, and rerun the full candidate.
+- A final Builder handoff requires a **clean full `npm run verify` rerun**. Record an earlier flake if useful, but do not report the final candidate as verified while the latest full run is failing.
+- Never weaken or bypass a deterministic check merely to make the candidate green.
+
+For generated-data freshness checks, preserve a canonical generated output. If a platform-only representation difference (for example CRLF/LF) causes a false stale result, first measure/prove the mismatch, then normalize only at the comparison boundary and keep tests proving real content tampering is still stale.
 
 ## 7. Inspect Diff
 
@@ -124,6 +133,8 @@ Read the full `git diff` yourself. Check for:
 - Regression risk in adjacent behavior.
 - Documentation that now mismatches the new behavior.
 - Any weakening/removal/skipping of tests, CI, lint, or safety checks without explicit justification.
+
+For a staged migration, do not remove the old fallback/data/license claims merely because the new path exists. Require deterministic coverage proof and the task's representative smoke/acceptance evidence first; remove the retired path in a separate bounded cleanup when practical.
 
 ## 8. Fix if needed
 
@@ -153,7 +164,7 @@ PR body must include at minimum:
 - **What changed**
 - **Acceptance Criteria** (and whether each is met)
 - **Tests / verification** (what was run, results)
-- **Risks / notes** (anything uncertain, deferred, or worth human attention)
+- **Risks / notes** (anything uncertain, deferred, or worth human attention, including any unavailable verification gate)
 
 Do not add the Claude model-review opt-in yourself unless the user/ChatGPT review gate explicitly assigns Claude as the independent reviewer. When explicitly assigned, the gate adds the exact dedicated line to the existing PR. Do not merge.
 
@@ -165,12 +176,12 @@ Report back to the user with at least:
 2. Task-start `origin/main` SHA
 3. HEAD SHA
 4. Changed files
-5. Test/verify results (pass/fail, counts where available)
+5. Test/verify results (pass/fail, counts where available; distinguish an earlier flake from the final clean rerun)
 6. Lint result
 7. Build result
 8. `git diff --check` result
 9. Any stale docs/CLAUDE.md rules fixed, and why
-10. Unresolved concerns / open risks
+10. Unresolved concerns / open risks / verification gaps
 11. PR URL and whether it is normal reviewable or intentionally Draft/WIP
 
 If any Definition of Done item was intentionally skipped, name it and say why — never skip silently.
