@@ -121,6 +121,16 @@ function KanjivgStrokeAnimation({
   )
 }
 
+// Wraps children in a <g transform={transform}> only when `transform` is
+// actually present, so a glyph with no glyphTransform (every prototype
+// glyph — あ/き/ず/ア/シ/ツ) keeps its exact prior DOM shape (its two
+// guide/drawable <g>s sit directly under <svg>, not nested one level
+// deeper) — see StrokeGlyphAnimation's glyphTransform comment for why the
+// wrapping <g> exists at all for derived small-tsu glyphs.
+function GlyphTransformGroup({ transform, children }: { transform?: string; children: ReactNode }) {
+  return transform ? <g transform={transform}>{children}</g> : children
+}
+
 // strokesvg-derived renderer (STROKE_GLYPHS) — Phase 1A prototype (Issue
 // #122). Uses the glyph's own viewBox (1024 corpus) rather than the fixed
 // KanjiVG 109 canvas, clips each animated centerline to its own shadow
@@ -183,36 +193,57 @@ function StrokeGlyphAnimation({
       <defs>
         {flatParts.map((part, i) => (
           <clipPath key={`clip-${instanceId}-${i}`} id={`stroke-glyph-clip-${instanceId}-${i}`}>
-            <path d={part.shadowD} transform={glyph.glyphTransform} />
+            <path d={part.shadowD} />
           </clipPath>
         ))}
       </defs>
-      {/* The optional per-part transform (e.g. ず's translate(0 .01)) belongs
-          only to the animated stroke path in upstream strokesvg — the
-          shadow/guide shape it's clipped against is untransformed there, so
-          it must stay untransformed here too. glyphTransform is different:
-          a derived small-tsu entry's (sokuon/katakana-sokuon) glyph-level
-          affine transform (Issue #126) applies uniformly to guide, clip, and
-          animated stroke geometry alike, so it's applied on every <path>
-          below regardless of that per-part transform. */}
-      <g fill="currentColor" className="text-neutral-300 dark:text-neutral-600">
-        {flatParts.map((part, i) => (
-          <path key={`guide-${i}`} d={part.shadowD} transform={glyph.glyphTransform} />
-        ))}
-      </g>
-      <g fill="none" stroke="#2563eb" strokeWidth={glyph.strokeWidth} strokeLinecap={glyph.strokeLinecap as 'round' | 'butt' | 'square'}>
-        {flatParts.map((part, i) => (
-          <path
-            key={`stroke-${i}`}
-            ref={(el) => {
-              pathRefs.current[i] = el
-            }}
-            d={part.strokeD}
-            transform={[glyph.glyphTransform, part.transform].filter(Boolean).join(' ') || undefined}
-            clipPath={`url(#stroke-glyph-clip-${instanceId}-${i})`}
-          />
-        ))}
-      </g>
+      {/* glyphTransform (derived small-tsu entries only — sokuon/katakana-
+          sokuon, Issue #126) must be a single ancestor <g> transform, not
+          repeated on the clip shape and the clipped stroke path
+          individually: a `clip-path` referencing a `clipPathUnits="user
+          SpaceOnUse"` (the default) clipPath is resolved in the clipped
+          element's user space from BEFORE that element's own `transform`
+          attribute is applied. Putting the same `transform` on both the
+          clipPath's <path> and the clipped stroke <path> therefore does NOT
+          cancel out — Chromium ends up intersecting the untransformed
+          stroke geometry against the doubly-transformed clip shape, which
+          for a non-trivial (non-identity) scale/translate silently clips
+          away most of the stroke (reproduced: small っ rendered as only a
+          bottom fragment). Applying glyphTransform once on a wrapping <g>
+          around the clip shadow/guide/stroke content — leaving every path's
+          own `transform` (clip shape, guide, stroke) to describe only its
+          local, glyph-relative geometry — keeps the clip and the clipped
+          path in the same coordinate space. Only wrapped when glyphTransform
+          is actually present, so the un-derived prototype glyphs (あ/き/ず/
+          ア/シ/ツ) keep their exact prior two-<g>-under-<svg> DOM shape. */}
+      <GlyphTransformGroup transform={glyph.glyphTransform}>
+        {/* The optional per-part transform (e.g. ず's translate(0 .01))
+            belongs only to the animated stroke path in upstream strokesvg —
+            the shadow/guide shape it's clipped against is untransformed
+            there, so it must stay untransformed here too. No entry combines
+            glyphTransform with a per-part transform today (derived
+            small-tsu glyphs have neither multi-part logical strokes nor a
+            transform of their own), but keeping them independent preserves
+            that upstream semantic distinction. */}
+        <g fill="currentColor" className="text-neutral-300 dark:text-neutral-600">
+          {flatParts.map((part, i) => (
+            <path key={`guide-${i}`} d={part.shadowD} />
+          ))}
+        </g>
+        <g fill="none" stroke="#2563eb" strokeWidth={glyph.strokeWidth} strokeLinecap={glyph.strokeLinecap as 'round' | 'butt' | 'square'}>
+          {flatParts.map((part, i) => (
+            <path
+              key={`stroke-${i}`}
+              ref={(el) => {
+                pathRefs.current[i] = el
+              }}
+              d={part.strokeD}
+              transform={part.transform}
+              clipPath={`url(#stroke-glyph-clip-${instanceId}-${i})`}
+            />
+          ))}
+        </g>
+      </GlyphTransformGroup>
     </svg>
   )
 }
