@@ -89,6 +89,10 @@ Run the tests directly covering the changed behavior first (fast feedback), e.g.
 
 For UI changes, use available visual/browser verification when it would materially catch problems that jsdom/unit tests cannot.
 
+For SVG `clipPath`/mask/transform/viewBox/geometry changes, browser verification must explicitly inspect complete geometry visibility, clipping/alignment, and the actual animated/replayed state at representative desktop and mobile widths. Merely confirming that the page renders is not enough for geometry that can be silently clipped or shifted by browser coordinate semantics.
+
+If the same reusable visual primitive has just produced a real-device-only failure, do one bounded real-device smoke check before broad rollout of that primitive/data family. This is a targeted regression gate for a demonstrated failure mode, not a requirement to test every ordinary UI change on a physical device.
+
 ## 6. Full Verify
 
 Before considering the task complete, run:
@@ -149,7 +153,7 @@ PR body must include at minimum:
 - **Tests / verification** (what was run, results)
 - **Risks / notes** (anything uncertain, deferred, or worth human attention)
 
-Do not add the `AI review: Claude` marker yourself unless the user/ChatGPT review gate explicitly assigned Claude as the independent reviewer. Do not mark the PR Ready and do not merge.
+Do not add the `AI review: Claude` marker yourself unless the user/ChatGPT review gate explicitly assigned Claude as the independent reviewer. If it is explicitly assigned, put `AI review: Claude` on its own dedicated line; prose or negated mentions are not opt-ins. Do not mark the PR Ready and do not merge.
 
 ## 13. Final report
 
