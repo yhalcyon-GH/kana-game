@@ -3,17 +3,17 @@ name: Claude Code Review
 on:
   pull_request:
     # Model review is intentionally not triggered by synchronize events.
-    # It is opt-in: the review gate adds `AI review: Claude` to the PR body only
-    # when Claude is the chosen independent reviewer and the usage is warranted.
+    # It is opt-in: the review gate adds a dedicated `AI review: Claude` line
+    # to the PR body only when Claude is the chosen independent reviewer and
+    # the usage is warranted.
     types: [opened, ready_for_review]
 
 jobs:
   claude-review:
-    # Draft iteration should not spend model usage. A reviewable PR only enters
-    # Claude review when the PR body explicitly requests it.
-    if: >-
-      (github.event.action == 'ready_for_review' || github.event.pull_request.draft == false) &&
-      contains(github.event.pull_request.body || '', 'AI review: Claude')
+    # Draft iteration should not spend model usage. Reviewable PRs enter this
+    # cheap deterministic gate, but the model step only runs after an exact
+    # dedicated-line opt-in check below.
+    if: github.event.action == 'ready_for_review' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -22,13 +22,45 @@ jobs:
       id-token: write
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - name: Detect exact Claude review opt-in
+        id: opt-in
+        uses: actions/github-script@v7
         with:
-          fetch-depth: 1
+          script: |
+            const marker = 'AI review: Claude';
+            const hasExactMarkerLine = (body) =>
+              (body ?? '').split(/\r?\n/).some((line) => line === marker);
+
+            // Regression cases from the real PR #124 usage failure. Keep the
+            // gate narrow: prose/negation must never opt in, while the exact
+            // dedicated line must work with either LF or CRLF bodies.
+            const cases = [
+              ['', false],
+              ['No AI review: Claude marker is requested.', false],
+              ['AI review: Claude is not requested', false],
+              ['prefix AI review: Claude suffix', false],
+              ['AI review: Claude', true],
+              ['summary\nAI review: Claude\nnotes', true],
+              ['summary\r\nAI review: Claude\r\nnotes', true],
+            ];
+            for (const [body, expected] of cases) {
+              const actual = hasExactMarkerLine(body);
+              if (actual !== expected) {
+                throw new Error(`Claude review opt-in matcher regression for ${JSON.stringify(body)}: expected ${expected}, got ${actual}`);
+              }
+            }
+
+            const requested = hasExactMarkerLine(context.payload.pull_request?.body ?? '');
+            core.setOutput('requested', requested.toString());
+            core.info(`Claude review explicitly requested: ${requested}`);
+
+      - name: Skip Claude review when not explicitly requested
+        if: steps.opt-in.outputs.requested != 'true'
+        run: echo "No exact 'AI review: Claude' marker line; Claude review not requested."
 
       - name: Detect reviewable changes
         id: changes
+        if: steps.opt-in.outputs.requested == 'true'
         uses: actions/github-script@v7
         with:
           script: |
@@ -52,12 +84,18 @@ jobs:
             core.info(`Reviewable changes: ${reviewable}`);
 
       - name: Skip Claude review for binary-only changes
-        if: steps.changes.outputs.has_reviewable_changes != 'true'
+        if: steps.opt-in.outputs.requested == 'true' && steps.changes.outputs.has_reviewable_changes != 'true'
         run: echo "No reviewable text changes; Claude review not required."
+
+      - name: Checkout repository
+        if: steps.opt-in.outputs.requested == 'true' && steps.changes.outputs.has_reviewable_changes == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Run Claude Code Review
         id: claude-review
-        if: steps.changes.outputs.has_reviewable_changes == 'true'
+        if: steps.opt-in.outputs.requested == 'true' && steps.changes.outputs.has_reviewable_changes == 'true'
         uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
