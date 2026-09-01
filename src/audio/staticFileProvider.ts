@@ -83,7 +83,7 @@ export class StaticFileProvider implements SpeechProvider {
         }
         reject(new Error(`no playable clip for "${request.key}"`))
       }
-      audioEl.src = `${import.meta.env.BASE_URL}audio/${request.key}.wav`
+      audioEl.src = `${import.meta.env.BASE_URL}audio/${request.key}.mp3`
       if (gainNode) {
         gainNode.gain.value = options.volume
         audioEl.volume = 1

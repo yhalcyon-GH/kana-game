@@ -587,10 +587,10 @@ describe('Special Katakana single-sound character audio', () => {
     expect(getCharacterAudioId('katakana-special-wo')).not.toBe(getCharacterAudioId('katakana-wo'))
   })
 
-  it('a WAV file exists on disk for each of the 12 audio ids', () => {
+  it('an MP3 file exists on disk for each of the 12 audio ids', () => {
     for (const id of SPECIAL_KATAKANA_AUDIO_IDS) {
       const audioId = getCharacterAudioId(id)
-      const filePath = path.resolve(__dirname, '../../public/audio/characters', `${audioId}.wav`)
+      const filePath = path.resolve(__dirname, '../../public/audio/characters', `${audioId}.mp3`)
       expect(existsSync(filePath), `missing audio file for "${id}" at ${filePath}`).toBe(true)
     }
   })
