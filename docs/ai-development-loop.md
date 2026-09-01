@@ -1,4 +1,4 @@
-# AI Development Loop (v1.2)
+# AI Development Loop (v1.3)
 
 How a normal KanaGame task should flow with a coding agent such as Claude Code or Codex, so the user can usually supply a Goal and Acceptance Criteria instead of a long implementation prompt.
 
@@ -19,13 +19,11 @@ User / ChatGPT orchestrator
   → npm run verify
   → Diff self-review
   → Commit / Push
-  → Draft PR
-      → PR Verify runs on Draft and later pushes
+  → one reviewable PR (normally non-Draft)
+      → PR Verify runs on open and later pushes
       → ChatGPT/human diff review
-      → Bundle fixes while still Draft
-  → review gate
-      → Standard: deterministic CI + diff review is normally sufficient
-      → Enhanced: fresh-context independent AI review is required when available
+      → fixes stay on the same PR
+      → optional independent model review only when selected
   → Human gate if the change is consequential
   → ChatGPT merge gate
   → Merge
@@ -39,7 +37,7 @@ The shared completion bar is [`definition-of-done.md`](./definition-of-done.md).
 Roles are assigned per task. Do not permanently equate a role with a product.
 
 - **Owner / orchestrator:** the user and ChatGPT define intent, Acceptance Criteria, priority, review depth, and consequential decisions.
-- **Builder:** Claude Code, Codex, or another capable coding agent explores, implements, tests, self-reviews, and opens the Draft PR.
+- **Builder:** Claude Code, Codex, or another capable coding agent explores, implements, tests, self-reviews, and opens the task PR.
 - **Deterministic verifier:** tests, lint, build, diff checks, and CI provide pass/fail evidence that does not require model judgment.
 - **Independent reviewer:** a fresh context reviews the finished diff against the task. Prefer a different agent/model from the Builder when practical, but independence of context and role matters more than a fixed vendor assignment.
 - **Human gate:** required for consequential decisions; routine low-risk changes may be delegated through the normal merge gate.
@@ -64,18 +62,22 @@ When switching Claude Code ↔ Codex, resuming work from another environment, or
 4. for an existing task, verify the branch/PR HEAD and diff before continuing rather than silently layering work on an unrelated or stale branch;
 5. preserve unrelated uncommitted work.
 
-For normal implementation tasks, GitHub Issue + branch + Draft PR are the shared memory. Add durable product/research/architecture documents only when they carry decisions that should outlive the task; do not create a large documentation bureaucracy for a small fix.
+For normal implementation tasks, GitHub Issue + branch + PR are the shared memory. Add durable product/research/architecture documents only when they carry decisions that should outlive the task; do not create a large documentation bureaucracy for a small fix.
 
-## Why Draft is the default
+## One reviewable PR is the default
 
-Normal iteration happens in Draft:
+A Builder should open the PR only after implementation, focused verification, `npm run verify`, and full diff self-review. At that point the normal handoff is a **non-Draft reviewable PR**.
+
+Keep subsequent work on that same PR:
 
 - `PR Verify` may run repeatedly because it is deterministic and comparatively cheap.
-- Pushes to a Draft PR do not request an expensive model-review pass.
-- ChatGPT/human review should consolidate findings so follow-up fixes can be bundled.
-- Ready-for-Review is a later gate, after the candidate diff has stabilized.
+- Follow-up code pushes do **not** trigger Claude model review; the review workflow intentionally has no `synchronize` trigger.
+- ChatGPT/human review should consolidate findings so fixes can be bundled on the same branch/PR.
+- If an independent Claude review is actually selected, the review gate adds the exact opt-in line to the existing PR body; no Ready transition or replacement PR is needed.
 
-If a reviewable PR needs material fixes, prefer converting it back to Draft before pushing fixes. Re-run the relevant review only when the new candidate actually warrants it.
+Use Draft only for a genuinely incomplete/WIP handoff where the Builder is not yet presenting a completed candidate. Draft is a state for real incompleteness, not routine ceremony.
+
+This replaces the older mandatory Draft → Ready flow, which repeatedly created duplicate PRs and duplicate CI because the connected Ready transition was unreliable. The merge gate remains unchanged: reviewable does not mean mergeable-by-default.
 
 ## Review depth
 
@@ -113,7 +115,7 @@ A consequential change may also require Enhanced technical review. Human approva
 
 The shared workflow should not be duplicated into separate vendor-specific manuals.
 
-- **Claude Code:** `CLAUDE.md` plus [`.claude/skills/kana-task/SKILL.md`](../.claude/skills/kana-task/SKILL.md) implement the Builder loop and stop at a Draft PR. A fresh Claude session/subagent may also act as an independent reviewer when assigned that role.
+- **Claude Code:** `CLAUDE.md` plus [`.claude/skills/kana-task/SKILL.md`](../.claude/skills/kana-task/SKILL.md) implement the Builder loop and stop after opening the task PR. Normal completed work uses a non-Draft PR; Draft is reserved for explicitly incomplete/WIP handoff.
 - **Codex:** root [`AGENTS.md`](../AGENTS.md) supplies persistent repository guidance. Codex may act as Builder or independent reviewer depending on the task.
 
 Add agent-specific rules only when repeated evidence shows that a difference is genuinely caused by that agent or harness.
@@ -122,17 +124,13 @@ Add agent-specific rules only when repeated evidence shows that a difference is 
 
 Model review is a targeted quality layer, not a mandatory call on every PR.
 
-The repository's Claude GitHub review workflow is **opt-in**. It only enters the Claude model-review step for a reviewable PR whose body contains a **dedicated line exactly equal to**:
+The repository's Claude GitHub review workflow is **opt-in**. It only enters the Claude model-review step for a reviewable PR whose body contains a **dedicated line exactly equal to** the configured Claude-review marker. Prose or negated mentions do not count as opt-in, and LF/CRLF line endings are treated equivalently.
 
-```text
-AI review: Claude
-```
+The ChatGPT/human review gate adds the exact opt-in line only when Claude is the chosen independent reviewer and the review is worth the usage. Standard low-risk PRs normally omit it. The Builder does not add it by default.
 
-Prose or negated mentions do not count as opt-in. For example, `No AI review: Claude marker is requested.` and `AI review: Claude is not requested` must not trigger the model. The dedicated-line matcher treats LF and CRLF bodies equivalently.
+For the normal single-PR flow, ChatGPT may add the marker to an existing non-Draft PR after reviewing the candidate. The workflow's `edited` handling requests review only on the transition from **no exact marker line → exact marker line**. Unrelated body/title edits, edits after the marker already existed, negated prose, and code pushes must not trigger another model pass.
 
-The ChatGPT/human review gate should add that line only when Claude is the chosen independent reviewer and the review is worth the usage. Standard low-risk PRs normally omit it. If Claude is quota-limited, choose another independent reviewer for Enhanced work rather than making Claude availability a development blocker.
-
-Binary-only changes may still skip model review when there is no reviewable text diff.
+Binary-only changes may still skip model review when there is no reviewable text diff. If Claude is quota-limited, choose another independent reviewer for Enhanced work rather than making Claude availability a development blocker.
 
 AI-review findings are real findings: if a review runs and opens actionable threads, resolve them before merge. A failed requested AI review must not be treated as harmless until its cause is understood.
 
@@ -209,7 +207,7 @@ Before adding an agent-specific hook, check that agent's current official hook/c
 
 ## Future: commercial audit script
 
-Not built in this v1.2 pass. Candidate future command:
+Not built in this v1.3 pass. Candidate future command:
 
 ```text
 npm run audit:commercial
