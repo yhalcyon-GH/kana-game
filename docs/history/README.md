@@ -11,3 +11,4 @@ Subdirectories:
 - `reviews/` — point-in-time review notes.
 - `release-audit/` — release audit findings retained as evidence.
 - `superpowers/` — old implementation plans/specs retained for provenance.
+- `asset-audits/` — dated image/audio asset inventories and audit summaries.
