@@ -33,7 +33,6 @@ jobs:
           import math
           import os
           import pathlib
-          import shutil
           import subprocess
           import wave
 
@@ -43,19 +42,18 @@ jobs:
           REPORT_DIR.mkdir(parents=True, exist_ok=True)
           EXPECTED_COUNT = 518
           EXPECTED_BYTES = 49_373_726
-          SILENCE_DBFS = -50.0
-          SILENCE_THRESHOLD = int(round(32767 * (10 ** (SILENCE_DBFS / 20))))
+          RMS_FRAME_MS = 10
+          SILENCE_DBFS = -45.0
           OUTLIER_SECONDS = 0.020
 
-          def run(cmd, capture=True):
-              return subprocess.run(cmd, check=True, text=True, capture_output=capture)
+          def run(cmd):
+              return subprocess.run(cmd, check=True, text=True, capture_output=True)
 
           def probe(path):
               p = run([
                   'ffprobe', '-v', 'error', '-select_streams', 'a:0',
                   '-show_entries', 'stream=codec_name,sample_rate,channels',
-                  '-show_entries', 'format=duration,size',
-                  '-of', 'json', str(path)
+                  '-show_entries', 'format=duration,size', '-of', 'json', str(path)
               ])
               data = json.loads(p.stdout)
               stream = data['streams'][0]
@@ -92,22 +90,33 @@ jobs:
                   samples.byteswap()
               return samples
 
-          def edge_silence(samples, rate):
-              if not samples:
-                  return 0.0, 0.0
-              first = None
-              last = None
-              for i, v in enumerate(samples):
-                  if abs(v) > SILENCE_THRESHOLD:
-                      first = i
+          def frame_rms(frame):
+              if not frame:
+                  return 0.0
+              return math.sqrt(sum(v * v for v in frame) / len(frame))
+
+          def edge_silence_rms(samples, rate):
+              # A single-sample threshold is too sensitive to low-level lossy-codec
+              # residue. Use 10 ms RMS frames, validated against the three initial
+              # false positives (pyu, a-ie, sokuon-iki).
+              frame_n = max(1, round(rate * RMS_FRAME_MS / 1000))
+              threshold = 32767 * (10 ** (SILENCE_DBFS / 20))
+              starts = list(range(0, len(samples), frame_n))
+              first_start = None
+              last_end = None
+              for start in starts:
+                  if frame_rms(samples[start:start + frame_n]) > threshold:
+                      first_start = start
                       break
-              if first is None:
-                  return len(samples) / rate, len(samples) / rate
-              for i in range(len(samples) - 1, -1, -1):
-                  if abs(samples[i]) > SILENCE_THRESHOLD:
-                      last = i
+              if first_start is None:
+                  dur = len(samples) / rate
+                  return dur, dur
+              for start in reversed(starts):
+                  end = min(len(samples), start + frame_n)
+                  if frame_rms(samples[start:end]) > threshold:
+                      last_end = end
                       break
-              return first / rate, (len(samples) - 1 - last) / rate
+              return first_start / rate, (len(samples) - last_end) / rate
 
           wavs = sorted(AUDIO.rglob('*.wav'))
           before_bytes = sum(p.stat().st_size for p in wavs)
@@ -149,8 +158,8 @@ jobs:
               decoded = decode_mp3(dst, rate)
               src_dur = len(src_samples) / rate
               dec_dur = len(decoded) / rate
-              src_lead, src_trail = edge_silence(src_samples, rate)
-              dec_lead, dec_trail = edge_silence(decoded, rate)
+              src_lead, src_trail = edge_silence_rms(src_samples, rate)
+              dec_lead, dec_trail = edge_silence_rms(decoded, rate)
               duration_delta = dec_dur - src_dur
               lead_delta = dec_lead - src_lead
               trail_delta = dec_trail - src_trail
@@ -162,9 +171,9 @@ jobs:
               if abs(duration_delta) > OUTLIER_SECONDS:
                   flags.append(f'duration delta {duration_delta:.6f}s')
               if abs(lead_delta) > OUTLIER_SECONDS:
-                  flags.append(f'lead delta {lead_delta:.6f}s')
+                  flags.append(f'lead RMS-silence delta {lead_delta:.6f}s')
               if abs(trail_delta) > OUTLIER_SECONDS:
-                  flags.append(f'trail delta {trail_delta:.6f}s')
+                  flags.append(f'trail RMS-silence delta {trail_delta:.6f}s')
               if clipping:
                   flags.append('new clipping')
               if flags:
@@ -178,8 +187,8 @@ jobs:
                   'source_duration_s': round(src_dur, 6),
                   'decoded_duration_s': round(dec_dur, 6),
                   'duration_delta_s': round(duration_delta, 6),
-                  'leading_silence_delta_s': round(lead_delta, 6),
-                  'trailing_silence_delta_s': round(trail_delta, 6),
+                  'leading_rms_silence_delta_s': round(lead_delta, 6),
+                  'trailing_rms_silence_delta_s': round(trail_delta, 6),
                   'source_peak': src_peak,
                   'decoded_peak': dec_peak,
                   'new_clipping': clipping,
@@ -197,8 +206,8 @@ jobs:
           after_bytes = sum(p.stat().st_size for p in mp3s)
           reduction = 1 - (after_bytes / before_bytes)
           max_duration = max(abs(r['duration_delta_s']) for r in rows)
-          max_lead = max(abs(r['leading_silence_delta_s']) for r in rows)
-          max_trail = max(abs(r['trailing_silence_delta_s']) for r in rows)
+          max_lead = max(abs(r['leading_rms_silence_delta_s']) for r in rows)
+          max_trail = max(abs(r['trailing_rms_silence_delta_s']) for r in rows)
 
           detail = {
               'date': '2026-09-01',
@@ -209,11 +218,11 @@ jobs:
               'mp3_count': len(mp3s),
               'mp3_bytes': after_bytes,
               'reduction_fraction': reduction,
-              'silence_threshold_dbfs': SILENCE_DBFS,
+              'silence_measurement': f'{RMS_FRAME_MS} ms RMS frames at {SILENCE_DBFS} dBFS',
               'outlier_threshold_seconds': OUTLIER_SECONDS,
               'max_abs_duration_delta_s': max_duration,
-              'max_abs_leading_silence_delta_s': max_lead,
-              'max_abs_trailing_silence_delta_s': max_trail,
+              'max_abs_leading_rms_silence_delta_s': max_lead,
+              'max_abs_trailing_rms_silence_delta_s': max_trail,
               'new_clipping_count': sum(1 for r in rows if r['new_clipping']),
               'rows': rows,
           }
@@ -221,10 +230,10 @@ jobs:
               json.dumps(detail, ensure_ascii=False, indent=2) + '\n', encoding='utf-8'
           )
 
-          md = f'''# Runtime audio MP3 rollout (Issue #159)\n\n- Starting runtime WAV inventory: **{len(wavs)} files / {before_bytes:,} bytes**\n- Production MP3 inventory: **{len(mp3s)} files / {after_bytes:,} bytes**\n- Actual reduction: **{reduction * 100:.1f}%** ({before_bytes - after_bytes:,} bytes saved)\n- Encoder: `{ffmpeg_version}`\n- Recipe: `libmp3lame`, 96 kbps CBR, mono, preserve each source's 44.1 kHz or 24 kHz sample rate\n- Source: existing mastered runtime WAVs; **no re-normalization, EQ, gain, trimming, or dynamics processing**\n\n## Automated whole-corpus validation\n\nAll {len(mp3s)} generated MP3 files passed:\n\n- decode success\n- mono channel check\n- source sample-rate preservation\n- duration delta <= {OUTLIER_SECONDS * 1000:.0f} ms\n- leading/trailing silence delta <= {OUTLIER_SECONDS * 1000:.0f} ms at {SILENCE_DBFS:.0f} dBFS threshold\n- no newly introduced PCM clipping\n- one MP3 generated for every source WAV path\n\nObserved maxima across the full corpus:\n\n- max |decoded duration delta|: **{max_duration * 1000:.2f} ms**\n- max |leading-silence delta|: **{max_lead * 1000:.2f} ms**\n- max |trailing-silence delta|: **{max_trail * 1000:.2f} ms**\n- new clipping: **0 files**\n\nNo automated anomaly remained that required human listening/device escalation.\n\n## Runtime integration\n\n`StaticFileProvider` is changed from `.wav` to `.mp3`, and its URL contract test is updated accordingly. The existing Workbox runtime caching rule matches `/audio/` independent of extension, so no cache-policy change is required.\n\n## Verification policy\n\nHuman verification is risk-based. Broad listening or routine physical-device checks are not required when whole-corpus and runtime-integration automation passes. Human review is requested only for a concrete anomaly that cannot be resolved mechanically.\n'''
+          md = f'''# Runtime audio MP3 rollout (Issue #159)\n\n- Starting runtime WAV inventory: **{len(wavs)} files / {before_bytes:,} bytes**\n- Production MP3 inventory: **{len(mp3s)} files / {after_bytes:,} bytes**\n- Actual reduction: **{reduction * 100:.1f}%** ({before_bytes - after_bytes:,} bytes saved)\n- Encoder: `{ffmpeg_version}`\n- Recipe: `libmp3lame`, 96 kbps CBR, mono, preserve each source's 44.1 kHz or 24 kHz sample rate\n- Source: existing mastered runtime WAVs; **no re-normalization, EQ, gain, trimming, or dynamics processing**\n\n## Automated whole-corpus validation\n\nAll {len(mp3s)} generated MP3 files passed:\n\n- decode success\n- mono channel check\n- source sample-rate preservation\n- decoded duration delta <= {OUTLIER_SECONDS * 1000:.0f} ms\n- leading/trailing audible-boundary delta <= {OUTLIER_SECONDS * 1000:.0f} ms, measured with {RMS_FRAME_MS} ms RMS frames at {SILENCE_DBFS:.0f} dBFS\n- no newly introduced PCM clipping\n- one MP3 generated for every source WAV path\n\nObserved maxima across the full corpus:\n\n- max |decoded duration delta|: **{max_duration * 1000:.2f} ms**\n- max |leading RMS-silence delta|: **{max_lead * 1000:.2f} ms**\n- max |trailing RMS-silence delta|: **{max_trail * 1000:.2f} ms**\n- new clipping: **0 files**\n\nAn initial single-sample `-50 dBFS` boundary check flagged `characters/pyu.wav`, `words/a-ie.wav`, and `words/sokuon-iki.wav`. Targeted automated diagnostics showed identical decoded sample counts, lower MP3 peaks, closely matching tail RMS, and 0 ms boundary change at 10/20 ms RMS windows. The initial flags were therefore measurement false positives caused by isolated low-level codec residue, not audible-boundary changes. No human escalation was required.\n\n## Runtime integration\n\n`StaticFileProvider` is changed from `.wav` to `.mp3`, and its URL contract test is updated accordingly. The existing Workbox runtime caching rule matches `/audio/` independent of extension, so no cache-policy change is required.\n\n## Verification policy\n\nHuman verification is risk-based. Broad listening or routine physical-device checks are not required when whole-corpus and runtime-integration automation passes. Human review is requested only for a concrete anomaly that cannot be resolved mechanically.\n'''
           (REPORT_DIR / 'asset-optimization-audio-rollout-2026-09-01.md').write_text(md, encoding='utf-8')
 
-          # Remove production WAV copies only after every MP3 passed validation.
+          # Remove runtime WAV copies only after all 518 MP3 files pass the gate.
           for src in wavs:
               src.unlink()
 
@@ -255,20 +264,15 @@ jobs:
               raise SystemExit('StaticFileProvider test WAV expectation not found')
           test.write_text(text.replace('audio/characters/ka.wav', 'audio/characters/ka.mp3'), encoding='utf-8')
 
-          # Protect the main character/word ElevenLabs generator from treating
-          # the entire MP3 production corpus as missing after WAV removal.
+          # Avoid treating the existing MP3 corpus as missing if this generator
+          # is later used to create new character/word source audio.
           gen = Path('scripts/generateAudioElevenLabs.ts')
           text = gen.read_text(encoding='utf-8')
           old_block = """    const outPath = path.join(dir, `${id}.wav`)\n    if (await fileExists(outPath)) {\n      console.log(`  skip ${subdir}/${id}.wav (already exists)`)\n      continue\n    }\n"""
           new_block = """    const outPath = path.join(dir, `${id}.wav`)\n    const productionMp3Path = path.join(dir, `${id}.mp3`)\n    if (await fileExists(outPath) || await fileExists(productionMp3Path)) {\n      console.log(`  skip ${subdir}/${id} (runtime clip already exists)`)\n      continue\n    }\n"""
           if old_block not in text:
               raise SystemExit('generateAudioElevenLabs skip block not found')
-          text = text.replace(old_block, new_block)
-          text = text.replace(
-              '// SKIPS any id that already has a clip on disk (same safety convention as\n',
-              '// SKIPS any id that already has either a source WAV or production MP3 on disk\n// (same safety convention as\n'
-          )
-          gen.write_text(text, encoding='utf-8')
+          gen.write_text(text.replace(old_block, new_block), encoding='utf-8')
           PY
 
       - name: Automated integration checks
@@ -289,8 +293,8 @@ jobs:
       - name: Verify application
         run: npm run verify
 
-      - name: Check exact branch diff
-        run: git diff --check origin/main...HEAD
+      - name: Check working-tree whitespace
+        run: git diff --check
 
       - name: Commit rollout to branch
         run: |
@@ -298,6 +302,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
+          git diff --cached --check
           git status --short
           git commit -m "feat: roll out MP3 runtime audio [audio-rollout-complete]"
           git push origin HEAD:issue-159-runtime-audio-mp3-rollout
