@@ -237,3 +237,78 @@ describe('StrokeOrderAnimation with prototype strokesvg glyphs', () => {
     expect(container.querySelectorAll('clipPath')).toHaveLength(0)
   })
 })
+
+// Derived small-tsu entries (Issue #126, Phase 1B): sokuon/katakana-sokuon
+// are generated from the pinned full つ/ツ via one glyph-level affine
+// transform rather than a dedicated upstream glyph or KanjiVG. These tests
+// cover the Acceptance Criteria: no KanjiVG fallthrough, correct logical
+// stroke counts, and glyphTransform applied consistently to guide/shadow,
+// clip geometry, and animated stroke geometry alike.
+describe('StrokeOrderAnimation with derived small-tsu glyphs (sokuon, katakana-sokuon)', () => {
+  it('sokuon (っ) no longer falls through to KanjiVG: STROKE_GLYPHS has an entry, and it renders via the strokesvg viewBox', () => {
+    expect(STROKE_GLYPHS['sokuon']).toBeDefined()
+    const { container } = render(<StrokeOrderAnimation characterId="sokuon" playToken={0} />)
+    const svg = container.querySelector('svg')
+    expect(svg?.getAttribute('viewBox')).toBe(STROKE_GLYPHS['sokuon'].viewBox)
+  })
+
+  it('katakana-sokuon (ッ) no longer falls through to KanjiVG: STROKE_GLYPHS has an entry with 3 logical strokes', () => {
+    expect(STROKE_GLYPHS['katakana-sokuon']).toBeDefined()
+    expect(STROKE_GLYPHS['katakana-sokuon'].logicalStrokes).toHaveLength(3)
+    const { container } = render(<StrokeOrderAnimation characterId="katakana-sokuon" playToken={0} />)
+    const svg = container.querySelector('svg')
+    expect(svg?.getAttribute('viewBox')).toBe(STROKE_GLYPHS['katakana-sokuon'].viewBox)
+  })
+
+  it('sokuon: renders exactly 1 guide path and 1 animated path (1 logical stroke, 1 part)', () => {
+    const { container } = render(<StrokeOrderAnimation characterId="sokuon" playToken={0} />)
+    const groups = container.querySelectorAll(':scope svg > g')
+    expect(groups[0].querySelectorAll('path')).toHaveLength(1)
+    expect(groups[1].querySelectorAll('path')).toHaveLength(1)
+  })
+
+  it('katakana-sokuon: renders 3 guide paths and 3 animated paths (3 logical strokes, 1 part each)', () => {
+    const { container } = render(<StrokeOrderAnimation characterId="katakana-sokuon" playToken={0} />)
+    const groups = container.querySelectorAll(':scope svg > g')
+    expect(groups[0].querySelectorAll('path')).toHaveLength(3)
+    expect(groups[1].querySelectorAll('path')).toHaveLength(3)
+  })
+
+  it('glyphTransform is applied identically to every guide path, every clipPath shape, and every animated stroke path', () => {
+    const { container } = render(<StrokeOrderAnimation characterId="katakana-sokuon" playToken={0} />)
+    const glyph = STROKE_GLYPHS['katakana-sokuon']
+    const svg = container.querySelector('svg')!
+    const guideGroup = svg.querySelectorAll(':scope > g')[0]
+    const drawableGroup = svg.querySelectorAll(':scope > g')[1]
+
+    for (const p of guideGroup.querySelectorAll('path')) {
+      expect(p.getAttribute('transform')).toBe(glyph.glyphTransform)
+    }
+    for (const p of svg.querySelectorAll('clipPath path')) {
+      expect(p.getAttribute('transform')).toBe(glyph.glyphTransform)
+    }
+    for (const p of drawableGroup.querySelectorAll('path')) {
+      // No per-part transform on these source parts (only glyphTransform applies).
+      expect(p.getAttribute('transform')).toBe(glyph.glyphTransform)
+    }
+  })
+
+  it('replay: bumping playToken keeps rendering sokuon\'s paths', () => {
+    const { container, rerender } = render(<StrokeOrderAnimation characterId="sokuon" playToken={0} />)
+    const before = container.querySelectorAll('path').length
+    expect(before).toBeGreaterThan(0)
+    rerender(<StrokeOrderAnimation characterId="sokuon" playToken={1} />)
+    expect(container.querySelectorAll('path')).toHaveLength(before)
+  })
+
+  it('two simultaneous sokuon instances do not collide on clip-path ids', () => {
+    const { container } = render(
+      <>
+        <StrokeOrderAnimation characterId="sokuon" playToken={0} />
+        <StrokeOrderAnimation characterId="sokuon" playToken={0} />
+      </>,
+    )
+    const clipIds = [...container.querySelectorAll('clipPath')].map((el) => el.id)
+    expect(new Set(clipIds).size).toBe(clipIds.length)
+  })
+})

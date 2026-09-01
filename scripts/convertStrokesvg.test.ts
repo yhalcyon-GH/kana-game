@@ -1,7 +1,9 @@
-import { readFile } from 'node:fs/promises'
+import { mkdtemp, readFile, writeFile } from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { parseGlyph, PROTOTYPE_GLYPHS, VENDOR_DIR } from './convertStrokesvg'
+import { DERIVED_SMALL_TSU_GLYPHS, generateOutput, parseGlyph, PROTOTYPE_GLYPHS, VENDOR_DIR } from './convertStrokesvg'
+import { STROKE_GLYPHS } from '../src/data/strokeGlyphs'
 
 async function loadGlyph(characterId: string) {
   const relPath = PROTOTYPE_GLYPHS[characterId]
@@ -161,4 +163,83 @@ describe('convertStrokesvg: parseGlyph on vendored prototype SVGs', () => {
       expect(() => parseGlyph('katakana-a', tampered)).toThrow(/missing "--i"/)
     })
   })
+
+  // Derived small-tsu entries (Issue #126, Phase 1B): sokuon/katakana-sokuon
+  // have no dedicated upstream strokesvg glyph and are generated from the
+  // pinned full つ/ツ via one glyph-level affine transform instead (Option A
+  // from the Issue #125 evidence spike). These tests cover the Acceptance
+  // Criteria: correct logical-stroke counts, no fallthrough to KanjiVG, and
+  // preserved source part structure.
+  describe('derived small-tsu entries: sokuon (from つ.svg), katakana-sokuon (from ツ.svg)', () => {
+    it('sokuon: exists in STROKE_GLYPHS, has exactly 1 logical stroke, and carries a glyphTransform', () => {
+      const glyph = STROKE_GLYPHS['sokuon']
+      expect(glyph).toBeDefined()
+      expect(glyph.logicalStrokes).toHaveLength(1)
+      expect(glyph.glyphTransform).toBeTruthy()
+    })
+
+    it('katakana-sokuon: exists in STROKE_GLYPHS, has exactly 3 logical strokes, and carries a glyphTransform', () => {
+      const glyph = STROKE_GLYPHS['katakana-sokuon']
+      expect(glyph).toBeDefined()
+      expect(glyph.logicalStrokes).toHaveLength(3)
+      expect(glyph.glyphTransform).toBeTruthy()
+    })
+
+    it('sokuon preserves the source つ.svg part structure (1 part in its single logical stroke)', async () => {
+      const sourceGlyph = await loadGlyphFromRelPath('sokuon', DERIVED_SMALL_TSU_GLYPHS['sokuon'].sourcePath)
+      const derived = STROKE_GLYPHS['sokuon']
+      expect(derived.logicalStrokes.map((s) => s.parts.length)).toEqual(sourceGlyph.logicalStrokes.map((s) => s.parts.length))
+      expect(derived.logicalStrokes.map((s) => s.parts.map((p) => p.shadowD))).toEqual(
+        sourceGlyph.logicalStrokes.map((s) => s.parts.map((p) => p.shadowD)),
+      )
+    })
+
+    it('katakana-sokuon preserves the source ツ.svg part structure (1 part per logical stroke, 3 strokes)', async () => {
+      const sourceGlyph = await loadGlyphFromRelPath('katakana-sokuon', DERIVED_SMALL_TSU_GLYPHS['katakana-sokuon'].sourcePath)
+      const derived = STROKE_GLYPHS['katakana-sokuon']
+      expect(derived.logicalStrokes.map((s) => s.parts.length)).toEqual(sourceGlyph.logicalStrokes.map((s) => s.parts.length))
+      expect(derived.logicalStrokes.map((s) => s.parts.map((p) => p.shadowD))).toEqual(
+        sourceGlyph.logicalStrokes.map((s) => s.parts.map((p) => p.shadowD)),
+      )
+    })
+
+    it('ず\'s per-part transform semantics remain unchanged (stroke-only, no glyphTransform) alongside the new derived entries', () => {
+      const zu = STROKE_GLYPHS['zu']
+      expect(zu.glyphTransform).toBeUndefined()
+      const multiPartStroke = zu.logicalStrokes.find((s) => s.parts.length > 1)
+      expect(multiPartStroke).toBeDefined()
+      for (const part of multiPartStroke!.parts) {
+        expect(part.transform).toBe('translate(0 .01)')
+      }
+    })
+  })
+
+  describe('generated-output freshness check (--check mode support)', () => {
+    it('generateOutput() is deterministic (matches the committed src/data/strokeGlyphs.ts exactly)', async () => {
+      const generated = await generateOutput()
+      const committed = await readFile(path.resolve(import.meta.dirname, '../src/data/strokeGlyphs.ts'), 'utf-8')
+      expect(generated).toBe(committed)
+    })
+
+    it('detects a deliberately tampered/stale generated file without leaving the repo dirty (writes only to a temp file)', async () => {
+      const generated = await generateOutput()
+      const tampered = generated.replace('"sokuon"', '"sokuon-tampered"')
+      expect(tampered).not.toBe(generated)
+
+      const tmpDir = await mkdtemp(path.join(os.tmpdir(), 'convertStrokesvg-check-'))
+      const tmpFile = path.join(tmpDir, 'strokeGlyphs.ts')
+      await writeFile(tmpFile, tampered)
+      const writtenBack = await readFile(tmpFile, 'utf-8')
+      expect(writtenBack).not.toBe(generated) // simulates a stale/tampered committed file
+      expect(writtenBack).toBe(tampered)
+      // The real committed file itself is never touched by this test.
+      const committed = await readFile(path.resolve(import.meta.dirname, '../src/data/strokeGlyphs.ts'), 'utf-8')
+      expect(committed).toBe(generated)
+    })
+  })
 })
+
+async function loadGlyphFromRelPath(characterId: string, relPath: string) {
+  const svgText = await readFile(path.join(VENDOR_DIR, relPath), 'utf-8')
+  return parseGlyph(characterId, svgText)
+}

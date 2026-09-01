@@ -183,17 +183,21 @@ function StrokeGlyphAnimation({
       <defs>
         {flatParts.map((part, i) => (
           <clipPath key={`clip-${instanceId}-${i}`} id={`stroke-glyph-clip-${instanceId}-${i}`}>
-            <path d={part.shadowD} />
+            <path d={part.shadowD} transform={glyph.glyphTransform} />
           </clipPath>
         ))}
       </defs>
       {/* The optional per-part transform (e.g. ず's translate(0 .01)) belongs
           only to the animated stroke path in upstream strokesvg — the
           shadow/guide shape it's clipped against is untransformed there, so
-          it must stay untransformed here too. */}
+          it must stay untransformed here too. glyphTransform is different:
+          a derived small-tsu entry's (sokuon/katakana-sokuon) glyph-level
+          affine transform (Issue #126) applies uniformly to guide, clip, and
+          animated stroke geometry alike, so it's applied on every <path>
+          below regardless of that per-part transform. */}
       <g fill="currentColor" className="text-neutral-300 dark:text-neutral-600">
         {flatParts.map((part, i) => (
-          <path key={`guide-${i}`} d={part.shadowD} />
+          <path key={`guide-${i}`} d={part.shadowD} transform={glyph.glyphTransform} />
         ))}
       </g>
       <g fill="none" stroke="#2563eb" strokeWidth={glyph.strokeWidth} strokeLinecap={glyph.strokeLinecap as 'round' | 'butt' | 'square'}>
@@ -204,7 +208,7 @@ function StrokeGlyphAnimation({
               pathRefs.current[i] = el
             }}
             d={part.strokeD}
-            transform={part.transform}
+            transform={[glyph.glyphTransform, part.transform].filter(Boolean).join(' ') || undefined}
             clipPath={`url(#stroke-glyph-clip-${instanceId}-${i})`}
           />
         ))}

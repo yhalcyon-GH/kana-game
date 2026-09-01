@@ -31,10 +31,62 @@ export const PROTOTYPE_GLYPHS: Record<string, string> = {
   'katakana-tsu': 'katakana/ツ.svg',
 }
 
+// Small-tsu (促音) ids have no dedicated glyph in pinned strokesvg — Issue
+// #125 confirmed (evidence spike) that deriving them from the pinned full
+// つ/ツ via one glyph-level affine transform (Option A) is safe: near-
+// uniform-scale best fit, contour topology matches 1:1, and residual stays
+// within ~1% of glyph bbox diagonal (mean) after fitting. See Issue #126
+// for the strokesvg-space refit (font-space constants can't be reused
+// verbatim: strokesvg is 0 0 1024 1024, y-down, vs. the font's y-up em
+// square).
+//
+// glyphTransform below was fit with scripts/_tmp_fitStrokesvgTransform.mjs
+// (temporary analysis tool, not part of the repo) as follows:
+//   1. Sample @fontsource/klee-one@5.3.0 japanese-400 outlines for the full
+//      and small glyph of each pair in font space (y-up, unitsPerEm=1000).
+//   2. Fit a uniform-scale+translation transform (bbox-anchored, then
+//      refined by a few iterations of closest-point matching +
+//      least-squares similarity solve) for font-space full->small.
+//   3. Independently fit font-space full glyph -> the pinned strokesvg
+//      shadow-path outline for the same full glyph, giving the font<->
+//      strokesvg coordinate-system mapping.
+//   4. Compose: conjugate the font-space full->small transform by that
+//      coordinate mapping to obtain the equivalent transform directly in
+//      strokesvg space. All three transforms are similarity transforms
+//      (uniform scale + translation, no rotation), so the composition is
+//      too.
+// Final fitted constants (mean/max residual, % of small-glyph bbox
+// diagonal, measured directly in strokesvg space against the font-space
+// small glyph mapped through the same coordinate mapping):
+//   つ.svg -> sokuon:          scale=0.750945 translate=(120.753, 283.883)  mean 0.78% / max 6.12%
+//   ツ.svg -> katakana-sokuon: scale=0.762183 translate=(128.652, 251.783)  mean 0.65% / max 3.40%
+// (max residual is dominated by a handful of thin stroke-tip sample points,
+// consistent with Issue #125's qualitative "near-total overlap, mismatch
+// limited mainly to thin stroke-tip slivers" finding.)
+export const DERIVED_SMALL_TSU_GLYPHS: Record<
+  string,
+  { sourcePath: string; glyphTransform: string }
+> = {
+  sokuon: {
+    sourcePath: 'hiragana/つ.svg',
+    glyphTransform: 'translate(120.753 283.883) scale(0.750945)',
+  },
+  'katakana-sokuon': {
+    sourcePath: 'katakana/ツ.svg',
+    glyphTransform: 'translate(128.652 251.783) scale(0.762183)',
+  },
+}
+
 export type StrokeGlyph = {
   viewBox: string
   strokeWidth: number
   strokeLinecap: string
+  // Applies uniformly to every part's shadow (guide) geometry, clip
+  // geometry, and animated stroke geometry for the whole glyph — semantically
+  // distinct from each part's own optional `transform`, which is
+  // stroke-path-only (see StrokeOrderAnimation.tsx and ず's existing usage).
+  // Only present on derived small-tsu entries (see DERIVED_SMALL_TSU_GLYPHS).
+  glyphTransform?: string
   logicalStrokes: Array<{
     parts: Array<{
       shadowD: string
@@ -182,8 +234,7 @@ export function parseGlyph(characterId: string, svgText: string): StrokeGlyph {
   return { viewBox, strokeWidth, strokeLinecap, logicalStrokes }
 }
 
-async function main() {
-  console.log('Converting vendored strokesvg SVGs...')
+export async function generateOutput(): Promise<string> {
   const entries: [string, StrokeGlyph][] = []
   for (const [characterId, relPath] of Object.entries(PROTOTYPE_GLYPHS)) {
     const filePath = path.join(VENDOR_DIR, relPath)
@@ -194,26 +245,42 @@ async function main() {
     console.log(`  ${characterId} (${relPath}): ${glyph.logicalStrokes.length} logical strokes [${partCounts}]`)
   }
 
+  for (const [characterId, { sourcePath, glyphTransform }] of Object.entries(DERIVED_SMALL_TSU_GLYPHS)) {
+    const filePath = path.join(VENDOR_DIR, sourcePath)
+    const svgText = await readFile(filePath, 'utf-8')
+    const glyph = { ...parseGlyph(characterId, svgText), glyphTransform }
+    entries.push([characterId, glyph])
+    const partCounts = glyph.logicalStrokes.map((s) => s.parts.length).join(',')
+    console.log(`  ${characterId} (derived from ${sourcePath}): ${glyph.logicalStrokes.length} logical strokes [${partCounts}], glyphTransform="${glyphTransform}"`)
+  }
+
   // Sort by character id for deterministic, diff-stable output regardless
-  // of PROTOTYPE_GLYPHS iteration/insertion order.
+  // of iteration/insertion order across PROTOTYPE_GLYPHS and
+  // DERIVED_SMALL_TSU_GLYPHS.
   entries.sort(([a], [b]) => a.localeCompare(b))
 
   const body = entries.map(([id, glyph]) => `  ${JSON.stringify(id)}: ${JSON.stringify(glyph, null, 2).replace(/\n/g, '\n  ')},`).join('\n')
 
-  const content = `// Stroke-order glyph data converted from vendored strokesvg SVGs (see
+  return `// Stroke-order glyph data converted from vendored strokesvg SVGs (see
 // vendor/strokesvg/PROVENANCE.md for source, pinned commit, and license).
 // Derived from the Klee One font, licensed under the SIL Open Font License —
 // see vendor/strokesvg/LICENSE. Generated by scripts/convertStrokesvg.ts —
 // do not hand-edit; re-run the script instead.
 //
-// Phase 1A prototype (Issue #122): only the six representative glyphs listed
-// in scripts/convertStrokesvg.ts's PROTOTYPE_GLYPHS are present. All other
-// characters continue to use src/data/strokes.ts's KanjiVG-derived
-// STROKE_PATHS via StrokeOrderAnimation's existing fallback.
+// Phase 1A prototype (Issue #122): the six representative glyphs listed in
+// scripts/convertStrokesvg.ts's PROTOTYPE_GLYPHS. All other characters
+// continue to use src/data/strokes.ts's KanjiVG-derived STROKE_PATHS via
+// StrokeOrderAnimation's existing fallback.
+//
+// Phase 1B (Issue #126): sokuon / katakana-sokuon are additionally derived
+// from the pinned full つ/ツ via one glyph-level affine transform (see
+// scripts/convertStrokesvg.ts's DERIVED_SMALL_TSU_GLYPHS for the fitted
+// constants and derivation method) rather than a dedicated upstream glyph.
 export type StrokeGlyph = {
   viewBox: string
   strokeWidth: number
   strokeLinecap: string
+  glyphTransform?: string
   logicalStrokes: Array<{
     parts: Array<{
       shadowD: string
@@ -227,9 +294,28 @@ export const STROKE_GLYPHS: Record<string, StrokeGlyph> = {
 ${body}
 }
 `
+}
+
+async function main() {
+  const checkMode = process.argv.includes('--check')
+  console.log(checkMode ? 'Checking generated strokeGlyphs.ts is up to date...' : 'Converting vendored strokesvg SVGs...')
+  const content = await generateOutput()
+
+  if (checkMode) {
+    const existing = await readFile(OUT_FILE, 'utf-8').catch(() => null)
+    if (existing !== content) {
+      console.error(
+        `\nsrc/data/strokeGlyphs.ts is stale relative to vendored SVGs + converter/spec constants.\nRun: npx tsx scripts/convertStrokesvg.ts`,
+      )
+      process.exitCode = 1
+      return
+    }
+    console.log('OK: src/data/strokeGlyphs.ts matches current vendored SVGs + converter/spec constants.')
+    return
+  }
 
   await writeFile(OUT_FILE, content)
-  console.log(`\nWrote ${entries.length} glyphs to ${path.relative(process.cwd(), OUT_FILE)}`)
+  console.log(`\nWrote ${path.relative(process.cwd(), OUT_FILE)}`)
 }
 
 // Only run when invoked directly (`npx tsx scripts/convertStrokesvg.ts`),
