@@ -1,54 +1,65 @@
-# AI Development Loop (v1.3)
+# AI Development Loop (v1.4)
 
-How a normal KanaGame task should flow with a coding agent such as Claude Code or Codex, so the user can usually supply a Goal and Acceptance Criteria instead of a long implementation prompt.
+How a normal KanaGame task should flow with ChatGPT plus a coding agent such as Claude Code or Codex, so the user can usually supply a Goal and Acceptance Criteria instead of a long implementation prompt.
 
-The workflow is **role-based, not vendor-based**. Claude Code and Codex can both act as the Builder. Review should come from a fresh, independent context appropriate to the risk of the change rather than assuming one product must always implement and another must always review.
+The workflow is **role-based with cost-aware defaults**. Roles remain swappable, but the normal assignment is:
+
+- **ChatGPT:** orchestrator, Issue/spec writer, independent PR reviewer, live merge gate, and merge executor.
+- **Claude Code:** primary Builder for normal implementation work.
+- **Codex:** fallback Builder when Claude is unavailable/quota-limited, or independent reviewer when another model materially helps.
+- **GitHub Actions/scripts/tests:** deterministic verifier.
+- **Human:** product authority and explicit gate for consequential decisions.
+
+Do not run multiple agents by habit. Add another model only when it improves the decision enough to justify the usage.
 
 ```text
-User / ChatGPT orchestrator
-  → Goal + Acceptance Criteria
-  → classify scope and review depth
-  → Builder
-      → Claude Code: CLAUDE.md + /kana-task
-      → Codex: AGENTS.md
-  → preflight / handoff check
+Human
+  → Goal / Acceptance Criteria / important decisions
+ChatGPT
+  → investigate narrowly / reuse settled evidence / create bounded Issue
+Builder (normally Claude Code; Codex fallback)
+  → preflight current origin/main + task state
   → Explore
   → Plan when useful
   → Implement
   → Focused tests
+  → required browser/sample checks
   → npm run verify
-  → Diff self-review
+  → full diff self-review
   → Commit / Push
-  → one reviewable PR (normally non-Draft)
-      → PR Verify runs on open and later pushes
-      → ChatGPT/human diff review
-      → fixes stay on the same PR
-      → optional independent model review only when selected
-  → Human gate if the change is consequential
-  → ChatGPT merge gate
-  → Merge
-  → Learnings / durable system improvement when warranted
+  → one normal reviewable PR
+ChatGPT
+  → verify live PR/main/HEAD/diff/CI, not just the Builder report
+  → Standard or Enhanced independent review
+  → bundle corrections on the same PR when needed
+GitHub Actions
+  → deterministic exact-HEAD PR Verify
+Human
+  → explicit approval if consequential
+ChatGPT
+  → live Merge Gate + expected-head merge
+  → promote real failures into tests/rules/workflow improvements when warranted
 ```
 
-The shared completion bar is [`definition-of-done.md`](./definition-of-done.md). The project-independent principles are in [`global-ai-development-charter.md`](./global-ai-development-charter.md).
+The shared completion bar is [`definition-of-done.md`](./definition-of-done.md). Project-independent principles are in [`global-ai-development-charter.md`](./global-ai-development-charter.md).
 
 ## Task roles
 
-Roles are assigned per task. Do not permanently equate a role with a product.
+Roles are assigned per task; the defaults above are operational preferences, not permanent capability restrictions.
 
 - **Owner / orchestrator:** the user and ChatGPT define intent, Acceptance Criteria, priority, review depth, and consequential decisions.
-- **Builder:** Claude Code, Codex, or another capable coding agent explores, implements, tests, self-reviews, and opens the task PR.
-- **Deterministic verifier:** tests, lint, build, diff checks, and CI provide pass/fail evidence that does not require model judgment.
-- **Independent reviewer:** a fresh context reviews the finished diff against the task. Prefer a different agent/model from the Builder when practical, but independence of context and role matters more than a fixed vendor assignment.
-- **Human gate:** required for consequential decisions; routine low-risk changes may be delegated through the normal merge gate.
-
-This keeps development running when one agent is unavailable or quota-limited. For example, Claude Code can be the normal Builder, while Codex takes the Builder role when Claude usage is exhausted; the review role is then assigned independently according to the review level below.
+- **Builder:** normally Claude Code; Codex or another capable coding agent may substitute. The Builder explores, implements, tests, self-reviews, and opens the task PR.
+- **Deterministic verifier:** tests, generated-data checks, lint, build, diff checks, and CI provide pass/fail evidence without model judgment.
+- **Independent reviewer:** a fresh context reviews the finished diff against the task. Prefer a different model/context from the Builder when Enhanced review needs another view, but do not require a second model for every PR.
+- **Human gate:** required for consequential decisions; routine low-risk changes may proceed through the established ChatGPT merge gate.
 
 ## Keep tasks bounded
 
-Prefer small, reviewable tasks with explicit Goal, Acceptance Criteria, non-goals, and verification. An issue-style task description is the default shared handoff artifact.
+Prefer small, reviewable tasks with explicit Goal, Acceptance Criteria, non-goals, and verification. An Issue-style task description is the default shared handoff artifact.
 
-Do not force a formal planning ceremony for an obvious one-line or presentation-only fix. Use a separate plan/research step when the approach is uncertain, the change spans multiple concerns, the architecture is unfamiliar, or the resulting PR would be difficult to review as one bounded unit. Split large work when a clean decomposition exists.
+Do not force a planning ceremony for an obvious one-line or presentation-only fix. Use a separate plan/research/evidence spike when the approach is uncertain, the change spans multiple concerns, the architecture is unfamiliar, a source/licensing/data assumption must be established, or the resulting PR would otherwise be hard to review.
+
+When a spike has already settled architecture, constraints, pinned sources, or a tradeoff decision, **reuse that evidence** in the implementation task. Do not repeat the same broad corpus/research/architecture investigation unless new evidence creates a concrete reason to reopen it. This keeps model calls and context focused on the remaining unknowns.
 
 ## Agent-switch handoff
 
@@ -57,27 +68,65 @@ Never assume another agent's local checkout, branch, worktree, or conversation s
 When switching Claude Code ↔ Codex, resuming work from another environment, or starting from an old checkout:
 
 1. fetch/refresh `origin`;
-2. confirm repository, `git status`, current branch, current `origin/main`, and the current task PR/issue if one exists;
+2. confirm repository, full `git status`, current branch, current `origin/main`, and the current task PR/Issue if one exists;
 3. for a new task, create a fresh dedicated branch from current `origin/main`;
-4. for an existing task, verify the branch/PR HEAD and diff before continuing rather than silently layering work on an unrelated or stale branch;
+4. for an existing task, verify the actual branch/PR HEAD and diff before continuing;
 5. preserve unrelated uncommitted work.
 
-For normal implementation tasks, GitHub Issue + branch + PR are the shared memory. Add durable product/research/architecture documents only when they carry decisions that should outlive the task; do not create a large documentation bureaucracy for a small fix.
+Issue + branch + PR are the normal shared task memory. Add durable specs/research/architecture docs only when the decision itself must outlive the task.
 
 ## One reviewable PR is the default
 
-A Builder should open the PR only after implementation, focused verification, `npm run verify`, and full diff self-review. At that point the normal handoff is a **non-Draft reviewable PR**.
+A Builder should open the PR only after implementation, required focused verification, a clean final `npm run verify`, and full diff self-review. At that point the normal handoff is a **non-Draft reviewable PR**.
 
 Keep subsequent work on that same PR:
 
 - `PR Verify` may run repeatedly because it is deterministic and comparatively cheap.
-- Follow-up code pushes do **not** trigger Claude model review; the review workflow intentionally has no `synchronize` trigger.
-- ChatGPT/human review should consolidate findings so fixes can be bundled on the same branch/PR.
-- If an independent Claude review is actually selected, the review gate adds the exact opt-in line to the existing PR body; no Ready transition or replacement PR is needed.
+- Follow-up code pushes do not automatically trigger paid/model review.
+- ChatGPT/human review should consolidate findings so corrections can be bundled on the same branch/PR.
+- If an independent Claude review is selected, the review gate adds the exact opt-in line to the existing PR body; no Ready transition or replacement PR is needed.
 
-Use Draft only for a genuinely incomplete/WIP handoff where the Builder is not yet presenting a completed candidate. Draft is a state for real incompleteness, not routine ceremony.
+Use Draft only for a genuinely incomplete/WIP handoff. Draft is a state for real incompleteness, not routine ceremony.
 
-This replaces the older mandatory Draft → Ready flow, which repeatedly created duplicate PRs and duplicate CI because the connected Ready transition was unreliable. The merge gate remains unchanged: reviewable does not mean mergeable-by-default.
+This replaces the older Draft → Ready flow that created duplicate PRs and duplicate CI when the Ready transition failed.
+
+## Evidence strategy: prove the property at the right level
+
+Prefer the cheapest evidence that actually proves the important property.
+
+- **Logic/state behavior:** focused unit/integration tests plus broader verification.
+- **Large corpus/data migrations:** inventory-wide deterministic invariants for completeness/mapping, plus bounded representative sampling for source-sensitive or visual cases. Do not manually inspect hundreds of entries when a mechanical invariant proves coverage better.
+- **Generated data:** fail-fast freshness checks should prove committed output matches source inputs. Keep canonical generated output stable; if a platform-only representation difference such as CRLF/LF causes a false stale result, first measure the mismatch, then normalize only at the comparison boundary and keep tests proving real content tampering remains stale.
+- **Browser-sensitive SVG/CSS geometry:** jsdom/DOM structure is not enough when browser coordinate semantics can clip or shift output. Changes involving `clipPath`, mask, transform, viewBox, or similar geometry should be checked in a real browser for complete visibility, clipping/alignment, animation, and replay at representative desktop/mobile widths.
+- **Physical device:** use as a targeted gate after a demonstrated device-only failure or when the changed platform behavior genuinely requires it; do not require physical-device testing for every ordinary UI change.
+
+If a requested verification tool is unavailable, the Builder must report the gap explicitly. The reviewer/orchestrator must then either satisfy the gate elsewhere or explicitly document why the changed surface makes that check non-material. A requested verification step is never silently treated as completed.
+
+## Failure and flake discipline
+
+Do not label a failure "pre-existing", "unrelated", or "flaky" from intuition alone.
+
+When a final verification fails:
+
+1. isolate the failing test/check;
+2. reproduce or rerun it;
+3. compare with clean/current `origin/main` when practical if claiming it predates the task;
+4. investigate the actual mismatch rather than weakening the check;
+5. rerun the full candidate.
+
+Builder handoff requires a **clean final full verification rerun**. An earlier flake may be recorded, but the final candidate should not be presented as verified while its latest full run is failing. Exact-HEAD PR CI is additional independent evidence, not permission to ignore a deterministic local failure whose cause is still unknown.
+
+## Staged migration rule
+
+For source/data/renderer migrations, prefer a staged sequence instead of replacing and deleting everything at once:
+
+1. establish architecture/source feasibility with bounded evidence if needed;
+2. add the new path behind the existing safe path;
+3. prove complete current coverage mechanically;
+4. run representative browser/deployed/physical-device smoke appropriate to the risk;
+5. only then remove the old fallback/data/generator and update user-facing license/provenance claims in a separate bounded cleanup when practical.
+
+Do not keep a retired fallback indefinitely once coverage is proven, because dead fallback code, stale instructions, and stale attribution create future confusion. Conversely, do not remove it merely because the new path exists.
 
 ## Review depth
 
@@ -85,58 +134,79 @@ Review depth should track risk instead of calling every available model on every
 
 ### Standard review — default for bounded low-risk work
 
-Examples: small presentation/UI polish, documentation, narrow cleanup with strong tests, or similarly local and reversible changes.
+Examples: small UI polish, documentation, narrow cleanup with strong tests, or similarly local and reversible changes.
 
 Required:
 
 - Builder self-review of the full diff;
-- focused verification plus `npm run verify` where applicable;
+- focused verification plus a clean final `npm run verify` where applicable;
 - PR Verify green for the exact HEAD;
 - ChatGPT/human diff review;
 - normal merge gate.
 
-A second paid/model review is optional here. Skipping it is intentional resource management, not a weakened deterministic gate.
+A second paid/model review is optional. Skipping it is intentional resource management, not a weakened deterministic gate.
 
-### Enhanced review — for changes with meaningful correctness risk
+### Enhanced review — for meaningful correctness risk
 
-Use Enhanced review for cross-cutting logic, unfamiliar architecture, larger refactors, state/data changes, security/performance-sensitive code, weak testability, repeated corrections, or any diff where an independent second opinion is materially valuable.
+Use Enhanced review for cross-cutting logic, unfamiliar architecture, larger refactors, state/data changes, security/performance-sensitive code, weak testability, repeated corrections, broad data migrations, or any diff where a fresh second view materially helps.
 
-In addition to Standard review, require a **fresh-context independent review**. Prefer a different capable agent/model from the Builder when available. Claude Code, Codex code review, a fresh reviewer session/subagent, or another suitable reviewer can fill this role.
+In addition to Standard review, require a **fresh-context independent review**. ChatGPT may provide that independent review when Claude Code built the change. Use Codex/Claude/fresh human review when another view is materially useful or ChatGPT lacks the needed evidence. Do not automatically call both Claude and Codex.
 
-If the required independent AI reviewer is unavailable, do not silently downgrade an Enhanced change to Standard. Route it to human review before merge.
+If the required independent AI reviewer is unavailable, route Enhanced work to human review rather than silently downgrading it.
 
 ### Consequential change — explicit human approval
 
-Human approval is required before merge for changes with meaningful product or irreversible consequences, including security/authorization boundaries, destructive or lossy data operations, monetization/payment behavior, unresolved licensing/legal decisions, irreversible migrations, major architecture commitments, or meaningful changes to learning/product correctness that the user has not already approved.
+Human approval is required before merge for meaningful product or irreversible consequences, including security/authorization boundaries, destructive/lossy data, monetization/payment behavior, unresolved licensing/legal decisions, irreversible migrations, major architecture commitments, or meaningful learning/product-correctness changes not already approved.
 
-A consequential change may also require Enhanced technical review. Human approval is about judgment and authorization, not a replacement for tests or technical review.
+A licensing cleanup based on an already approved source/provenance decision does not need the same decision reopened unless new ambiguity appears; preserve notices/provenance and escalate only genuinely new uncertainty.
+
+## ChatGPT orchestrator / reviewer rules
+
+ChatGPT must treat a Builder summary as a useful report, **not as merge evidence**. Before accepting or merging a PR, use the connected GitHub state when available and verify the current facts directly:
+
+- actual PR HEAD/base and current `main`;
+- actual changed files and relevant diff;
+- whether the branch started from the expected current main when that matters;
+- exact-HEAD PR Verify and relevant workflow/job results;
+- unresolved review threads;
+- `draft=false` and `mergeable=true`;
+- any required browser/visual/source/provenance evidence;
+- no unrelated scope drift.
+
+For broad vendored/generated-data changes, review mechanically: compare inventory/mapping/provenance and representative source blobs/samples rather than manually reading every generated entry.
+
+If the Builder reported a missing required verification step, ChatGPT must close that gap before merge or explicitly determine from the actual diff and prior evidence that the gate is non-material. For example, a browser geometry smoke may be waived for a pure renderer-deletion/docs cleanup that does not alter geometry and follows a recent successful deployed device smoke; that waiver should be reasoned, not silent.
+
+When ChatGPT finds bounded corrections, keep them on the same PR when practical. Do not create replacement PRs merely to move between review states.
 
 ## Agent adapters
 
-The shared workflow should not be duplicated into separate vendor-specific manuals.
+Keep shared behavior in this document rather than duplicating separate manuals.
 
-- **Claude Code:** `CLAUDE.md` plus [`.claude/skills/kana-task/SKILL.md`](../.claude/skills/kana-task/SKILL.md) implement the Builder loop and stop after opening the task PR. Normal completed work uses a non-Draft PR; Draft is reserved for explicitly incomplete/WIP handoff.
-- **Codex:** root [`AGENTS.md`](../AGENTS.md) supplies persistent repository guidance. Codex may act as Builder or independent reviewer depending on the task.
+- **Claude Code:** `CLAUDE.md` plus [`.claude/skills/kana-task/SKILL.md`](../.claude/skills/kana-task/SKILL.md) implement the primary Builder loop and stop after opening the task PR.
+- **Codex:** root [`AGENTS.md`](../AGENTS.md) is the thin persistent adapter for fallback Builder or independent reviewer work.
 
-Add agent-specific rules only when repeated evidence shows that a difference is genuinely caused by that agent or harness.
+Add agent-specific rules only when repeated evidence shows the difference is genuinely caused by that agent or harness.
 
 ## AI review policy
 
 Model review is a targeted quality layer, not a mandatory call on every PR.
 
-The repository's Claude GitHub review workflow is **opt-in**. It only enters the Claude model-review step for a reviewable PR whose body contains a **dedicated line exactly equal to** the configured Claude-review marker. Prose or negated mentions do not count as opt-in, and LF/CRLF line endings are treated equivalently.
+The repository's Claude GitHub review workflow is **opt-in**. It enters the Claude model-review step only when the PR body contains a **dedicated line exactly equal to** the configured review marker. Prose or negated mentions do not count, and LF/CRLF line endings are treated equivalently.
 
-The ChatGPT/human review gate adds the exact opt-in line only when Claude is the chosen independent reviewer and the review is worth the usage. Standard low-risk PRs normally omit it. The Builder does not add it by default.
+This exact-line rule exists because substring matching once caused a negated sentence to consume Claude usage. The regression is deterministic, so the prevention belongs in workflow logic rather than human memory.
 
-For the normal single-PR flow, ChatGPT may add the marker to an existing non-Draft PR after reviewing the candidate. The workflow's `edited` handling requests review only on the transition from **no exact marker line → exact marker line**. Unrelated body/title edits, edits after the marker already existed, negated prose, and code pushes must not trigger another model pass.
+The Builder does not add the marker by default. ChatGPT/human adds it only when Claude is intentionally selected as independent reviewer and the usage is worth it. Code pushes must not retrigger paid review automatically.
 
-Binary-only changes may still skip model review when there is no reviewable text diff. If Claude is quota-limited, choose another independent reviewer for Enhanced work rather than making Claude availability a development blocker.
+If a requested model review fails because of quota/provider/auth/action infrastructure:
 
-AI-review findings are real findings: if a review runs and opens actionable threads, resolve them before merge. A failed requested AI review must not be treated as harmless until its cause is understood.
+- Standard work may proceed if all Standard gates are satisfied.
+- Enhanced work needs another fresh independent reviewer or human review.
+- Reviewer unavailability never bypasses a failing deterministic check, known defect, unresolved thread, or unknown failure that may be code-related.
 
 ## Merge gate
 
-Before merge, the human/ChatGPT gate must verify the **current** PR state, not rely on an earlier snapshot:
+Immediately before merge, ChatGPT/human must verify the **live current PR state**, not rely on an earlier snapshot:
 
 - actual PR HEAD is unchanged from the reviewed candidate;
 - PR Verify for that exact HEAD succeeded;
@@ -150,33 +220,23 @@ Before merge, the human/ChatGPT gate must verify the **current** PR state, not r
 
 When merging through automation/API, use the expected PR HEAD SHA when supported so the merge fails if the branch moved after the gate check.
 
-## Requested-review failure
-
-If a **requested** AI review fails because of quota, provider/service, authentication, or action infrastructure:
-
-- Standard work can still proceed if its normal Standard gates are satisfied, because the extra model review was not required.
-- Enhanced work requires another fresh independent reviewer or human review before merge.
-- Never use reviewer unavailability to bypass a failing test/build/lint/diff check, a known code defect, an unresolved review finding, or an unknown failure that may be code-related.
-
 ## Source-of-truth order
 
 Distinguish "what the product should do" from "what the current code happens to do."
 
-When sources conflict, use this order unless the task explicitly establishes another hierarchy:
+When sources conflict, use this order unless the task establishes another hierarchy:
 
 1. explicit current user decision;
-2. accepted current Goal / Acceptance Criteria and any approved product/decision specification;
+2. accepted current Goal / Acceptance Criteria and approved product/decision specification;
 3. current tests and code as evidence of implemented behavior;
 4. recent repository history/PR evidence;
-5. older narrative or historical documentation.
+5. older narrative/historical documentation.
 
 Code/tests are strong evidence of current behavior, but they do not automatically override an approved specification describing intended behavior.
 
 ## Repository knowledge, not chat history
 
-Keep persistent instructions small and navigational. `CLAUDE.md` and `AGENTS.md` should point agents to focused repository sources instead of becoming encyclopedias. Retrieve deeper context only when the current task needs it.
-
-For ordinary bounded tasks, use the Issue and PR as the audit trail. Create durable documents such as product specs, research, decisions, or architecture notes when the decision itself needs to be preserved and reused across future work.
+Persistent instructions should stay small and navigational. `CLAUDE.md` and `AGENTS.md` point to focused repository sources rather than becoming encyclopedias. Chat history is useful context, but durable decisions, regression tests, issues, provenance, and workflow rules should live in the repository when future agents need them.
 
 ## Promotion rules
 
@@ -184,30 +244,32 @@ Recurring signal should move up the stack rather than being re-solved by hand ea
 
 | Recurring signal | Promote to |
 | --- | --- |
-| Repeated bug | A regression test |
-| Repeated cross-agent judgment error | A shared project rule or focused reference doc |
-| Repeated agent-specific judgment error | That agent's thin adapter/instructions |
-| Repeated workflow | The shared workflow first; an agent-specific Skill only if needed |
-| Deterministic safety check | A script, hook, or CI step |
-| Project-level reusable lesson | `Learnings.md`, then a stable shared rule when evidence justifies promotion |
+| Repeated bug | Regression test |
+| Cross-agent judgment error | Shared project rule/focused doc |
+| Agent-specific judgment error | Thin agent adapter |
+| Repeated workflow | Shared workflow first; agent Skill only if needed |
+| Deterministic safety check | Script/hook/CI/workflow condition |
+| Reusable project lesson | `Learnings.md`, then a stable rule when evidence justifies promotion |
+
+The target is not maximum automation. Promote only failures/repetition that are costly enough to justify another mechanism, and remove mechanisms that no longer help.
 
 ## Hooks: add only when evidence justifies them
 
-Do not add hooks merely because the harness supports them. Use hooks for actions that must happen deterministically and repeatedly, after a real failure mode demonstrates the value.
+Do not add hooks merely because a harness supports them. Use hooks for deterministic repeated actions after a real failure demonstrates value.
 
 Candidate future hooks:
 
-- Block direct commits to `main`.
-- Detect likely secrets in staged changes before commit.
-- Block destructive git commands outside explicit user request.
-- Pause before paid/external audio generation.
-- Guard commercial/licensed asset usage.
+- block direct commits to `main`;
+- detect likely secrets in staged changes;
+- block destructive git commands outside explicit user request;
+- pause before paid/external audio generation;
+- guard commercial/licensed asset usage.
 
 Before adding an agent-specific hook, check that agent's current official hook/configuration specification rather than assuming another agent's mechanism applies.
 
 ## Future: commercial audit script
 
-Not built in this v1.3 pass. Candidate future command:
+Not built yet. Candidate future command:
 
 ```text
 npm run audit:commercial
