@@ -14,16 +14,17 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg
-      - name: Diagnose three silence-gate outliers
+      - name: Diagnose current RMS-boundary outliers
         run: |
           set -euo pipefail
           python3 <<'PY'
           import array, math, os, pathlib, subprocess, wave
 
           paths = [
-              pathlib.Path('public/audio/characters/pyu.wav'),
-              pathlib.Path('public/audio/words/a-ie.wav'),
-              pathlib.Path('public/audio/words/sokuon-iki.wav'),
+              pathlib.Path('public/audio/characters/ni.wav'),
+              pathlib.Path('public/audio/characters/nu.wav'),
+              pathlib.Path('public/audio/characters/ro.wav'),
+              pathlib.Path('public/audio/characters/so.wav'),
           ]
 
           def wav_pcm(path):
@@ -66,6 +67,13 @@ jobs:
               last_end=min(len(samples), last_start+n)
               return first/rate, (len(samples)-last_end)/rate
 
+          def window_rms_db(samples, rate, start_ms, end_ms):
+              a=max(0, round(rate*start_ms/1000)); b=min(len(samples), round(rate*end_ms/1000))
+              frame=samples[a:b]
+              if not frame: return -999.0
+              rms=math.sqrt(sum(v*v for v in frame)/len(frame))
+              return 20*math.log10(max(rms,1e-12)/32767)
+
           for src in paths:
               rate, original = wav_pcm(src)
               mp3 = src.with_suffix('.diag.mp3')
@@ -74,22 +82,31 @@ jobs:
                   '-c:a','libmp3lame','-b:a','96k','-ar',str(rate),'-ac','1',str(mp3)
               ], check=True)
               decoded=decode(mp3, rate)
-              print(f'=== {src} rate={rate} src_samples={len(original)} dec_samples={len(decoded)} duration_delta_ms={(len(decoded)-len(original))/rate*1000:.3f}')
+              duration_ms=len(original)/rate*1000
+              print(f'=== {src} rate={rate} duration_ms={duration_ms:.3f} src_samples={len(original)} dec_samples={len(decoded)} duration_delta_ms={(len(decoded)-len(original))/rate*1000:.3f}')
               print(f'peaks src={max(map(abs,original))} dec={max(map(abs,decoded))}')
-              for db in (-35,-40,-45,-50,-55,-60):
+              for db in (-30,-35,-40,-42,-45,-48,-50,-55,-60):
                   sl,st=sample_edge(original,rate,db); dl,dt=sample_edge(decoded,rate,db)
                   print(f'sample threshold {db}dB: lead_delta_ms={(dl-sl)*1000:.3f} trail_delta_ms={(dt-st)*1000:.3f}')
-              for frame_ms in (5,10,20):
-                  for db in (-40,-45,-50):
+              for frame_ms in (5,10,20,30):
+                  for db in (-35,-40,-42,-45,-48,-50):
                       sl,st=frame_edge(original,rate,db,frame_ms); dl,dt=frame_edge(decoded,rate,db,frame_ms)
                       print(f'RMS {frame_ms}ms {db}dB: lead_delta_ms={(dl-sl)*1000:.3f} trail_delta_ms={(dt-st)*1000:.3f}')
-              # Tail RMS in fixed windows quantifies whether the MP3 tail is low-level codec residue.
-              for ms in (50,100,250,500):
+              # Fixed end-window RMS reveals whether a boundary shift is just a frame near threshold.
+              for ms in (20,40,60,100,150,250,500):
                   n=min(len(decoded), round(rate*ms/1000))
                   for label,a in [('src',original),('dec',decoded)]:
                       frame=a[-n:]
                       rms=math.sqrt(sum(v*v for v in frame)/len(frame)) if frame else 0
                       db=20*math.log10(max(rms,1e-12)/32767)
                       print(f'tail {ms}ms {label}_rms_dbfs={db:.2f}')
+              # Fixed start windows for onset-sensitive `so` case.
+              for ms in (20,40,60,100,150):
+                  n=min(len(decoded), round(rate*ms/1000))
+                  for label,a in [('src',original),('dec',decoded)]:
+                      frame=a[:n]
+                      rms=math.sqrt(sum(v*v for v in frame)/len(frame)) if frame else 0
+                      db=20*math.log10(max(rms,1e-12)/32767)
+                      print(f'head {ms}ms {label}_rms_dbfs={db:.2f}')
               mp3.unlink()
           PY
