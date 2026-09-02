@@ -1,4 +1,4 @@
-import { Route, Routes, useParams } from 'react-router-dom'
+import { Link, Route, Routes, useParams } from 'react-router-dom'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { GuideHighlightProvider } from './components/GuideHighlightProvider'
 import { IntroGuide } from './components/IntroGuide'
@@ -38,6 +38,18 @@ function RestaurantRoute() {
 function CafeRoute() {
   const { checkpointId } = useParams()
   return <CafePage checkpointId={checkpointId ?? 'katakana-ha-row'} />
+}
+
+function NotFoundPage() {
+  return (
+    <div className="flex flex-col items-center gap-4 text-center">
+      <h1 className="text-2xl font-bold">Page not found</h1>
+      <p className="text-neutral-500 dark:text-neutral-400">This page isn&apos;t available.</p>
+      <Link to="/" className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700">
+        Go Home
+      </Link>
+    </div>
+  )
 }
 
 // Every category that isn't hiragana/katakana/yōon/special-katakana gets
@@ -149,6 +161,7 @@ function App() {
               <Route path="/saved" element={<SavedPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/about" element={<AboutPage />} />
+              <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </ErrorBoundary>
         </main>
