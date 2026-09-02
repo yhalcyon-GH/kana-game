@@ -10,6 +10,7 @@ import { SaveWordToggle } from '../../components/SaveWordToggle'
 import { WordImage } from '../../components/WordImage'
 import { getNextRowId, ROWS_BY_ID } from '../../data/curriculum'
 import type { QuestionMode } from '../../data/feedback'
+import { PRACTICE_CHECKPOINTS } from '../../data/practiceCheckpoints'
 import type { AnchorWord } from '../../data/types'
 import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
 import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
@@ -28,15 +29,6 @@ import { useProgressStore } from '../../store/progressStore'
 
 const DISTRACTOR_COUNT = 3
 
-// A single tray/slot tile can be either a whole learning-unit CHARACTER ID's
-// kana (most characters — one glyph, always ONE tile) OR one HALF of a
-// yōon/Special Katakana character's kana, spelling-split for display
-// purposes only (ティッシュ's ティ splits into [テ][ィ], きゃんぷ's きゃ
-// splits into [キ][ャ]) — see src/lib/wordBuilderTiles.ts's
-// displayGlyphsForCharId/buildFlatTargetTiles for the exact rule (a
-// 2-codepoint id whose codepoints merge into ONE mora) and FlatTargetTile
-// for how a split pair is still folded back into ONE combined Review/SRS
-// target.
 type TrayTile = { key: string; glyph: string; placed: boolean }
 
 type Props = {
@@ -108,9 +100,6 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
   const { queue, roundIndex, correctCount, setCorrectCount, finished, startMistakeReview, advance } =
     useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession, rounds, sessionKey, buildQueue })
   const { schedule: scheduleAdvance, cancel: cancelAdvance } = useDelayedAction()
-  // See KanaQuizPage's identical comment: cancels the correct-answer
-  // auto-advance timer before advancing, so a manual click never fires
-  // alongside it.
   const handleNext = useCallback(() => {
     cancelAdvance()
     advance()
@@ -119,25 +108,8 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
   const [slots, setSlots] = useState<(string | null)[]>([])
   const [tray, setTray] = useState<TrayTile[]>([])
   const [status, setStatus] = useState<'playing' | 'correct' | 'wrong'>('playing')
-  // The flattened DISPLAY tiles for the current word's correct answer (see
-  // FlatTargetTile/buildFlatTargetTiles above) — one entry per tile slot,
-  // each still tagged with the owning learning-unit charId so the
-  // correctness effect below can attribute a wrong split-tile part back to
-  // its single combined Review/SRS target.
   const [targetTiles, setTargetTiles] = useState<FlatTargetTile[]>([])
 
-  // Sets up a fresh tray/slots for a new word. Slots/tiles are sized to the
-  // word's DISPLAY-tile count: most characters render as one tile per
-  // learning unit (charId and glyph coincide), and yōon/Special Katakana
-  // (きゃ/しゃ/ミャ/ファ/フィ/ティ/シェ/... — see
-  // wordBuilderTiles.ts's displayGlyphsForCharId) spelling-split into TWO
-  // tiles (base glyph + small glyph) even though each remains a single
-  // Review/SRS/recognition target. Distractor tiles apply the exact same
-  // split rule (via displayGlyphsForCharId) — a yōon/Special Katakana
-  // distractor like katakana-fa must show as [フ][ァ] here too, not as one
-  // whole ファ tile, or the split would look inconsistent depending on
-  // whether a given round happened to draw that character as the target or
-  // as a distractor.
   const setupRound = useCallback(
     (word: AnchorWord) => {
       const distractorCharIds = isSimilarLetters
@@ -168,9 +140,6 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
   useEffect(() => {
     if (!currentWord) return
     speak(`words/${currentWord.id}`, currentWord.audioText ?? currentWord.kana)
-    // Keyed on roundIndex too, not just currentWord.id — a small pool can
-    // put the same word in consecutive rounds, and it should still
-    // announce itself each round.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentWord?.id, roundIndex])
 
@@ -181,23 +150,6 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
     const placedGlyphs = slots.map((key) => tray.find((t) => t.key === key)?.glyph)
     const isCorrect = placedGlyphs.every((glyph, i) => glyph === targetTiles[i]?.glyph)
 
-    // Record each CHARACTER's (learning-unit's) own correctness, not the
-    // whole word's — a wrong tile anywhere used to mark EVERY character in
-    // the word wrong, including ones the learner placed correctly. That was
-    // harmless back when it only fed the SRS box, but now directly drives
-    // character Review (see lib/srs.ts's applyReviewResult), so a
-    // misattributed character would show up there as "kept missing" when it
-    // wasn't the problem. A yōon/Special Katakana charId can span TWO
-    // display tiles (see targetTiles/buildFlatTargetTiles above) — both
-    // parts are folded back into ONE correctness value per charId here
-    // (correct only if every one of its parts was placed correctly), so a
-    // miss on either half of e.g. フィ or きゃ still records exactly one
-    // wrong result against katakana-fi/kya, never two separate/nonexistent
-    // glyph targets. Word Builder
-    // has real per-character precision, so ONLY the actually-wrong
-    // character(s) enter Review here — a correctly placed character that
-    // wasn't already active stays untouched (recordCharacterReviewResult is
-    // a no-op for a correct, inactive item).
     const charIdOrder: string[] = []
     const charIdCorrect = new Map<string, boolean>()
     targetTiles.forEach((target, i) => {
@@ -223,9 +175,6 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
       return
     }
 
-    // One attempt per word — a miss reveals the answer and waits for the
-    // learner to move on manually (see the "Next" button below), matching
-    // how the other three games handle a wrong answer.
     setStatus('wrong')
     const wrongUnitCount = charIdOrder.filter((id) => !charIdCorrect.get(id)).length
     onWrong(
@@ -237,23 +186,24 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
 
   useEnterAdvance(status === 'wrong', advance)
 
-  // Recommended Path completion — see KanaQuizPage's identical comment.
-  // Word Builder is the FINAL core activity, so this also completes the
-  // row's whole Recommended Path (see PracticeSummary's continueAction
-  // below, and PracticeHubPage's "Lesson complete" state). Similar Letters
-  // is a supplementary comparison lesson on a synthetic row, never part of
-  // Recommended Path (see PracticeHubPage's showRecommendedPath) — it must
-  // not write a completion record for that synthetic row id either.
+  // Word Builder completes its own Recommended step as before. For rows with
+  // an approved Restaurant/Cafe checkpoint, Recommended then advances to
+  // that real-life step rather than directly to the next row.
   useEffect(() => {
     if (finished && !isReview && !isSimilarLetters && rowId) markRowActivityCompleted(rowId, 'wordBuilder')
   }, [finished, isReview, isSimilarLetters, rowId, markRowActivityCompleted])
 
-  // Next Row for the Word Builder summary's Continue action — omitted
-  // entirely (no continueAction passed) when there's no next row, rather
-  // than rendering a broken link. Uses the existing getNextRowId helper
-  // instead of duplicating row-ordering logic.
+  const checkpoint = !isReview && rowId ? PRACTICE_CHECKPOINTS.find((item) => item.afterRowId === rowId) : undefined
   const nextRowId = !isReview && rowId ? getNextRowId(rowId) : null
   const nextRowCategoryId = nextRowId ? ROWS_BY_ID[nextRowId]?.categoryId : undefined
+  const continueAction = checkpoint
+    ? {
+        label: checkpoint.mode === 'cafe' ? 'Continue → Cafe' : 'Continue → Restaurant',
+        to: checkpoint.routePath,
+      }
+    : !isReview && nextRowId && nextRowCategoryId
+      ? { label: 'Continue → Next Row', to: `/practice/${nextRowCategoryId}/${nextRowId}` }
+      : undefined
 
   const handleTrayClick = (tile: TrayTile) => {
     if (tile.placed || status !== 'playing') return
@@ -279,10 +229,6 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
   }
 
   if (!rowId || (!isReview && !row)) return null
-  // Not a plain "scopeWords.length === 0 -> empty state": that pool is LIVE
-  // and can legitimately drop to 0 mid-session (every queued word graduates
-  // during play) while the frozen session queue still has an in-progress
-  // round to show — see ListeningPage's identical comment.
   if (scopeWords.length === 0 && queue.length === 0) return isReview ? <ReviewEmptyState /> : null
 
   if (finished) {
@@ -294,11 +240,7 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
         onRetry={() => setSessionAttempt((attempt) => attempt + 1)}
         mistakes={mistakes}
         onRetryMistakes={() => startMistakeReview(mistakeIds)}
-        continueAction={
-          !isReview && nextRowId && nextRowCategoryId
-            ? { label: 'Continue → Next Row', to: `/practice/${nextRowCategoryId}/${nextRowId}` }
-            : undefined
-        }
+        continueAction={!isReview ? continueAction : undefined}
       />
     )
   }

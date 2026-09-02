@@ -15,6 +15,7 @@ import { useEnterAdvance } from '../../hooks/useEnterAdvance'
 import { useGameSession } from '../../hooks/useGameSession'
 import { useTTS } from '../../hooks/useTTS'
 import { pickDistractorCharIds } from '../../lib/distractorPicker'
+import { buildKanaQuizTargetQueue, getKanaQuizRounds } from '../../lib/kanaQuizSelection'
 import { isNearMissCharacterChoice } from '../../lib/nearMiss'
 import { buildQuizModePlan } from '../../lib/quizModePlan'
 import { shuffle } from '../../lib/shuffle'
@@ -57,6 +58,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
     getScopeQuizCharacterIds,
     isQuizzableCharacterId,
     getScopeRounds,
+    isSummaryRow,
     isSimilarLettersRow,
     getConfusionGroups,
   } = useCurriculum()
@@ -67,7 +69,10 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
   const { speak, supported } = useTTS()
   const isReview = rowId === REVIEW_SCOPE_ID
   const categoryId = isReview ? undefined : (params.categoryId ?? ROWS_BY_ID[rowId ?? '']?.categoryId)
-  const rounds = getScopeRounds(rowId)
+  // Issue #180 is Kana-Quiz-only: normal rows stay at 8 except は/ハ (12)
+  // and the first combined Katakana row (16). Summary keeps its existing 15
+  // via getScopeRounds; Review/Similar Letters keep their existing 8.
+  const rounds = getKanaQuizRounds(rowId, getScopeRounds(rowId))
   const {
     mood,
     mistakes,
@@ -98,20 +103,22 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
   )
   const getBox = useCallback((id: string) => characters[id]?.box ?? 0, [characters])
 
-  // Similar Letters mode (see similarLettersSelection.ts): 80% of a
-  // session's targets are its own confusion-group characters (group-
-  // balanced across every group), 20% are a normal character from the same
-  // script — instead of the normal weighted-by-box sampling over just
-  // quizCharacterIds. distractorPool (already the whole script, see above)
-  // doubles as the normal-pool source, excluding the target group itself.
+  // Similar Letters mode keeps its existing 80/20 group-balanced queue.
+  // Summary and Review keep the existing generic weighted queue. Only a
+  // normal real row uses Issue #180's seion-first target ordering: include
+  // every eligible base/seion target first, then use distinct dakuten/
+  // handakuten targets for the remaining slots before any repeat.
   const isSimilarLetters = isSimilarLettersRow(rowId)
   const confusionGroups = useMemo(() => getConfusionGroups(rowId), [rowId, getConfusionGroups])
   const buildQueue = useMemo(() => {
-    if (!isSimilarLetters) return undefined
-    const targetSet = new Set(quizCharacterIds)
-    const normalPoolIds = distractorPool.filter((id) => !targetSet.has(id))
-    return () => buildSimilarLettersTargetQueue(confusionGroups, normalPoolIds, rounds)
-  }, [isSimilarLetters, confusionGroups, distractorPool, quizCharacterIds, rounds])
+    if (isSimilarLetters) {
+      const targetSet = new Set(quizCharacterIds)
+      const normalPoolIds = distractorPool.filter((id) => !targetSet.has(id))
+      return () => buildSimilarLettersTargetQueue(confusionGroups, normalPoolIds, rounds)
+    }
+    if (isReview || isSummaryRow(rowId)) return undefined
+    return () => buildKanaQuizTargetQueue(quizCharacterIds, getBox, rounds)
+  }, [isSimilarLetters, quizCharacterIds, distractorPool, confusionGroups, rounds, isReview, isSummaryRow, rowId, getBox])
 
   const { queue, roundIndex, correctCount, setCorrectCount, finished, startSession, startMistakeReview, advance } =
     useGameSession({ ids: quizCharacterIds, weight: getBox, onFinish, resetSession, rounds, sessionKey: rowId, buildQueue })

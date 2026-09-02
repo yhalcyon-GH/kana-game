@@ -398,62 +398,52 @@ function renderYouonPage() {
 // duplicates the new Yōon Guide's content, so it's replaced by an
 // always-available "Ask Tamamizu" image button, matching Sokuon/Chōon's
 // Issue #46 precedent.
-// Mobile QA polish round: each section auto-shows its first-time Guide on
-// entry (gated behind the global Introduction, per the app-wide "never show
-// two Guides at once" priority rule), independent of the always-available
-// manual Ask Tamamizu replay.
-describe('Hiragana/Katakana section auto-display of KanaIntroExcerptGuide', () => {
-  it('Hiragana: auto-shows on first visit, dismiss sets its own flag, and does not re-show on a later visit', () => {
+// Issue #181: the Hiragana/Katakana section pages used to also auto-show the
+// two-slide KanaIntroExcerptGuide on first entry, duplicating the same two
+// steps just shown in the global Introduction. That auto-display is removed
+// — CategoryRowsPage now only ever shows it via the manual Ask Tamamizu
+// replay button (fully covered by the describe.each block above), regardless
+// of hasCompletedIntroGuide/hasCompletedHiraganaSectionGuide/
+// hasCompletedKatakanaSectionGuide state.
+describe('Hiragana/Katakana section KanaIntroExcerptGuide no longer auto-shows (Issue #181)', () => {
+  it('Hiragana: does not auto-show on entry even once the global Introduction is complete', () => {
     useProgressStore.getState().setHasCompletedIntroGuide(true)
-    const first = renderSection(DEFAULT_CATEGORY_ID, 'Hiragana')
-    expect(first.getByTestId('kana-intro-excerpt-guide')).toBeInTheDocument()
-
-    fireEvent.click(first.getByText(excerptLocale.nextLabel))
-    fireEvent.click(first.getByText(excerptLocale.doneLabel))
-    expect(useProgressStore.getState().hasCompletedHiraganaSectionGuide).toBe(true)
-    first.unmount()
-
-    const second = renderSection(DEFAULT_CATEGORY_ID, 'Hiragana')
-    expect(second.queryByTestId('kana-intro-excerpt-guide')).toBeNull()
+    const { queryByTestId } = renderSection(DEFAULT_CATEGORY_ID, 'Hiragana')
+    expect(queryByTestId('kana-intro-excerpt-guide')).toBeNull()
   })
 
-  it('Katakana: independent flag — seeing it via Hiragana does not suppress Katakana’s own first-time show', () => {
+  it('Katakana: does not auto-show on entry even once the global Introduction is complete', () => {
     useProgressStore.getState().setHasCompletedIntroGuide(true)
-    useProgressStore.getState().setHasCompletedHiraganaSectionGuide(true)
-
-    const katakana = renderSection(KATAKANA_CATEGORY_ID, 'Katakana')
-    expect(katakana.getByTestId('kana-intro-excerpt-guide')).toBeInTheDocument()
+    const { queryByTestId } = renderSection(KATAKANA_CATEGORY_ID, 'Katakana')
+    expect(queryByTestId('kana-intro-excerpt-guide')).toBeNull()
   })
 
-  it('never auto-shows while the global Introduction is still outstanding', () => {
+  it('never auto-shows while the global Introduction is still outstanding either', () => {
     useProgressStore.getState().setHasCompletedIntroGuide(false)
     const { queryByTestId } = renderSection(DEFAULT_CATEGORY_ID, 'Hiragana')
     expect(queryByTestId('kana-intro-excerpt-guide')).toBeNull()
   })
 
-  it('manual Ask Tamamizu replay still works unlimited times and never mutates the section flag', () => {
+  it('manual Ask Tamamizu replay still shows it on demand, unlimited times', () => {
     useProgressStore.getState().setHasCompletedIntroGuide(true)
-    useProgressStore.getState().setHasCompletedHiraganaSectionGuide(true)
     const { getByRole, getByText, getByTestId, queryByTestId } = renderSection(DEFAULT_CATEGORY_ID, 'Hiragana')
 
-    // Already-completed flag means no auto-show; the manual button still
-    // works, and dismissing it must not flip the flag back to false or
-    // touch it at all.
     expect(queryByTestId('kana-intro-excerpt-guide')).toBeNull()
     fireEvent.click(getByRole('button', { name: ASK_TAMAMIZU_HIRAGANA.ariaLabel }))
     expect(getByTestId('kana-intro-excerpt-guide')).toBeInTheDocument()
     fireEvent.click(getByText(excerptLocale.nextLabel))
     fireEvent.click(getByText(excerptLocale.doneLabel))
+    expect(queryByTestId('kana-intro-excerpt-guide')).toBeNull()
 
-    expect(useProgressStore.getState().hasCompletedHiraganaSectionGuide).toBe(true)
+    fireEvent.click(getByRole('button', { name: ASK_TAMAMIZU_HIRAGANA.ariaLabel }))
+    expect(getByTestId('kana-intro-excerpt-guide')).toBeInTheDocument()
   })
 
   // Regression: a Particle Guide replay (deep link `?guide=particle`) and
-  // the section's own auto-shown KanaIntroExcerptGuide must never mount at
-  // once — only one Guide is ever visible at a time app-wide.
-  it('does not auto-show alongside an active Particle Guide replay (?guide=particle)', () => {
+  // the manually-triggered KanaIntroExcerptGuide must never mount at once —
+  // only one Guide is ever visible at a time app-wide.
+  it('does not show alongside an active Particle Guide replay (?guide=particle)', () => {
     useProgressStore.getState().setHasCompletedIntroGuide(true)
-    useProgressStore.getState().setHasCompletedHiraganaSectionGuide(false)
 
     const { getByTestId, queryByTestId } = renderSection(DEFAULT_CATEGORY_ID, 'Hiragana', '/section?guide=particle')
 
@@ -487,6 +477,9 @@ describe('/other Sokuon-then-Chōon auto-display sequencing', () => {
     useProgressStore.getState().markRowTaught('sokuon-row')
     useProgressStore.getState().markRowActivityCompleted('sokuon-row', 'listening')
     useProgressStore.getState().markRowActivityCompleted('sokuon-row', 'wordBuilder')
+    // sokuon-row's approved Cafe checkpoint (Issue #183) is part of its own
+    // Recommended Path 'done' state now — see recommendedPath.ts.
+    useProgressStore.getState().markRowActivityCompleted('sokuon-row', 'checkpoint')
 
     const { getByTestId } = renderOtherPage()
     expect(getByTestId('chouon-guide')).toBeInTheDocument()
@@ -498,6 +491,7 @@ describe('/other Sokuon-then-Chōon auto-display sequencing', () => {
     useProgressStore.getState().markRowTaught('sokuon-row')
     useProgressStore.getState().markRowActivityCompleted('sokuon-row', 'listening')
     useProgressStore.getState().markRowActivityCompleted('sokuon-row', 'wordBuilder')
+    useProgressStore.getState().markRowActivityCompleted('sokuon-row', 'checkpoint')
 
     const first = renderOtherPage()
     fireEvent.click(first.getByText(chouonLocale.skipLabel))

@@ -9,18 +9,25 @@ import {
   SPECIAL_KATAKANA_CATEGORY_ID,
   YOUON_CATEGORY_ID,
 } from '../data/curriculum'
+import { PRACTICE_CHECKPOINTS } from '../data/practiceCheckpoints'
 import { useProgressStore } from '../store/progressStore'
 import { REVIEW_SCOPE_ID, useCurriculum } from './useCurriculum'
 
 // Drives every real (non-summary) row in a category to its own Recommended
 // Path 'done' state — the exact signal recommendedCategoryId reuses — via
-// the existing store actions, rather than reaching into internals.
+// the existing store actions, rather than reaching into internals. Rows with
+// an approved Restaurant/Cafe checkpoint (Issue #183) only reach 'done' once
+// that score-independent checkpoint flag is set too (see recommendedPath.ts's
+// getRecommendedActivity).
 function completeCategory(categoryId: string) {
   for (const row of ROWS.filter((r) => r.categoryId === categoryId && !r.isSummary)) {
     useProgressStore.getState().markRowTaught(row.id)
     useProgressStore.getState().markRowActivityCompleted(row.id, 'kanaQuiz')
     useProgressStore.getState().markRowActivityCompleted(row.id, 'listening')
     useProgressStore.getState().markRowActivityCompleted(row.id, 'wordBuilder')
+    if (PRACTICE_CHECKPOINTS.some((checkpoint) => checkpoint.afterRowId === row.id)) {
+      useProgressStore.getState().markRowActivityCompleted(row.id, 'checkpoint')
+    }
   }
 }
 

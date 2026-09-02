@@ -24,22 +24,24 @@ export type WordProgress = {
   reviewStreak: number
 }
 
-// One flag per core Recommended Path activity a row can complete — see
+// One flag per Recommended Path activity a row can complete — see
 // lib/recommendedPath.ts. Each flag means only "the learner reached this
 // activity's normal end-of-session summary at least once for this row",
 // nothing about accuracy or mastery (see isRowMastered, a separate,
 // already-dynamic box-based concept this deliberately does not touch).
 // `learn` is NOT tracked here — the existing `taughtRowIds` (see
-// markRowTaught) already is that flag, reused as-is. Kana Typing has no
-// flag: it's optional and never gates or advances the Recommended Path.
+// markRowTaught) already is that flag. Kana Typing has no flag because it's
+// optional. `checkpoint` is the score-independent Restaurant/Cafe step that
+// follows selected rows (Issue #183); it never feeds Review/SRS/mastery.
 export type RowActivityCompletion = {
   tracing?: boolean
   kanaQuiz?: boolean
   listening?: boolean
   wordBuilder?: boolean
+  checkpoint?: boolean
 }
 
-const ROW_ACTIVITY_KEYS = ['tracing', 'kanaQuiz', 'listening', 'wordBuilder'] as const
+const ROW_ACTIVITY_KEYS = ['tracing', 'kanaQuiz', 'listening', 'wordBuilder', 'checkpoint'] as const
 export type RowActivityKey = (typeof ROW_ACTIVITY_KEYS)[number]
 
 // "Continue" (Home's resume card, Issue #23) — deliberately separate from
@@ -136,11 +138,11 @@ type ProgressState = {
   recordCharacterReviewResult: (charId: string, correct: boolean) => void
   recordWordReviewResult: (wordId: string, correct: boolean) => void
   markRowTaught: (rowId: string) => void
-  // Marks one Recommended Path core activity completed for a row — call
-  // only when a NORMAL (non-Review-scoped) session reaches its real
-  // end-of-session summary, never on open/partial-play. Review-scoped
-  // sessions must not call this — Review is a separate repair workflow
-  // and must not advance normal-row Recommended Path state.
+  // Marks one Recommended Path activity completed for a row — call only
+  // when its normal session reaches the real end-of-session summary, never
+  // on open/partial-play. Review-scoped sessions must not call this.
+  // Restaurant/Cafe use the `checkpoint` key after all 8 questions; their
+  // score remains irrelevant and no Review/SRS/mastery state is touched.
   markRowActivityCompleted: (rowId: string, activity: RowActivityKey) => void
   isRowActivityCompleted: (rowId: string, activity: RowActivityKey) => boolean
   // Pure navigation bookkeeping for Continue (Issue #23) — never touches

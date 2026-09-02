@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { KanaIntroExcerptGuide } from '../components/KanaIntroExcerptGuide'
 import { ConceptGuide } from '../components/ConceptGuide'
@@ -41,15 +40,11 @@ const CHOUON_TARGET_PATH = `/practice/${CHOUON_GUIDE.target.categoryId}/${CHOUON
 const YOUON_TARGET_PATH = `/practice/${YOUON_GUIDE.target.categoryId}/${YOUON_GUIDE.target.rowId}`
 const SPECIAL_KATAKANA_TARGET_PATH = `/practice/${SPECIAL_KATAKANA_GUIDE.target.categoryId}/${SPECIAL_KATAKANA_GUIDE.target.rowId}`
 
-// Splits a category group's rows into segments at each of its approved
-// Restaurant/Cafe checkpoints (Issue #160's roadmap, data/practiceCheckpoints.ts),
-// so each checkpoint's CTA renders inline right after the row it belongs
-// to, in row order — generalizing Issue #158's single hardcoded
-// after-na-row split point to the full approved sequence. Deliberately just
-// a row-id split (like #158's), not a generic Mission/progress-gating
-// framework: Restaurant/Cafe stay outside curriculum/Review/SRS entirely
-// (see data/restaurantDishes.ts's top comment), so a checkpoint's CTA is
-// placement, not an unlock gate.
+// Splits a category group's rows at each approved Restaurant/Cafe checkpoint
+// so every real-life Recommended step stays visible at its curriculum
+// position on the section map. The checkpoint completion flag only advances
+// Recommended navigation; Restaurant/Cafe remain isolated from Review/SRS/
+// mastery and their score never gates progression.
 function splitRowsAtCheckpoints(rows: GojuonRow[], checkpoints: PracticeCheckpoint[]) {
   const segments: { rows: GojuonRow[]; checkpoint: PracticeCheckpoint | null }[] = []
   let cursor = 0
@@ -72,12 +67,9 @@ type Props = {
   // (hiragana/katakana/youon/other) instantiates this with a different list.
   categoryIds: string[]
   // Only set for the dedicated /hiragana and /katakana pages (see App.tsx)
-  // — shows the always-available "Ask Tamamizu" image button that replays
-  // the two-step "kana represent sounds" / "Hiragana vs Katakana usage"
-  // Introduction excerpt (Issue #46). Not a new standalone Guide, so it's
-  // opt-in per page rather than inferred from `categoryIds`. The variant
-  // only picks which Ask Tamamizu artwork to show (Hiragana vs Katakana) —
-  // both replay the exact same shared KanaIntroExcerptGuide.
+  // — shows the always-available "Ask Tamamizu" image button that manually
+  // replays the two-step Introduction excerpt. Issue #181 deliberately
+  // removed the duplicate automatic replay on first section entry.
   askTamamizuKanaIntroVariant?: 'hiragana' | 'katakana'
 }
 
@@ -96,14 +88,9 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
   // unlockedRowIds/taughtRowIds, which isRowMastered doesn't itself track.
   useProgressStore((s) => s.characters)
 
-  // Section auto-Guide display (mobile QA polish round) — gated behind the
-  // global Introduction (Issue #10's priority rule: never auto-show a
-  // section Guide while IntroGuide is still outstanding) exactly like every
-  // existing PracticeHub auto-Guide condition. Each of these shares its
-  // flag with any other trigger for the same Guide (e.g. PracticeHubPage's
-  // own Sokuon/Chōon/Yōon auto-display), so setting the flag true from
-  // either place naturally prevents the other from also firing — no
-  // separate coordination needed.
+  // Section concept Guides remain one-time automatic explanations. The
+  // Hiragana/Katakana excerpt is the exception after Issue #181: it is now
+  // manual-only because the same two steps were just shown in Introduction.
   const hasCompletedIntroGuide = useProgressStore((s) => s.hasCompletedIntroGuide)
   const hasCompletedSokuonGuide = useProgressStore((s) => s.hasCompletedSokuonGuide)
   const setHasCompletedSokuonGuide = useProgressStore((s) => s.setHasCompletedSokuonGuide)
@@ -111,42 +98,10 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
   const setHasCompletedChouonGuide = useProgressStore((s) => s.setHasCompletedChouonGuide)
   const hasCompletedYouonGuide = useProgressStore((s) => s.hasCompletedYouonGuide)
   const setHasCompletedYouonGuide = useProgressStore((s) => s.setHasCompletedYouonGuide)
-  const hasCompletedHiraganaSectionGuide = useProgressStore((s) => s.hasCompletedHiraganaSectionGuide)
-  const setHasCompletedHiraganaSectionGuide = useProgressStore((s) => s.setHasCompletedHiraganaSectionGuide)
-  const hasCompletedKatakanaSectionGuide = useProgressStore((s) => s.hasCompletedKatakanaSectionGuide)
-  const setHasCompletedKatakanaSectionGuide = useProgressStore((s) => s.setHasCompletedKatakanaSectionGuide)
   const hasCompletedParticleGuide = useProgressStore((s) => s.hasCompletedParticleGuide)
   const setHasCompletedParticleGuide = useProgressStore((s) => s.setHasCompletedParticleGuide)
   const taughtRowIds = useProgressStore((s) => s.taughtRowIds)
   const rowActivityCompletion = useProgressStore((s) => s.rowActivityCompletion)
-
-  const kanaIntroSectionCompletedFlag =
-    askTamamizuKanaIntroVariant === 'hiragana'
-      ? hasCompletedHiraganaSectionGuide
-      : askTamamizuKanaIntroVariant === 'katakana'
-        ? hasCompletedKatakanaSectionGuide
-        : true
-  const setKanaIntroSectionCompletedFlag =
-    askTamamizuKanaIntroVariant === 'hiragana' ? setHasCompletedHiraganaSectionGuide : setHasCompletedKatakanaSectionGuide
-  // Once dismissed (auto OR by starting a manual replay mid-page-visit),
-  // don't pop the automatic Guide right back up for the rest of this page
-  // instance even though the persisted flag stays false for a manual
-  // replay — manual replay must never mutate that flag (Ask Tamamizu stays
-  // replayable indefinitely), but re-showing automatically the instant a
-  // manual replay ends would defeat the point of "manual replay." This is
-  // purely local/ephemeral UI state, not persisted.
-  const [autoKanaIntroDismissedThisVisit, setAutoKanaIntroDismissedThisVisit] = useState(false)
-  // First-time auto-display, independent per section (Hiragana vs Katakana
-  // each have their OWN flag) — never fires while a manual replay of the
-  // same excerpt is already active, and never mutates the flag itself (only
-  // this automatic path does that; manual replay uses dismissReplay).
-  const showAutoKanaIntroExcerptGuide =
-    !!askTamamizuKanaIntroVariant &&
-    hasCompletedIntroGuide &&
-    !kanaIntroSectionCompletedFlag &&
-    !kanaIntroExcerptGuide.isReplaying &&
-    !particleGuide.isReplaying &&
-    !autoKanaIntroDismissedThisVisit
 
   const hasSokuonCategory = categoryIds.includes(SOKUON_CATEGORY_ID)
   const hasChouonCategory = categoryIds.includes(CHOUON_CATEGORY_ID)
@@ -156,11 +111,9 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
   const sokuonRowDone =
     !!sokuonRow && !!sokuonCategory && isRowRecommendedPathDone(sokuonRow, sokuonCategory, taughtRowIds, rowActivityCompletion)
   const showAutoSokuonGuide = hasSokuonCategory && hasCompletedIntroGuide && !hasCompletedSokuonGuide
-  // Chōon's auto-display timing (per the spec) is gated on Sokuon practice
-  // being done, using the SAME Recommended Path completion rule
-  // (isRowRecommendedPathDone / getRecommendedActivity) rather than a
-  // parallel check — and only fires once the Sokuon Guide isn't also about
-  // to show, so the two never appear together on the same /other visit.
+  // Chōon's auto-display timing is gated on the preceding Sokuon Recommended
+  // Path being done. Since checkpoints are now Recommended steps too, a
+  // Sokuon Cafe checkpoint (when configured) is part of that same invariant.
   const showAutoChouonGuide =
     hasChouonCategory && hasCompletedIntroGuide && !hasCompletedChouonGuide && sokuonRowDone && !showAutoSokuonGuide
   const showAutoYouonGuide = hasYouonCategory && hasCompletedIntroGuide && !hasCompletedYouonGuide
@@ -202,10 +155,7 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
             askTamamizuKanaIntroVariant === 'hiragana' ? ASK_TAMAMIZU_HIRAGANA.imageAsset : ASK_TAMAMIZU_KATAKANA.imageAsset
           }`}
           ariaLabel={askTamamizuKanaIntroVariant === 'hiragana' ? ASK_TAMAMIZU_HIRAGANA.ariaLabel : ASK_TAMAMIZU_KATAKANA.ariaLabel}
-          onClick={() => {
-            setAutoKanaIntroDismissedThisVisit(true)
-            kanaIntroExcerptGuide.startReplay()
-          }}
+          onClick={() => kanaIntroExcerptGuide.startReplay()}
           testId={`ask-tamamizu-${askTamamizuKanaIntroVariant}`}
         />
       )}
@@ -222,18 +172,10 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
           const isChouonGroup = category?.id === CHOUON_CATEGORY_ID
           const isYouonGroup = category?.id === YOUON_CATEGORY_ID
           const isSpecialKatakanaGroup = category?.id === SPECIAL_KATAKANA_CATEGORY_ID
-          // Every approved Restaurant/Cafe checkpoint whose category is this
-          // group's (Issue #160's full roadmap) splits this group's rows
-          // into segments, each followed by its own inline CTA — generalizes
-          // Issue #158's single hardcoded na-row split point to the full
-          // sequence. A group with no checkpoints renders as one segment
-          // with no CTA, unchanged from before Issue #160.
-          // Every checkpoint is considered for every group; splitRowsAtCheckpoints
-          // only actually splits where a checkpoint's afterRowId exists in
-          // THIS group's own rows (a curriculum category, e.g. sokuon/chōon
-          // considered separately even though both render on the bundled
-          // /other page) — so a checkpoint whose row lives in a different
-          // group is naturally a no-op here, not a duplicate elsewhere.
+          // Every approved Restaurant/Cafe checkpoint whose row exists in
+          // this group splits the RowMap and renders immediately after that
+          // row. The same CTA can now carry the single Global Recommended
+          // marker when its checkpoint is the learner's current next step.
           const segments = splitRowsAtCheckpoints(groupRows, PRACTICE_CHECKPOINTS)
           return (
             <div key={category?.id} className="flex w-full flex-col items-center gap-4">
@@ -288,6 +230,10 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
                   {segment.checkpoint && (
                     <PracticeCheckpointCta
                       checkpoint={segment.checkpoint}
+                      recommended={
+                        globalRecommendedTarget?.rowId === segment.checkpoint.afterRowId &&
+                        globalRecommendedTarget.activity === segment.checkpoint.mode
+                      }
                       onClick={() => navigate(segment.checkpoint!.routePath)}
                     />
                   )}
@@ -314,18 +260,7 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
           testId="ask-tamamizu-particle"
         />
       )}
-      {(kanaIntroExcerptGuide.isReplaying || showAutoKanaIntroExcerptGuide) && (
-        <KanaIntroExcerptGuide
-          onDismiss={
-            kanaIntroExcerptGuide.isReplaying
-              ? kanaIntroExcerptGuide.dismissReplay
-              : () => {
-                  setAutoKanaIntroDismissedThisVisit(true)
-                  setKanaIntroSectionCompletedFlag(true)
-                }
-          }
-        />
-      )}
+      {kanaIntroExcerptGuide.isReplaying && <KanaIntroExcerptGuide onDismiss={kanaIntroExcerptGuide.dismissReplay} />}
 
       {showAutoSokuonGuide && (
         <ConceptGuide
@@ -356,20 +291,33 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
   )
 }
 
-// Shared CTA markup for every inline Restaurant/Cafe checkpoint (Issue #160
-// generalizes Issue #158's single Restaurant-only CTA to both mini-games) —
-// same full-width rounded-button styling as this page's other CTAs,
-// navigating directly instead of opening a Guide overlay.
-function PracticeCheckpointCta({ checkpoint, onClick }: { checkpoint: PracticeCheckpoint; onClick: () => void }) {
+// Shared CTA markup for every inline Restaurant/Cafe checkpoint. It stays
+// freely clickable at all times, but now shows the same single ⭐ Recommended
+// signal when this checkpoint is the current Global Recommended step.
+function PracticeCheckpointCta({
+  checkpoint,
+  recommended,
+  onClick,
+}: {
+  checkpoint: PracticeCheckpoint
+  recommended: boolean
+  onClick: () => void
+}) {
   const isCafe = checkpoint.mode === 'cafe'
   return (
     <button
       type="button"
       onClick={onClick}
       data-testid={isCafe ? 'cafe-cta' : 'restaurant-cta'}
-      className="w-full max-w-md rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-left shadow-md transition hover:border-amber-400 hover:bg-amber-100 active:scale-[0.98] dark:border-amber-700 dark:bg-amber-950/40 dark:hover:bg-amber-900/50"
+      className={`w-full max-w-md rounded-2xl border bg-amber-50 px-5 py-4 text-left shadow-md transition hover:border-amber-400 hover:bg-amber-100 active:scale-[0.98] dark:bg-amber-950/40 dark:hover:bg-amber-900/50 ${
+        recommended
+          ? 'border-yellow-400 ring-2 ring-yellow-400 ring-offset-2 dark:border-yellow-300 dark:ring-yellow-300'
+          : 'border-amber-300 dark:border-amber-700'
+      }`}
     >
-      <span className="block text-xs font-bold tracking-[0.16em] text-amber-700 dark:text-amber-300">REAL-LIFE PRACTICE</span>
+      <span className="block text-xs font-bold tracking-[0.16em] text-amber-700 dark:text-amber-300">
+        REAL-LIFE PRACTICE{recommended ? ' · ⭐ RECOMMENDED' : ''}
+      </span>
       <span className="mt-1 flex items-center justify-between gap-3">
         <span>
           <span className="block text-lg font-bold text-amber-950 dark:text-amber-50">

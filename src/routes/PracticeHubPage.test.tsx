@@ -2,6 +2,7 @@ import { fireEvent, render } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { getNextRowId, ROWS } from '../data/curriculum'
+import { PRACTICE_CHECKPOINTS } from '../data/practiceCheckpoints'
 import { REVIEW_SCOPE_ID } from '../hooks/useCurriculum'
 import { useProgressStore } from '../store/progressStore'
 import { PracticeHubPage } from './PracticeHubPage'
@@ -364,6 +365,11 @@ describe('PracticeHubPage Recommended Path (Issue #11)', () => {
     useProgressStore.getState().markRowActivityCompleted(lastRow!.id, 'kanaQuiz')
     useProgressStore.getState().markRowActivityCompleted(lastRow!.id, 'listening')
     useProgressStore.getState().markRowActivityCompleted(lastRow!.id, 'wordBuilder')
+    // An approved Restaurant/Cafe checkpoint (Issue #183) after this row, if
+    // any, is now also part of its own Recommended Path 'done' state.
+    if (PRACTICE_CHECKPOINTS.some((checkpoint) => checkpoint.afterRowId === lastRow!.id)) {
+      useProgressStore.getState().markRowActivityCompleted(lastRow!.id, 'checkpoint')
+    }
     const { queryByText, queryByRole } = renderRowHub(lastRow!.categoryId, lastRow!.id)
     expect(queryByText('Lesson complete')).not.toBeNull()
     expect(queryByRole('link', { name: 'Next Row' })).toBeNull()
@@ -401,6 +407,9 @@ describe('PracticeHubPage Recommended Path (Issue #11)', () => {
     step3.unmount()
 
     useProgressStore.getState().markRowActivityCompleted('sokuon-row', 'wordBuilder')
+    // sokuon-row's approved Cafe checkpoint (Issue #183) is now also part of
+    // its own Recommended Path 'done' state — see recommendedPath.ts.
+    useProgressStore.getState().markRowActivityCompleted('sokuon-row', 'checkpoint')
     const step4 = renderRowHub('sokuon', 'sokuon-row')
     expect(step4.queryByText('Lesson complete')).not.toBeNull()
   })
