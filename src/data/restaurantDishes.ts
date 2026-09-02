@@ -96,11 +96,14 @@ const englishById: Record<string, string> = {
   remontii: 'lemon tea', mineraruwootaa: 'mineral water',
 }
 // Explicit image/audio path overrides for dishes whose id no longer matches
-// their on-disk filename — currently only てりやきチキン, which reuses the
-// existing チキン art/audio recorded under the old `chikin` id (Issue #160:
-// "existing チキン should become てりやきチキン") rather than re-recording.
+// their on-disk filename or whose audio doesn't follow the default
+// restaurant-dishes/<stage>/<id> convention — currently only てりやきチキン,
+// which reuses the existing チキン illustration (Issue #160: "existing
+// チキン should become てりやきチキン") but has its OWN dedicated recording
+// (PR #164 review: a real てりやきチキン clip was supplied, so it must not
+// keep pointing at the plain チキン audio).
 const assetOverridesById: Partial<Record<string, { image?: string; audioPath?: string }>> = {
-  teriyakichikin: { image: 'restaurant-dishes/katakana/chikin.webp', audioPath: '/audio/restaurant/katakana/chikin.mp3' },
+  teriyakichikin: { image: 'restaurant-dishes/katakana/chikin.webp' },
 }
 function dish(stage: RestaurantStageId, id: string, displayKana: string, romaji: string, priceYen: number, recognitionAliases: string[], checkpointId?: string): RestaurantDish {
   const overrides = assetOverridesById[id]

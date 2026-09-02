@@ -174,8 +174,11 @@ describe('restaurantDishes (hiragana stage)', () => {
     const renamed = RESTAURANT_DISHES.find((d) => d.id === 'teriyakichikin')
     expect(renamed).toBeDefined()
     expect(renamed!.displayKana).toBe('てりやきチキン')
+    // Reuses チキン's existing illustration (Issue #160) but has its own
+    // dedicated recording, not the plain チキン clip (PR #164 review fix).
     expect(renamed!.image).toBe('restaurant-dishes/katakana/chikin.webp')
-    expect(renamed!.audioPath).toBe('/audio/restaurant/katakana/chikin.mp3')
+    expect(renamed!.audioPath).toBe('/audio/restaurant/katakana/teriyakichikin.mp3')
+    expect(renamed!.audioPath).not.toBe('/audio/restaurant/katakana/chikin.mp3')
   })
 })
 
