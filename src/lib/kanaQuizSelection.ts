@@ -11,13 +11,18 @@ export function getKanaQuizRounds(rowId: string | undefined, defaultRounds: numb
   return (rowId && KANA_QUIZ_ROUNDS_BY_ROW[rowId]) || defaultRounds
 }
 
-function moveBoundaryRepeat(queue: string[], extra: string[]): string[] {
-  if (queue.length === 0 || extra.length === 0 || queue[queue.length - 1] !== extra[0]) return extra
-  const differentIndex = extra.findIndex((id) => id !== queue[queue.length - 1])
-  if (differentIndex <= 0) return extra
-  const reordered = [...extra]
-  ;[reordered[0], reordered[differentIndex]] = [reordered[differentIndex], reordered[0]]
-  return reordered
+function avoidBoundaryRepeat(queue: string[], extra: string[]): string[] {
+  if (queue.length === 0 || extra.length <= 1 || queue[queue.length - 1] !== extra[0]) return extra
+  const boundary = queue[queue.length - 1]
+  // buildWeightedQueue already avoids internal consecutive repeats whenever
+  // possible. Rotate rather than swap so we do not fix the phase boundary by
+  // accidentally creating a new duplicate pair inside the extra block.
+  for (let offset = 1; offset < extra.length; offset += 1) {
+    const rotated = [...extra.slice(offset), ...extra.slice(0, offset)]
+    if (rotated[0] === boundary) continue
+    if (rotated.every((id, index) => index === 0 || id !== rotated[index - 1])) return rotated
+  }
+  return extra
 }
 
 // Normal real-row Kana Quiz selection (Issue #180):
@@ -48,7 +53,7 @@ export function buildKanaQuizTargetQueue(ids: string[], getBox: BoxLookup, round
 
   if (remaining > 0) {
     const extras = buildWeightedQueue(ids, getBox, remaining)
-    queue.push(...moveBoundaryRepeat(queue, extras))
+    queue.push(...avoidBoundaryRepeat(queue, extras))
   }
 
   return queue
