@@ -10,6 +10,7 @@ import { ReviewGuide } from '../components/ReviewGuide'
 import { CATEGORIES_BY_ID, getNextRowId, ROWS_BY_ID } from '../data/curriculum'
 import { LEARN_TRACING_GUIDE } from '../data/learnTracingGuide'
 import { PRACTICE_GUIDE } from '../data/practiceGuide'
+import { PRACTICE_CHECKPOINTS } from '../data/practiceCheckpoints'
 import { SOKUON_GUIDE } from '../data/sokuonGuide'
 import { DEFAULT_SOKUON_GUIDE_LOCALE, SOKUON_GUIDE_CONTENT } from '../data/sokuonGuideContent'
 import { CHOUON_GUIDE } from '../data/chouonGuide'
@@ -25,11 +26,10 @@ import { useActiveGuideReplayId, useGuideReplay } from '../hooks/useGuideReplay'
 import { getRecommendedActivity } from '../lib/recommendedPath'
 import { useProgressStore } from '../store/progressStore'
 
-// Ordered to match the Recommended Path sequence (Kana Quiz -> Listening ->
-// Word Builder), so the Practice section's card order mirrors what
-// Recommended will step through. Kana Typing is deliberately kept separate
-// (see KANA_TYPING_GAME below) — it never gates or advances the Recommended
-// Path, so it lives in its own "Optional" section instead of mixed in here.
+// Ordered to match the core Recommended Path sequence (Kana Quiz ->
+// Listening -> Word Builder). Restaurant/Cafe checkpoints are rendered as a
+// dedicated real-life Recommended step after this grid when configured for
+// the row. Kana Typing remains optional.
 const PRACTICE_GAMES = [
   { path: 'kana-quiz', label: 'Kana Quiz', emoji: '❓', description: 'Pick the sound' },
   { path: 'listening', label: 'Listening', emoji: '🎧', description: 'Pick what you hear' },
@@ -49,10 +49,7 @@ type Activity = {
   completed?: boolean
   highlighted?: boolean
   disabled?: boolean
-  // Marks this card as the single app-wide Global Recommended Target
-  // (Issue #25) — see PracticeHubPage's isGlobalTarget/recommended below.
-  // Display-only: no card duplication/separate section, just a ⭐ badge on
-  // whichever normal grid card it is.
+  // Marks this card as the single app-wide Global Recommended Target.
   recommended?: boolean
 }
 
@@ -64,11 +61,8 @@ function ActivityGrid({
   activities: Activity[]
   disabled?: boolean
   // When provided, a card that's disabled purely because an in-context
-  // Guide (Learn/Tracing Guide, Practice Guide) is currently showing stays
-  // clickable — invoking this instead of normal <Link> navigation, so the
-  // caller can stop the guide's narration/dismiss it first. Full-screen
-  // Guides (Sokuon/Chōon/Yōon) never pass this — their click-blocking is
-  // unchanged.
+  // Guide is currently showing stays clickable so narration can stop and
+  // the Guide can dismiss before navigation.
   onActivate?: (path: string) => void
 }) {
   return (
@@ -78,17 +72,17 @@ function ActivityGrid({
         const className = `flex flex-col items-center gap-1 rounded-xl border bg-white p-4 text-center dark:bg-neutral-800 ${isDisabled && !onActivate ? 'cursor-not-allowed' : 'hover:border-blue-400'} ${activity.highlighted ? 'border-yellow-400 ring-2 ring-yellow-400 ring-offset-2 dark:border-yellow-300 dark:ring-yellow-300' : 'border-neutral-300 dark:border-neutral-600'}`
         const content = (
           <>
-          <span className="text-3xl">{activity.emoji}</span>
-          <span className="font-semibold">
-            {activity.label}
-            {activity.completed && <span className="ml-1 text-green-600 dark:text-green-400">✓</span>}
-            {activity.recommended && (
-              <span className="ml-1" aria-label="Recommended">
-                ⭐
-              </span>
-            )}
-          </span>
-          <span className="text-sm text-neutral-500 dark:text-neutral-400">{activity.description}</span>
+            <span className="text-3xl">{activity.emoji}</span>
+            <span className="font-semibold">
+              {activity.label}
+              {activity.completed && <span className="ml-1 text-green-600 dark:text-green-400">✓</span>}
+              {activity.recommended && (
+                <span className="ml-1" aria-label="Recommended">
+                  ⭐
+                </span>
+              )}
+            </span>
+            <span className="text-sm text-neutral-500 dark:text-neutral-400">{activity.description}</span>
           </>
         )
 
@@ -168,11 +162,6 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   const activeGuideReplayId = useActiveGuideReplayId()
 
   useEffect(() => {
-    // Review with nothing taught yet gets an explanatory message below
-    // instead of a silent bounce to Home — from the learner's side, a tap
-    // that visibly does nothing (or flashes and reverts) looks like a bug,
-    // not "you haven't unlocked this yet." Every other invalid-state case
-    // still redirects exactly as before.
     if (rowId && isReview && !isScopeReady(rowId)) return
     if (!rowId || !isScopeReady(rowId) || (!isReview && row?.categoryId !== categoryId)) {
       navigate('/', { replace: true })
@@ -194,41 +183,22 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
     )
   }
 
-  // Review with something taught/practiced but nothing currently active in
-  // either pool (see useCurriculum's weakCharacterIds/weakWords) is a
-  // genuine success state, not "nothing to show" — there's no fallback to
-  // mixing in already-mastered material any more, so the game cards below
-  // would otherwise link to empty sessions. A manual Review Guide replay
-  // (Issue #46) still needs the real Review screen even with zero items
-  // due, so it deliberately skips this empty-state short-circuit.
   if (isReview && reviewCount === 0 && !isReviewReplay) {
     return <ReviewEmptyState />
   }
 
   const hubBase = isReview ? '/practice/review' : `/practice/${categoryId}/${rowId}`
-
-  // Tracing walks through "every word in this row" as its second phase (see
-  // TracingPage) — that only makes sense for a single row's small word
-  // list, not Review's every-taught-row mix, so it's excluded there.
   const isSummary = !isReview && !!row?.isSummary
-  // Similar Letters (see GojuonRow.isSimilarLetters) — an optional
-  // supplementary lesson, not part of the main curriculum progression.
   const isSimilarLetters = !isReview && !!row?.isSimilarLetters
-  // Kana Quiz doesn't fit 'contrast-pairs' categories (促音/長音) — there's
-  // no single isolated character to quiz a reading on the way there is for
-  // a normal gojūon row (see docs/curriculum-extensibility.md and
-  // characters.ts's sokuon comment). Review always shows all four games:
-  // it mixes every taught category, most of which ARE quizzable, and
-  // useCurriculum's getScopeQuizCharacterIds already filters contrast-pairs
-  // characters out of Review's own Kana Quiz pool specifically.
   const isContrastPairs = !isReview && CATEGORIES_BY_ID[categoryId ?? '']?.learnStyle === 'contrast-pairs'
 
-  // Recommended Path — see lib/recommendedPath.ts. Deliberately scoped to
-  // real, non-summary rows only: Review has its own separate "what needs
-  // repair" framing (reviewCount above), and a summary row's Learn/Practice
-  // shape (every character/word in the category at once, no per-character
-  // markRowTaught) doesn't fit this per-row completion model.
+  // Recommended Path is scoped to real non-summary/non-Similar-Letters
+  // rows. A configured Restaurant/Cafe checkpoint now follows Word Builder
+  // as a score-independent required experience step before this row becomes
+  // `done` in Recommended navigation.
   const showRecommendedPath = !isReview && !isSummary && !isSimilarLetters
+  const checkpoint = showRecommendedPath ? PRACTICE_CHECKPOINTS.find((item) => item.afterRowId === rowId) : undefined
+
   const isLearnTracingTargetRoute =
     !isReview && categoryId === LEARN_TRACING_GUIDE.target.categoryId && rowId === LEARN_TRACING_GUIDE.target.rowId
   const isPracticeTargetRoute =
@@ -239,33 +209,12 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
     !isReview && categoryId === CHOUON_GUIDE.target.categoryId && rowId === CHOUON_GUIDE.target.rowId
   const isYouonTargetRoute =
     !isReview && categoryId === YOUON_GUIDE.target.categoryId && rowId === YOUON_GUIDE.target.rowId
-  // Special Katakana's Guide auto-triggers only on its own first session's
-  // row (special-katakana-fa-row) — NOT from merely visiting the shared
-  // /youon page, unlike Sokuon/Chōon/Yōon's page-level auto-Guides (see
-  // CategoryRowsPage). This is the ONLY place it can show automatically.
   const isSpecialKatakanaTargetRoute =
     !isReview &&
     categoryId === SPECIAL_KATAKANA_GUIDE.target.categoryId &&
     rowId === SPECIAL_KATAKANA_GUIDE.target.rowId
-  // A `?guide=` value only counts as "active here" when it names one of
-  // THIS route's own Guides (e.g. hiragana/a-row hosts both Learn/Tracing
-  // and Practice) — that's what lets a manual replay suppress this route's
-  // other automatic Guide instead of showing both at once, while an
-  // unrelated or invalid id leaves every automatic condition exactly as it
-  // would be with no `?guide=` at all (Issue #46's "invalid replay ids fail
-  // safely and show the normal page" / "never shows two Guides
-  // simultaneously").
-  // Particles' auto-trigger rows — hiragana ha-row (topic-marker は) and
-  // ra-row (わ/を, plus the こんにちは/こんばんは greetings that are this
-  // Guide's Step 3 — see particleGuide.ts). Same shape as the concept Guides
-  // above.
-  // The /hiragana page's supplementary "Ask Tamamizu about particles" button
-  // is unaffected: it still starts a manual `?guide=particle` replay there at
-  // any time, before or after this automatic first showing, without writing
-  // progress on replay.
   const isParticleTargetRoute =
-    !isReview &&
-    PARTICLE_GUIDE.autoTargets.some((target) => target.categoryId === categoryId && target.rowId === rowId)
+    !isReview && PARTICLE_GUIDE.autoTargets.some((target) => target.categoryId === categoryId && target.rowId === rowId)
   const isKnownReplayHere =
     activeGuideReplayId !== null &&
     ((isLearnTracingTargetRoute && activeGuideReplayId === 'learnTracing') ||
@@ -281,9 +230,9 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   const kanaQuizCompleted = showRecommendedPath && rowActivityCompletion[rowId]?.kanaQuiz === true
   const listeningCompleted = showRecommendedPath && rowActivityCompletion[rowId]?.listening === true
   const wordBuilderCompleted = showRecommendedPath && rowActivityCompletion[rowId]?.wordBuilder === true
+  const checkpointCompleted = showRecommendedPath && rowActivityCompletion[rowId]?.checkpoint === true
   // "Character introduction" is done once EITHER Learn or Tracing has been
-  // finished once — neither is required over the other, and finishing one
-  // never locks out the other (both stay freely accessible below either way).
+  // finished once — neither is required over the other.
   const introCompleted = showRecommendedPath && (isRowTaught(rowId) || tracingCompleted)
   const showPracticeGuide =
     isPracticeTargetRoute &&
@@ -316,15 +265,11 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
         kanaQuizCompleted,
         listeningCompleted,
         wordBuilderCompleted,
+        checkpointMode: checkpoint?.mode,
+        checkpointCompleted,
       })
     : 'learn'
 
-  // Item 6: clicking Learn/Tracing while the automatic (or manually
-  // replayed) Learn/Tracing Guide is showing stops its narration, ends the
-  // guide — marking it completed for the automatic case, or just clearing
-  // the ephemeral replay target without touching the persisted flag for a
-  // manual Settings replay — then navigates to the activity that was
-  // clicked, rather than silently doing nothing.
   const handleLearnTracingActivate = (path: string) => {
     if (isLearnTracingReplay) dismissLearnTracingReplay()
     else setHasCompletedLearnTracingGuide(true)
@@ -339,10 +284,6 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   const nextRowId = showRecommendedPath ? getNextRowId(rowId) : null
   const nextRowCategoryId = nextRowId ? ROWS_BY_ID[nextRowId]?.categoryId : undefined
 
-  // Review has no "meet new characters" step (that's what Learn is for on a
-  // real row) — instead its Learn section offers a browse-only look back at
-  // whatever's actually being gotten wrong lately, split 単音/語彙 per the
-  // user's request (see ReviewMistakesPage).
   const learnActivities: Activity[] = isReview
     ? [
         { path: `${hubBase}/learn-chars`, label: 'Weak Kana', emoji: '🔤', description: 'Practice kana you missed' },
@@ -378,19 +319,15 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
     'word-builder': wordBuilderCompleted,
   }
 
-  // "⭐ Recommended" reflects the ONE app-wide Global Recommended Target
-  // (Issue #25, see useCurriculum's globalRecommendedTarget) — only when
-  // THIS row is currently that target, and then only its specific
-  // activity gets the ⭐ badge (display-only, on the normal grid card —
-  // see Item 5: no separate section/card duplication any more).
-  // `recommended` above (this row's own next step) still separately drives
-  // this row's OWN unrelated UI ("Choose how to learn"/✓ marks/"Lesson
-  // complete"), regardless of whether this row happens to be the global
-  // target right now.
+  // Only the three normal practice cards map to hub child routes. A Global
+  // Recommended Restaurant/Cafe checkpoint is rendered separately below
+  // with its real checkpoint route, never as `/practice/.../restaurant`.
   const isGlobalTarget =
     showRecommendedPath && globalRecommendedTarget?.categoryId === categoryId && globalRecommendedTarget?.rowId === rowId
   const globalRecommendedActivityPath =
-    isGlobalTarget && globalRecommendedTarget && globalRecommendedTarget.activity !== 'learn'
+    isGlobalTarget &&
+    globalRecommendedTarget &&
+    ['kana-quiz', 'listening', 'word-builder'].includes(globalRecommendedTarget.activity)
       ? `${hubBase}/${globalRecommendedTarget.activity}`
       : undefined
 
@@ -410,7 +347,12 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
     },
   )
   const optionalActivities: Activity[] = [
-    { path: `${hubBase}/${KANA_TYPING_GAME.path}`, label: KANA_TYPING_GAME.label, emoji: KANA_TYPING_GAME.emoji, description: KANA_TYPING_GAME.description },
+    {
+      path: `${hubBase}/${KANA_TYPING_GAME.path}`,
+      label: KANA_TYPING_GAME.label,
+      emoji: KANA_TYPING_GAME.emoji,
+      description: KANA_TYPING_GAME.description,
+    },
   ]
 
   return (
@@ -426,6 +368,18 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
       )}
 
       {showReviewGuide && <ReviewGuide onDismiss={dismissReviewReplay} />}
+
+      {showRecommendedPath && checkpoint && recommended === checkpoint.mode && (
+        <div className="flex w-full max-w-md flex-col items-center gap-2 rounded-2xl border border-yellow-400 bg-amber-50 p-4 text-center ring-2 ring-yellow-400 ring-offset-2 dark:bg-amber-950/40 dark:ring-yellow-300">
+          <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">⭐ Recommended · Real-life Practice</p>
+          <Link
+            to={checkpoint.routePath}
+            className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
+          >
+            {checkpoint.mode === 'cafe' ? '☕ Cafe Practice' : '🍽️ Restaurant Practice'}
+          </Link>
+        </div>
+      )}
 
       {showRecommendedPath && recommended === 'done' && (
         <div className="flex flex-col items-center gap-2">
