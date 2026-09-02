@@ -38,18 +38,13 @@ function shuffleWithRng<T>(items: readonly T[], rng: () => number): T[] {
   return result
 }
 
-function pickDistinctFirst<T>(pool: readonly T[], count: number, rng: () => number, keyOf: (item: T) => string): T[] {
-  if (pool.length === 0) return []
+function takeWithFallback<T>(orderedPool: readonly T[], count: number): T[] {
+  if (orderedPool.length === 0) return []
   const result: T[] = []
-  let remaining = shuffleWithRng(pool, rng)
   while (result.length < count) {
-    if (remaining.length === 0) remaining = shuffleWithRng(pool, rng)
-    const next = remaining.shift()
-    if (!next) break
-    if (result.length < pool.length || !result.some((item) => keyOf(item) === keyOf(next))) result.push(next)
-    else result.push(next)
+    result.push(orderedPool[result.length % orderedPool.length])
   }
-  return result.slice(0, count)
+  return result
 }
 
 // Select all 15 word questions as one coordinated pool. While unused words
@@ -91,11 +86,13 @@ function buildKanaQuizQuestions(
   coveredByWords: ReadonlySet<string>,
   rng: () => number,
 ): AssessmentQuestion[] {
+  // Randomize within each priority bucket, but never shuffle the two buckets
+  // together: kana not already exercised by the 15 word questions must be
+  // chosen before already-covered kana whenever enough targets exist.
   const randomized = shuffleWithRng(characterIds, rng)
   const uncovered = randomized.filter((id) => !coveredByWords.has(id))
   const covered = randomized.filter((id) => coveredByWords.has(id))
-  const ordered = [...uncovered, ...covered]
-  const targets = pickDistinctFirst(ordered, QUESTIONS_PER_FAMILY, rng, (id) => id)
+  const targets = takeWithFallback([...uncovered, ...covered], QUESTIONS_PER_FAMILY)
   const directions: KanaQuizDirection[] = shuffleWithRng(['read', 'read', 'read', 'recall', 'recall'], rng)
   return targets.map((characterId, i) => ({
     family: 'kana-quiz',
