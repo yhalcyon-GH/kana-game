@@ -685,7 +685,7 @@ describe('Hiragana Restaurant CTA', () => {
     expect(useProgressStore.getState().hasCompletedParticleGuide).toBe(false)
   })
 
-  it('navigates to /restaurant/hiragana on click', () => {
+  it('navigates to /restaurant/na-row on click', () => {
     const { getAllByTestId, getByTestId: getByTestId2 } = render(
       <MemoryRouter initialEntries={['/hiragana']}>
         <Routes>
@@ -700,12 +700,12 @@ describe('Hiragana Restaurant CTA', () => {
               />
             }
           />
-          <Route path="/restaurant/hiragana" element={<LocationDisplay />} />
+          <Route path="/restaurant/na-row" element={<LocationDisplay />} />
         </Routes>
       </MemoryRouter>,
     )
     fireEvent.click(getAllByTestId('restaurant-cta')[0])
-    expect(getByTestId2('landed-path')).toHaveTextContent('/restaurant/hiragana')
+    expect(getByTestId2('landed-path')).toHaveTextContent('/restaurant/na-row')
   })
 })
 

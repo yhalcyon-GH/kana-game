@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AnswerFeedbackRow } from '../../components/AnswerFeedbackRow'
 import { PracticeScoreVisual } from '../../components/PracticeScoreVisual'
-import { RESTAURANT_DISHES, type RestaurantDish, type RestaurantStageId } from '../../data/restaurantDishes'
+import { PRACTICE_CHECKPOINTS_BY_ID } from '../../data/practiceCheckpoints'
+import { RESTAURANT_DISHES, type RestaurantDish } from '../../data/restaurantDishes'
 import { useOrderingGame, type OrderingSessionResult } from '../../hooks/useOrderingGame'
+import { getCheckpointDishPool } from '../../lib/checkpointDishPool'
 
 // A small, standalone, repeatable "order the dish from the menu" mini-game.
 // Deliberately outside the
@@ -19,9 +21,9 @@ import { useOrderingGame, type OrderingSessionResult } from '../../hooks/useOrde
 // only differ in presentation (Restaurant shows the target dish's
 // image/emoji up front and keeps the English translation in the feedback
 // row; Cafe hides both before an answer — see CafePage.tsx's own comment).
-export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStageId }) {
-  const dishes = RESTAURANT_DISHES.filter((dish) => dish.stage === stage)
-  const menuDishes = RESTAURANT_DISHES.filter((dish) => ['hiragana', 'katakana', 'other', 'special-katakana'].indexOf(dish.stage) <= ['hiragana', 'katakana', 'other', 'special-katakana'].indexOf(stage))
+export function RestaurantPage({ checkpointId = 'na-row' }: { checkpointId?: string }) {
+  const checkpoint = PRACTICE_CHECKPOINTS_BY_ID[checkpointId]
+  const { targets: dishes, menuDishes } = getCheckpointDishPool(checkpointId)
   const game = useOrderingGame({
     dishes,
     menuDishes,
@@ -37,7 +39,10 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
     showRomajiRescue, revealRomajiRescueAnswer, revealAnswer, hearDish, setShowRomaji,
   } = game
 
-  const backPath = stage === 'hiragana' ? '/hiragana' : stage === 'katakana' ? '/katakana' : stage === 'other' ? '/other' : '/youon'
+  const backPath =
+    checkpoint?.categoryId === 'hiragana' ? '/hiragana' :
+    checkpoint?.categoryId === 'katakana' ? '/katakana' :
+    checkpoint?.categoryId === 'youon' ? '/youon' : '/other'
   if (completed) {
     const correct = sessionResults.filter((result) => result.correct).length
     return <SessionSummary correct={correct} mistakes={mistakes} onPlayAgain={playAgain} backPath={backPath} />
@@ -197,7 +202,11 @@ export function RestaurantMenuSheet({ dishes }: { dishes: RestaurantDish[] }) {
 
 // Cafe's menu row omits DishGlyph entirely (no image clue before the
 // answer — see CafePage.tsx), so it uses its own render, not this component.
-export function CafeMenuSheet({ dishes }: { dishes: RestaurantDish[] }) {
+// `targetIds` marks the row(s) Tamamizu wants (Issue #164 review: the
+// pointer belongs on the menu text itself, not copied into the bubble) —
+// the SAME neutral 👉 marker on every target row, even for a Q5-8 two-item
+// round, since Cafe doesn't distinguish an order between its two targets.
+export function CafeMenuSheet({ dishes, targetIds = [] }: { dishes: RestaurantDish[]; targetIds?: string[] }) {
   return (
     <section
       aria-labelledby="cafe-menu-title"
@@ -211,20 +220,24 @@ export function CafeMenuSheet({ dishes }: { dishes: RestaurantDish[] }) {
         <div data-testid="cafe-menu-divider" aria-hidden="true" className="mx-auto mt-2 w-full border-t border-amber-300/80 dark:border-amber-700/80" />
       </header>
       <div className="divide-y divide-amber-200/90 px-3 sm:px-5 dark:divide-amber-800/80">
-        {dishes.map((dish) => (
-          <div
-            key={dish.id}
-            data-testid={`cafe-dish-${dish.id}`}
-            className="flex items-center justify-between gap-3 py-2.5 text-left sm:py-3"
-          >
-            <span className="font-kana min-w-0 break-words text-[clamp(1.25rem,6vw,1.75rem)] leading-snug font-bold text-amber-950 dark:text-amber-100">
-              {dish.displayKana}
-            </span>
-            <span className="whitespace-nowrap text-right text-xs font-medium tabular-nums text-amber-900/75 sm:text-sm dark:text-amber-200/75">
-              ¥{dish.priceYen}
-            </span>
-          </div>
-        ))}
+        {dishes.map((dish) => {
+          const isTarget = targetIds.includes(dish.id)
+          return (
+            <div
+              key={dish.id}
+              data-testid={`cafe-dish-${dish.id}`}
+              className="flex items-center justify-between gap-3 py-2.5 text-left sm:py-3"
+            >
+              <span className="font-kana min-w-0 break-words text-[clamp(1.25rem,6vw,1.75rem)] leading-snug font-bold text-amber-950 dark:text-amber-100">
+                {isTarget && <span data-testid={`cafe-menu-target-${dish.id}`} aria-hidden="true" className="mr-1">👉</span>}
+                {dish.displayKana}
+              </span>
+              <span className="whitespace-nowrap text-right text-xs font-medium tabular-nums text-amber-900/75 sm:text-sm dark:text-amber-200/75">
+                ¥{dish.priceYen}
+              </span>
+            </div>
+          )
+        })}
       </div>
     </section>
   )

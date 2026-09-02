@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom'
 import { AnswerFeedbackRow } from '../../components/AnswerFeedbackRow'
-import { CAFE_DISHES, isKatakanaOnlyDish, RESTAURANT_DISHES, type RestaurantDish } from '../../data/restaurantDishes'
+import { isKatakanaOnlyDish, RESTAURANT_DISHES, type RestaurantDish } from '../../data/restaurantDishes'
 import { PRACTICE_CHECKPOINTS_BY_ID } from '../../data/practiceCheckpoints'
 import { useOrderingGame } from '../../hooks/useOrderingGame'
+import { getCheckpointDishPool } from '../../lib/checkpointDishPool'
 import { CafeMenuSheet, DishGlyph, SessionSummary } from './RestaurantPage'
 
 // Cafe: the same ordering mini-game as Restaurant (shares its whole state
@@ -21,16 +22,13 @@ import { CafeMenuSheet, DishGlyph, SessionSummary } from './RestaurantPage'
 //    English isn't (Restaurant never hides it in the first place).
 export function CafePage({ checkpointId }: { checkpointId: string }) {
   const checkpoint = PRACTICE_CHECKPOINTS_BY_ID[checkpointId]
-  const dishes = CAFE_DISHES.filter((dish) => dish.checkpointId === checkpointId)
-  const fillerPool = checkpoint
-    ? RESTAURANT_DISHES.filter((dish) => checkpoint.fillerStages.includes(dish.stage) && isKatakanaOnlyDish(dish))
-    : dishes
   // The active target pool is this checkpoint's own new dishes; the menu
   // (filler) pool also includes them plus every earlier still-readable
   // Katakana-only dish, so a 4-item menu is always assemblable even for a
   // checkpoint with very few new items (Issue #160: don't pad menus, reuse
-  // earlier items as fillers).
-  const menuDishes = Array.from(new Map([...dishes, ...fillerPool].map((dish) => [dish.id, dish])).values())
+  // earlier items as fillers) — never a LATER checkpoint's dishes, even one
+  // sharing a stage (lib/checkpointDishPool.ts, Issue #164 review).
+  const { targets: dishes, menuDishes } = getCheckpointDishPool(checkpointId, isKatakanaOnlyDish)
   const game = useOrderingGame({
     dishes,
     menuDishes,
@@ -70,10 +68,12 @@ export function CafePage({ checkpointId }: { checkpointId: string }) {
         <span className="w-16" aria-hidden="true" />
       </div>
 
-      {/* Row 1: menu (text + price only, no image clue). Row 2: Tamamizu +
-          speech bubble. Row 3: order template. Same 3-row structure as
-          Restaurant (Issue #160). */}
-      <CafeMenuSheet dishes={round.menu} />
+      {/* Row 1: menu (text + price only, no image clue) — the target row(s)
+          carry the 👉 marker (Issue #164 review: the pointer belongs on the
+          menu text itself, not copied into the bubble below). Row 2:
+          Tamamizu + speech bubble. Row 3: order template. Same 3-row
+          structure as Restaurant (Issue #160). */}
+      <CafeMenuSheet dishes={round.menu} targetIds={targets.map((dish) => dish.id)} />
 
       <div className="flex w-full max-w-md items-end gap-3">
         <img src={`${import.meta.env.BASE_URL}mascot/order.webp`} alt="Tamamizu" className="h-28 w-28 shrink-0 object-contain sm:h-32 sm:w-32" />
@@ -82,9 +82,10 @@ export function CafePage({ checkpointId }: { checkpointId: string }) {
           data-testid="cafe-target-bubble"
           aria-label="What Tamamizu wants to order"
         >
-          {/* Before an answer/reveal: point clearly at the target menu TEXT
-              (no image/emoji, no meaning) — the learner must read it, not
-              recognize a picture. After: switches to the ordered item's
+          {/* Before an answer/reveal: the target is pointed out in the menu
+              above (👉 on its row) — this bubble names neither the target's
+              kana, meaning, nor image, so the learner must read the menu
+              rather than the bubble. After: switches to the ordered item's
               image + English meaning, same reveal Restaurant always shows. */}
           {revealed ? (
             <div className="flex min-w-0 flex-wrap items-center justify-center gap-2">
@@ -97,13 +98,9 @@ export function CafePage({ checkpointId }: { checkpointId: string }) {
               ))}
             </div>
           ) : (
-            <div className="flex min-w-0 flex-wrap items-center justify-center gap-1">
-              {targets.map((dish, index) => (
-                <span key={dish.id} data-testid={`cafe-target-${dish.id}`} className="font-kana flex min-w-0 items-center text-2xl font-bold text-amber-900 dark:text-amber-100">
-                  👉 {dish.displayKana}
-                  {index < targets.length - 1 && <span className="px-0.5">と</span>}
-                </span>
-              ))}
+            <div className="flex min-w-0 flex-col items-center gap-1">
+              <p className="text-sm text-neutral-600 dark:text-neutral-300">Order what&apos;s marked 👉 on the menu.</p>
+              {targets.map((dish) => <span key={dish.id} data-testid={`cafe-target-${dish.id}`} aria-hidden="true" />)}
             </div>
           )}
         </div>

@@ -29,12 +29,10 @@ import { ReviewMistakesPage } from './routes/ReviewMistakesPage'
 import { ReviewPage } from './routes/ReviewPage'
 import { SavedPage } from './routes/SavedPage'
 import { SettingsPage } from './routes/SettingsPage'
-import type { RestaurantStageId } from './data/restaurantDishes'
 
 function RestaurantRoute() {
-  const { stage } = useParams()
-  const validStages: RestaurantStageId[] = ['hiragana', 'katakana', 'other', 'special-katakana']
-  return <RestaurantPage stage={validStages.includes(stage as RestaurantStageId) ? (stage as RestaurantStageId) : 'hiragana'} />
+  const { checkpointId } = useParams()
+  return <RestaurantPage checkpointId={checkpointId ?? 'na-row'} />
 }
 
 function CafeRoute() {
@@ -140,7 +138,7 @@ function App() {
                   mini-game (see routes/games/RestaurantPage.tsx). Deliberately
                   not nested under /practice/:categoryId/:rowId since it's not
                   a Recommended Path activity for any row. */}
-              <Route path="/restaurant/:stage" element={<RestaurantRoute />} />
+              <Route path="/restaurant/:checkpointId" element={<RestaurantRoute />} />
               {/* Cafe — standalone, repeatable, non-curriculum mini-game
                   (routes/games/CafePage.tsx), keyed by checkpoint id rather
                   than stage since a Cafe checkpoint's pool is its own

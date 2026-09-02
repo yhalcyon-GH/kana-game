@@ -178,8 +178,8 @@ describe('RestaurantPage', () => {
     expect(screen.getByAltText('Tamamizu')).toHaveAttribute('src', expect.stringContaining('mascot/order.webp'))
   })
 
-  it.each(['katakana', 'other', 'special-katakana'] as const)('uses sushi and udon in the %s introduction (Issue #158)', (stage) => {
-    render(<MemoryRouter><RestaurantPage stage={stage} /></MemoryRouter>)
+  it.each(['katakana-complete', 'chouon-complete', 'katakana-youon-complete'])('uses sushi and udon in the %s introduction (Issue #158)', (checkpointId) => {
+    render(<MemoryRouter><RestaurantPage checkpointId={checkpointId} /></MemoryRouter>)
     expect(screen.getByAltText('すし')).toBeInTheDocument()
     expect(screen.getByAltText('うどん')).toBeInTheDocument()
   })

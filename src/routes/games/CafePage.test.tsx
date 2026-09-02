@@ -97,22 +97,38 @@ describe('CafePage', () => {
     }
   })
 
-  it('clearly points at the target menu text (no image/meaning) before an answer', () => {
+  it('clearly points at the target menu row (not the bubble) before an answer (Issue #164 review)', () => {
     renderPage()
     const bubble = screen.getByTestId('cafe-target-bubble')
-    expect(bubble.querySelector('img')).toBeNull()
     const targetId = currentTargetIds()[0]
     const dish = CAFE_DISHES.find((d) => d.id === targetId)!
-    expect(bubble).toHaveTextContent(dish.displayKana)
-    // English/meaning must not leak before an answer.
+    // The marker (and the target's kana) lives on the menu row, not the bubble.
+    expect(screen.getByTestId(`cafe-menu-target-${targetId}`)).toBeInTheDocument()
+    expect(screen.getByTestId(`cafe-dish-${targetId}`)).toHaveTextContent(dish.displayKana)
+    expect(bubble.querySelector('img')).toBeNull()
+    expect(bubble).not.toHaveTextContent(dish.displayKana)
+    // English/meaning must not leak before an answer either.
     expect(bubble).not.toHaveTextContent(dish.english)
   })
 
-  it('does not reveal the target meaning/image before an answer', () => {
+  it('marks only the target menu row(s), leaving every other row unmarked', () => {
+    renderPage()
+    const targetIds = new Set(currentTargetIds())
+    const rows = [...screen.getByTestId('cafe-menu').querySelectorAll('[data-testid^="cafe-dish-"]')]
+    for (const row of rows) {
+      const id = row.getAttribute('data-testid')!.replace('cafe-dish-', '')
+      const marker = row.querySelector(`[data-testid="cafe-menu-target-${id}"]`)
+      if (targetIds.has(id)) expect(marker).not.toBeNull()
+      else expect(marker).toBeNull()
+    }
+  })
+
+  it('does not reveal the target meaning/image/kana before an answer', () => {
     renderPage()
     const bubble = screen.getByTestId('cafe-target-bubble')
     for (const dish of CHECKPOINT_DISHES) {
       expect(bubble.textContent ?? '').not.toContain(dish.english)
+      expect(bubble.textContent ?? '').not.toContain(dish.displayKana)
     }
     expect(bubble.querySelector('img')).toBeNull()
   })
