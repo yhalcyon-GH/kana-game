@@ -360,6 +360,26 @@ describe('RestaurantPage', () => {
     expect(targetRow).toHaveClass('flex-wrap')
   })
 
+  it('renders the new 3-row visual structure: menu, then Tamamizu bubble, then order template (Issue #160, layout-only)', () => {
+    renderPage()
+    const menu = screen.getByTestId('restaurant-menu')
+    const bubble = screen.getByTestId('restaurant-target-bubble')
+    const template = screen.getByTestId('restaurant-order-template')
+    expect(menu.compareDocumentPosition(bubble) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(bubble.compareDocumentPosition(template) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('keeps showing the target image/emoji and English up front in the bubble — Restaurant gameplay is unchanged by the layout move (Issue #160)', () => {
+    renderPage()
+    const bubble = screen.getByTestId('restaurant-target-bubble')
+    // Restaurant (unlike Cafe) never hides the target before an answer —
+    // this is the same DishGlyph image/placeholder it always rendered, just
+    // moved below the menu instead of above it.
+    const targetId = currentTargetDishes()[0].id
+    expect(screen.getByTestId(`restaurant-target-${targetId}`)).toBeInTheDocument()
+    expect(bubble.querySelector('img, [aria-hidden="true"]')).toBeTruthy()
+  })
+
   it('renders a labelled Menu Sheet with a prominent header and restrained frame', () => {
     renderPage()
     const menu = screen.getByTestId('restaurant-menu')

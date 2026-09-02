@@ -1,54 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AnswerFeedbackRow } from '../../components/AnswerFeedbackRow'
 import { PracticeScoreVisual } from '../../components/PracticeScoreVisual'
 import { RESTAURANT_DISHES, type RestaurantDish, type RestaurantStageId } from '../../data/restaurantDishes'
-import { useTTS } from '../../hooks/useTTS'
-import { pickIncorrectFeedback, pickResultFeedback } from '../../lib/feedbackVoice'
-import { menuKey, pickRoundFromPools, shuffleRestaurantChoices, type RestaurantRound } from '../../lib/restaurantRound'
-import { checkMultipleDishOrderAlternatives, checkOrderAlternatives, type OrderCheckResult } from '../../lib/restaurantMatching'
-
-// Minimal ambient typing for the (still-experimental, vendor-prefixed) Web
-// Speech API — not present in the TS DOM lib. Deliberately only the surface
-// this component actually uses; no dependency on the newer
-// SpeechRecognition.available()/install()/processLocally() APIs per spec.
-type SpeechRecognitionAlternative = { transcript: string }
-type SpeechRecognitionResultLike = { [index: number]: SpeechRecognitionAlternative; length: number }
-type SpeechRecognitionEventLike = { results: { [index: number]: SpeechRecognitionResultLike; length: number } }
-type SpeechRecognitionErrorEventLike = { error: string }
-type SpeechRecognitionLike = {
-  lang: string
-  continuous: boolean
-  interimResults: boolean
-  maxAlternatives: number
-  onresult: ((event: SpeechRecognitionEventLike) => void) | null
-  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null
-  onend: (() => void) | null
-  start: () => void
-  abort: () => void
-}
-type SpeechRecognitionCtor = new () => SpeechRecognitionLike
-
-function getSpeechRecognitionCtor(): SpeechRecognitionCtor | null {
-  const w = window as unknown as { SpeechRecognition?: SpeechRecognitionCtor; webkitSpeechRecognition?: SpeechRecognitionCtor }
-  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null
-}
-
-function abortRecognition(ref: { current: SpeechRecognitionLike | null }) {
-  ref.current?.abort()
-  ref.current = null
-}
-
-function invalidateSequence(ref: { current: number }) {
-  ref.current++
-}
-
-type ResultState =
-  | { kind: 'idle' }
-  | { kind: 'listening' }
-  | { kind: 'result'; source: 'speech' | 'romaji'; transcript: string | null; check: OrderCheckResult; revealed?: boolean }
-
-type SessionResult = { dishes: RestaurantDish[]; correct: boolean }
+import { useOrderingGame, type OrderingSessionResult } from '../../hooks/useOrderingGame'
 
 // A small, standalone, repeatable "order the dish from the menu" mini-game.
 // Deliberately outside the
@@ -57,325 +12,32 @@ type SessionResult = { dishes: RestaurantDish[]; correct: boolean }
 // useProgressStore/useCurriculum/savedItemsStore import. It never marks
 // anything taught, mastered, reviewed, or completed; it's just a repeatable
 // vocabulary-recognition game the learner can play as many times as they
-// like from the Hiragana overview page.
+// like from each script's overview page.
+//
+// Shares its full question/scoring/speech-recognition state machine with
+// Cafe (routes/games/CafePage.tsx) via hooks/useOrderingGame.ts — the two
+// only differ in presentation (Restaurant shows the target dish's
+// image/emoji up front and keeps the English translation in the feedback
+// row; Cafe hides both before an answer — see CafePage.tsx's own comment).
 export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStageId }) {
-  const { speak, speakAndWait, stop } = useTTS()
-  const sequenceIdRef = useRef(0)
   const dishes = RESTAURANT_DISHES.filter((dish) => dish.stage === stage)
   const menuDishes = RESTAURANT_DISHES.filter((dish) => ['hiragana', 'katakana', 'other', 'special-katakana'].indexOf(dish.stage) <= ['hiragana', 'katakana', 'other', 'special-katakana'].indexOf(stage))
-  const [round, setRound] = useState<RestaurantRound>(() => pickRoundFromPools(dishes, menuDishes))
-  const [targets, setTargets] = useState<RestaurantDish[]>([round.target])
-  const [romajiChoices, setRomajiChoices] = useState<RestaurantDish[]>(() => shuffleRestaurantChoices(round.menu))
-  const [state, setState] = useState<ResultState>({ kind: 'idle' })
-  const [questionNumber, setQuestionNumber] = useState(1)
-  const [sessionResults, setSessionResults] = useState<SessionResult[]>([])
-  const [completed, setCompleted] = useState(false)
-  const [started, setStarted] = useState(false)
-  const greetedIntroRef = useRef(false)
-  const [showRomaji, setShowRomaji] = useState(false)
-  const [isRomajiRescue, setIsRomajiRescue] = useState(false)
-  const [selectedRomaji, setSelectedRomaji] = useState<RestaurantDish[]>([])
-  const usedTargetIdsRef = useRef<string[]>([round.target.id])
-  const usedPairKeysRef = useRef<string[]>([])
-  const lastMenuKeyRef = useRef(menuKey(round.menu))
-  const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
-  const recognitionTokenRef = useRef(0)
-  const speechRetryUsedRef = useRef(false)
-  const [speechRetryUsed, setSpeechRetryUsed] = useState(false)
-  const [speechSupported, setSpeechSupported] = useState(false)
-  // Shared Practice incorrect-reaction pool/picker (lib/feedbackVoice.ts) —
-  // reused as-is rather than a Restaurant-only pool. Tracked so the same
-  // line never repeats back-to-back, same rule as normal Practice.
-  const lastWrongFeedbackIdRef = useRef<string | null>(null)
-  // Guards the shared end-of-session Tamamizu result line (pickResultFeedback)
-  // so it plays exactly once per completed session, even across StrictMode's
-  // double-invoked effects or an unrelated re-render while `completed` is true.
-  const resultAnnouncedRef = useRef(false)
+  const game = useOrderingGame({
+    dishes,
+    menuDishes,
+    greetingAudioKey: 'restaurant/staff/irasshaimase',
+    greetingText: 'いらっしゃいませ。',
+    successAudioKey: 'restaurant/staff/kashikomarimashita',
+    successText: 'かしこまりました。',
+  })
+  const {
+    round, targets, romajiChoices, state, questionNumber, sessionResults, completed, started, showRomaji, isRomajiRescue,
+    selectedRomaji, speechRetryUsed, speechSupported, isResult, isSuccess, isSpeechFailure, mistakes,
+    setStarted, startListening, chooseRomaji, submitRomajiOrder, nextOrder, playAgain, hearFullOrder, tryAgain,
+    showRomajiRescue, revealRomajiRescueAnswer, revealAnswer, hearDish, setShowRomaji,
+  } = game
 
-  useEffect(() => {
-    setSpeechSupported(getSpeechRecognitionCtor() !== null)
-  }, [speak])
-
-  useEffect(() => {
-    if (!started && !greetedIntroRef.current) {
-      speak('restaurant/staff/irasshaimase', 'いらっしゃいませ。')
-      greetedIntroRef.current = true
-    }
-    if (started) greetedIntroRef.current = false
-  }, [started, speak])
-
-  useEffect(() => {
-    return () => {
-      invalidateSequence(recognitionTokenRef)
-      abortRecognition(recognitionRef)
-      invalidateSequence(sequenceIdRef)
-      stop()
-    }
-  }, [stop])
-
-  // Same shared end-of-session Tamamizu voice line Practice's results screen
-  // uses (lib/feedbackVoice.ts's pickResultFeedback, judged on accuracy out
-  // of 8 questions — see useAnswerFeedback.onFinish for the Practice-side
-  // equivalent), reused rather than a parallel Restaurant judgment table.
-  // Guarded by a ref (not just the `completed` dependency) so it plays
-  // exactly once even under StrictMode's double-invoked effects.
-  useEffect(() => {
-    if (!completed || resultAnnouncedRef.current) return
-    resultAnnouncedRef.current = true
-    const correctCount = sessionResults.filter((result) => result.correct).length
-    const { id, text } = pickResultFeedback(correctCount, 8)
-    speak(`feedback/${id}`, text)
-  }, [completed, sessionResults, speak])
-
-  function finalizeQuestion(correct: boolean) {
-    setSessionResults((previous) => {
-      const index = questionNumber - 1
-      if (previous[index]) return previous
-      const next = [...previous]
-      next[index] = { dishes: targets, correct }
-      return next
-    })
-  }
-
-  // Records the mistake (exactly once, via finalizeQuestion's existing
-  // index-guard) and plays the SAME shared Tamamizu incorrect-reaction pool
-  // normal Practice uses (see lib/feedbackVoice.ts's pickIncorrectFeedback /
-  // useAnswerFeedback's onWrong) — reused directly rather than duplicated,
-  // per every place a Restaurant answer becomes definitively wrong.
-  function finalizeWrong() {
-    finalizeQuestion(false)
-    const { id, text } = pickIncorrectFeedback(lastWrongFeedbackIdRef.current)
-    lastWrongFeedbackIdRef.current = id
-    speak(`feedback/${id}`, text)
-  }
-
-  function evaluate(source: 'speech' | 'romaji', transcript: string | null, check: OrderCheckResult) {
-    if (check.outcome === 'success') {
-      setState({ kind: 'result', source, transcript, check, revealed: false })
-      finalizeQuestion(true)
-      speak('restaurant/staff/kashikomarimashita', 'かしこまりました。')
-    } else if (source === 'romaji') {
-      // A wrong Romaji pick (whether the initial choice or the post-speech-
-      // failure rescue) is always definitively final — there is no further
-      // retry/rescue path from here — so auto-reveal the correct answer
-      // immediately instead of showing a "Show Answer" button.
-      finalizeWrong()
-      setState({ kind: 'result', source, transcript, check, revealed: true })
-    } else {
-      // A speech-recognition miss is NOT final yet — Try Again / Romaji
-      // rescue may still be available, so leave it unrevealed.
-      setState({ kind: 'result', source, transcript, check, revealed: false })
-    }
-  }
-
-  // Manual "give up" reveal, only reachable while a speech-failure retry/
-  // rescue path is still technically available (see the isSpeechFailure
-  // render branch) — the learner opts out early rather than retrying.
-  function revealAnswer() {
-    if (state.kind !== 'result' || state.revealed) return
-    finalizeWrong()
-    setState({ ...state, revealed: true })
-  }
-
-  function startListening() {
-    const Ctor = getSpeechRecognitionCtor()
-    if (!Ctor) {
-      setSpeechSupported(false)
-      return
-    }
-    recognitionTokenRef.current++
-    recognitionRef.current?.abort()
-    const token = recognitionTokenRef.current
-    let settled = false
-    const settle = (callback: () => void) => {
-      if (settled || token !== recognitionTokenRef.current) return
-      settled = true
-      callback()
-    }
-    setShowRomaji(false)
-    setIsRomajiRescue(false)
-    setState({ kind: 'listening' })
-    const recognition = new Ctor()
-    recognitionRef.current = recognition
-    recognition.lang = 'ja-JP'
-    recognition.continuous = false
-    recognition.interimResults = false
-    recognition.maxAlternatives = 3
-    recognition.onresult = (event) => {
-      if (settled || token !== recognitionTokenRef.current || !event.results || !event.results[0]) return
-      const result = event.results[0]
-      const alternatives: string[] = []
-      const resultLength = Number.isInteger(result.length) && result.length > 0 ? result.length : 0
-      for (let i = 0; i < resultLength; i++) {
-        const transcript = result[i]?.transcript
-        if (typeof transcript === 'string' && transcript.trim()) alternatives.push(transcript)
-      }
-      const check = targets.length === 1 ? checkOrderAlternatives(alternatives, round.menu, targets[0]) : checkMultipleDishOrderAlternatives(alternatives, round.menu, targets)
-      settle(() => evaluate('speech', alternatives[0] ?? null, check))
-    }
-    recognition.onerror = () => {
-      settle(() => evaluate('speech', null, { outcome: 'unrecognized' }))
-    }
-    recognition.onend = () => {
-      // If neither onresult nor onerror fired (e.g. aborted), fall back to
-      // an unrecognized result rather than leaving the UI stuck listening.
-      settle(() => evaluate('speech', null, { outcome: 'unrecognized' }))
-    }
-    try {
-      recognition.start()
-    } catch {
-      settle(() => evaluate('speech', null, { outcome: 'unrecognized' }))
-    }
-  }
-
-  function chooseRomaji(dish: RestaurantDish) {
-    if (targets.length === 2) {
-      setSelectedRomaji((selected) => selected.some((item) => item.id === dish.id) ? selected.filter((item) => item.id !== dish.id) : selected.length < 2 ? [...selected, dish] : selected)
-      return
-    }
-    const check: OrderCheckResult = dish.id === round.target.id ? { outcome: 'success' } : { outcome: 'wrong-dish', identified: dish }
-    evaluate('romaji', null, check)
-  }
-
-  function submitRomajiOrder() {
-    const correct = selectedRomaji.length === targets.length && targets.every((target) => selectedRomaji.some((dish) => dish.id === target.id))
-    evaluate('romaji', null, correct ? { outcome: 'success' } : { outcome: 'wrong-dish', identified: selectedRomaji[0] ?? round.menu[0] })
-  }
-
-  function nextOrder() {
-    if (questionNumber >= 8) {
-      setCompleted(true)
-      return
-    }
-    sequenceIdRef.current++
-    stop()
-    recognitionTokenRef.current++
-    recognitionRef.current?.abort()
-    recognitionRef.current = null
-    const nextRound = pickRoundFromPools(dishes, menuDishes, Math.random, round.target.id, usedTargetIdsRef.current, lastMenuKeyRef.current)
-    usedTargetIdsRef.current = [...usedTargetIdsRef.current, nextRound.target.id]
-    const isTwoTargetRound = questionNumber + 1 >= 5
-    let secondTarget: RestaurantDish | null = null
-    let nextMenu = nextRound.menu
-    if (isTwoTargetRound) {
-      const candidates = dishes.filter((dish) => dish.id !== nextRound.target.id)
-      const unseenTargets = candidates.filter((dish) => !usedTargetIdsRef.current.includes(dish.id))
-      const targetPool = unseenTargets.length ? unseenTargets : candidates
-      const unusedPairs = targetPool.filter((dish) => !usedPairKeysRef.current.includes([nextRound.target.id, dish.id].sort().join('|')))
-      const secondPool = unusedPairs.length ? unusedPairs : targetPool
-      const selectedSecondTarget = secondPool[Math.min(secondPool.length - 1, Math.floor(Math.random() * secondPool.length))]
-      secondTarget = selectedSecondTarget
-
-      const fillerPool = menuDishes.filter((dish) => dish.id !== nextRound.target.id && dish.id !== selectedSecondTarget.id)
-      const buildFinalMenu = () => shuffleRestaurantChoices([
-        nextRound.target,
-        selectedSecondTarget,
-        ...shuffleRestaurantChoices(fillerPool).slice(0, 2),
-      ])
-      nextMenu = buildFinalMenu()
-      for (let attempt = 0; attempt < 4 && menuKey(nextMenu) === lastMenuKeyRef.current; attempt++) {
-        nextMenu = buildFinalMenu()
-      }
-      if (menuKey(nextMenu) === lastMenuKeyRef.current) {
-        outer: for (let first = 0; first < fillerPool.length; first++) {
-          for (let second = first + 1; second < fillerPool.length; second++) {
-            const alternative = [nextRound.target, selectedSecondTarget, fillerPool[first], fillerPool[second]]
-            if (menuKey(alternative) !== lastMenuKeyRef.current) {
-              nextMenu = shuffleRestaurantChoices(alternative)
-              break outer
-            }
-          }
-        }
-      }
-
-      usedTargetIdsRef.current = [...usedTargetIdsRef.current, selectedSecondTarget.id]
-      usedPairKeysRef.current = [...usedPairKeysRef.current, [nextRound.target.id, selectedSecondTarget.id].sort().join('|')]
-    }
-    const orderRound = { ...nextRound, menu: nextMenu }
-    lastMenuKeyRef.current = menuKey(orderRound.menu)
-    setRound(orderRound)
-    setTargets(secondTarget ? [orderRound.target, secondTarget] : [orderRound.target])
-    setRomajiChoices(shuffleRestaurantChoices(orderRound.menu))
-    setShowRomaji(false)
-    setIsRomajiRescue(false)
-    setSelectedRomaji([])
-    speechRetryUsedRef.current = false
-    setSpeechRetryUsed(false)
-    setQuestionNumber((number) => number + 1)
-    setState({ kind: 'idle' })
-  }
-
-  function playAgain() {
-    sequenceIdRef.current++
-    stop()
-    recognitionTokenRef.current++
-    recognitionRef.current?.abort()
-    recognitionRef.current = null
-    const firstRound = pickRoundFromPools(dishes, menuDishes)
-    usedTargetIdsRef.current = [firstRound.target.id]
-    usedPairKeysRef.current = []
-    setRound(firstRound)
-    lastMenuKeyRef.current = menuKey(firstRound.menu)
-    setTargets([firstRound.target])
-    setRomajiChoices(shuffleRestaurantChoices(firstRound.menu))
-    setQuestionNumber(1)
-    setSessionResults([])
-    setCompleted(false)
-    setStarted(false)
-    setShowRomaji(false)
-    setIsRomajiRescue(false)
-    setSelectedRomaji([])
-    speechRetryUsedRef.current = false
-    setSpeechRetryUsed(false)
-    lastWrongFeedbackIdRef.current = null
-    resultAnnouncedRef.current = false
-    setState({ kind: 'idle' })
-  }
-
-  async function hearFullOrder() {
-    const sequenceId = ++sequenceIdRef.current
-    stop()
-    const play = (key: string, text: string) => speakAndWait ? speakAndWait(key, text) : Promise.resolve(speak(key, text))
-    await play('restaurant/phrases/sumimasen', 'すみません。')
-    if (sequenceId !== sequenceIdRef.current) return
-    await new Promise((resolve) => window.setTimeout(resolve, 400))
-    if (sequenceId !== sequenceIdRef.current) return
-    for (let i = 0; i < targets.length; i++) {
-      await play(targets[i].audioPath.replace(/^\/audio\//, '').replace(/\.wav$/, ''), targets[i].displayKana)
-      if (sequenceId !== sequenceIdRef.current) return
-      if (i < targets.length - 1) await play('restaurant/phrases/to', 'と')
-      if (sequenceId !== sequenceIdRef.current) return
-      await new Promise((resolve) => window.setTimeout(resolve, 400))
-      if (sequenceId !== sequenceIdRef.current) return
-    }
-    await play('restaurant/phrases/onegaishimasu', 'おねがいします。')
-  }
-
-  function tryAgain() {
-    if (speechRetryUsedRef.current) return
-    speechRetryUsedRef.current = true
-    setSpeechRetryUsed(true)
-    startListening()
-  }
-
-  function showRomajiRescue() {
-    setIsRomajiRescue(true)
-    setShowRomaji(true)
-    setSelectedRomaji([])
-    setState({ kind: 'idle' })
-  }
-
-  function revealRomajiRescueAnswer() {
-    finalizeWrong()
-    setState({ kind: 'result', source: 'romaji', transcript: null, check: { outcome: 'wrong-dish', identified: round.menu[0] }, revealed: true })
-    setShowRomaji(false)
-  }
-
-  const isResult = state.kind === 'result'
   const backPath = stage === 'hiragana' ? '/hiragana' : stage === 'katakana' ? '/katakana' : stage === 'other' ? '/other' : '/youon'
-  const isSuccess = isResult && state.kind === 'result' && state.check.outcome === 'success'
-  const isSpeechFailure = isResult && state.kind === 'result' && state.source === 'speech' && !isSuccess && !state.revealed
-  const mistakes = sessionResults.filter((result) => !result.correct)
   if (completed) {
     const correct = sessionResults.filter((result) => result.correct).length
     return <SessionSummary correct={correct} mistakes={mistakes} onPlayAgain={playAgain} backPath={backPath} />
@@ -397,10 +59,13 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
         <span className="w-16" aria-hidden="true" />
       </div>
 
-      {/* Tamamizu + speech bubble showing ONLY the target dish's
-          image-or-emoji — no kana/romaji/English inside the bubble, since
-          the whole point is the learner has to read the menu to figure out
-          what to say. */}
+      {/* Row 1: menu. Row 2: Tamamizu + speech bubble. Row 3: order
+          template. Layout-only change (Issue #160) so Restaurant and Cafe
+          share the same visual structure — Restaurant's gameplay/reveal
+          behavior (image/emoji + English shown up front in the bubble) is
+          unchanged from before. */}
+      <RestaurantMenuSheet dishes={round.menu} />
+
       <div className="flex w-full max-w-md items-end gap-3">
         <img src={`${import.meta.env.BASE_URL}mascot/order.webp`} alt="Tamamizu" className="h-28 w-28 shrink-0 object-contain sm:h-32 sm:w-32" />
         <div
@@ -416,21 +81,19 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
         {targets.length === 1 ? 'すみません、＿＿＿＿ おねがいします。' : 'すみません、＿＿＿＿ と ＿＿＿＿ おねがいします。'}
       </p>
 
-      <RestaurantMenuSheet dishes={round.menu} />
-
       {isResult && (
         <div className="flex w-full max-w-md flex-col items-center gap-2 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-center dark:border-neutral-700 dark:bg-neutral-900">
           {state.kind === 'result' && state.transcript !== null && (
             <p className="text-sm text-neutral-500 dark:text-neutral-400">I heard: 「{state.transcript}」</p>
           )}
-          {isSuccess || state.revealed ? (
+          {isSuccess || (state.kind === 'result' && state.revealed) ? (
             <>
               {isSuccess && <p className="text-lg font-bold text-green-600 dark:text-green-400">Great!</p>}
               <p className="text-xl font-bold">{targets.map((dish) => dish.romaji).join(' + ')}</p>
               {targets.map((dish) => <p key={dish.id} className="text-sm text-neutral-600 dark:text-neutral-300">{dish.english}</p>)}
               <div className="flex gap-2">
-                {targets.map((dish) => <button key={dish.id} type="button" onClick={() => { sequenceIdRef.current++; stop(); speak(dish.audioPath.replace(/^\/audio\//, '').replace(/\.wav$/, ''), dish.displayKana) }} className="rounded-full border px-3 py-1 text-sm">Hear {dish.romaji}</button>)}
-                <button type="button" onClick={hearFullOrder} className="rounded-full border px-3 py-1 text-sm">Hear the full order</button>
+                {targets.map((dish) => <button key={dish.id} type="button" onClick={() => hearDish(dish)} className="rounded-full border px-3 py-1 text-sm">Hear {dish.romaji}</button>)}
+                <button type="button" onClick={() => hearFullOrder('restaurant/phrases/sumimasen', 'すみません。', 'restaurant/phrases/to', 'と', 'restaurant/phrases/onegaishimasu', 'おねがいします。')} className="rounded-full border px-3 py-1 text-sm">Hear the full order</button>
               </div>
               <AnswerFeedbackRow mood={isSuccess ? 'correct' : 'incorrect'} showNext onNext={nextOrder} />
             </>
@@ -498,7 +161,7 @@ export function RestaurantPage({ stage = 'hiragana' }: { stage?: RestaurantStage
   )
 }
 
-function RestaurantMenuSheet({ dishes }: { dishes: RestaurantDish[] }) {
+export function RestaurantMenuSheet({ dishes }: { dishes: RestaurantDish[] }) {
   return (
     <section
       aria-labelledby="restaurant-menu-title"
@@ -532,7 +195,42 @@ function RestaurantMenuSheet({ dishes }: { dishes: RestaurantDish[] }) {
   )
 }
 
-function DishGlyph({ dish, className, target = false, menu = false }: { dish: RestaurantDish; className: string; target?: boolean; menu?: boolean }) {
+// Cafe's menu row omits DishGlyph entirely (no image clue before the
+// answer — see CafePage.tsx), so it uses its own render, not this component.
+export function CafeMenuSheet({ dishes }: { dishes: RestaurantDish[] }) {
+  return (
+    <section
+      aria-labelledby="cafe-menu-title"
+      data-testid="cafe-menu"
+      className="w-full max-w-md overflow-hidden rounded-lg border border-amber-300/70 bg-[#fff8e7] shadow-[0_8px_24px_rgba(120,75,25,0.12)] ring-1 ring-inset ring-amber-200/80 dark:border-amber-800/80 dark:bg-[#2b2118] dark:ring-amber-700/70 dark:shadow-[0_8px_24px_rgba(0,0,0,0.24)]"
+    >
+      <header className="px-4 pt-4 pb-3 sm:px-6">
+        <h2 id="cafe-menu-title" className="font-kana text-center text-2xl font-bold tracking-[0.14em] text-amber-950 dark:text-amber-100">
+          メニュー
+        </h2>
+        <div data-testid="cafe-menu-divider" aria-hidden="true" className="mx-auto mt-2 w-full border-t border-amber-300/80 dark:border-amber-700/80" />
+      </header>
+      <div className="divide-y divide-amber-200/90 px-3 sm:px-5 dark:divide-amber-800/80">
+        {dishes.map((dish) => (
+          <div
+            key={dish.id}
+            data-testid={`cafe-dish-${dish.id}`}
+            className="flex items-center justify-between gap-3 py-2.5 text-left sm:py-3"
+          >
+            <span className="font-kana min-w-0 break-words text-[clamp(1.25rem,6vw,1.75rem)] leading-snug font-bold text-amber-950 dark:text-amber-100">
+              {dish.displayKana}
+            </span>
+            <span className="whitespace-nowrap text-right text-xs font-medium tabular-nums text-amber-900/75 sm:text-sm dark:text-amber-200/75">
+              ¥{dish.priceYen}
+            </span>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+export function DishGlyph({ dish, className, target = false, menu = false }: { dish: RestaurantDish; className: string; target?: boolean; menu?: boolean }) {
   const [failed, setFailed] = useState(false)
   if (dish.image && !failed) {
     return <img src={`${import.meta.env.BASE_URL}${dish.image}`} alt={target ? 'Target dish' : menu ? dish.displayKana : ''} onError={() => setFailed(true)} className={`object-contain ${className}`} />
@@ -563,14 +261,14 @@ function RestaurantIntro({ onStart, backPath }: { onStart: () => void; backPath:
   </div>
 }
 
-function SessionSummary({ correct, mistakes, onPlayAgain, backPath }: { correct: number; mistakes: SessionResult[]; onPlayAgain: () => void; backPath: string }) {
+export function SessionSummary({ correct, mistakes, onPlayAgain, backPath, testIdPrefix = 'restaurant' }: { correct: number; mistakes: OrderingSessionResult[]; onPlayAgain: () => void; backPath: string; testIdPrefix?: string }) {
   const percent = Math.round((correct / 8) * 100)
   const comment = percent === 100 ? "Perfect! You're ready to order!" : percent >= 75 ? "Great job! You're getting the hang of it!" : percent >= 50 ? "Nice work! Let's practice a little more." : "Keep practicing! You'll get it!"
   return (
     <div className="flex w-full flex-col items-center gap-6">
       <h1 className="text-2xl font-bold">Completed!</h1>
       <PracticeScoreVisual correct={correct} total={8} />
-      <p data-testid="restaurant-result-comment" className="max-w-sm text-center text-lg font-semibold text-amber-800 dark:text-amber-200">{comment}</p>
+      <p data-testid={`${testIdPrefix}-result-comment`} className="max-w-sm text-center text-lg font-semibold text-amber-800 dark:text-amber-200">{comment}</p>
       <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-neutral-50 p-5 text-center dark:border-neutral-700 dark:bg-neutral-900">
         <h2 className="font-bold">Mistakes</h2>
         {mistakes.length === 0 ? <p className="mt-2 text-sm text-neutral-500">None — excellent work!</p> : (
