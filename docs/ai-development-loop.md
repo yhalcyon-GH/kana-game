@@ -1,4 +1,4 @@
-# AI Development Loop (v1.4)
+# AI Development Loop (v1.5)
 
 How a normal KanaGame task should flow with ChatGPT plus a coding agent such as Claude Code or Codex, so the user can usually supply a Goal and Acceptance Criteria instead of a long implementation prompt.
 
@@ -64,6 +64,39 @@ When a spike has already settled architecture, constraints, pinned sources, or a
 ## Agent-switch handoff
 
 Never assume another agent's local checkout, branch, worktree, or conversation state is current.
+
+## Autonomous/offline handoff completeness
+
+Use this gate when the user will be unavailable, the task spans several
+approved decisions, or local/external assets are involved. Carry a compact
+canonical snapshot, not merely a link to a long Issue thread:
+
+- executor and filesystem/tool reach for every required local resource;
+- fresh `origin/main`, task branch/PR, and already-merged dependencies;
+- approved current product/learning decisions, including superseding comments;
+- explicit do-not-reimplement baseline behavior;
+- exact asset paths and current runtime contracts, plus pending assets and
+  approved fallbacks;
+- required verification, known gaps, and exact stop/escalation conditions.
+
+Do not apply this checklist to trivial interactive work. Resolve materially
+conflicting Issue comments into one quoted or written canonical final snapshot
+before implementation. Historical examples remain evidence only and must not
+override a verified current contract.
+
+Before assigning local-path work, verify that the selected executor can reach
+the path. If a cloud chat cannot reach a user-local path but a local Builder
+can, route the work there explicitly; never imply arbitrary local Windows paths
+are connector-readable.
+
+When a migration changes a shared contract, refresh downstream handoffs from
+live repository evidence and prefer a deterministic invariant that rejects
+reintroduction of the retired contract. After another chat reports a merge,
+verify live `main`/PR state before carrying the new baseline forward.
+
+For closely related variants, describe the shared shell/engine once and add an
+explicit delta matrix for intentional differences. Add regression coverage at
+the shared boundary so variants cannot silently fork.
 
 When switching Claude Code ↔ Codex, resuming work from another environment, or starting from an old checkout:
 
