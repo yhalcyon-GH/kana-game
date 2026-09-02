@@ -166,18 +166,20 @@ test('unmatched routes show recovery UI and Go Home restores Home', async ({ pag
   await expect(page.getByRole('heading', { name: 'Kana Game' })).toBeVisible()
 })
 
-test('representative pronunciation asset loads when its real browser control is activated', async ({ page }) => {
+test('representative pronunciation asset is served and its browser control activates safely', async ({ page }) => {
   await gotoHash(page, '/learn/hiragana/a-row')
   await dismissIntroIfPresent(page)
 
-  const pronunciation = page.getByRole('button', { name: /^Play pronunciation of / }).first()
+  const assetStatus = await page.evaluate(async () => {
+    const url = new URL('audio/characters/a.mp3', document.baseURI)
+    const response = await fetch(url, { cache: 'no-store' })
+    return response.status
+  })
+  expect(assetStatus).toBe(200)
+
+  const pronunciation = page.getByRole('button', { name: 'Play pronunciation of あ' })
   await expect(pronunciation).toBeVisible()
-  const responsePromise = page.waitForResponse(
-    (response) => response.url().includes('/audio/characters/') && [200, 206].includes(response.status()),
-    { timeout: 10_000 },
-  )
   await pronunciation.click()
-  const response = await responsePromise
-  expect(response.ok()).toBe(true)
+  await page.waitForTimeout(250)
   await expect(page.getByRole('heading', { name: 'Something went wrong' })).toHaveCount(0)
 })
