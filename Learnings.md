@@ -23,6 +23,8 @@ The first four sections are **raw observations**. `Consolidated Principles` cont
 - 2026-09-02 — Cross-cutting migrations require downstream handoffs to refresh their runtime contract; historical extensions and paths are stale until verified.
 - 2026-09-02 — Offline handoffs should name the already-merged baseline, pending assets/fallbacks, verification, and stop conditions.
 - 2026-09-02 — Describing a shared shell once with an explicit variant-delta matrix reduces duplicated logic and review burden.
+- 2026-09-02 — Token-efficient autonomous work is safer when it starts from a compact state capsule, targeted retrieval, and focused evidence rather than repeated broad reads.
+- 2026-09-02 — Human checks should be reserved for consequential under-specified decisions; routine bounded choices should proceed with verification.
 
 - 2026-08-22 — When debugging a reproducible regression, first establish the failing behavior, add or identify a regression test, make the smallest correction, then run focused and broader verification.
 - 2026-08-22 — For stateful review sessions, keep the session queue and the data used to resolve that queue from a consistent session snapshot when live progress updates can remove items mid-session.
