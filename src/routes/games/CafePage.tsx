@@ -106,7 +106,7 @@ export function CafePage({ checkpointId }: { checkpointId: string }) {
         </div>
       </div>
 
-      <p data-testid="cafe-order-template" className="font-kana w-full whitespace-nowrap text-center text-[clamp(.8rem,4vw,1.125rem)]" lang="ja">
+      <p data-testid="cafe-order-template" className="font-kana w-full text-center text-[clamp(.8rem,4vw,1.125rem)]" lang="ja">
         {targets.length === 1 ? 'すみません、＿＿＿＿ おねがいします。' : 'すみません、＿＿＿＿ と ＿＿＿＿ おねがいします。'}
       </p>
 

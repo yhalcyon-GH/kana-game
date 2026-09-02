@@ -82,7 +82,7 @@ export function RestaurantPage({ checkpointId = 'na-row' }: { checkpointId?: str
         </div>
       </div>
 
-      <p data-testid="restaurant-order-template" className="font-kana w-full whitespace-nowrap text-center text-[clamp(.8rem,4vw,1.125rem)]" lang="ja">
+      <p data-testid="restaurant-order-template" className="font-kana w-full text-center text-[clamp(.8rem,4vw,1.125rem)]" lang="ja">
         {targets.length === 1 ? 'すみません、＿＿＿＿ おねがいします。' : 'すみません、＿＿＿＿ と ＿＿＿＿ おねがいします。'}
       </p>
 
