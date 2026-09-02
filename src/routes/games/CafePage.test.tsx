@@ -1,4 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
+import fs from 'node:fs'
+import path from 'node:path'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CAFE_DISHES, isKatakanaOnlyDish } from '../../data/restaurantDishes'
@@ -64,6 +66,15 @@ describe('CafePage', () => {
     expect(screen.getByText("Let's order at a cafe.")).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Start' }))
     expect(screen.getByTestId('cafe-order-template')).toHaveTextContent('すみません、＿＿＿＿ おねがいします。')
+  })
+
+  it('shows the real Cafe intro scene image, not the pending/hidden placeholder (follow-up: Cafe intro scene art)', () => {
+    renderPage(false)
+    const image = screen.getByAltText('Cafe introduction')
+    expect(image).toHaveAttribute('src', expect.stringContaining('mascot/cafe-intro.webp'))
+    // No onError-hide fallback anymore — the real asset is expected to load.
+    expect(image).not.toHaveAttribute('onerror')
+    expect(fs.existsSync(path.resolve(process.cwd(), 'public/mascot/cafe-intro.webp'))).toBe(true)
   })
 
   it('is Katakana-only: every dish in this checkpoint\'s pool is katakana-only (Issue #160)', () => {
