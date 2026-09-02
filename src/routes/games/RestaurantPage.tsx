@@ -171,7 +171,7 @@ export function RestaurantMenuSheet({ dishes }: { dishes: RestaurantDish[] }) {
     <section
       aria-labelledby="restaurant-menu-title"
       data-testid="restaurant-menu"
-      className="w-full max-w-md overflow-hidden rounded-lg border border-amber-300/70 bg-[#fff8e7] shadow-[0_8px_24px_rgba(120,75,25,0.12)] ring-1 ring-inset ring-amber-200/80 dark:border-amber-800/80 dark:bg-[#2b2118] dark:ring-amber-700/70 dark:shadow-[0_8px_24px_rgba(0,0,0,0.24)]"
+      className="w-full max-w-md overflow-hidden rounded-lg border border-amber-300/70 bg-[#fff8e7] shadow-none ring-1 ring-inset ring-amber-200/80 sm:shadow-[0_8px_24px_rgba(120,75,25,0.12)] dark:border-amber-800/80 dark:bg-[#2b2118] dark:ring-amber-700/70 sm:dark:shadow-[0_8px_24px_rgba(0,0,0,0.24)]"
     >
       <header className="px-4 pt-4 pb-3 sm:px-6">
         <h2 id="restaurant-menu-title" className="font-kana text-center text-2xl font-bold tracking-[0.14em] text-amber-950 dark:text-amber-100">
@@ -211,7 +211,7 @@ export function CafeMenuSheet({ dishes, targetIds = [] }: { dishes: RestaurantDi
     <section
       aria-labelledby="cafe-menu-title"
       data-testid="cafe-menu"
-      className="w-full max-w-md overflow-hidden rounded-lg border border-amber-300/70 bg-[#fff8e7] shadow-[0_8px_24px_rgba(120,75,25,0.12)] ring-1 ring-inset ring-amber-200/80 dark:border-amber-800/80 dark:bg-[#2b2118] dark:ring-amber-700/70 dark:shadow-[0_8px_24px_rgba(0,0,0,0.24)]"
+      className="w-full max-w-md overflow-hidden rounded-lg border border-amber-300/70 bg-[#fff8e7] shadow-none ring-1 ring-inset ring-amber-200/80 sm:shadow-[0_8px_24px_rgba(120,75,25,0.12)] dark:border-amber-800/80 dark:bg-[#2b2118] dark:ring-amber-700/70 sm:dark:shadow-[0_8px_24px_rgba(0,0,0,0.24)]"
     >
       <header className="px-4 pt-4 pb-3 sm:px-6">
         <h2 id="cafe-menu-title" className="font-kana text-center text-2xl font-bold tracking-[0.14em] text-amber-950 dark:text-amber-100">
