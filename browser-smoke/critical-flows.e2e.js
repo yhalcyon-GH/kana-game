@@ -166,6 +166,64 @@ test('unmatched routes show recovery UI and Go Home restores Home', async ({ pag
   await expect(page.getByRole('heading', { name: 'Kana Game' })).toBeVisible()
 })
 
+test('Hiragana Test loads at 320px, hides Word Reading clues before answering, and reveals them after (Issue #189)', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 800 })
+  await gotoHash(page, '/assessment/hiragana')
+  await dismissIntroIfPresent(page)
+
+  await expect(page.getByText(/Question 1 \/ 20/)).toBeVisible()
+  const geometry = await expectNoHorizontalPageOverflow(page)
+  expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.clientWidth)
+
+  // Click through questions (any answer) until a Word Reading question
+  // appears — bounded by the fixed 5-per-family composition the planner
+  // guarantees (see lib/assessmentPlan.test.ts), so this always terminates
+  // well within 20 rounds.
+  const speakButton = page.getByTestId('word-reading-speak-button')
+  for (let round = 0; round < 20; round += 1) {
+    if (await speakButton.isVisible().catch(() => false)) break
+
+    const wordBuilderSlot = page.locator('.border-dashed').first()
+    const choiceButtons = page.locator('.grid.grid-cols-2 button')
+    if (await wordBuilderSlot.isVisible().catch(() => false)) {
+      const tiles = page.locator('button.font-kana:not([disabled])')
+      const slotCount = await page.locator('.border-dashed').count()
+      for (let i = 0; i < slotCount; i += 1) {
+        await tiles.first().click()
+      }
+    } else if ((await choiceButtons.count()) > 0) {
+      await choiceButtons.first().click()
+    } else {
+      // Already Word Reading, or transitioned to results — re-check at loop top.
+      continue
+    }
+
+    const complete = page.getByText(/complete!/)
+    if (await complete.isVisible().catch(() => false)) break
+    const next = page.getByRole('button', { name: 'Next' })
+    if (await next.isVisible().catch(() => false)) await next.click()
+  }
+
+  await expect(speakButton).toBeVisible()
+
+  // Before answering: only the written Japanese word is visible — no
+  // English meaning, illustration, or answer-revealing romaji anywhere on
+  // the Word Reading prompt (the "Correct!"/"Not quite." reveal panel must
+  // not exist yet).
+  await expect(page.getByText(/Correct!|Not quite\./)).toHaveCount(0)
+  await expect(page.getByRole('img')).toHaveCount(0)
+
+  await expectNoHorizontalPageOverflow(page)
+
+  // Answer via Romaji (no real speech recognition in CI) and confirm the
+  // post-answer reveal: correct word, romaji, meaning, and illustration.
+  await page.getByRole('button', { name: 'Choose in Romaji' }).click()
+  await page.getByTestId('word-reading-romaji-correct').click()
+
+  await expect(page.getByText(/Correct!/)).toBeVisible()
+  await expect(page.getByRole('img')).toHaveCount(1)
+})
+
 test('representative pronunciation asset is served and its browser control activates safely', async ({ page }) => {
   await gotoHash(page, '/learn/hiragana/a-row')
   await dismissIntroIfPresent(page)

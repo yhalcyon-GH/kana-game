@@ -44,6 +44,25 @@ export type RowActivityCompletion = {
 const ROW_ACTIVITY_KEYS = ['tracing', 'kanaQuiz', 'listening', 'wordBuilder', 'checkpoint'] as const
 export type RowActivityKey = (typeof ROW_ACTIVITY_KEYS)[number]
 
+// Hiragana/Katakana Test completion (Issue #189, Phase 1) — deliberately
+// the ONLY thing persisted for the assessment: per the issue's
+// "Progression behavior" section, score must never gate curriculum
+// progression, so only a score-independent completed flag is stored, plus
+// `lastScore` purely for display (e.g. re-showing the last result on
+// AssessmentPage without forcing a retake) — never read by any
+// Review/SRS/mastery/unlock code path. Keyed by script id, not a full row,
+// since the assessment is a section-level endpoint, not an ordinary row
+// (see curriculum.ts's SUMMARY_ROW_SOURCE_CATEGORY_IDS naming convention
+// for why 'hiragana'/'katakana' are used as keys instead of a synthetic
+// row id).
+export type AssessmentScript = 'hiragana' | 'katakana'
+export type AssessmentCompletion = {
+  completed: boolean
+  lastScore?: { correct: number; total: number }
+  completedAt?: number
+}
+const ASSESSMENT_SCRIPTS: AssessmentScript[] = ['hiragana', 'katakana']
+
 // "Continue" (Home's resume card, Issue #23) — deliberately separate from
 // Recommended Path: this just remembers the last real learning/practice
 // screen visited (Learn or one of the 5 game pages) for a real, non-summary
@@ -69,6 +88,8 @@ type ProgressState = {
   // Recommended Path completion — see RowActivityCompletion's comment.
   // Keyed by rowId; a row with nothing completed yet simply has no entry.
   rowActivityCompletion: Record<string, RowActivityCompletion>
+  // Hiragana/Katakana Test completion — see AssessmentCompletion's comment.
+  assessmentCompletion: Record<AssessmentScript, AssessmentCompletion>
   // null until the learner has visited at least one resumable screen — see
   // LastStudied's comment. Home's Continue card simply doesn't render then.
   lastStudied: LastStudied | null
@@ -145,6 +166,11 @@ type ProgressState = {
   // score remains irrelevant and no Review/SRS/mastery state is touched.
   markRowActivityCompleted: (rowId: string, activity: RowActivityKey) => void
   isRowActivityCompleted: (rowId: string, activity: RowActivityKey) => boolean
+  // Marks a Hiragana/Katakana Test completed — call only once the learner
+  // has answered all 20 questions (score irrelevant, see
+  // AssessmentCompletion's comment). `score` is stored purely for display.
+  markAssessmentCompleted: (script: AssessmentScript, score: { correct: number; total: number }) => void
+  isAssessmentCompleted: (script: AssessmentScript) => boolean
   // Pure navigation bookkeeping for Continue (Issue #23) — never touches
   // Recommended Path/completion/Review/SRS/mastery.
   setLastStudied: (entry: LastStudied) => void
@@ -225,6 +251,18 @@ function reviewProgressOr(candidate: Record<string, unknown>): { reviewActive: b
   return { reviewActive: true, reviewStreak }
 }
 
+function assessmentCompletionOr(value: unknown, fallback: AssessmentCompletion): AssessmentCompletion {
+  const candidate = isRecord(value) ? value : {}
+  const completed = booleanOr(candidate.completed, fallback.completed)
+  if (!completed) return { completed: false }
+  const scoreCandidate = isRecord(candidate.lastScore) ? candidate.lastScore : undefined
+  const lastScore = scoreCandidate
+    ? { correct: nonNegativeIntegerOr(scoreCandidate.correct, 0), total: nonNegativeIntegerOr(scoreCandidate.total, 0) }
+    : undefined
+  const completedAt = typeof candidate.completedAt === 'number' && Number.isFinite(candidate.completedAt) ? candidate.completedAt : undefined
+  return { completed: true, lastScore, completedAt }
+}
+
 function rowActivityCompletionOr(value: unknown): RowActivityCompletion {
   const candidate = isRecord(value) ? value : {}
   const result: RowActivityCompletion = {}
@@ -285,6 +323,15 @@ export function mergePersistedProgress(persistedState: unknown, currentState: Pr
         .map(([rowId, value]) => [rowId, rowActivityCompletionOr(value)])
         .filter(([, completion]) => Object.keys(completion as RowActivityCompletion).length > 0),
     ),
+    assessmentCompletion: Object.fromEntries(
+      ASSESSMENT_SCRIPTS.map((script) => [
+        script,
+        assessmentCompletionOr(
+          isRecord(persisted.assessmentCompletion) ? persisted.assessmentCompletion[script] : undefined,
+          currentState.assessmentCompletion[script],
+        ),
+      ]),
+    ) as Record<AssessmentScript, AssessmentCompletion>,
     audioEnabled: booleanOr(persisted.audioEnabled, currentState.audioEnabled),
     audioVolume: clampFiniteOr(persisted.audioVolume, MIN_VOLUME, MAX_VOLUME, currentState.audioVolume),
     audioSpeed: clampFiniteOr(persisted.audioSpeed, MIN_AUDIO_SPEED, MAX_AUDIO_SPEED, currentState.audioSpeed),
@@ -317,6 +364,7 @@ export const useProgressStore = create<ProgressState>()(
       unlockedRowIds: [FIRST_ROW_ID],
       taughtRowIds: [],
       rowActivityCompletion: {},
+      assessmentCompletion: { hiragana: { completed: false }, katakana: { completed: false } },
       lastStudied: null,
       audioEnabled: true,
       audioVolume: 1,
@@ -407,6 +455,16 @@ export const useProgressStore = create<ProgressState>()(
       },
       isRowActivityCompleted: (rowId, activity) => get().rowActivityCompletion[rowId]?.[activity] === true,
 
+      markAssessmentCompleted: (script, score) => {
+        set((state) => ({
+          assessmentCompletion: {
+            ...state.assessmentCompletion,
+            [script]: { completed: true, lastScore: score, completedAt: Date.now() },
+          },
+        }))
+      },
+      isAssessmentCompleted: (script) => get().assessmentCompletion[script]?.completed === true,
+
       setLastStudied: (entry) => set({ lastStudied: entry }),
 
       isRowUnlocked: (rowId) => get().unlockedRowIds.includes(rowId),
@@ -446,6 +504,7 @@ export const useProgressStore = create<ProgressState>()(
           unlockedRowIds: [FIRST_ROW_ID],
           taughtRowIds: [],
           rowActivityCompletion: {},
+          assessmentCompletion: { hiragana: { completed: false }, katakana: { completed: false } },
           lastStudied: null,
           audioEnabled: true,
           audioVolume: 1,

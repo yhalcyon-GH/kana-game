@@ -988,4 +988,54 @@ describe('progressStore', () => {
       expect(useProgressStore.getState().isRowMastered('a-row')).toBe(true)
     })
   })
+
+  describe('Hiragana/Katakana Test assessment completion (Issue #189)', () => {
+    it('starts uncompleted for both scripts', () => {
+      expect(useProgressStore.getState().isAssessmentCompleted('hiragana')).toBe(false)
+      expect(useProgressStore.getState().isAssessmentCompleted('katakana')).toBe(false)
+    })
+
+    it('marks completed regardless of score — a low score still completes it', () => {
+      useProgressStore.getState().markAssessmentCompleted('hiragana', { correct: 2, total: 20 })
+      expect(useProgressStore.getState().isAssessmentCompleted('hiragana')).toBe(true)
+      expect(useProgressStore.getState().assessmentCompletion.hiragana.lastScore).toEqual({ correct: 2, total: 20 })
+      // Katakana Test remains independent/uncompleted.
+      expect(useProgressStore.getState().isAssessmentCompleted('katakana')).toBe(false)
+    })
+
+    it('does not mutate any Review/SRS/mastery/unlock state', () => {
+      const before = useProgressStore.getState()
+      const snapshot = {
+        characters: before.characters,
+        words: before.words,
+        unlockedRowIds: before.unlockedRowIds,
+        taughtRowIds: before.taughtRowIds,
+        rowActivityCompletion: before.rowActivityCompletion,
+      }
+      useProgressStore.getState().markAssessmentCompleted('hiragana', { correct: 20, total: 20 })
+      const after = useProgressStore.getState()
+      expect({
+        characters: after.characters,
+        words: after.words,
+        unlockedRowIds: after.unlockedRowIds,
+        taughtRowIds: after.taughtRowIds,
+        rowActivityCompletion: after.rowActivityCompletion,
+      }).toEqual(snapshot)
+    })
+
+    it('survives a reload (rehydration) once persisted', async () => {
+      useProgressStore.getState().markAssessmentCompleted('katakana', { correct: 15, total: 20 })
+      const persisted = localStorage.getItem('kana-game-progress')
+      expect(persisted).not.toBeNull()
+
+      useProgressStore.getState().resetProgress()
+      expect(useProgressStore.getState().isAssessmentCompleted('katakana')).toBe(false)
+
+      localStorage.setItem('kana-game-progress', persisted!)
+      await useProgressStore.persist.rehydrate()
+
+      expect(useProgressStore.getState().isAssessmentCompleted('katakana')).toBe(true)
+      expect(useProgressStore.getState().assessmentCompletion.katakana.lastScore).toEqual({ correct: 15, total: 20 })
+    })
+  })
 })

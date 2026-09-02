@@ -40,8 +40,18 @@ export function RestaurantPage({ checkpointId = 'na-row' }: { checkpointId?: str
     checkpoint?.categoryId === 'hiragana' ? '/hiragana' :
     checkpoint?.categoryId === 'katakana' ? '/katakana' :
     checkpoint?.categoryId === 'youon' ? '/youon' : '/other'
-  const nextRow = checkpoint ? getNextGlobalRealRow(checkpoint.afterRowId) : null
-  const nextPath = nextRow ? `/practice/${nextRow.categoryId}/${nextRow.id}` : undefined
+  // Hiragana/Katakana Test (Issue #189, Phase 1) is a section-endpoint
+  // assessment placed right after that section's final Restaurant
+  // checkpoint (hiragana-complete/katakana-complete) — an explicit override
+  // here rather than teaching getNextGlobalRealRow about a non-GojuonRow
+  // destination, since that helper's whole contract is "the next real row."
+  const ASSESSMENT_AFTER_CHECKPOINT: Record<string, string> = {
+    'hiragana-complete': '/assessment/hiragana',
+    'katakana-complete': '/assessment/katakana',
+  }
+  const assessmentNextPath = checkpoint ? ASSESSMENT_AFTER_CHECKPOINT[checkpoint.id] : undefined
+  const nextRow = !assessmentNextPath && checkpoint ? getNextGlobalRealRow(checkpoint.afterRowId) : null
+  const nextPath = assessmentNextPath ?? (nextRow ? `/practice/${nextRow.categoryId}/${nextRow.id}` : undefined)
 
   if (completed) {
     const correct = sessionResults.filter((result) => result.correct).length
