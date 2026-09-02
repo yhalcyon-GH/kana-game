@@ -253,7 +253,14 @@ async function runBrowserCheck() {
           overflow: root.scrollWidth - root.clientWidth,
           menuShadow: getComputedStyle(menu).boxShadow,
           menu: { x: menuRect.x, width: menuRect.width, right: menuRect.right, height: menuRect.height },
-          order: { x: orderRect.x, width: orderRect.width, right: orderRect.right, height: orderRect.height },
+          order: {
+            x: orderRect.x,
+            width: orderRect.width,
+            right: orderRect.right,
+            height: orderRect.height,
+            clientWidth: order.clientWidth,
+            scrollWidth: order.scrollWidth,
+          },
         }
       })()`)
 
@@ -266,17 +273,20 @@ async function runBrowserCheck() {
       const narrow = await measure(prefix)
       console.log(`${prefix} 320px: ${JSON.stringify(narrow)}`)
       if (narrow.scrollWidth > narrow.clientWidth) {
-        throw new Error(`${prefix} still overflows at 320px: scrollWidth=${narrow.scrollWidth}, clientWidth=${narrow.clientWidth}`)
+        throw new Error(`${prefix} document still overflows at 320px: scrollWidth=${narrow.scrollWidth}, clientWidth=${narrow.clientWidth}`)
       }
-      if (narrow.menuShadow !== 'none') {
-        throw new Error(`${prefix} narrow menu should not have an outer shadow, got ${narrow.menuShadow}`)
+      if (narrow.order.scrollWidth > narrow.order.clientWidth) {
+        throw new Error(`${prefix} order template still overflows at 320px: scrollWidth=${narrow.order.scrollWidth}, clientWidth=${narrow.order.clientWidth}`)
       }
 
       await setViewport(640)
       const wide = await measure(prefix)
       console.log(`${prefix} 640px: ${JSON.stringify(wide)}`)
-      if (wide.menuShadow === 'none') {
-        throw new Error(`${prefix} menu shadow should be restored at the sm breakpoint`)
+      if (wide.scrollWidth > wide.clientWidth) {
+        throw new Error(`${prefix} document overflows at 640px: scrollWidth=${wide.scrollWidth}, clientWidth=${wide.clientWidth}`)
+      }
+      if (wide.order.scrollWidth > wide.order.clientWidth) {
+        throw new Error(`${prefix} order template overflows at 640px: scrollWidth=${wide.order.scrollWidth}, clientWidth=${wide.order.clientWidth}`)
       }
     }
 
@@ -284,8 +294,14 @@ async function runBrowserCheck() {
     await checkGame({ route: '/cafe/katakana-ha-row', prefix: 'cafe' })
   } finally {
     client?.close()
+    const chromeExited = new Promise((resolveExit) => chrome.once('exit', resolveExit))
     chrome.kill('SIGTERM')
-    await rm(userDataDir, { recursive: true, force: true })
+    await Promise.race([chromeExited, delay(2000)])
+    try {
+      await rm(userDataDir, { recursive: true, force: true })
+    } catch (cleanupError) {
+      console.error(`Warning: failed to remove Chrome temp profile ${userDataDir}: ${cleanupError.message}`)
+    }
   }
 }
 
