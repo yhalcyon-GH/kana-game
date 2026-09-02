@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { GojuonRow, ScriptCategory } from '../data/types'
-import type { RowActivityCompletion } from '../store/progressStore'
+import type { AssessmentCompletion, RowActivityCompletion } from '../store/progressStore'
 import { getGlobalRecommendedTarget, getRecommendedActivity } from './recommendedPath'
 
 const base = {
@@ -12,65 +12,25 @@ const base = {
 }
 
 describe('getRecommendedActivity: character-set', () => {
-  it('recommends Learn when intro (Learn/Tracing) is not completed', () => {
+  it('walks Learn → Kana Quiz → Listening → Word Builder → done', () => {
     expect(getRecommendedActivity(base)).toBe('learn')
-  })
-
-  it('recommends Kana Quiz once intro is completed', () => {
     expect(getRecommendedActivity({ ...base, introCompleted: true })).toBe('kana-quiz')
-  })
-
-  it('recommends Listening once Kana Quiz is completed', () => {
     expect(getRecommendedActivity({ ...base, introCompleted: true, kanaQuizCompleted: true })).toBe('listening')
-  })
-
-  it('recommends Word Builder once Listening is completed', () => {
-    expect(
-      getRecommendedActivity({ ...base, introCompleted: true, kanaQuizCompleted: true, listeningCompleted: true }),
-    ).toBe('word-builder')
-  })
-
-  it('is "done" once Word Builder is completed', () => {
-    expect(
-      getRecommendedActivity({
-        ...base,
-        introCompleted: true,
-        kanaQuizCompleted: true,
-        listeningCompleted: true,
-        wordBuilderCompleted: true,
-      }),
-    ).toBe('done')
+    expect(getRecommendedActivity({ ...base, introCompleted: true, kanaQuizCompleted: true, listeningCompleted: true })).toBe('word-builder')
+    expect(getRecommendedActivity({ ...base, introCompleted: true, kanaQuizCompleted: true, listeningCompleted: true, wordBuilderCompleted: true })).toBe('done')
   })
 })
 
-describe('getRecommendedActivity: contrast-pairs (no Kana Quiz step)', () => {
+describe('getRecommendedActivity: contrast-pairs', () => {
   const contrastBase = { ...base, learnStyle: 'contrast-pairs' as const }
-
-  it('recommends Learn when intro is not completed', () => {
+  it('skips Kana Quiz', () => {
     expect(getRecommendedActivity(contrastBase)).toBe('learn')
-  })
-
-  it('recommends Listening directly once intro is completed (Kana Quiz is skipped)', () => {
     expect(getRecommendedActivity({ ...contrastBase, introCompleted: true })).toBe('listening')
-  })
-
-  it('recommends Word Builder once Listening is completed', () => {
-    expect(getRecommendedActivity({ ...contrastBase, introCompleted: true, listeningCompleted: true })).toBe(
-      'word-builder',
-    )
-  })
-
-  it('is "done" once Word Builder is completed, even though kanaQuizCompleted was never set', () => {
-    expect(
-      getRecommendedActivity({ ...contrastBase, introCompleted: true, listeningCompleted: true, wordBuilderCompleted: true }),
-    ).toBe('done')
+    expect(getRecommendedActivity({ ...contrastBase, introCompleted: true, listeningCompleted: true })).toBe('word-builder')
+    expect(getRecommendedActivity({ ...contrastBase, introCompleted: true, listeningCompleted: true, wordBuilderCompleted: true })).toBe('done')
   })
 })
 
-// Small synthetic 2-category, 2-row-each curriculum — isolates
-// getGlobalRecommendedTarget's own row/category walking logic from the
-// real app's curriculum (which useCurriculum.test.ts/HomePage.test.tsx/
-// PracticeHubPage.test.tsx already exercise end-to-end).
 const CATS: ScriptCategory[] = [
   { id: 'cat-a', label: 'A', learnStyle: 'character-set' },
   { id: 'cat-b', label: 'B', learnStyle: 'contrast-pairs' },
@@ -83,75 +43,25 @@ const ROWS: GojuonRow[] = [
 ]
 
 describe('getGlobalRecommendedTarget', () => {
-  it('targets the first row\'s intro step when nothing is done', () => {
-    expect(getGlobalRecommendedTarget(ROWS, CATS, [], {})).toEqual({
-      categoryId: 'cat-a',
-      rowId: 'a1',
-      activity: 'learn',
+  it('targets the first incomplete activity and ignores later progress', () => {
+    expect(getGlobalRecommendedTarget(ROWS, CATS, [], {})).toEqual({ categoryId: 'cat-a', rowId: 'a1', activity: 'learn' })
+    expect(getGlobalRecommendedTarget(ROWS, CATS, ['a2'], { a2: { kanaQuiz: true, listening: true, wordBuilder: true } })).toEqual({
+      categoryId: 'cat-a', rowId: 'a1', activity: 'learn',
     })
   })
 
-  it('advances within a row as its own steps complete', () => {
-    const completion: Record<string, RowActivityCompletion> = { a1: { kanaQuiz: true } }
-    expect(getGlobalRecommendedTarget(ROWS, CATS, ['a1'], completion)).toEqual({
-      categoryId: 'cat-a',
-      rowId: 'a1',
-      activity: 'listening',
-    })
-  })
+  it('advances between rows/categories and skips summary rows', () => {
+    const firstDone: Record<string, RowActivityCompletion> = { a1: { kanaQuiz: true, listening: true, wordBuilder: true } }
+    expect(getGlobalRecommendedTarget(ROWS, CATS, ['a1'], firstDone)).toEqual({ categoryId: 'cat-a', rowId: 'a2', activity: 'learn' })
 
-  it('does not move when a LATER activity in the same row is completed first', () => {
-    // wordBuilder done, but kanaQuiz/listening are not — kanaQuiz is
-    // earlier in the sequence and stays the target.
-    const completion: Record<string, RowActivityCompletion> = { a1: { wordBuilder: true } }
-    expect(getGlobalRecommendedTarget(ROWS, CATS, ['a1'], completion)).toEqual({
-      categoryId: 'cat-a',
-      rowId: 'a1',
-      activity: 'kana-quiz',
-    })
-  })
-
-  it('moves to the next row once the current row is fully done', () => {
-    const completion: Record<string, RowActivityCompletion> = {
-      a1: { kanaQuiz: true, listening: true, wordBuilder: true },
-    }
-    expect(getGlobalRecommendedTarget(ROWS, CATS, ['a1'], completion)).toEqual({
-      categoryId: 'cat-a',
-      rowId: 'a2',
-      activity: 'learn',
-    })
-  })
-
-  it('does not move when a LATER row is touched before an earlier row is finished', () => {
-    const completion: Record<string, RowActivityCompletion> = { a2: { kanaQuiz: true, listening: true, wordBuilder: true } }
-    expect(getGlobalRecommendedTarget(ROWS, CATS, ['a2'], completion)).toEqual({
-      categoryId: 'cat-a',
-      rowId: 'a1',
-      activity: 'learn',
-    })
-  })
-
-  it('skips summary rows entirely', () => {
-    const completion: Record<string, RowActivityCompletion> = {
+    const categoryDone: Record<string, RowActivityCompletion> = {
       a1: { kanaQuiz: true, listening: true, wordBuilder: true },
       a2: { kanaQuiz: true, listening: true, wordBuilder: true },
     }
-    expect(getGlobalRecommendedTarget(ROWS, CATS, ['a1', 'a2'], completion)?.rowId).toBe('b1')
+    expect(getGlobalRecommendedTarget(ROWS, CATS, ['a1', 'a2'], categoryDone)).toEqual({ categoryId: 'cat-b', rowId: 'b1', activity: 'learn' })
   })
 
-  it('moves into the next category once every row in the current one is done', () => {
-    const completion: Record<string, RowActivityCompletion> = {
-      a1: { kanaQuiz: true, listening: true, wordBuilder: true },
-      a2: { kanaQuiz: true, listening: true, wordBuilder: true },
-    }
-    expect(getGlobalRecommendedTarget(ROWS, CATS, ['a1', 'a2'], completion)).toEqual({
-      categoryId: 'cat-b',
-      rowId: 'b1',
-      activity: 'learn',
-    })
-  })
-
-  it('is null once every category is fully done', () => {
+  it('is null once every modeled category is complete', () => {
     const completion: Record<string, RowActivityCompletion> = {
       a1: { kanaQuiz: true, listening: true, wordBuilder: true },
       a2: { kanaQuiz: true, listening: true, wordBuilder: true },
@@ -159,10 +69,44 @@ describe('getGlobalRecommendedTarget', () => {
     }
     expect(getGlobalRecommendedTarget(ROWS, CATS, ['a1', 'a2', 'b1'], completion)).toBeNull()
   })
+})
 
-  it('never returns more than one target — the return value is always a single object or null', () => {
-    const result = getGlobalRecommendedTarget(ROWS, CATS, [], {})
-    expect(result).not.toBeNull()
-    expect(Array.isArray(result)).toBe(false)
+const ASSESSMENT_CATS: ScriptCategory[] = [
+  { id: 'hiragana', label: 'Hiragana', learnStyle: 'character-set' },
+  { id: 'katakana', label: 'Katakana', learnStyle: 'character-set' },
+]
+const ASSESSMENT_ROWS: GojuonRow[] = [
+  { id: 'ra-row', categoryId: 'hiragana', label: 'ら〜ろ', order: 0, characterIds: [] },
+  { id: 'katakana-ra-row', categoryId: 'katakana', label: 'ラ〜ロ', order: 0, characterIds: [] },
+]
+const BOTH_ROWS_DONE: Record<string, RowActivityCompletion> = {
+  'ra-row': { kanaQuiz: true, listening: true, wordBuilder: true, checkpoint: true },
+  'katakana-ra-row': { kanaQuiz: true, listening: true, wordBuilder: true, checkpoint: true },
+}
+const incompleteAssessments: Record<'hiragana' | 'katakana', AssessmentCompletion> = {
+  hiragana: { completed: false },
+  katakana: { completed: false },
+}
+
+describe('section assessment endpoints', () => {
+  it('stops on Hiragana Test after the final Hiragana checkpoint, including after a fresh recomputation/reload', () => {
+    const expected = { categoryId: 'hiragana', rowId: 'ra-row', activity: 'assessment', assessmentScript: 'hiragana' }
+    expect(getGlobalRecommendedTarget(ASSESSMENT_ROWS, ASSESSMENT_CATS, ['ra-row'], BOTH_ROWS_DONE, incompleteAssessments)).toEqual(expected)
+    expect(getGlobalRecommendedTarget(ASSESSMENT_ROWS, ASSESSMENT_CATS, ['ra-row'], { ...BOTH_ROWS_DONE }, { ...incompleteAssessments })).toEqual(expected)
+  })
+
+  it('moves to Katakana only after Hiragana Test completion, then stops on Katakana Test', () => {
+    const hiraganaDone = { ...incompleteAssessments, hiragana: { completed: true } }
+    expect(getGlobalRecommendedTarget(ASSESSMENT_ROWS, ASSESSMENT_CATS, ['ra-row'], BOTH_ROWS_DONE, hiraganaDone)).toEqual({
+      categoryId: 'katakana', rowId: 'katakana-ra-row', activity: 'assessment', assessmentScript: 'katakana',
+    })
+  })
+
+  it('moves beyond both sections once both tests are completed; score is not part of the decision', () => {
+    const allDone = {
+      hiragana: { completed: true, lastScore: { correct: 0, total: 20 } },
+      katakana: { completed: true, lastScore: { correct: 0, total: 20 } },
+    }
+    expect(getGlobalRecommendedTarget(ASSESSMENT_ROWS, ASSESSMENT_CATS, ['ra-row', 'katakana-ra-row'], BOTH_ROWS_DONE, allDone)).toBeNull()
   })
 })
