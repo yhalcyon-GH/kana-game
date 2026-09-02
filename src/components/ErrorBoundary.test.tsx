@@ -71,6 +71,6 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>,
     )
 
-    expect(screen.getByRole('link', { name: 'Go Home' })).toHaveAttribute('href', '/kana-game/#/')
+    expect(screen.getByRole('link', { name: 'Go Home' })).toHaveAttribute('href', `${import.meta.env.BASE_URL}#/`)
   })
 })
