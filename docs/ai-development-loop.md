@@ -1,4 +1,4 @@
-# AI Development Loop (v1.5)
+# AI Development Loop (v1.6)
 
 How a normal KanaGame task should flow with ChatGPT plus a coding agent such as Claude Code or Codex, so the user can usually supply a Goal and Acceptance Criteria instead of a long implementation prompt.
 
@@ -96,6 +96,41 @@ conditions. Reference historical discussion rather than replaying it, except
 where a superseding decision must be explicit.
 
 When a spike has already settled architecture, constraints, pinned sources, or a tradeoff decision, **reuse that evidence** in the implementation task. Do not repeat the same broad corpus/research/architecture investigation unless new evidence creates a concrete reason to reopen it. This keeps model calls and context focused on the remaining unknowns.
+
+## Action over report
+
+When the next safe routine action is determined and the executor currently has
+the tool/permission capability to perform it, perform it before ending the
+turn with a status report. A statement such as "next I will inspect the
+failing log" or "next I will fix and re-run CI" is not completion when that
+action is executable now with already-available tools; it is a deferral.
+Reports should follow concrete execution and evidence, not substitute for it.
+This applies to routine, already-decided next steps and does not override the
+human-gate/consequential-decision rules above — still pause there instead of
+forcing an action through.
+
+## Stagnation detection and route switching
+
+Progress means new evidence: a new observation, a repo mutation, a test/CI
+result, or a resolved decision. Do not keep repeating the same poll, read, or
+retry when it produces no new evidence. After repeated no-change observations
+on the same method, switch route instead of repeating it again: try a
+different tool, inspect a different evidence source, or hand off to a
+different Builder. Detect stagnation from evidence — identical output,
+identical failure, no new information — not from a fixed time/minute
+threshold. Claude Code remains the normal Builder; Codex is the fallback when
+Claude Code is blocked, stalled, or tool-limited and switching is genuinely
+likely to be faster, consistent with the cost-aware role policy above — do not
+switch merely out of habit.
+
+## Builder capability preflight
+
+Before depending on a Builder to perform the final required verification (for
+example `npm run verify`), confirm that the Builder's allowed tools/harness can
+actually execute that exact command. If they cannot, fix the harness (for
+example, extend an allowed-tools/permissions list) or route that verification
+elsewhere before handoff. Do not discover the gap only when the Builder
+reports, at the end of its run, that it was unable to run the check.
 
 ## Agent-switch handoff
 
