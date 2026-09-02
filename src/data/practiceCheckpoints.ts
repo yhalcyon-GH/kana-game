@@ -35,12 +35,6 @@ export type PracticeCheckpoint = {
   // lib/checkpointDishPool.ts) — being in `fillerStages` alone is not
   // enough for a dish tagged with a LATER checkpoint.
   fillerStages: RestaurantStageId[]
-  // This checkpoint's own primary RestaurantDish stage — used as the
-  // fallback target pool (lib/checkpointDishPool.ts) when a checkpoint has
-  // no new spotlight dishes of its own (only katakana-youon-complete today):
-  // its approved pre-existing `stage` dishes carry the checkpoint instead of
-  // forcing new items (Issue #160: "existing suitable items carry it").
-  stage: RestaurantStageId
   routePath: string
 }
 
@@ -54,16 +48,16 @@ export type PracticeCheckpoint = {
 // comment for why multiple checkpoints sharing a stage-wide route used to
 // let an earlier checkpoint draw a later checkpoint's not-yet-taught dishes.
 export const PRACTICE_CHECKPOINTS: PracticeCheckpoint[] = [
-  { id: 'na-row', mode: 'restaurant', afterRowId: 'na-row', categoryId: 'hiragana', fillerStages: ['hiragana'], stage: 'hiragana', routePath: '/restaurant/na-row' },
-  { id: 'hiragana-complete', mode: 'restaurant', afterRowId: 'ra-row', categoryId: 'hiragana', fillerStages: ['hiragana'], stage: 'hiragana', routePath: '/restaurant/hiragana-complete' },
-  { id: 'katakana-sa-row', mode: 'restaurant', afterRowId: 'katakana-sa-row', categoryId: 'katakana', fillerStages: ['hiragana', 'katakana'], stage: 'katakana', routePath: '/restaurant/katakana-sa-row' },
-  { id: 'katakana-ha-row', mode: 'cafe', afterRowId: 'katakana-ha-row', categoryId: 'katakana', fillerStages: ['katakana'], stage: 'katakana', routePath: '/cafe/katakana-ha-row' },
-  { id: 'katakana-complete', mode: 'restaurant', afterRowId: 'katakana-ra-row', categoryId: 'katakana', fillerStages: ['hiragana', 'katakana'], stage: 'katakana', routePath: '/restaurant/katakana-complete' },
-  { id: 'sokuon-complete', mode: 'cafe', afterRowId: 'sokuon-row', categoryId: 'other', fillerStages: ['katakana', 'other'], stage: 'other', routePath: '/cafe/sokuon-complete' },
-  { id: 'chouon-complete', mode: 'restaurant', afterRowId: 'chouon-katakana-row', categoryId: 'other', fillerStages: ['hiragana', 'katakana', 'other'], stage: 'other', routePath: '/restaurant/chouon-complete' },
-  { id: 'hiragana-youon-complete', mode: 'restaurant', afterRowId: 'youon-ma-ra-row', categoryId: 'youon', fillerStages: ['hiragana', 'katakana', 'other', 'special-katakana'], stage: 'other', routePath: '/restaurant/hiragana-youon-complete' },
-  { id: 'katakana-youon-complete', mode: 'restaurant', afterRowId: 'youon-katakana-ma-ra-row', categoryId: 'youon', fillerStages: ['hiragana', 'katakana', 'other', 'special-katakana'], stage: 'special-katakana', routePath: '/restaurant/katakana-youon-complete' },
-  { id: 'special-katakana-complete', mode: 'cafe', afterRowId: 'special-katakana-she-row', categoryId: 'youon', fillerStages: ['katakana', 'special-katakana'], stage: 'special-katakana', routePath: '/cafe/special-katakana-complete' },
+  { id: 'na-row', mode: 'restaurant', afterRowId: 'na-row', categoryId: 'hiragana', fillerStages: ['hiragana'], routePath: '/restaurant/na-row' },
+  { id: 'hiragana-complete', mode: 'restaurant', afterRowId: 'ra-row', categoryId: 'hiragana', fillerStages: ['hiragana'], routePath: '/restaurant/hiragana-complete' },
+  { id: 'katakana-sa-row', mode: 'restaurant', afterRowId: 'katakana-sa-row', categoryId: 'katakana', fillerStages: ['hiragana', 'katakana'], routePath: '/restaurant/katakana-sa-row' },
+  { id: 'katakana-ha-row', mode: 'cafe', afterRowId: 'katakana-ha-row', categoryId: 'katakana', fillerStages: ['katakana'], routePath: '/cafe/katakana-ha-row' },
+  { id: 'katakana-complete', mode: 'restaurant', afterRowId: 'katakana-ra-row', categoryId: 'katakana', fillerStages: ['hiragana', 'katakana'], routePath: '/restaurant/katakana-complete' },
+  { id: 'sokuon-complete', mode: 'cafe', afterRowId: 'sokuon-row', categoryId: 'other', fillerStages: ['katakana', 'other'], routePath: '/cafe/sokuon-complete' },
+  { id: 'chouon-complete', mode: 'restaurant', afterRowId: 'chouon-katakana-row', categoryId: 'other', fillerStages: ['hiragana', 'katakana', 'other'], routePath: '/restaurant/chouon-complete' },
+  { id: 'hiragana-youon-complete', mode: 'restaurant', afterRowId: 'youon-ma-ra-row', categoryId: 'youon', fillerStages: ['hiragana', 'katakana', 'other', 'special-katakana'], routePath: '/restaurant/hiragana-youon-complete' },
+  { id: 'katakana-youon-complete', mode: 'restaurant', afterRowId: 'youon-katakana-ma-ra-row', categoryId: 'youon', fillerStages: ['hiragana', 'katakana', 'other', 'special-katakana'], routePath: '/restaurant/katakana-youon-complete' },
+  { id: 'special-katakana-complete', mode: 'cafe', afterRowId: 'special-katakana-she-row', categoryId: 'youon', fillerStages: ['katakana', 'special-katakana'], routePath: '/cafe/special-katakana-complete' },
 ]
 
 export const PRACTICE_CHECKPOINTS_BY_ID: Record<string, PracticeCheckpoint> = Object.fromEntries(

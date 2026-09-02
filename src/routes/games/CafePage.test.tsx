@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { CAFE_DISHES, isKatakanaOnlyDish } from '../../data/restaurantDishes'
+import { CAFE_DISHES, RESTAURANT_DISHES, isKatakanaOnlyDish } from '../../data/restaurantDishes'
 import { useProgressStore } from '../../store/progressStore'
 import { CafePage } from './CafePage'
 
@@ -100,7 +100,7 @@ describe('CafePage', () => {
     expect(rows.length).toBeGreaterThan(0)
     for (const row of rows) {
       const id = row.getAttribute('data-testid')!.replace('cafe-dish-', '')
-      const dish = CAFE_DISHES.find((d) => d.id === id) ?? CHECKPOINT_DISHES.find((d) => d.id === id)
+      const dish = RESTAURANT_DISHES.find((d) => d.id === id)
       if (dish) {
         expect(row).toHaveTextContent(dish.displayKana)
         expect(row).toHaveTextContent(`¥${dish.priceYen}`)
@@ -112,7 +112,7 @@ describe('CafePage', () => {
     renderPage()
     const bubble = screen.getByTestId('cafe-target-bubble')
     const targetId = currentTargetIds()[0]
-    const dish = CAFE_DISHES.find((d) => d.id === targetId)!
+    const dish = RESTAURANT_DISHES.find((d) => d.id === targetId)!
     // The marker (and the target's kana) lives on the menu row, not the bubble.
     expect(screen.getByTestId(`cafe-menu-target-${targetId}`)).toBeInTheDocument()
     expect(screen.getByTestId(`cafe-dish-${targetId}`)).toHaveTextContent(dish.displayKana)
@@ -148,7 +148,7 @@ describe('CafePage', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0)
     renderPage()
     const targetId = currentTargetIds()[0]
-    const dish = CAFE_DISHES.find((d) => d.id === targetId)!
+    const dish = RESTAURANT_DISHES.find((d) => d.id === targetId)!
     clickTargetAnswer()
     expect(screen.getByText('Great!')).toBeInTheDocument()
     const bubble = screen.getByTestId('cafe-target-bubble')
@@ -161,7 +161,7 @@ describe('CafePage', () => {
     const wrongId = currentWrongMenuDish()
     fireEvent.click(screen.getByTestId(`cafe-romaji-${wrongId}`))
     const targetId = currentTargetIds()[0]
-    const dish = CAFE_DISHES.find((d) => d.id === targetId)!
+    const dish = RESTAURANT_DISHES.find((d) => d.id === targetId)!
     const bubble = screen.getByTestId('cafe-target-bubble')
     expect(bubble).toHaveTextContent(dish.english)
   })
@@ -170,7 +170,7 @@ describe('CafePage', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0)
     renderPage()
     const targetId = currentTargetIds()[0]
-    const dish = CAFE_DISHES.find((d) => d.id === targetId)!
+    const dish = RESTAURANT_DISHES.find((d) => d.id === targetId)!
     clickTargetAnswer()
     expect(screen.getByText('Great!')).toBeInTheDocument()
     expect(screen.getByText(dish.romaji)).toBeInTheDocument()

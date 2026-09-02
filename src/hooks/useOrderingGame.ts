@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { RestaurantDish } from '../data/restaurantDishes'
 import { useTTS } from './useTTS'
 import { pickIncorrectFeedback, pickResultFeedback } from '../lib/feedbackVoice'
-import { menuKey, pickRoundFromPools, shuffleRestaurantChoices, type RestaurantRound } from '../lib/restaurantRound'
+import { menuKey, pickCappedTarget, pickRoundFromPools, shuffleRestaurantChoices, type RestaurantRound } from '../lib/restaurantRound'
 import { checkMultipleDishOrderAlternatives, checkOrderAlternatives, type OrderCheckResult } from '../lib/restaurantMatching'
 
 // Shared "order the target dish(es) from a 4-item menu" state machine behind
@@ -253,12 +253,10 @@ export function useOrderingGame({ dishes, menuDishes, greetingAudioKey, greeting
     let secondTarget: RestaurantDish | null = null
     let nextMenu = nextRound.menu
     if (isTwoTargetRound) {
-      const candidates = dishes.filter((dish) => dish.id !== nextRound.target.id)
-      const unseenTargets = candidates.filter((dish) => !usedTargetIdsRef.current.includes(dish.id))
-      const targetPool = unseenTargets.length ? unseenTargets : candidates
-      const unusedPairs = targetPool.filter((dish) => !usedPairKeysRef.current.includes([nextRound.target.id, dish.id].sort().join('|')))
-      const secondPool = unusedPairs.length ? unusedPairs : targetPool
-      const selectedSecondTarget = secondPool[Math.min(secondPool.length - 1, Math.floor(Math.random() * secondPool.length))]
+      const pairAvoidIds = dishes
+        .filter((dish) => usedPairKeysRef.current.includes([nextRound.target.id, dish.id].sort().join('|')))
+        .map((dish) => dish.id)
+      const selectedSecondTarget = pickCappedTarget(dishes, usedTargetIdsRef.current, [nextRound.target.id], pairAvoidIds, Math.random)
       secondTarget = selectedSecondTarget
 
       const fillerPool = menuDishes.filter((dish) => dish.id !== nextRound.target.id && dish.id !== selectedSecondTarget.id)
