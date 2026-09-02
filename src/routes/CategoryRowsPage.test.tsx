@@ -1,7 +1,7 @@
 import { fireEvent, render } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { CHOUON_CATEGORY_ID, DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID, SOKUON_CATEGORY_ID, YOUON_CATEGORY_ID } from '../data/curriculum'
+import { CHOUON_CATEGORY_ID, DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID, SOKUON_CATEGORY_ID, SPECIAL_KATAKANA_CATEGORY_ID, YOUON_CATEGORY_ID } from '../data/curriculum'
 import { INTRO_GUIDE_CONTENT, DEFAULT_INTRO_GUIDE_LOCALE } from '../data/introGuideContent'
 import { KANA_INTRO_EXCERPT_GUIDE_CONTENT, DEFAULT_KANA_INTRO_EXCERPT_GUIDE_LOCALE } from '../data/kanaIntroExcerptGuideContent'
 import { DEFAULT_CHOUON_GUIDE_LOCALE, CHOUON_GUIDE_CONTENT } from '../data/chouonGuideContent'
@@ -593,79 +593,85 @@ function renderHiraganaWithParticleEntry() {
         description=""
         categoryIds={[DEFAULT_CATEGORY_ID]}
         askTamamizuKanaIntroVariant="hiragana"
-        restaurantStage="hiragana"
       />
     </MemoryRouter>,
   )
 }
 
 describe('Hiragana Restaurant CTA', () => {
-  it('renders on the Hiragana overview', () => {
-    const { getByTestId } = renderHiraganaWithParticleEntry()
-    const cta = getByTestId('restaurant-cta')
-    expect(cta).toBeInTheDocument()
-    expect(cta).toHaveTextContent('REAL-LIFE PRACTICE')
-    expect(cta).toHaveTextContent('Restaurant Practice')
-    expect(cta).toHaveTextContent('Order food using what you\'ve learned')
+  it('renders on the Hiragana overview (once per checkpoint — Issue #160 adds a second after ら行)', () => {
+    const { getAllByTestId } = renderHiraganaWithParticleEntry()
+    const ctas = getAllByTestId('restaurant-cta')
+    expect(ctas).toHaveLength(2)
+    for (const cta of ctas) {
+      expect(cta).toHaveTextContent('REAL-LIFE PRACTICE')
+      expect(cta).toHaveTextContent('Restaurant Practice')
+      expect(cta).toHaveTextContent('Order food using what you\'ve learned')
+    }
   })
 
-  it('does not render on the Katakana overview (Hiragana-only entry point)', () => {
-    const { queryByTestId } = renderKatakana()
-    expect(queryByTestId('restaurant-cta')).toBeNull()
+  it('does not render on the Katakana overview\'s hiragana-specific checkpoints', () => {
+    const { queryAllByTestId, getAllByTestId } = renderKatakana()
+    // Katakana's own page still has its own Restaurant/Cafe checkpoints
+    // (Issue #160) — this only asserts none of Hiragana's CTAs leak in.
+    expect(queryAllByTestId('restaurant-cta').length + queryAllByTestId('cafe-cta').length).toBe(3)
+    expect(getAllByTestId('restaurant-cta')).toHaveLength(2)
   })
 
-  it('does not depend on askTamamizuKanaIntroVariant: absent even with the variant set, if restaurantStage is not passed', () => {
-    const { queryByTestId } = render(
+  it('renders even without askTamamizuKanaIntroVariant set (Issue #160 checkpoints are self-configuring)', () => {
+    const { getAllByTestId } = render(
       <MemoryRouter>
-        <CategoryRowsPage
-          title="ひらがな"
-          description=""
-          categoryIds={[DEFAULT_CATEGORY_ID]}
-          askTamamizuKanaIntroVariant="hiragana"
-        />
+        <CategoryRowsPage title="ひらがな" description="" categoryIds={[DEFAULT_CATEGORY_ID]} />
       </MemoryRouter>,
     )
-    expect(queryByTestId('restaurant-cta')).toBeNull()
-  })
-
-  it('does not depend on askTamamizuKanaIntroVariant: present with only restaurantStage passed', () => {
-    const { getByTestId } = render(
-      <MemoryRouter>
-        <CategoryRowsPage title="ひらがな" description="" categoryIds={[DEFAULT_CATEGORY_ID]} restaurantStage="hiragana" />
-      </MemoryRouter>,
-    )
-    expect(getByTestId('restaurant-cta')).toBeInTheDocument()
+    expect(getAllByTestId('restaurant-cta')).toHaveLength(2)
   })
 
   // Issue #158: Restaurant 1's 11-dish menu is readable through な行, so the
-  // CTA now sits right after な行's row card and before は行's — not at the
-  // bottom of the page anymore (see CategoryRowsPage.tsx's
-  // HIRAGANA_RESTAURANT_CHECKPOINT_AFTER_ROW_ID).
-  it('renders after な行 and before は行 (Issue #158 checkpoint placement)', () => {
-    const { getByTestId, getByText } = renderHiraganaWithParticleEntry()
-    const cta = getByTestId('restaurant-cta')
+  // CTA sits right after な行's row card and before は行's — not at the
+  // bottom of the page. Issue #160 adds a second checkpoint after ら行
+  // (hiragana-complete).
+  it('renders the first checkpoint after な行 and before は行 (Issue #158 checkpoint placement)', () => {
+    const { getAllByTestId, getByText } = renderHiraganaWithParticleEntry()
+    const cta = getAllByTestId('restaurant-cta')[0]
     const naRowCard = getByText('な〜の')
     const haRowCard = getByText('は〜ほ')
     expect(naRowCard.compareDocumentPosition(cta) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(cta.compareDocumentPosition(haRowCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  it('does not move the Katakana Restaurant CTA — still after all of that page\'s rows (Issue #158)', () => {
-    const { getByTestId, getByText } = render(
+  it('renders the second checkpoint after ら行 (Issue #160 hiragana-complete)', () => {
+    const { getAllByTestId, getByText } = renderHiraganaWithParticleEntry()
+    const cta = getAllByTestId('restaurant-cta')[1]
+    const raRowCard = getByText('ら〜ろ')
+    expect(raRowCard.compareDocumentPosition(cta) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('places Katakana Restaurant CTAs at their approved checkpoints, not just at the bottom (Issue #160)', () => {
+    const { getAllByTestId, getByText } = render(
       <MemoryRouter>
-        <CategoryRowsPage title="カタカナ" description="" categoryIds={[KATAKANA_CATEGORY_ID]} restaurantStage="katakana" />
+        <CategoryRowsPage title="カタカナ" description="" categoryIds={[KATAKANA_CATEGORY_ID]} />
       </MemoryRouter>,
     )
-    const cta = getByTestId('restaurant-cta')
+    // Katakana has three checkpoints on this page: after サ行 (Restaurant),
+    // after ハ行 (Cafe), and after ラ行/complete (Restaurant) — see
+    // data/practiceCheckpoints.ts. Sorted into true document order since
+    // querying by testid type doesn't preserve cross-type DOM order.
+    const ctas = [...getAllByTestId('restaurant-cta'), ...getAllByTestId('cafe-cta')].sort((a, b) =>
+      a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1,
+    )
+    expect(ctas).toHaveLength(3)
+    const saRowCard = getByText('サ〜ソ')
     const lastKatakanaRowCard = getByText('ラ〜ロ')
-    expect(lastKatakanaRowCard.compareDocumentPosition(cta) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(saRowCard.compareDocumentPosition(ctas[0]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(lastKatakanaRowCard.compareDocumentPosition(ctas[2]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('appears before the "Ask Tamamizu about particles" button in DOM order', () => {
-    const { getByTestId, getByRole } = renderHiraganaWithParticleEntry()
-    const restaurantCta = getByTestId('restaurant-cta')
+    const { getAllByTestId, getByRole } = renderHiraganaWithParticleEntry()
+    const lastRestaurantCta = getAllByTestId('restaurant-cta').at(-1)!
     const particleButton = getByRole('button', { name: ASK_TAMAMIZU_PARTICLE.ariaLabel })
-    expect(restaurantCta.compareDocumentPosition(particleButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(lastRestaurantCta.compareDocumentPosition(particleButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('the particle button still exists and still works after adding the Restaurant CTA', () => {
@@ -679,8 +685,8 @@ describe('Hiragana Restaurant CTA', () => {
     expect(useProgressStore.getState().hasCompletedParticleGuide).toBe(false)
   })
 
-  it('navigates to /restaurant/hiragana on click', () => {
-    const { getByTestId, getByTestId: getByTestId2 } = render(
+  it('navigates to /restaurant/na-row on click', () => {
+    const { getAllByTestId, getByTestId: getByTestId2 } = render(
       <MemoryRouter initialEntries={['/hiragana']}>
         <Routes>
           <Route
@@ -691,15 +697,98 @@ describe('Hiragana Restaurant CTA', () => {
                 description=""
                 categoryIds={[DEFAULT_CATEGORY_ID]}
                 askTamamizuKanaIntroVariant="hiragana"
-                restaurantStage="hiragana"
               />
             }
           />
-          <Route path="/restaurant/hiragana" element={<LocationDisplay />} />
+          <Route path="/restaurant/na-row" element={<LocationDisplay />} />
         </Routes>
       </MemoryRouter>,
     )
-    fireEvent.click(getByTestId('restaurant-cta'))
-    expect(getByTestId2('landed-path')).toHaveTextContent('/restaurant/hiragana')
+    fireEvent.click(getAllByTestId('restaurant-cta')[0])
+    expect(getByTestId2('landed-path')).toHaveTextContent('/restaurant/na-row')
+  })
+})
+
+// Issue #160: the full Restaurant/Cafe checkpoint roadmap adds checkpoints
+// to /other and /youon too, not just /hiragana and /katakana. Matches
+// App.tsx's real /youon route, which bundles Special Katakana's rows onto
+// the same page (categoryIds={[YOUON_CATEGORY_ID, SPECIAL_KATAKANA_CATEGORY_ID]})
+// — this test file's own renderYouonPage() helper predates that and omits
+// Special Katakana, so the special-katakana-complete checkpoint needs its
+// own render here to actually exercise its row.
+function renderYouonPageWithSpecialKatakana() {
+  return render(
+    <MemoryRouter initialEntries={['/youon']}>
+      <Routes>
+        <Route
+          path="/youon"
+          element={<CategoryRowsPage title="拗音" description="" categoryIds={[YOUON_CATEGORY_ID, SPECIAL_KATAKANA_CATEGORY_ID]} />}
+        />
+        <Route path="*" element={<LocationDisplay />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
+
+describe('Restaurant/Cafe checkpoint placement on /other and /youon (Issue #160)', () => {
+  it('/other has exactly two checkpoints: Cafe after 促音, Restaurant after 長音 (chōon-complete)', () => {
+    const { getAllByTestId, getByText } = renderOtherPage()
+    const cafeCtas = getAllByTestId('cafe-cta')
+    const restaurantCtas = getAllByTestId('restaurant-cta')
+    expect(cafeCtas).toHaveLength(1)
+    expect(restaurantCtas).toHaveLength(1)
+    const sokuonRowCard = getByText('っ・ッ')
+    expect(sokuonRowCard.compareDocumentPosition(cafeCtas[0]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('navigates to the Sokuon-complete Cafe checkpoint route on click', () => {
+    const { getAllByTestId, getByTestId } = render(
+      <MemoryRouter initialEntries={['/other']}>
+        <Routes>
+          <Route path="/other" element={<CategoryRowsPage title="っ・ー" description="" categoryIds={[SOKUON_CATEGORY_ID, CHOUON_CATEGORY_ID]} />} />
+          <Route path="/cafe/sokuon-complete" element={<LocationDisplay />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    fireEvent.click(getAllByTestId('cafe-cta')[0])
+    expect(getByTestId('landed-path')).toHaveTextContent('/cafe/sokuon-complete')
+  })
+
+  it('/youon has checkpoints for hiragana-yōon-complete and katakana-yōon-complete (both Restaurant, no forced new dishes for the latter)', () => {
+    const { getAllByTestId } = renderYouonPage()
+    const restaurantCtas = getAllByTestId('restaurant-cta')
+    // katakana-youon-complete has no forced new dishes but still places an
+    // inline Restaurant CTA (Issue #160: existing suitable items carry it).
+    expect(restaurantCtas).toHaveLength(2)
+  })
+
+  it('/youon (bundled with Special Katakana, matching the real route) also has the special-katakana-complete Cafe checkpoint', () => {
+    const { getAllByTestId } = renderYouonPageWithSpecialKatakana()
+    const cafeCtas = getAllByTestId('cafe-cta')
+    const restaurantCtas = getAllByTestId('restaurant-cta')
+    expect(restaurantCtas).toHaveLength(2)
+    expect(cafeCtas).toHaveLength(1)
+  })
+
+  it('navigates to the Special Katakana Cafe checkpoint route on click', () => {
+    const { getAllByTestId, getByTestId } = render(
+      <MemoryRouter initialEntries={['/youon']}>
+        <Routes>
+          <Route
+            path="/youon"
+            element={<CategoryRowsPage title="拗音" description="" categoryIds={[YOUON_CATEGORY_ID, SPECIAL_KATAKANA_CATEGORY_ID]} />}
+          />
+          <Route path="/cafe/special-katakana-complete" element={<LocationDisplay />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    fireEvent.click(getAllByTestId('cafe-cta')[0])
+    expect(getByTestId('landed-path')).toHaveTextContent('/cafe/special-katakana-complete')
+  })
+
+  it('does not add any checkpoint to /katakana beyond its 3 configured ones (no unintended changes to unrelated stages)', () => {
+    const { getAllByTestId } = renderKatakana()
+    const allCtas = [...getAllByTestId('restaurant-cta'), ...getAllByTestId('cafe-cta')]
+    expect(allCtas).toHaveLength(3)
   })
 })

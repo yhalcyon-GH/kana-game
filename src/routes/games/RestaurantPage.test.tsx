@@ -178,8 +178,8 @@ describe('RestaurantPage', () => {
     expect(screen.getByAltText('Tamamizu')).toHaveAttribute('src', expect.stringContaining('mascot/order.webp'))
   })
 
-  it.each(['katakana', 'other', 'special-katakana'] as const)('uses sushi and udon in the %s introduction (Issue #158)', (stage) => {
-    render(<MemoryRouter><RestaurantPage stage={stage} /></MemoryRouter>)
+  it.each(['katakana-complete', 'chouon-complete', 'katakana-youon-complete'])('uses sushi and udon in the %s introduction (Issue #158)', (checkpointId) => {
+    render(<MemoryRouter><RestaurantPage checkpointId={checkpointId} /></MemoryRouter>)
     expect(screen.getByAltText('すし')).toBeInTheDocument()
     expect(screen.getByAltText('うどん')).toBeInTheDocument()
   })
@@ -360,6 +360,26 @@ describe('RestaurantPage', () => {
     expect(targetRow).toHaveClass('flex-wrap')
   })
 
+  it('renders the new 3-row visual structure: menu, then Tamamizu bubble, then order template (Issue #160, layout-only)', () => {
+    renderPage()
+    const menu = screen.getByTestId('restaurant-menu')
+    const bubble = screen.getByTestId('restaurant-target-bubble')
+    const template = screen.getByTestId('restaurant-order-template')
+    expect(menu.compareDocumentPosition(bubble) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(bubble.compareDocumentPosition(template) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('keeps showing the target image/emoji and English up front in the bubble — Restaurant gameplay is unchanged by the layout move (Issue #160)', () => {
+    renderPage()
+    const bubble = screen.getByTestId('restaurant-target-bubble')
+    // Restaurant (unlike Cafe) never hides the target before an answer —
+    // this is the same DishGlyph image/placeholder it always rendered, just
+    // moved below the menu instead of above it.
+    const targetId = currentTargetDishes()[0].id
+    expect(screen.getByTestId(`restaurant-target-${targetId}`)).toBeInTheDocument()
+    expect(bubble.querySelector('img, [aria-hidden="true"]')).toBeTruthy()
+  })
+
   it('renders a labelled Menu Sheet with a prominent header and restrained frame', () => {
     renderPage()
     const menu = screen.getByTestId('restaurant-menu')
@@ -386,8 +406,11 @@ describe('RestaurantPage', () => {
       expect(row).toHaveTextContent(`¥${dish.priceYen}`)
       expect(row).not.toHaveTextContent(dish.romaji)
       expect(row).not.toHaveTextContent(dish.english)
-      // Restaurant 1's 7 pending-asset dishes (Issue #158) have no `image`
-      // yet and fall back to their placeholder emoji instead of an <img>.
+      // Every Hiragana Restaurant dish now has a real image (PR #164's
+      // image drop); this still covers both branches so a future
+      // still-pending dish keeps falling back to its placeholder emoji
+      // instead of an <img>, exactly like Restaurant 1's dishes did before
+      // their art landed (Issue #158).
       if (dish.image) {
         expect(row.querySelector('img')).toHaveClass('object-contain')
       } else {

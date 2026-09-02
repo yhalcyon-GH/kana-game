@@ -13,6 +13,7 @@ import {
 } from './data/curriculum'
 import { REVIEW_SCOPE_ID } from './hooks/useCurriculum'
 import { useTrackLastStudied } from './hooks/useTrackLastStudied'
+import { CafePage } from './routes/games/CafePage'
 import { KanaQuizPage } from './routes/games/KanaQuizPage'
 import { KanaTypingPage } from './routes/games/KanaTypingPage'
 import { ListeningPage } from './routes/games/ListeningPage'
@@ -28,12 +29,15 @@ import { ReviewMistakesPage } from './routes/ReviewMistakesPage'
 import { ReviewPage } from './routes/ReviewPage'
 import { SavedPage } from './routes/SavedPage'
 import { SettingsPage } from './routes/SettingsPage'
-import type { RestaurantStageId } from './data/restaurantDishes'
 
 function RestaurantRoute() {
-  const { stage } = useParams()
-  const validStages: RestaurantStageId[] = ['hiragana', 'katakana', 'other', 'special-katakana']
-  return <RestaurantPage stage={validStages.includes(stage as RestaurantStageId) ? (stage as RestaurantStageId) : 'hiragana'} />
+  const { checkpointId } = useParams()
+  return <RestaurantPage checkpointId={checkpointId ?? 'na-row'} />
+}
+
+function CafeRoute() {
+  const { checkpointId } = useParams()
+  return <CafePage checkpointId={checkpointId ?? 'katakana-ha-row'} />
 }
 
 // Every category that isn't hiragana/katakana/yōon/special-katakana gets
@@ -68,7 +72,6 @@ function App() {
                     description="Learn hiragana with everyday words."
                     categoryIds={[DEFAULT_CATEGORY_ID]}
                     askTamamizuKanaIntroVariant="hiragana"
-                    restaurantStage="hiragana"
                   />
                 }
               />
@@ -80,7 +83,6 @@ function App() {
                     description="Learn katakana with everyday words."
                     categoryIds={[KATAKANA_CATEGORY_ID]}
                     askTamamizuKanaIntroVariant="katakana"
-                    restaurantStage="katakana"
                   />
                 }
               />
@@ -100,7 +102,6 @@ function App() {
                     // entry) mirrors exactly how '/other' bundles Sokuon +
                     // Chōon below.
                     categoryIds={[YOUON_CATEGORY_ID, SPECIAL_KATAKANA_CATEGORY_ID]}
-                    restaurantStage="special-katakana"
                   />
                 }
               />
@@ -111,7 +112,6 @@ function App() {
                     title="っ・ー"
                     description="Learn small っ/ッ and long vowel ー."
                     categoryIds={OTHER_CATEGORY_IDS}
-                    restaurantStage="other"
                   />
                 }
               />
@@ -138,7 +138,13 @@ function App() {
                   mini-game (see routes/games/RestaurantPage.tsx). Deliberately
                   not nested under /practice/:categoryId/:rowId since it's not
                   a Recommended Path activity for any row. */}
-              <Route path="/restaurant/:stage" element={<RestaurantRoute />} />
+              <Route path="/restaurant/:checkpointId" element={<RestaurantRoute />} />
+              {/* Cafe — standalone, repeatable, non-curriculum mini-game
+                  (routes/games/CafePage.tsx), keyed by checkpoint id rather
+                  than stage since a Cafe checkpoint's pool is its own
+                  spotlight dishes + a katakana-only filler pool, not a
+                  script-wide stage bucket. */}
+              <Route path="/cafe/:checkpointId" element={<CafeRoute />} />
               <Route path="/review" element={<ReviewPage />} />
               <Route path="/saved" element={<SavedPage />} />
               <Route path="/settings" element={<SettingsPage />} />

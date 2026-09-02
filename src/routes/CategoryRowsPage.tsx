@@ -9,7 +9,6 @@ import { AskTamamizuButton } from '../components/AskTamamizuButton'
 import {
   CATEGORIES_BY_ID,
   CHOUON_CATEGORY_ID,
-  DEFAULT_CATEGORY_ID,
   ROWS_BY_ID,
   SOKUON_CATEGORY_ID,
   SPECIAL_KATAKANA_CATEGORY_ID,
@@ -34,19 +33,35 @@ import { useCurriculum } from '../hooks/useCurriculum'
 import { buildGuideReplayHref, useGuideReplay } from '../hooks/useGuideReplay'
 import { isRowRecommendedPathDone } from '../lib/recommendedPath'
 import { useProgressStore } from '../store/progressStore'
-import type { RestaurantStageId } from '../data/restaurantDishes'
+import { PRACTICE_CHECKPOINTS, type PracticeCheckpoint } from '../data/practiceCheckpoints'
+import type { GojuonRow } from '../data/types'
 
 const SOKUON_TARGET_PATH = `/practice/${SOKUON_GUIDE.target.categoryId}/${SOKUON_GUIDE.target.rowId}`
 const CHOUON_TARGET_PATH = `/practice/${CHOUON_GUIDE.target.categoryId}/${CHOUON_GUIDE.target.rowId}`
 const YOUON_TARGET_PATH = `/practice/${YOUON_GUIDE.target.categoryId}/${YOUON_GUIDE.target.rowId}`
 const SPECIAL_KATAKANA_TARGET_PATH = `/practice/${SPECIAL_KATAKANA_GUIDE.target.categoryId}/${SPECIAL_KATAKANA_GUIDE.target.rowId}`
 
-// Issue #158: Hiragana Restaurant 1 is the first early real-life checkpoint,
-// positioned right after な行 (the last row its 11-dish menu needs — see
-// data/restaurantDishes.ts) rather than at the bottom of the whole page.
-// Deliberately just a row-id split point rather than a generic
-// Mission/checkpoint framework — only the Hiragana page has one today.
-const HIRAGANA_RESTAURANT_CHECKPOINT_AFTER_ROW_ID = 'na-row'
+// Splits a category group's rows into segments at each of its approved
+// Restaurant/Cafe checkpoints (Issue #160's roadmap, data/practiceCheckpoints.ts),
+// so each checkpoint's CTA renders inline right after the row it belongs
+// to, in row order — generalizing Issue #158's single hardcoded
+// after-na-row split point to the full approved sequence. Deliberately just
+// a row-id split (like #158's), not a generic Mission/progress-gating
+// framework: Restaurant/Cafe stay outside curriculum/Review/SRS entirely
+// (see data/restaurantDishes.ts's top comment), so a checkpoint's CTA is
+// placement, not an unlock gate.
+function splitRowsAtCheckpoints(rows: GojuonRow[], checkpoints: PracticeCheckpoint[]) {
+  const segments: { rows: GojuonRow[]; checkpoint: PracticeCheckpoint | null }[] = []
+  let cursor = 0
+  for (const checkpoint of checkpoints) {
+    const index = rows.findIndex((row, i) => i >= cursor && row.id === checkpoint.afterRowId)
+    if (index === -1) continue
+    segments.push({ rows: rows.slice(cursor, index + 1), checkpoint })
+    cursor = index + 1
+  }
+  if (cursor < rows.length || segments.length === 0) segments.push({ rows: rows.slice(cursor), checkpoint: null })
+  return segments
+}
 
 type Props = {
   title: string
@@ -64,21 +79,12 @@ type Props = {
   // only picks which Ask Tamamizu artwork to show (Hiragana vs Katakana) —
   // both replay the exact same shared KanaIntroExcerptGuide.
   askTamamizuKanaIntroVariant?: 'hiragana' | 'katakana'
-  // Which Restaurant stage's CTA to show on this page, if any — separate
-  // from askTamamizuKanaIntroVariant on purpose: Restaurant is an unrelated
-  // feature (a standalone repeatable mini-game, not a Guide/Ask Tamamizu
-  // excerpt), so it must not inherit that prop's on/off state or variant.
-  // Only 'hiragana' is wired up anywhere right now (App.tsx's /hiragana
-  // page) — katakana/other/special-katakana Restaurant stages don't exist
-  // yet, but this prop lets a future page opt in without touching the
-  // Ask Tamamizu wiring at all.
-  restaurantStage?: RestaurantStageId
 }
 
 // One row-map page per top-level script group (see App.tsx's four routes)
 // — replaces the single HomePage that used to show every category's rows
 // stacked in one page. HomePage itself is now just a chooser linking here.
-export function CategoryRowsPage({ title, description, categoryIds, askTamamizuKanaIntroVariant, restaurantStage }: Props) {
+export function CategoryRowsPage({ title, description, categoryIds, askTamamizuKanaIntroVariant }: Props) {
   const { rows, isRowUnlocked, isRowTaught, globalRecommendedTarget } = useCurriculum()
   const navigate = useNavigate()
   const kanaIntroExcerptGuide = useGuideReplay('kanaIntro')
@@ -216,15 +222,19 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
           const isChouonGroup = category?.id === CHOUON_CATEGORY_ID
           const isYouonGroup = category?.id === YOUON_CATEGORY_ID
           const isSpecialKatakanaGroup = category?.id === SPECIAL_KATAKANA_CATEGORY_ID
-          // Only the Hiragana group ever has an inline Restaurant checkpoint
-          // (see the constant's comment above) — every other page keeps the
-          // CTA at the very bottom, unchanged from before Issue #158.
-          const showInlineRestaurantCheckpoint = restaurantStage === 'hiragana' && category?.id === DEFAULT_CATEGORY_ID
-          const checkpointIndex = showInlineRestaurantCheckpoint
-            ? groupRows.findIndex((row) => row.id === HIRAGANA_RESTAURANT_CHECKPOINT_AFTER_ROW_ID)
-            : -1
-          const rowsBeforeCheckpoint = checkpointIndex >= 0 ? groupRows.slice(0, checkpointIndex + 1) : groupRows
-          const rowsAfterCheckpoint = checkpointIndex >= 0 ? groupRows.slice(checkpointIndex + 1) : []
+          // Every approved Restaurant/Cafe checkpoint whose category is this
+          // group's (Issue #160's full roadmap) splits this group's rows
+          // into segments, each followed by its own inline CTA — generalizes
+          // Issue #158's single hardcoded na-row split point to the full
+          // sequence. A group with no checkpoints renders as one segment
+          // with no CTA, unchanged from before Issue #160.
+          // Every checkpoint is considered for every group; splitRowsAtCheckpoints
+          // only actually splits where a checkpoint's afterRowId exists in
+          // THIS group's own rows (a curriculum category, e.g. sokuon/chōon
+          // considered separately even though both render on the bundled
+          // /other page) — so a checkpoint whose row lives in a different
+          // group is naturally a no-op here, not a duplicate elsewhere.
+          const segments = splitRowsAtCheckpoints(groupRows, PRACTICE_CHECKPOINTS)
           return (
             <div key={category?.id} className="flex w-full flex-col items-center gap-4">
               {/* displayLabel (○+っ, ○+ー, ...) instead of the real kanji
@@ -266,31 +276,23 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
                   <p className="max-w-xl text-center text-sm text-neutral-500 dark:text-neutral-400">{category.explanation}</p>
                 )
               )}
-              <RowMap
-                rows={rowsBeforeCheckpoint}
-                isUnlocked={isRowUnlocked}
-                isTaught={isRowTaught}
-                isMastered={isRowMastered}
-                isRecommended={isRowRecommended}
-              />
-              {/* Hiragana Restaurant 1 CTA (Issue #158) — an inline checkpoint
-                  right after な行, the last row its 11-dish menu needs (see
-                  data/restaurantDishes.ts), instead of at the very bottom of
-                  the page. See HIRAGANA_RESTAURANT_CHECKPOINT_AFTER_ROW_ID's
-                  comment above; every other Restaurant stage keeps its CTA at
-                  the bottom, unchanged (see below). */}
-              {showInlineRestaurantCheckpoint && checkpointIndex >= 0 && (
-                <RestaurantCta onClick={() => navigate(`/restaurant/${restaurantStage}`)} />
-              )}
-              {rowsAfterCheckpoint.length > 0 && (
-                <RowMap
-                  rows={rowsAfterCheckpoint}
-                  isUnlocked={isRowUnlocked}
-                  isTaught={isRowTaught}
-                  isMastered={isRowMastered}
-                  isRecommended={isRowRecommended}
-                />
-              )}
+              {segments.map((segment, index) => (
+                <div key={segment.checkpoint?.id ?? `tail-${index}`} className="flex w-full flex-col items-center gap-4">
+                  <RowMap
+                    rows={segment.rows}
+                    isUnlocked={isRowUnlocked}
+                    isTaught={isRowTaught}
+                    isMastered={isRowMastered}
+                    isRecommended={isRowRecommended}
+                  />
+                  {segment.checkpoint && (
+                    <PracticeCheckpointCta
+                      checkpoint={segment.checkpoint}
+                      onClick={() => navigate(segment.checkpoint!.routePath)}
+                    />
+                  )}
+                </div>
+              ))}
             </div>
           )
         })
@@ -300,16 +302,6 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
       {trailingRows.length > 0 && (
         <RowMap rows={trailingRows} isUnlocked={isRowUnlocked} isTaught={isRowTaught} isMastered={isRowMastered} />
       )}
-      {/* Restaurant CTA — standalone repeatable
-          mini-game (see routes/games/RestaurantPage.tsx and
-          data/restaurantDishes.ts). Not a curriculum row, not in Recommended
-          Path, no completion flag — see RestaurantPage's own comment for the
-          full progress-isolation guarantee. Gated on its own `restaurantStage`
-          prop, not on askTamamizuKanaIntroVariant — those are unrelated
-          features. Hiragana's CTA renders inline above instead (Issue #158);
-          every other stage (katakana/other/special-katakana) still renders
-          it here at the bottom, unchanged from before Issue #158. */}
-      {restaurantStage && restaurantStage !== 'hiragana' && <RestaurantCta onClick={() => navigate(`/restaurant/${restaurantStage}`)} />}
       {/* Optional supplementary "Ask Tamamizu about particles" entry point
           (は/へ/を pronunciation quirks) — Hiragana page only, deliberately
           not a new Home category card, Recommended Path step, or curriculum
@@ -364,23 +356,28 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
   )
 }
 
-// Shared markup for both the Hiragana inline checkpoint placement and every
-// other stage's bottom placement (see the two call sites above) — same
-// full-width rounded-button styling as this page's other CTAs, navigating
-// directly instead of opening a Guide overlay.
-function RestaurantCta({ onClick }: { onClick: () => void }) {
+// Shared CTA markup for every inline Restaurant/Cafe checkpoint (Issue #160
+// generalizes Issue #158's single Restaurant-only CTA to both mini-games) —
+// same full-width rounded-button styling as this page's other CTAs,
+// navigating directly instead of opening a Guide overlay.
+function PracticeCheckpointCta({ checkpoint, onClick }: { checkpoint: PracticeCheckpoint; onClick: () => void }) {
+  const isCafe = checkpoint.mode === 'cafe'
   return (
     <button
       type="button"
       onClick={onClick}
-      data-testid="restaurant-cta"
+      data-testid={isCafe ? 'cafe-cta' : 'restaurant-cta'}
       className="w-full max-w-md rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4 text-left shadow-md transition hover:border-amber-400 hover:bg-amber-100 active:scale-[0.98] dark:border-amber-700 dark:bg-amber-950/40 dark:hover:bg-amber-900/50"
     >
       <span className="block text-xs font-bold tracking-[0.16em] text-amber-700 dark:text-amber-300">REAL-LIFE PRACTICE</span>
       <span className="mt-1 flex items-center justify-between gap-3">
         <span>
-          <span className="block text-lg font-bold text-amber-950 dark:text-amber-50">🍽️ Restaurant Practice</span>
-          <span className="mt-1 block text-sm font-normal text-amber-900/75 dark:text-amber-200/75">Order food using what you&apos;ve learned</span>
+          <span className="block text-lg font-bold text-amber-950 dark:text-amber-50">
+            {isCafe ? '☕ Cafe Practice' : '🍽️ Restaurant Practice'}
+          </span>
+          <span className="mt-1 block text-sm font-normal text-amber-900/75 dark:text-amber-200/75">
+            {isCafe ? 'Order a drink or snack in Katakana' : "Order food using what you've learned"}
+          </span>
         </span>
         <span className="shrink-0 text-sm font-bold text-amber-800 dark:text-amber-200">Try it →</span>
       </span>
