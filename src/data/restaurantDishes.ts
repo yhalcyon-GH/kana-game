@@ -128,17 +128,37 @@ const assetOverridesById: Partial<Record<string, { image?: string; audioPath?: s
 // approved as Restaurant targets from their own katakana-sa-row checkpoint,
 // are ALSO approved as Cafe targets once katakana-ha-row is reached).
 const targetIntroductionsById: Partial<Record<string, TargetIntroduction[]>> = {
+  soba: [{ checkpointId: 'hiragana-complete', mode: 'restaurant' }],
+  tenpura: [{ checkpointId: 'hiragana-complete', mode: 'restaurant' }],
+  onigiri: [{ checkpointId: 'hiragana-complete', mode: 'restaurant' }],
+  yakitori: [{ checkpointId: 'hiragana-complete', mode: 'restaurant' }],
+  sashimi: [{ checkpointId: 'hiragana-complete', mode: 'restaurant' }],
+  edamame: [{ checkpointId: 'hiragana-complete', mode: 'restaurant' }],
+  misoshiru: [{ checkpointId: 'hiragana-complete', mode: 'restaurant' }],
   aisu: [{ checkpointId: 'katakana-sa-row', mode: 'restaurant' }, { checkpointId: 'katakana-ha-row', mode: 'cafe' }],
   keeki: [{ checkpointId: 'katakana-sa-row', mode: 'restaurant' }, { checkpointId: 'katakana-ha-row', mode: 'cafe' }],
-  koohii: [{ checkpointId: 'katakana-ha-row', mode: 'cafe' }],
-  piza: [{ checkpointId: 'katakana-ha-row', mode: 'cafe' }],
-  pasuta: [{ checkpointId: 'katakana-ha-row', mode: 'cafe' }],
+  karee: [{ checkpointId: 'katakana-complete', mode: 'restaurant' }],
+  pasuta: [{ checkpointId: 'katakana-complete', mode: 'restaurant' }, { checkpointId: 'katakana-ha-row', mode: 'cafe' }],
+  sarada: [{ checkpointId: 'katakana-complete', mode: 'restaurant' }],
+  piza: [{ checkpointId: 'katakana-complete', mode: 'restaurant' }, { checkpointId: 'katakana-ha-row', mode: 'cafe' }],
+  suupu: [{ checkpointId: 'katakana-complete', mode: 'restaurant' }],
+  hanbaagaa: [{ checkpointId: 'katakana-complete', mode: 'restaurant' }],
+  suteeki: [{ checkpointId: 'katakana-complete', mode: 'restaurant' }],
+  poteto: [{ checkpointId: 'katakana-complete', mode: 'restaurant' }],
+  raamen: [{ checkpointId: 'katakana-complete', mode: 'restaurant' }],
+  koora: [{ checkpointId: 'katakana-complete', mode: 'restaurant' }],
+  miruku: [{ checkpointId: 'katakana-complete', mode: 'restaurant' }],
+  purin: [{ checkpointId: 'katakana-complete', mode: 'restaurant' }],
+  zerii: [{ checkpointId: 'katakana-complete', mode: 'restaurant' }],
+  koohii: [{ checkpointId: 'katakana-complete', mode: 'restaurant' }, { checkpointId: 'katakana-ha-row', mode: 'cafe' }],
   kokoa: [{ checkpointId: 'katakana-ha-row', mode: 'cafe' }],
   sooseeji: [{ checkpointId: 'katakana-ha-row', mode: 'cafe' }],
   'hotto-doggu': [{ checkpointId: 'sokuon-complete', mode: 'cafe' }],
   sandoicchi: [{ checkpointId: 'sokuon-complete', mode: 'cafe' }],
   kukkii: [{ checkpointId: 'sokuon-complete', mode: 'cafe' }],
   'hanbaagaa-setto': [{ checkpointId: 'sokuon-complete', mode: 'cafe' }],
+  korokke: [{ checkpointId: 'chouon-complete', mode: 'restaurant' }],
+  'hotto-kokoa': [{ checkpointId: 'chouon-complete', mode: 'restaurant' }],
   toufu: [{ checkpointId: 'chouon-complete', mode: 'restaurant' }],
   gyouza: [{ checkpointId: 'hiragana-youon-complete', mode: 'restaurant' }],
   ryokucha: [{ checkpointId: 'hiragana-youon-complete', mode: 'restaurant' }],
@@ -184,6 +204,10 @@ const h: [string, string, string, number, string[], string][] = [
 ]
 // Hiragana complete → Restaurant (Issue #160, checkpoint 2): every dish is
 // spellable in plain hiragana using the full hiragana base set.
+const hLegacyReuse: (string | number | string[])[][] = [
+  ['soba','そば','soba',650,['そば','蕎麦']], ['tenpura','てんぷら','tenpura',900,['てんぷら','天ぷら','天麩羅']], ['onigiri','おにぎり','onigiri',250,['おにぎり','お握り','御握り']],
+  ['yakitori','やきとり','yakitori',480,['やきとり','焼き鳥','焼鳥']], ['sashimi','さしみ','sashimi',980,['さしみ','刺身']], ['edamame','えだまめ','edamame',380,['えだまめ','枝豆']], ['misoshiru','みそしる','misoshiru',420,['みそしる','味噌汁']],
+]
 const hComplete: [string, string, string, number, string[], string][] = [
   ['yakisoba','やきそば','yakisoba',680,['やきそば','焼きそば'],'hiragana-complete'],
   ['okonomiyaki','おこのみやき','okonomiyaki',900,['おこのみやき','お好み焼き'],'hiragana-complete'],
@@ -256,6 +280,7 @@ function buildWithCheckpoint(stage: RestaurantStageId, rows: [string, string, st
 }
 export const RESTAURANT_DISHES = [
   ...buildWithCheckpoint('hiragana', h),
+  ...build('hiragana', hLegacyReuse),
   ...buildWithCheckpoint('hiragana', hComplete),
   ...build('katakana', k),
   ...buildWithCheckpoint('katakana', kSa),

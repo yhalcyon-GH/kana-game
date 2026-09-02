@@ -83,6 +83,24 @@ describe('getCheckpointDishPool — no future-item leakage', () => {
     }
   })
 
+  it('hiragana-complete and katakana-complete include all finalized legacy Restaurant reuse targets', () => {
+    const hiraganaIds = getCheckpointDishPool('hiragana-complete').targets.map((dish) => dish.id)
+    const katakanaIds = getCheckpointDishPool('katakana-complete').targets.map((dish) => dish.id)
+    expect(hiraganaIds).toEqual(expect.arrayContaining(['soba', 'tenpura', 'onigiri', 'yakitori', 'sashimi', 'edamame', 'misoshiru']))
+    expect(katakanaIds).toEqual(expect.arrayContaining(['karee', 'pasuta', 'sarada', 'piza', 'suupu', 'hanbaagaa', 'suteeki', 'poteto', 'raamen', 'koohii', 'koora', 'miruku', 'purin', 'zerii', 'aisu', 'keeki']))
+  })
+
+  it('menu fillers obey the same explicit mode eligibility as targets', () => {
+    for (const checkpoint of PRACTICE_CHECKPOINTS) {
+      const extraFilter = checkpoint.mode === 'cafe' ? isKatakanaOnlyDish : undefined
+      const { menuDishes } = getCheckpointDishPool(checkpoint.id, extraFilter)
+      const order = PRACTICE_CHECKPOINTS.indexOf(checkpoint)
+      for (const dish of menuDishes) {
+        expect(isTargetEligibleFor(dish, checkpoint.mode, order), `${checkpoint.id}: ${dish.id} leaked into ${checkpoint.mode} menu`).toBe(true)
+      }
+    }
+  })
+
   it('every checkpoint has enough targets/menu dishes for the ordering game (>=2 targets, >=4 menu dishes)', () => {
     for (const checkpoint of PRACTICE_CHECKPOINTS) {
       const extraFilter = checkpoint.mode === 'cafe' ? isKatakanaOnlyDish : undefined

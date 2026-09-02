@@ -44,8 +44,8 @@ function isFullyReadable(word: string, kanaSet: Set<string>): boolean {
 }
 
 describe('restaurantDishes (hiragana stage)', () => {
-  it('has exactly 15 hiragana dishes (11 Restaurant-1 + 4 hiragana-complete, Issue #160)', () => {
-    expect(HIRAGANA_RESTAURANT_DISHES).toHaveLength(15)
+  it('has exactly 22 hiragana dishes (11 Restaurant-1 + 7 restored + 4 hiragana-complete, Issue #166)', () => {
+    expect(HIRAGANA_RESTAURANT_DISHES).toHaveLength(22)
   })
 
   it('every hiragana dish is stage "hiragana" with requiredCategories ["hiragana"]', () => {
@@ -87,6 +87,7 @@ describe('restaurantDishes (hiragana stage)', () => {
       okonomiyaki: 'おこのみやき',
       tamagoyaki: 'たまごやき',
       karaage: 'からあげ',
+      soba: 'そば', tenpura: 'てんぷら', onigiri: 'おにぎり', yakitori: 'やきとり', sashimi: 'さしみ', edamame: 'えだまめ', misoshiru: 'みそしる',
     }
     for (const [id, kana] of Object.entries(expected)) {
       const dish = HIRAGANA_RESTAURANT_DISHES.find((d) => d.id === id)
@@ -96,10 +97,10 @@ describe('restaurantDishes (hiragana stage)', () => {
     expect(HIRAGANA_RESTAURANT_DISHES).toHaveLength(Object.keys(expected).length)
   })
 
-  it('no longer includes the removed later-kana dishes in the active pool (Issue #158)', () => {
-    const removedIds = ['soba', 'tenpura', 'onigiri', 'yakitori', 'sashimi', 'edamame', 'misoshiru']
+  it('includes the finalized hiragana-complete reuse dishes in the active pool', () => {
+    const restoredIds = ['soba', 'tenpura', 'onigiri', 'yakitori', 'sashimi', 'edamame', 'misoshiru']
     const activeIds = HIRAGANA_RESTAURANT_DISHES.map((d) => d.id)
-    for (const id of removedIds) expect(activeIds).not.toContain(id)
+    for (const id of restoredIds) expect(activeIds).toContain(id)
   })
 
   it('uses existing images when available and placeholders otherwise', () => {
@@ -346,7 +347,7 @@ describe('restaurantDishes (Issue #160 checkpoint roadmap)', () => {
     expect(RESTAURANT_DISHES.filter((d) => d.checkpointId === 'katakana-youon-complete')).toHaveLength(0)
   })
 
-  it('hiragana-complete does not pad beyond the 4 approved new items', () => {
+  it('hiragana-complete keeps the 4 new checkpoint rows distinct from restored legacy rows', () => {
     expect(RESTAURANT_DISHES.filter((d) => d.checkpointId === 'hiragana-complete').map((d) => d.id).sort()).toEqual(
       ['karaage', 'okonomiyaki', 'tamagoyaki', 'yakisoba'].sort(),
     )

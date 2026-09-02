@@ -40,15 +40,11 @@ export function getCheckpointDishPool(
   const passesExtra = (dish: RestaurantDish) => !extraFilter || extraFilter(dish)
   const readableKana = getReadableKana(checkpoint.afterRowId)
 
-  const isEligibleFiller = (dish: RestaurantDish) => {
-    if (!checkpoint.fillerStages.includes(dish.stage)) return false
-    if (!dish.checkpointId) return isFullyReadable(dish.displayKana, readableKana)
-    const dishOrder = PRACTICE_CHECKPOINTS.findIndex((c) => c.id === dish.checkpointId)
-    return dishOrder !== -1 && dishOrder <= order
-  }
-
   const targets = RESTAURANT_DISHES.filter((dish) => isTargetEligibleFor(dish, checkpoint.mode, order) && passesExtra(dish))
-  const fillerPool = RESTAURANT_DISHES.filter((dish) => isEligibleFiller(dish) && passesExtra(dish))
-  const menuDishes = Array.from(new Map([...targets, ...fillerPool].map((dish) => [dish.id, dish])).values())
+  const menuDishes = RESTAURANT_DISHES.filter((dish) =>
+    isTargetEligibleFor(dish, checkpoint.mode, order) &&
+    isFullyReadable(dish.displayKana, readableKana) &&
+    passesExtra(dish),
+  )
   return { targets, menuDishes }
 }
