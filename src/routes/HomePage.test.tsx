@@ -2,6 +2,7 @@ import { render } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { CHOUON_CATEGORY_ID, DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID, ROWS, SOKUON_CATEGORY_ID } from '../data/curriculum'
+import { PRACTICE_CHECKPOINTS } from '../data/practiceCheckpoints'
 import { useProgressStore } from '../store/progressStore'
 import { useSavedItemsStore } from '../store/savedItemsStore'
 import { HomePage } from './HomePage'
@@ -10,12 +11,18 @@ beforeEach(() => {
   useProgressStore.getState().resetProgress()
 })
 
+// Rows with an approved Restaurant/Cafe checkpoint (Issue #183) only reach
+// Recommended Path 'done' once that score-independent checkpoint flag is set
+// too (see recommendedPath.ts's getRecommendedActivity).
 function completeCategory(categoryId: string) {
   for (const row of ROWS.filter((r) => r.categoryId === categoryId && !r.isSummary)) {
     useProgressStore.getState().markRowTaught(row.id)
     useProgressStore.getState().markRowActivityCompleted(row.id, 'kanaQuiz')
     useProgressStore.getState().markRowActivityCompleted(row.id, 'listening')
     useProgressStore.getState().markRowActivityCompleted(row.id, 'wordBuilder')
+    if (PRACTICE_CHECKPOINTS.some((checkpoint) => checkpoint.afterRowId === row.id)) {
+      useProgressStore.getState().markRowActivityCompleted(row.id, 'checkpoint')
+    }
   }
 }
 

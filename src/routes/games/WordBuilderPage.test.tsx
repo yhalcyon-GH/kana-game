@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHARACTERS_BY_ID } from '../../data/characters'
 import { WORDS_BY_ID, WORDS_BY_ROW } from '../../data/words'
 import { getNextRowId, ROWS } from '../../data/curriculum'
+import { PRACTICE_CHECKPOINTS } from '../../data/practiceCheckpoints'
 import { REVIEW_SCOPE_ID } from '../../hooks/useCurriculum'
 import { useProgressStore } from '../../store/progressStore'
 import { useSavedItemsStore } from '../../store/savedItemsStore'
@@ -283,11 +284,18 @@ describe('WordBuilderPage Recommended Path completion (Issue #11)', () => {
     expect(continueLink).toHaveAttribute('href', '/practice/hiragana/ka-row')
   })
 
-  it('does not render a broken Continue action on the final row (no next row exists)', () => {
+  it('on a row with no next row but an approved checkpoint (Issue #183), Continue goes to that checkpoint rather than being broken', () => {
     vi.useFakeTimers()
-    const lastRow = ROWS.find((r) => !r.isSummary && getNextRowId(r.id) === null)!
+    const lastRow = ROWS.find((r) => !r.isSummary && !r.isSimilarLetters && getNextRowId(r.id) === null)!
     expect(lastRow).toBeDefined()
-    const { container, queryByRole } = render(
+    // Every row with no next row in its own category currently has an
+    // approved Restaurant/Cafe checkpoint after it (Issue #183) — Word
+    // Builder's Continue prefers that checkpoint over next-row navigation,
+    // so this is never actually a dead end. See recommendedPath.ts and
+    // src/data/practiceCheckpoints.ts.
+    const checkpoint = PRACTICE_CHECKPOINTS.find((c) => c.afterRowId === lastRow.id)
+    expect(checkpoint).toBeDefined()
+    const { container, getByRole } = render(
       <MemoryRouter initialEntries={[`/practice/${lastRow.categoryId}/${lastRow.id}/word-builder`]}>
         <Routes>
           <Route path="/practice/:categoryId/:rowId/word-builder" element={<WordBuilderPage />} />
@@ -300,8 +308,8 @@ describe('WordBuilderPage Recommended Path completion (Issue #11)', () => {
       guard += 1
     }
     expect(container.textContent).toMatch(/complete!/)
-    expect(queryByRole('link', { name: /continue/i })).toBeNull()
-    expect(queryByRole('link', { name: /back to hub/i })).not.toBeNull()
+    const continueLink = getByRole('link', { name: /continue/i })
+    expect(continueLink).toHaveAttribute('href', checkpoint!.routePath)
   })
 })
 
