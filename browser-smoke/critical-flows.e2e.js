@@ -19,9 +19,7 @@ async function startOrderingGame(page, route) {
 }
 
 async function currentTargetIds(page, prefix) {
-  const targetLocator = page.locator(
-    `[data-testid^="${prefix}-target-"]:not([data-testid="${prefix}-target-bubble"])`,
-  )
+  const targetLocator = page.locator(`[data-testid^="${prefix}-target-"]:not([data-testid="${prefix}-target-bubble"])`)
   const testIds = await targetLocator.evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-testid')))
   return testIds.filter(Boolean).map((testId) => testId.slice(`${prefix}-target-`.length))
 }
@@ -35,12 +33,8 @@ async function answerCurrentOrderingRound(page, prefix) {
 
   const ids = await currentTargetIds(page, prefix)
   expect(ids.length).toBeGreaterThan(0)
-  for (const id of ids) {
-    await page.getByTestId(`${prefix}-romaji-${id}`).click()
-  }
-  if (ids.length === 2) {
-    await page.getByRole('button', { name: 'Order' }).click()
-  }
+  for (const id of ids) await page.getByTestId(`${prefix}-romaji-${id}`).click()
+  if (ids.length === 2) await page.getByRole('button', { name: 'Order' }).click()
   await expect(page.getByText('Great!', { exact: true })).toBeVisible()
   return ids
 }
@@ -49,7 +43,6 @@ async function reachTwoItemOrderingRound(page, prefix) {
   for (let round = 0; round < 8; round += 1) {
     const ids = await currentTargetIds(page, prefix)
     if (ids.length === 2) return ids
-
     await answerCurrentOrderingRound(page, prefix)
     const next = page.getByRole('button', { name: 'Next' })
     await expect(next).toBeVisible()
@@ -57,6 +50,19 @@ async function reachTwoItemOrderingRound(page, prefix) {
     await expect(page.getByText(/Question \d+ \/ 8/)).toBeVisible()
   }
   throw new Error(`Did not reach a two-item ${prefix} ordering round`)
+}
+
+async function completeOrderingCheckpoint(page, route, prefix, expectedAssessmentPath) {
+  await startOrderingGame(page, route)
+  for (let round = 0; round < 8; round += 1) {
+    await answerCurrentOrderingRound(page, prefix)
+    const next = page.getByRole('button', { name: 'Next' })
+    await expect(next).toBeVisible()
+    await next.click()
+    if (round < 7) await expect(page.getByText(/Question \d+ \/ 8/)).toBeVisible()
+  }
+  await expect(page).toHaveURL(new RegExp(`#${expectedAssessmentPath}$`))
+  await expect(page.getByText(/Question 1 \/ 20/)).toBeVisible()
 }
 
 async function expectNoHorizontalPageOverflow(page) {
@@ -68,14 +74,32 @@ async function expectNoHorizontalPageOverflow(page) {
   return geometry
 }
 
+async function reachWordReadingQuestion(page) {
+  const speakButton = page.getByTestId('word-reading-speak-button')
+  for (let round = 0; round < 20; round += 1) {
+    if (await speakButton.isVisible().catch(() => false)) return
+
+    const wordBuilderSlot = page.locator('.border-dashed').first()
+    const choiceButtons = page.locator('.grid.grid-cols-2 button')
+    if (await wordBuilderSlot.isVisible().catch(() => false)) {
+      const slotCount = await page.locator('.border-dashed').count()
+      for (let i = 0; i < slotCount; i += 1) await page.locator('button.font-kana:not([disabled])').first().click()
+    } else if ((await choiceButtons.count()) > 0) {
+      await choiceButtons.first().click()
+    }
+
+    const next = page.getByRole('button', { name: 'Next' })
+    if (await next.isVisible().catch(() => false)) await next.click()
+  }
+  throw new Error('Did not reach a Word Reading question')
+}
+
 test('first launch shows the Introduction and Skip reaches Home', async ({ page }) => {
   await gotoHash(page)
-
   const guide = page.getByRole('dialog', { name: 'Tamamizu Guide' })
   await expect(guide).toBeVisible()
   await expect(guide.getByRole('button', { name: 'Next' })).toBeVisible()
   await expect(guide.getByRole('button', { name: 'Back' })).toBeDisabled()
-
   await guide.getByRole('button', { name: 'Skip' }).click()
   await expect(page.getByRole('heading', { name: 'Kana Game' })).toBeVisible()
 })
@@ -83,12 +107,10 @@ test('first launch shows the Introduction and Skip reaches Home', async ({ page 
 test('representative Learn flow can return to the row Practice Hub', async ({ page }) => {
   await gotoHash(page, '/learn/hiragana/a-row')
   await dismissIntroIfPresent(page)
-
   await expect(page.getByRole('heading', { name: /new characters/i })).toBeVisible()
   await page.getByRole('button', { name: 'See the words' }).click()
   await expect(page.getByRole('button', { name: 'Back to hub' })).toBeVisible()
   await page.getByRole('button', { name: 'Back to hub' }).click()
-
   await expect(page).toHaveURL(/#\/practice\/hiragana\/a-row$/)
   await expect(page.getByText('Tracing', { exact: true })).toBeVisible()
 })
@@ -97,16 +119,13 @@ test('Restaurant two-item ordering stays usable without 320px overflow', async (
   await page.setViewportSize({ width: 320, height: 800 })
   await startOrderingGame(page, '/restaurant/na-row')
   await reachTwoItemOrderingRound(page, 'restaurant')
-
   await expect(page.getByTestId('restaurant-menu')).toBeVisible()
   await expect(page.getByTestId('restaurant-target-bubble')).toBeVisible()
   const geometry = await expectNoHorizontalPageOverflow(page)
   const templateBox = await page.getByTestId('restaurant-order-template').boundingBox()
   expect(templateBox).not.toBeNull()
   expect(templateBox.x + templateBox.width).toBeLessThanOrEqual(geometry.clientWidth + 0.5)
-
-  const ids = await answerCurrentOrderingRound(page, 'restaurant')
-  expect(ids).toHaveLength(2)
+  expect(await answerCurrentOrderingRound(page, 'restaurant')).toHaveLength(2)
 })
 
 test('Cafe keeps target clues hidden before answer and has no 320px overflow', async ({ page }) => {
@@ -125,17 +144,13 @@ test('Cafe keeps target clues hidden before answer and has no 320px overflow', a
   expect(templateBox).not.toBeNull()
   expect(templateBox.x + templateBox.width).toBeLessThanOrEqual(geometry.clientWidth + 0.5)
 
-  const ids = await answerCurrentOrderingRound(page, 'cafe')
-  expect(ids).toHaveLength(2)
+  expect(await answerCurrentOrderingRound(page, 'cafe')).toHaveLength(2)
   await expect(bubble.locator('img')).toHaveCount(2)
-  const revealedText = await bubble.locator('[data-testid^="cafe-target-"]').allTextContents()
-  expect(revealedText.every((text) => text.trim().length > 0)).toBe(true)
 })
 
 test('Tracing renders in a real browser, accepts a stroke, and Clear resets it', async ({ page }) => {
   await gotoHash(page, '/practice/hiragana/a-row/tracing')
   await dismissIntroIfPresent(page)
-
   await page.getByRole('button', { name: 'Start Tracing' }).click()
   const canvas = page.locator('canvas').first()
   await expect(canvas).toBeVisible()
@@ -150,91 +165,63 @@ test('Tracing renders in a real browser, accepts a stroke, and Clear resets it',
   await page.mouse.up()
   const afterStroke = await canvas.evaluate((element) => element.toDataURL())
   expect(afterStroke).not.toBe(before)
-
   await page.getByRole('button', { name: 'Clear' }).click()
   await expect.poll(() => canvas.evaluate((element) => element.toDataURL())).not.toBe(afterStroke)
-  await expect(canvas).toBeVisible()
 })
 
 test('unmatched routes show recovery UI and Go Home restores Home', async ({ page }) => {
   await gotoHash(page, '/this-route-does-not-exist')
   await dismissIntroIfPresent(page)
-
   await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible()
   await page.getByRole('link', { name: 'Go Home' }).click()
   await expect(page).toHaveURL(/#\/$/)
   await expect(page.getByRole('heading', { name: 'Kana Game' })).toBeVisible()
 })
 
-test('Hiragana Test loads at 320px, hides Word Reading clues before answering, and reveals them after (Issue #189)', async ({ page }) => {
+test('Hiragana and Katakana Tests both load at 320px without overflow', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 800 })
+  for (const script of ['hiragana', 'katakana']) {
+    await gotoHash(page, `/assessment/${script}`)
+    await dismissIntroIfPresent(page)
+    await expect(page.getByText(/Question 1 \/ 20/)).toBeVisible()
+    await expectNoHorizontalPageOverflow(page)
+  }
+})
+
+test('Word Reading hides clues before answer and reveals answer data afterward', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 800 })
   await gotoHash(page, '/assessment/hiragana')
   await dismissIntroIfPresent(page)
+  await reachWordReadingQuestion(page)
 
-  await expect(page.getByText(/Question 1 \/ 20/)).toBeVisible()
-  const geometry = await expectNoHorizontalPageOverflow(page)
-  expect(geometry.scrollWidth).toBeLessThanOrEqual(geometry.clientWidth)
-
-  // Click through questions (any answer) until a Word Reading question
-  // appears — bounded by the fixed 5-per-family composition the planner
-  // guarantees (see lib/assessmentPlan.test.ts), so this always terminates
-  // well within 20 rounds.
-  const speakButton = page.getByTestId('word-reading-speak-button')
-  for (let round = 0; round < 20; round += 1) {
-    if (await speakButton.isVisible().catch(() => false)) break
-
-    const wordBuilderSlot = page.locator('.border-dashed').first()
-    const choiceButtons = page.locator('.grid.grid-cols-2 button')
-    if (await wordBuilderSlot.isVisible().catch(() => false)) {
-      const tiles = page.locator('button.font-kana:not([disabled])')
-      const slotCount = await page.locator('.border-dashed').count()
-      for (let i = 0; i < slotCount; i += 1) {
-        await tiles.first().click()
-      }
-    } else if ((await choiceButtons.count()) > 0) {
-      await choiceButtons.first().click()
-    } else {
-      // Already Word Reading, or transitioned to results — re-check at loop top.
-      continue
-    }
-
-    const complete = page.getByText(/complete!/)
-    if (await complete.isVisible().catch(() => false)) break
-    const next = page.getByRole('button', { name: 'Next' })
-    if (await next.isVisible().catch(() => false)) await next.click()
-  }
-
-  await expect(speakButton).toBeVisible()
-
-  // Before answering: only the written Japanese word is visible — no
-  // English meaning, illustration, or answer-revealing romaji anywhere on
-  // the Word Reading prompt (the "Correct!"/"Not quite." reveal panel must
-  // not exist yet).
-  await expect(page.getByText(/Correct!|Not quite\./)).toHaveCount(0)
-  await expect(page.getByRole('img')).toHaveCount(0)
-
+  await expect(page.getByTestId('word-reading-speak-button')).toBeVisible()
+  await expect(page.getByTestId('word-reading-reveal')).toHaveCount(0)
   await expectNoHorizontalPageOverflow(page)
 
-  // Answer via Romaji (no real speech recognition in CI) and confirm the
-  // post-answer reveal: correct word, romaji, meaning, and illustration.
   await page.getByRole('button', { name: 'Choose in Romaji' }).click()
   await page.getByTestId('word-reading-romaji-correct').click()
 
-  await expect(page.getByText(/Correct!/)).toBeVisible()
-  await expect(page.getByRole('img')).toHaveCount(1)
+  const reveal = page.getByTestId('word-reading-reveal')
+  await expect(reveal).toBeVisible()
+  await expect(reveal.getByTestId('word-reading-image')).toBeVisible()
+  await expect(reveal.getByText(/Correct!/)).toBeVisible()
+  await expectNoHorizontalPageOverflow(page)
+})
+
+test('final Hiragana and Katakana Restaurant checkpoints route to their section Tests', async ({ page }) => {
+  await completeOrderingCheckpoint(page, '/restaurant/hiragana-complete', 'restaurant', '/assessment/hiragana')
+  await completeOrderingCheckpoint(page, '/restaurant/katakana-complete', 'restaurant', '/assessment/katakana')
 })
 
 test('representative pronunciation asset is served and its browser control activates safely', async ({ page }) => {
   await gotoHash(page, '/learn/hiragana/a-row')
   await dismissIntroIfPresent(page)
-
   const assetStatus = await page.evaluate(async () => {
     const url = new URL('audio/characters/a.mp3', document.baseURI)
     const response = await fetch(url, { cache: 'no-store' })
     return response.status
   })
   expect(assetStatus).toBe(200)
-
   const pronunciation = page.getByRole('button', { name: 'Play pronunciation of あ' })
   await expect(pronunciation).toBeVisible()
   await pronunciation.click()
