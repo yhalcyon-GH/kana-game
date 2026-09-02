@@ -1,43 +1,49 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 
 type Props = { children: ReactNode }
-type State = { error: Error | null; info: ErrorInfo | null }
+type State = { error: Error | null }
 
-// The app has never had one of these — a render error anywhere just
-// unmounts the whole tree to a blank white page with nothing logged
-// anywhere reachable without the device's own devtools. This is a
-// diagnostic tool: it makes a crash visible ON THE SCREEN so a report like
-// "Review shows a blank page on my phone" comes with an actual error
-// message next time, instead of requiring USB/remote debugging just to see
-// what's throwing. Temporary, for tracking down that specific bug — once
-// it's found, this can go or turn into a nicer permanent fallback UI.
 export class ErrorBoundary extends Component<Props, State> {
-  state: State = { error: null, info: null }
+  state: State = { error: null }
 
   static getDerivedStateFromError(error: Error) {
-    return { error, info: null }
+    return { error }
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    this.setState({ error, info })
+    // Keep technical diagnostics available to developers without exposing
+    // implementation details in the learner-facing fallback UI.
+    console.error('KanaGame render error', error, info)
+  }
+
+  private retry = () => {
+    this.setState({ error: null })
   }
 
   render() {
-    const { error, info } = this.state
-    if (!error) return this.props.children
+    if (!this.state.error) return this.props.children
+
     return (
-      <div style={{ padding: 16, fontFamily: 'monospace', fontSize: 13, whiteSpace: 'pre-wrap', color: '#111', background: '#fff' }}>
-        <h1 style={{ fontSize: 16, fontWeight: 'bold', color: '#c00' }}>App crashed</h1>
-        <p>
-          <strong>{error.name}:</strong> {error.message}
+      <div className="flex w-full max-w-md flex-col items-center gap-4 rounded-2xl border border-neutral-200 bg-neutral-50 p-6 text-center dark:border-neutral-700 dark:bg-neutral-800">
+        <h1 className="text-xl font-bold">Something went wrong</h1>
+        <p className="text-sm text-neutral-600 dark:text-neutral-300">
+          Try again, or return to Home.
         </p>
-        <p style={{ marginTop: 12 }}>{error.stack}</p>
-        {info?.componentStack && (
-          <>
-            <h2 style={{ fontSize: 14, fontWeight: 'bold', marginTop: 16 }}>Component stack</h2>
-            <p>{info.componentStack}</p>
-          </>
-        )}
+        <div className="flex flex-wrap justify-center gap-3">
+          <button
+            type="button"
+            onClick={this.retry}
+            className="rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+          >
+            Try Again
+          </button>
+          <a
+            href={`${import.meta.env.BASE_URL}#/`}
+            className="rounded-full border border-neutral-300 px-5 py-2 text-sm font-semibold text-neutral-700 hover:border-blue-400 dark:border-neutral-600 dark:text-neutral-200"
+          >
+            Go Home
+          </a>
+        </div>
       </div>
     )
   }
