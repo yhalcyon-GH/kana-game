@@ -12,7 +12,8 @@ import {
 } from './restaurantDishes'
 import { CHARACTERS } from './characters'
 import { getCumulativeCharacterIds } from './curriculum'
-import { PRACTICE_CHECKPOINTS } from './practiceCheckpoints'
+import { PRACTICE_CHECKPOINTS, PRACTICE_CHECKPOINTS_BY_ID } from './practiceCheckpoints'
+import { getReadableKana } from '../lib/kanaReadability'
 
 const SMALL_TSU = 'っ'
 const YOON = ['ゃ', 'ゅ', 'ょ']
@@ -254,6 +255,58 @@ describe('restaurantDishes (Issue #160 checkpoint roadmap)', () => {
     for (const dish of RESTAURANT_DISHES) {
       if (dish.checkpointId) expect(checkpointIds.has(dish.checkpointId), `${dish.id} references unknown checkpoint "${dish.checkpointId}"`).toBe(true)
     }
+  })
+
+  // Issue #166: `targetIntroductions` is hand-curated data (legacy dishes'
+  // pedagogical first-introduction, or a deliberate cross-mode reuse — see
+  // targetIntroductionsById's comment) rather than derived automatically, so
+  // it needs its own integrity checks: every referenced checkpoint must be
+  // real, and — the actual bug this issue fixes — the dish must genuinely be
+  // readable at the checkpoint it's introduced for, not just share a stage
+  // with it. Getting either of these wrong would silently reintroduce the
+  // "kaferate/mirukutii targeted before ファ/ティ are taught" regression.
+  describe('targetIntroductions integrity', () => {
+    const PRACTICE_CHECKPOINT_IDS = new Set(PRACTICE_CHECKPOINTS.map((c) => c.id))
+    const dishesWithIntroductions = RESTAURANT_DISHES.filter((d) => (d.targetIntroductions?.length ?? 0) > 0)
+
+    it('has at least one dish with an explicit targetIntroductions override (this suite is not vacuous)', () => {
+      expect(dishesWithIntroductions.length).toBeGreaterThan(0)
+    })
+
+    it.each(dishesWithIntroductions.flatMap((dish) => (dish.targetIntroductions ?? []).map((introduction) => ({ dish, introduction }))))(
+      'dish "$dish.id" targetIntroductions entry references a real checkpoint and matches its mode',
+      ({ dish, introduction }) => {
+        const checkpoint = PRACTICE_CHECKPOINTS_BY_ID[introduction.checkpointId]
+        expect(PRACTICE_CHECKPOINT_IDS.has(introduction.checkpointId), `${dish.id}: unknown checkpoint "${introduction.checkpointId}"`).toBe(true)
+        expect(checkpoint?.mode, `${dish.id}: introduction mode "${introduction.mode}" does not match checkpoint "${introduction.checkpointId}"'s own mode`).toBe(introduction.mode)
+      },
+    )
+
+    it.each(dishesWithIntroductions.flatMap((dish) => (dish.targetIntroductions ?? []).map((introduction) => ({ dish, introduction }))))(
+      'dish "$dish.id" is actually readable at the checkpoint it is introduced for ("$introduction.checkpointId")',
+      ({ dish, introduction }) => {
+        const checkpoint = PRACTICE_CHECKPOINTS_BY_ID[introduction.checkpointId]
+        if (!checkpoint) return
+        const kanaSet = getReadableKana(checkpoint.afterRowId)
+        expect(
+          isFullyReadable(dish.displayKana, kanaSet),
+          `${dish.id} ("${dish.displayKana}") is not readable using kana taught through "${checkpoint.afterRowId}" — it cannot be introduced this early`,
+        ).toBe(true)
+      },
+    )
+
+    it('never introduces a dish for a checkpoint earlier than any own-checkpoint spotlight it might also carry', () => {
+      for (const dish of dishesWithIntroductions) {
+        if (!dish.checkpointId) continue
+        const ownOrder = PRACTICE_CHECKPOINTS.findIndex((c) => c.id === dish.checkpointId)
+        for (const introduction of dish.targetIntroductions ?? []) {
+          const introOrder = PRACTICE_CHECKPOINTS.findIndex((c) => c.id === introduction.checkpointId)
+          if (introduction.mode === PRACTICE_CHECKPOINTS_BY_ID[dish.checkpointId]?.mode) {
+            expect(introOrder, `${dish.id}: same-mode targetIntroductions entry must not precede its own checkpoint`).toBeGreaterThanOrEqual(ownOrder)
+          }
+        }
+      }
+    })
   })
 
   it('every Cafe checkpoint dish is Katakana-only (Cafe\'s own hard constraint)', () => {
