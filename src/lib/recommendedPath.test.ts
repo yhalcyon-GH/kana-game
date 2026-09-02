@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { GojuonRow, ScriptCategory } from '../data/types'
 import type { RowActivityCompletion } from '../store/progressStore'
-import { getGlobalRecommendedTarget, getRecommendedActivity } from './recommendedPath'
+import { getGlobalRecommendedTarget, getRecommendedActivity, HIRAGANA_TEST_STEP_ID, KATAKANA_TEST_STEP_ID } from './recommendedPath'
 
 const base = {
   learnStyle: 'character-set' as const,
@@ -164,5 +164,55 @@ describe('getGlobalRecommendedTarget', () => {
     const result = getGlobalRecommendedTarget(ROWS, CATS, [], {})
     expect(result).not.toBeNull()
     expect(Array.isArray(result)).toBe(false)
+  })
+})
+
+// Issue #189: ASSESSMENT_STEPS is hardcoded to the real 'hiragana'/
+// 'katakana' category ids (never inferred from CATEGORIES order — see its
+// own comment), so this synthetic fixture reuses those exact ids to exercise
+// the insertion logic in isolation, independent of the full real curriculum
+// (already covered end-to-end by useCurriculum.test.ts).
+describe('getGlobalRecommendedTarget: Hiragana/Katakana Test endpoint', () => {
+  const scriptCats: ScriptCategory[] = [
+    { id: 'hiragana', label: 'H', learnStyle: 'character-set' },
+    { id: 'katakana', label: 'K', learnStyle: 'character-set' },
+  ]
+  const scriptRows: GojuonRow[] = [
+    { id: 'h1', categoryId: 'hiragana', label: 'H1', order: 0, characterIds: [] },
+    { id: 'k1', categoryId: 'katakana', label: 'K1', order: 0, characterIds: [] },
+  ]
+  const doneCompletion: Record<string, RowActivityCompletion> = {
+    h1: { kanaQuiz: true, listening: true, wordBuilder: true },
+    k1: { kanaQuiz: true, listening: true, wordBuilder: true },
+  }
+
+  it('targets the Hiragana Test once hiragana rows are done but the test is not, without any assessmentCompletion arg (defaults to none done)', () => {
+    expect(getGlobalRecommendedTarget(scriptRows, scriptCats, ['h1'], doneCompletion)).toEqual({
+      categoryId: 'hiragana',
+      rowId: HIRAGANA_TEST_STEP_ID,
+      activity: 'hiragana-test',
+    })
+  })
+
+  it('moves into katakana once the Hiragana Test is marked done, without touching katakana rows', () => {
+    expect(getGlobalRecommendedTarget(scriptRows, scriptCats, ['h1'], doneCompletion, { hiragana: true })).toEqual({
+      categoryId: 'katakana',
+      rowId: 'k1',
+      activity: 'learn',
+    })
+  })
+
+  it('targets the Katakana Test once both categories rows are done but only hiragana Test is', () => {
+    expect(getGlobalRecommendedTarget(scriptRows, scriptCats, ['h1', 'k1'], doneCompletion, { hiragana: true })).toEqual({
+      categoryId: 'katakana',
+      rowId: KATAKANA_TEST_STEP_ID,
+      activity: 'katakana-test',
+    })
+  })
+
+  it('is null once both rows and both Tests are done', () => {
+    expect(
+      getGlobalRecommendedTarget(scriptRows, scriptCats, ['h1', 'k1'], doneCompletion, { hiragana: true, katakana: true }),
+    ).toBeNull()
   })
 })

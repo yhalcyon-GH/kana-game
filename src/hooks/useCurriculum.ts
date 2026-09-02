@@ -86,6 +86,7 @@ export function useCurriculum() {
   const characters = useProgressStore((s) => s.characters)
   const words = useProgressStore((s) => s.words)
   const rowActivityCompletion = useProgressStore((s) => s.rowActivityCompletion)
+  const assessmentCompletion = useProgressStore((s) => s.assessmentCompletion)
 
   // Characters actually attempted at least once, regardless of whether
   // Learn was ever formally completed for their row — rows are never
@@ -190,8 +191,8 @@ export function useCurriculum() {
   // reach box-4 mastery, so keying this off isRowMastered would get
   // permanently stuck once chōon is reached). null once everything is done.
   const globalRecommendedTarget = useMemo(
-    () => getGlobalRecommendedTarget(ROWS, CATEGORIES, taughtRowIds, rowActivityCompletion),
-    [taughtRowIds, rowActivityCompletion],
+    () => getGlobalRecommendedTarget(ROWS, CATEGORIES, taughtRowIds, rowActivityCompletion, assessmentCompletion),
+    [taughtRowIds, rowActivityCompletion, assessmentCompletion],
   )
   const recommendedCategoryId = globalRecommendedTarget?.categoryId ?? null
 

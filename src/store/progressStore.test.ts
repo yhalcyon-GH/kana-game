@@ -948,6 +948,76 @@ describe('progressStore', () => {
     })
   })
 
+  // Hiragana/Katakana Test completion (Issue #189) — same score-independent
+  // "reached the real end" contract as rowActivityCompletion above, but
+  // keyed by script instead of row.
+  describe('assessmentCompletion', () => {
+    it('markAssessmentCompleted sets exactly the one script, leaving the other false', () => {
+      useProgressStore.getState().markAssessmentCompleted('hiragana')
+      expect(useProgressStore.getState().isAssessmentCompleted('hiragana')).toBe(true)
+      expect(useProgressStore.getState().isAssessmentCompleted('katakana')).toBe(false)
+    })
+
+    it('is false for both scripts on a fresh install', () => {
+      expect(useProgressStore.getState().isAssessmentCompleted('hiragana')).toBe(false)
+      expect(useProgressStore.getState().isAssessmentCompleted('katakana')).toBe(false)
+    })
+
+    it('accumulates both scripts independently', () => {
+      useProgressStore.getState().markAssessmentCompleted('hiragana')
+      useProgressStore.getState().markAssessmentCompleted('katakana')
+      expect(useProgressStore.getState().isAssessmentCompleted('hiragana')).toBe(true)
+      expect(useProgressStore.getState().isAssessmentCompleted('katakana')).toBe(true)
+    })
+
+    it('marking it again on a later retake is a harmless no-op', () => {
+      useProgressStore.getState().markAssessmentCompleted('hiragana')
+      useProgressStore.getState().markAssessmentCompleted('hiragana')
+      expect(useProgressStore.getState().assessmentCompletion).toEqual({ hiragana: true })
+    })
+
+    it('persists across store rehydration', async () => {
+      useProgressStore.getState().markAssessmentCompleted('katakana')
+      await useProgressStore.persist.rehydrate()
+      expect(useProgressStore.getState().isAssessmentCompleted('katakana')).toBe(true)
+    })
+
+    it('resetProgress clears assessment completion', () => {
+      useProgressStore.getState().markAssessmentCompleted('hiragana')
+      useProgressStore.getState().resetProgress()
+      expect(useProgressStore.getState().assessmentCompletion).toEqual({})
+    })
+
+    it('mergePersistedProgress ignores malformed/non-boolean values and unknown script keys', () => {
+      const current = useProgressStore.getState()
+      const merged = mergePersistedProgress(
+        { assessmentCompletion: { hiragana: 'yes', katakana: true, sokuon: true } },
+        current,
+      )
+      expect(merged.assessmentCompletion).toEqual({ katakana: true })
+    })
+
+    it('mergePersistedProgress defaults to an empty object when absent (pre-v21 persisted state)', () => {
+      const current = useProgressStore.getState()
+      const merged = mergePersistedProgress({}, current)
+      expect(merged.assessmentCompletion).toEqual({})
+    })
+  })
+
+  describe('v20 -> v21 assessmentCompletion migration (Issue #189)', () => {
+    it('existing learners start with neither test marked complete', async () => {
+      localStorage.setItem(
+        'kana-game-progress',
+        JSON.stringify({ version: 20, state: { taughtRowIds: ['a-row'] } }),
+      )
+      await useProgressStore.persist.rehydrate()
+      const state = useProgressStore.getState()
+      expect(state.assessmentCompletion).toEqual({})
+      // Unrelated pre-existing state is untouched by this migration.
+      expect(state.taughtRowIds).toEqual(['a-row'])
+    })
+  })
+
   // Row mastery is a separate, already-existing dynamic concept (NOT this
   // issue's completion tracking) — box-4-for-every-character, recomputed
   // live rather than a stored flag. These lock in that it stays dynamic.

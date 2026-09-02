@@ -64,6 +64,12 @@ function SavedCard() {
 export function HomePage() {
   const { recommendedCategoryId, globalRecommendedTarget } = useCurriculum()
   const recommendedRow = globalRecommendedTarget ? ROWS_BY_ID[globalRecommendedTarget.rowId] : undefined
+  // The Hiragana/Katakana Test (Issue #189) is a script-wide endpoint step,
+  // not a real row — ROWS_BY_ID has no entry for its sentinel rowId (see
+  // recommendedPath.ts's ASSESSMENT_STEPS), so it has no row label to show
+  // alongside the activity name, only the activity name itself.
+  const recommendedActivityOnly =
+    globalRecommendedTarget?.activity === 'hiragana-test' || globalRecommendedTarget?.activity === 'katakana-test'
 
   return (
     <div className="flex flex-col items-center gap-6">
@@ -83,7 +89,12 @@ export function HomePage() {
               {isRecommended && (
                 <>
                   <RecommendedLabel />
-                  {recommendedRow && globalRecommendedTarget && (
+                  {globalRecommendedTarget && recommendedActivityOnly && (
+                    <span className="text-xs text-neutral-500 dark:text-neutral-400">
+                      {RECOMMENDED_ACTIVITY_LABELS[globalRecommendedTarget.activity]}
+                    </span>
+                  )}
+                  {recommendedRow && globalRecommendedTarget && !recommendedActivityOnly && (
                     <span className="text-xs text-neutral-500 dark:text-neutral-400">
                       {recommendedRow.label} · {RECOMMENDED_ACTIVITY_LABELS[globalRecommendedTarget.activity]}
                     </span>

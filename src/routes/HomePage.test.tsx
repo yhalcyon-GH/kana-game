@@ -13,7 +13,12 @@ beforeEach(() => {
 
 // Rows with an approved Restaurant/Cafe checkpoint (Issue #183) only reach
 // Recommended Path 'done' once that score-independent checkpoint flag is set
-// too (see recommendedPath.ts's getRecommendedActivity).
+// too (see recommendedPath.ts's getRecommendedActivity). Hiragana/Katakana
+// (Issue #189) additionally only reach 'done' once their endpoint Test is
+// completed too (see recommendedPath.ts's ASSESSMENT_STEPS) — completing the
+// category's rows AND its Test here keeps these "next category is
+// Recommended" tests focused on category-to-category sequencing; the Test
+// step itself gets its own dedicated tests.
 function completeCategory(categoryId: string) {
   for (const row of ROWS.filter((r) => r.categoryId === categoryId && !r.isSummary)) {
     useProgressStore.getState().markRowTaught(row.id)
@@ -23,6 +28,9 @@ function completeCategory(categoryId: string) {
     if (PRACTICE_CHECKPOINTS.some((checkpoint) => checkpoint.afterRowId === row.id)) {
       useProgressStore.getState().markRowActivityCompleted(row.id, 'checkpoint')
     }
+  }
+  if (categoryId === DEFAULT_CATEGORY_ID || categoryId === KATAKANA_CATEGORY_ID) {
+    useProgressStore.getState().markAssessmentCompleted(categoryId)
   }
 }
 
@@ -91,6 +99,27 @@ describe('HomePage section Recommended (Issue #21)', () => {
     const { getByRole } = renderHome()
     expect(getByRole('link', { name: /Hiragana/ }).textContent).not.toMatch(/Recommended/)
     expect(getByRole('link', { name: /Katakana/ }).textContent).toMatch(/Recommended/)
+  })
+
+  // Issue #189: once every hiragana row is done but the Hiragana Test itself
+  // hasn't been taken yet, the Hiragana card stays Recommended (it's still
+  // the current script) and shows the Test as the specific next step —
+  // exercises the fix for the sentinel rowId not being in ROWS_BY_ID (see
+  // recommendedPath.ts's ASSESSMENT_STEPS).
+  it('stays on the Hiragana card, showing "Hiragana Test", once every row is done but the test is not', () => {
+    for (const row of ROWS.filter((r) => r.categoryId === DEFAULT_CATEGORY_ID && !r.isSummary)) {
+      useProgressStore.getState().markRowTaught(row.id)
+      useProgressStore.getState().markRowActivityCompleted(row.id, 'kanaQuiz')
+      useProgressStore.getState().markRowActivityCompleted(row.id, 'listening')
+      useProgressStore.getState().markRowActivityCompleted(row.id, 'wordBuilder')
+      if (PRACTICE_CHECKPOINTS.some((checkpoint) => checkpoint.afterRowId === row.id)) {
+        useProgressStore.getState().markRowActivityCompleted(row.id, 'checkpoint')
+      }
+    }
+    const { getByRole } = renderHome()
+    const hiraganaLink = getByRole('link', { name: /Hiragana/ })
+    expect(hiraganaLink.textContent).toMatch(/Recommended/)
+    expect(hiraganaLink.textContent).toMatch(/Hiragana Test/)
   })
 
   it('recommends the bundled "Stop & Long Sound" card once sokuon is next (hiragana + katakana done)', () => {

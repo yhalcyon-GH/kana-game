@@ -18,8 +18,31 @@ import { REVIEW_SCOPE_ID, useCurriculum } from './useCurriculum'
 // the existing store actions, rather than reaching into internals. Rows with
 // an approved Restaurant/Cafe checkpoint (Issue #183) only reach 'done' once
 // that score-independent checkpoint flag is set too (see recommendedPath.ts's
-// getRecommendedActivity).
+// getRecommendedActivity). Hiragana/Katakana (Issue #189) additionally only
+// reach 'done' once their endpoint Test is completed too (see
+// recommendedPath.ts's ASSESSMENT_STEPS) — completing the category's rows
+// AND its Test here keeps these "next category is Recommended" tests
+// focused on category-to-category sequencing; the Test step itself gets its
+// own dedicated tests below.
 function completeCategory(categoryId: string) {
+  for (const row of ROWS.filter((r) => r.categoryId === categoryId && !r.isSummary)) {
+    useProgressStore.getState().markRowTaught(row.id)
+    useProgressStore.getState().markRowActivityCompleted(row.id, 'kanaQuiz')
+    useProgressStore.getState().markRowActivityCompleted(row.id, 'listening')
+    useProgressStore.getState().markRowActivityCompleted(row.id, 'wordBuilder')
+    if (PRACTICE_CHECKPOINTS.some((checkpoint) => checkpoint.afterRowId === row.id)) {
+      useProgressStore.getState().markRowActivityCompleted(row.id, 'checkpoint')
+    }
+  }
+  if (categoryId === DEFAULT_CATEGORY_ID || categoryId === KATAKANA_CATEGORY_ID) {
+    useProgressStore.getState().markAssessmentCompleted(categoryId)
+  }
+}
+
+// Same as completeCategory above, but deliberately withOUT marking the
+// category's Hiragana/Katakana Test completed — isolates "every row is done"
+// from "the Test is done" for the ASSESSMENT_STEPS endpoint tests below.
+function completeCategoryRowsOnly(categoryId: string) {
   for (const row of ROWS.filter((r) => r.categoryId === categoryId && !r.isSummary)) {
     useProgressStore.getState().markRowTaught(row.id)
     useProgressStore.getState().markRowActivityCompleted(row.id, 'kanaQuiz')
@@ -374,6 +397,52 @@ describe('useCurriculum', () => {
         rowId: 'a-row',
         activity: 'learn',
       })
+    })
+  })
+
+  // Issue #189: the Hiragana/Katakana Test is inserted once every real row
+  // in its own category is fully done (including any trailing checkpoint on
+  // that category's last row), before the walk moves into the next category.
+  describe('globalRecommendedTarget: Hiragana/Katakana Test endpoint (Issue #189)', () => {
+    it('targets the Hiragana Test once every hiragana row is done but the test itself is not', () => {
+      completeCategoryRowsOnly(DEFAULT_CATEGORY_ID)
+      const { result } = renderHook(() => useCurriculum())
+      expect(result.current.globalRecommendedTarget?.categoryId).toBe(DEFAULT_CATEGORY_ID)
+      expect(result.current.globalRecommendedTarget?.activity).toBe('hiragana-test')
+    })
+
+    it('moves into katakana once the Hiragana Test is marked completed', () => {
+      completeCategoryRowsOnly(DEFAULT_CATEGORY_ID)
+      useProgressStore.getState().markAssessmentCompleted('hiragana')
+      const { result } = renderHook(() => useCurriculum())
+      expect(result.current.globalRecommendedTarget?.categoryId).toBe(KATAKANA_CATEGORY_ID)
+      expect(result.current.globalRecommendedTarget?.activity).toBe('learn')
+    })
+
+    it('targets the Katakana Test once every katakana row is done but the test itself is not', () => {
+      completeCategoryRowsOnly(DEFAULT_CATEGORY_ID)
+      useProgressStore.getState().markAssessmentCompleted('hiragana')
+      completeCategoryRowsOnly(KATAKANA_CATEGORY_ID)
+      const { result } = renderHook(() => useCurriculum())
+      expect(result.current.globalRecommendedTarget?.categoryId).toBe(KATAKANA_CATEGORY_ID)
+      expect(result.current.globalRecommendedTarget?.activity).toBe('katakana-test')
+    })
+
+    it('moves into sokuon once the Katakana Test is marked completed', () => {
+      completeCategoryRowsOnly(DEFAULT_CATEGORY_ID)
+      useProgressStore.getState().markAssessmentCompleted('hiragana')
+      completeCategoryRowsOnly(KATAKANA_CATEGORY_ID)
+      useProgressStore.getState().markAssessmentCompleted('katakana')
+      const { result } = renderHook(() => useCurriculum())
+      expect(result.current.globalRecommendedTarget?.categoryId).toBe(SOKUON_CATEGORY_ID)
+    })
+
+    it('never marks a test completed just from opening/partially taking it', () => {
+      completeCategoryRowsOnly(DEFAULT_CATEGORY_ID)
+      // Simulate visiting the test without finishing all 20 questions —
+      // nothing calls markAssessmentCompleted.
+      const { result } = renderHook(() => useCurriculum())
+      expect(result.current.globalRecommendedTarget?.activity).toBe('hiragana-test')
     })
   })
 })

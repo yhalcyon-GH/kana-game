@@ -1,6 +1,7 @@
 import { PRACTICE_CHECKPOINTS } from '../data/practiceCheckpoints'
 import type { GojuonRow, ScriptCategory } from '../data/types'
 import type { PracticeMode } from '../data/restaurantDishes'
+import type { AssessmentScript } from './assessment/types'
 import type { RowActivityCompletion } from '../store/progressStore'
 
 // The Recommended Path is a separate, simpler system from Review (see
@@ -13,7 +14,14 @@ import type { RowActivityCompletion } from '../store/progressStore'
 // Builder (Issue #183), but remain score-independent and isolated from
 // Review/SRS/mastery. Their only persisted signal is the row's `checkpoint`
 // completion flag in RowActivityCompletion.
-export type RecommendedActivity = 'learn' | 'kana-quiz' | 'listening' | 'word-builder' | PracticeMode | 'done'
+//
+// 'hiragana-test'/'katakana-test' (Issue #189) are the same kind of
+// score-independent endpoint step, placed after a whole SCRIPT's rows are
+// done rather than after one row — see ASSESSMENT_STEPS/
+// getGlobalRecommendedTarget below. Their only persisted signal is
+// progressStore's assessmentCompletion; finishing all 20 questions
+// completes the step regardless of score.
+export type RecommendedActivity = 'learn' | 'kana-quiz' | 'listening' | 'word-builder' | PracticeMode | 'hiragana-test' | 'katakana-test' | 'done'
 
 export type RecommendedPathInput = {
   // 'contrast-pairs' rows (促音/長音) have no Kana Quiz step — see
@@ -58,11 +66,32 @@ export const RECOMMENDED_ACTIVITY_LABELS: Record<Exclude<RecommendedActivity, 'd
   'word-builder': 'Word Builder',
   restaurant: 'Restaurant Practice',
   cafe: 'Cafe Practice',
+  'hiragana-test': 'Hiragana Test',
+  'katakana-test': 'Katakana Test',
 }
 
 function checkpointAfterRow(rowId: string) {
   return PRACTICE_CHECKPOINTS.find((checkpoint) => checkpoint.afterRowId === rowId)
 }
+
+// The approved Hiragana/Katakana Test placement (Issue #189): each test is a
+// single endpoint step inserted once every REAL row of its own category is
+// 'done' (including any trailing Restaurant/Cafe checkpoint on that
+// category's last row), before the walk below moves on to the next
+// category. A flat config list, same pattern as PRACTICE_CHECKPOINTS above,
+// rather than hardcoding 'hiragana'/'katakana' checks inline — a plain
+// afterCategoryId lookup, not inferred from CATEGORIES array order. `rowId`
+// here is a sentinel, never a real GojuonRow id (ROWS_BY_ID has no entry for
+// it) — existing callers that look up `ROWS_BY_ID[globalRecommendedTarget.rowId]`
+// already treat a missing row as "nothing more specific to show" (see
+// HomePage), so this is a safe, non-breaking sentinel rather than a new
+// GlobalRecommendedTarget shape.
+export const HIRAGANA_TEST_STEP_ID = 'hiragana-test'
+export const KATAKANA_TEST_STEP_ID = 'katakana-test'
+const ASSESSMENT_STEPS: { script: AssessmentScript; afterCategoryId: string; activity: 'hiragana-test' | 'katakana-test'; rowId: string }[] = [
+  { script: 'hiragana', afterCategoryId: 'hiragana', activity: 'hiragana-test', rowId: HIRAGANA_TEST_STEP_ID },
+  { script: 'katakana', afterCategoryId: 'katakana', activity: 'katakana-test', rowId: KATAKANA_TEST_STEP_ID },
+]
 
 // Single-row version of the same completion check used by
 // getGlobalRecommendedTarget below — reused (not reimplemented) wherever a
@@ -117,6 +146,7 @@ export function getGlobalRecommendedTarget(
   categories: readonly ScriptCategory[],
   taughtRowIds: readonly string[],
   rowActivityCompletion: Record<string, RowActivityCompletion>,
+  assessmentCompletion: Partial<Record<AssessmentScript, boolean>> = {},
 ): GlobalRecommendedTarget | null {
   for (const category of categories) {
     // Similar Letters (see GojuonRow.isSimilarLetters) is an optional
@@ -140,6 +170,11 @@ export function getGlobalRecommendedTarget(
         checkpointCompleted: completion?.checkpoint === true,
       })
       if (activity !== 'done') return { categoryId: category.id, rowId: row.id, activity }
+    }
+
+    const assessmentStep = ASSESSMENT_STEPS.find((step) => step.afterCategoryId === category.id)
+    if (assessmentStep && assessmentCompletion[assessmentStep.script] !== true) {
+      return { categoryId: category.id, rowId: assessmentStep.rowId, activity: assessmentStep.activity }
     }
   }
   return null

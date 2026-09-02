@@ -13,6 +13,7 @@ import {
 } from './data/curriculum'
 import { REVIEW_SCOPE_ID } from './hooks/useCurriculum'
 import { useTrackLastStudied } from './hooks/useTrackLastStudied'
+import { AssessmentPage } from './routes/games/AssessmentPage'
 import { CafePage } from './routes/games/CafePage'
 import { KanaQuizPage } from './routes/games/KanaQuizPage'
 import { KanaTypingPage } from './routes/games/KanaTypingPage'
@@ -157,6 +158,12 @@ function App() {
                   spotlight dishes + a katakana-only filler pool, not a
                   script-wide stage bucket. */}
               <Route path="/cafe/:checkpointId" element={<CafeRoute />} />
+              {/* Hiragana/Katakana Test (Issue #189) — a repeatable,
+                  standalone Recommended endpoint step per script, not nested
+                  under /practice/:categoryId/:rowId since it spans the whole
+                  script rather than one row. */}
+              <Route path="/assessment/hiragana" element={<AssessmentPage script="hiragana" />} />
+              <Route path="/assessment/katakana" element={<AssessmentPage script="katakana" />} />
               <Route path="/review" element={<ReviewPage />} />
               <Route path="/saved" element={<SavedPage />} />
               <Route path="/settings" element={<SettingsPage />} />

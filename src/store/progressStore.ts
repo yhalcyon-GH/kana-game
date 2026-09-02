@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { getNextRowId, ROWS, ROWS_BY_ID } from '../data/curriculum'
+import { ASSESSMENT_SCRIPTS, type AssessmentScript } from '../lib/assessment/types'
 import { applyReviewResult, MAX_BOX, meetsAdvanceThreshold, MIN_BOX, nextBox, REVIEW_STREAK_TARGET } from '../lib/srs'
 
 export type CharacterProgress = {
@@ -44,6 +45,16 @@ export type RowActivityCompletion = {
 const ROW_ACTIVITY_KEYS = ['tracing', 'kanaQuiz', 'listening', 'wordBuilder', 'checkpoint'] as const
 export type RowActivityKey = (typeof ROW_ACTIVITY_KEYS)[number]
 
+// Hiragana/Katakana Test completion (Issue #189) — minimal persisted state
+// needed for Recommended sequencing (see lib/recommendedPath.ts's
+// ASSESSMENT_STEPS) and repeat access. Deliberately just a completion flag
+// per script, same "reached the real end, nothing about accuracy" contract
+// as RowActivityCompletion above: opening or partially taking a test must
+// never set this, only finishing all 20 questions does, regardless of
+// score. Never touches Review/SRS/mastery/checkpoint state.
+export type AssessmentScriptKey = AssessmentScript
+export type AssessmentCompletion = Partial<Record<AssessmentScriptKey, boolean>>
+
 // "Continue" (Home's resume card, Issue #23) — deliberately separate from
 // Recommended Path: this just remembers the last real learning/practice
 // screen visited (Learn or one of the 5 game pages) for a real, non-summary
@@ -69,6 +80,8 @@ type ProgressState = {
   // Recommended Path completion — see RowActivityCompletion's comment.
   // Keyed by rowId; a row with nothing completed yet simply has no entry.
   rowActivityCompletion: Record<string, RowActivityCompletion>
+  // Hiragana/Katakana Test completion — see AssessmentCompletion's comment.
+  assessmentCompletion: AssessmentCompletion
   // null until the learner has visited at least one resumable screen — see
   // LastStudied's comment. Home's Continue card simply doesn't render then.
   lastStudied: LastStudied | null
@@ -145,6 +158,11 @@ type ProgressState = {
   // score remains irrelevant and no Review/SRS/mastery state is touched.
   markRowActivityCompleted: (rowId: string, activity: RowActivityKey) => void
   isRowActivityCompleted: (rowId: string, activity: RowActivityKey) => boolean
+  // Marks a Hiragana/Katakana Test completed — call only once the learner
+  // has answered all 20 questions, never on open/partial-play. Repeatable:
+  // calling this again on a later retake is a harmless no-op.
+  markAssessmentCompleted: (script: AssessmentScriptKey) => void
+  isAssessmentCompleted: (script: AssessmentScriptKey) => boolean
   // Pure navigation bookkeeping for Continue (Issue #23) — never touches
   // Recommended Path/completion/Review/SRS/mastery.
   setLastStudied: (entry: LastStudied) => void
@@ -234,6 +252,15 @@ function rowActivityCompletionOr(value: unknown): RowActivityCompletion {
   return result
 }
 
+function assessmentCompletionOr(value: unknown): AssessmentCompletion {
+  const candidate = isRecord(value) ? value : {}
+  const result: AssessmentCompletion = {}
+  for (const script of ASSESSMENT_SCRIPTS) {
+    if (candidate[script] === true) result[script] = true
+  }
+  return result
+}
+
 function lastStudiedOr(value: unknown): LastStudied | null {
   if (!isRecord(value)) return null
   const { categoryId, rowId, activity } = value
@@ -285,6 +312,7 @@ export function mergePersistedProgress(persistedState: unknown, currentState: Pr
         .map(([rowId, value]) => [rowId, rowActivityCompletionOr(value)])
         .filter(([, completion]) => Object.keys(completion as RowActivityCompletion).length > 0),
     ),
+    assessmentCompletion: assessmentCompletionOr(persisted.assessmentCompletion),
     audioEnabled: booleanOr(persisted.audioEnabled, currentState.audioEnabled),
     audioVolume: clampFiniteOr(persisted.audioVolume, MIN_VOLUME, MAX_VOLUME, currentState.audioVolume),
     audioSpeed: clampFiniteOr(persisted.audioSpeed, MIN_AUDIO_SPEED, MAX_AUDIO_SPEED, currentState.audioSpeed),
@@ -317,6 +345,7 @@ export const useProgressStore = create<ProgressState>()(
       unlockedRowIds: [FIRST_ROW_ID],
       taughtRowIds: [],
       rowActivityCompletion: {},
+      assessmentCompletion: {},
       lastStudied: null,
       audioEnabled: true,
       audioVolume: 1,
@@ -407,6 +436,11 @@ export const useProgressStore = create<ProgressState>()(
       },
       isRowActivityCompleted: (rowId, activity) => get().rowActivityCompletion[rowId]?.[activity] === true,
 
+      markAssessmentCompleted: (script) => {
+        set((state) => ({ assessmentCompletion: { ...state.assessmentCompletion, [script]: true } }))
+      },
+      isAssessmentCompleted: (script) => get().assessmentCompletion[script] === true,
+
       setLastStudied: (entry) => set({ lastStudied: entry }),
 
       isRowUnlocked: (rowId) => get().unlockedRowIds.includes(rowId),
@@ -446,6 +480,7 @@ export const useProgressStore = create<ProgressState>()(
           unlockedRowIds: [FIRST_ROW_ID],
           taughtRowIds: [],
           rowActivityCompletion: {},
+          assessmentCompletion: {},
           lastStudied: null,
           audioEnabled: true,
           audioVolume: 1,
@@ -468,7 +503,7 @@ export const useProgressStore = create<ProgressState>()(
     }),
     {
       name: 'kana-game-progress',
-      version: 20,
+      version: 21,
       // v1 -> v2: the default pronunciation speed changed from 1x to 0.5x;
       // carry that new default into browsers that already persisted a v1
       // state (which would otherwise keep the old 1x forever).
@@ -530,6 +565,9 @@ export const useProgressStore = create<ProgressState>()(
       // entry for it is folded into ra-row (the row it merged into) instead
       // of left dangling — lastStudied needs no migration here since
       // lastStudiedOr already nulls out any rowId no longer in ROWS_BY_ID.
+      // v20 -> v21: adds assessmentCompletion (Issue #189, Hiragana/Katakana
+      // Test) — brand new, existing learners simply start with neither test
+      // marked complete (an empty object), same as a fresh install.
       migrate: (persistedState, version) => {
         const state = (isRecord(persistedState) ? persistedState : {}) as Partial<ProgressState>
         if (version < 2) {
@@ -697,6 +735,12 @@ export const useProgressStore = create<ProgressState>()(
           }
           delete rowActivityCompletion['wa-row']
           state.rowActivityCompletion = rowActivityCompletion as Record<string, RowActivityCompletion>
+        }
+        if (version < 21) {
+          // New in this version (Issue #189) — existing learners simply
+          // start with neither Hiragana nor Katakana Test marked complete,
+          // same as a fresh install; nothing to backfill from.
+          state.assessmentCompletion = {}
         }
         return state
       },

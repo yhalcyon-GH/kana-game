@@ -8,6 +8,8 @@ import { AskTamamizuButton } from '../components/AskTamamizuButton'
 import {
   CATEGORIES_BY_ID,
   CHOUON_CATEGORY_ID,
+  DEFAULT_CATEGORY_ID,
+  KATAKANA_CATEGORY_ID,
   ROWS_BY_ID,
   SOKUON_CATEGORY_ID,
   SPECIAL_KATAKANA_CATEGORY_ID,
@@ -239,6 +241,13 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
                   )}
                 </div>
               ))}
+              {(category?.id === DEFAULT_CATEGORY_ID || category?.id === KATAKANA_CATEGORY_ID) && (
+                <AssessmentTestCta
+                  script={category.id === DEFAULT_CATEGORY_ID ? 'hiragana' : 'katakana'}
+                  recommended={globalRecommendedTarget?.activity === (category.id === DEFAULT_CATEGORY_ID ? 'hiragana-test' : 'katakana-test')}
+                  onClick={() => navigate(`/assessment/${category!.id}`)}
+                />
+              )}
             </div>
           )
         })
@@ -328,6 +337,41 @@ function PracticeCheckpointCta({
           </span>
         </span>
         <span className="shrink-0 text-sm font-bold text-amber-800 dark:text-amber-200">Try it →</span>
+      </span>
+    </button>
+  )
+}
+
+// Hiragana/Katakana Test entry point (Issue #189) — same "always clickable,
+// ⭐ Recommended only when it's the current Global Recommended step" pattern
+// as PracticeCheckpointCta above, placed at the very end of its own
+// script's row group (after every real row and any trailing checkpoint) so
+// it visually reads as that script's endpoint. Repeatable: score never
+// gates access, and retaking it never locks anything.
+function AssessmentTestCta({ script, recommended, onClick }: { script: 'hiragana' | 'katakana'; recommended: boolean; onClick: () => void }) {
+  const scriptLabel = script === 'hiragana' ? 'Hiragana' : 'Katakana'
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      data-testid={`assessment-test-cta-${script}`}
+      className={`w-full max-w-md rounded-2xl border bg-blue-50 px-5 py-4 text-left shadow-md transition hover:border-blue-400 hover:bg-blue-100 active:scale-[0.98] dark:bg-blue-950/40 dark:hover:bg-blue-900/50 ${
+        recommended
+          ? 'border-yellow-400 ring-2 ring-yellow-400 ring-offset-2 dark:border-yellow-300 dark:ring-yellow-300'
+          : 'border-blue-300 dark:border-blue-700'
+      }`}
+    >
+      <span className="block text-xs font-bold tracking-[0.16em] text-blue-700 dark:text-blue-300">
+        CHECK YOUR PROGRESS{recommended ? ' · ⭐ RECOMMENDED' : ''}
+      </span>
+      <span className="mt-1 flex items-center justify-between gap-3">
+        <span>
+          <span className="block text-lg font-bold text-blue-950 dark:text-blue-50">📝 {scriptLabel} Test</span>
+          <span className="mt-1 block text-sm font-normal text-blue-900/75 dark:text-blue-200/75">
+            20 questions covering everything so far
+          </span>
+        </span>
+        <span className="shrink-0 text-sm font-bold text-blue-800 dark:text-blue-200">Start →</span>
       </span>
     </button>
   )
