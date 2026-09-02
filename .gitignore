@@ -46,3 +46,9 @@ public/audio/**/*.wav16k.wav
 
 # Local isolated Git worktrees used for release/debug sessions
 /.worktrees/
+
+# Playwright browser-smoke suite (Issue #177) output — reports/traces are
+# regenerated per run, never committed.
+/test-results/
+/playwright-report/
+/playwright/.cache/

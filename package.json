@@ -9,6 +9,7 @@
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest run",
+    "e2e": "playwright test",
     "verify": "tsx scripts/convertStrokesvg.ts --check && npm test && npm run lint && npm run build && git diff --check",
     "check-voices": "tsx scripts/checkVoiceQuality.ts",
     "voice:analyze": "tsx scripts/voicePipeline/cli.ts --analyze-only",
@@ -24,6 +25,7 @@
   "devDependencies": {
     "@fontsource/klee-one": "^5.3.0",
     "@lumen-labs-dev/whisper-node": "^0.4.1",
+    "@playwright/test": "^1.49.1",
     "@tailwindcss/vite": "^4.3.3",
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.3.2",

@@ -14,6 +14,7 @@ For day-to-day development, start with [`CLAUDE.md`](../CLAUDE.md) or [`AGENTS.m
 - **[audio-provider-interface.md](./audio-provider-interface.md)** — implemented `SpeechProvider` architecture.
 - **[tamamizu-guide-scripts.md](./tamamizu-guide-scripts.md)** — approved guide copy / visual direction where still applicable.
 - **[restaurant-audio-manifest.csv](./restaurant-audio-manifest.csv)** — restaurant audio asset manifest.
+- **[../e2e/README.md](../e2e/README.md)** — bounded Playwright browser-smoke suite: scope, determinism, and how to run it.
 
 ## Historical evidence
 
