@@ -1,4 +1,4 @@
-# AI Development Loop (v1.4)
+# AI Development Loop (v1.5)
 
 How a normal KanaGame task should flow with ChatGPT plus a coding agent such as Claude Code or Codex, so the user can usually supply a Goal and Acceptance Criteria instead of a long implementation prompt.
 
@@ -59,11 +59,80 @@ Prefer small, reviewable tasks with explicit Goal, Acceptance Criteria, non-goal
 
 Do not force a planning ceremony for an obvious one-line or presentation-only fix. Use a separate plan/research/evidence spike when the approach is uncertain, the change spans multiple concerns, the architecture is unfamiliar, a source/licensing/data assumption must be established, or the resulting PR would otherwise be hard to review.
 
+## Efficient autonomous execution
+
+Start with `git status`, branch/HEAD, `origin/main`, the current PR diff and
+changed filenames, plus the canonical Goal/Acceptance Criteria. Use targeted
+`rg`, exact paths, and narrow ranges before whole-file or repository-wide
+reads. Reuse verified unchanged facts, batch independent reads/commands when
+practical, and run focused tests before broad verification. On failure, inspect
+the failing log/path first instead of restarting exploration. Prefer a small
+deterministic invariant over repeated prose; keep working notes and final
+reports to decisions, evidence, risks, and next action.
+
+Use this decision ladder to minimize human checks without weakening safety:
+
+1. If the canonical spec, repository contract, tests, or convention determines
+   the answer, proceed.
+2. For routine bounded ambiguity, choose the lowest-risk option and verify it.
+3. For a bounded approved-spec violation, fix it and add regression coverage.
+4. Ask only for genuinely consequential, under-specified choices: material
+   product/learning outcomes; destructive/lossy changes; security, auth,
+   payment, licensing/legal concerns; irreversible migrations; major
+   architecture/scope; or materially different outcomes with no source of
+   truth. Do not ask merely about safe implementation details, test updates,
+   routine branch refresh/rebase, stale factual text, or bounded approved fixes.
+
+For manual-review reduction, use evidence in this order: deterministic
+unit/invariant tests; focused integration tests; static/type/lint/build checks;
+exact-HEAD CI; then targeted browser/visual/manual checks only where automation
+cannot reliably prove the property. If manual verification remains, identify
+the smallest exact gap rather than requesting a full-feature retest.
+
+Use a compact handoff state capsule: current main SHA; PR/branch/HEAD;
+canonical behavior; already-merged/do-not-reimplement baseline; relevant
+files/contracts; unresolved blockers only; and required verification plus stop
+conditions. Reference historical discussion rather than replaying it, except
+where a superseding decision must be explicit.
+
 When a spike has already settled architecture, constraints, pinned sources, or a tradeoff decision, **reuse that evidence** in the implementation task. Do not repeat the same broad corpus/research/architecture investigation unless new evidence creates a concrete reason to reopen it. This keeps model calls and context focused on the remaining unknowns.
 
 ## Agent-switch handoff
 
 Never assume another agent's local checkout, branch, worktree, or conversation state is current.
+
+## Autonomous/offline handoff completeness
+
+Use this gate when the user will be unavailable, the task spans several
+approved decisions, or local/external assets are involved. Carry a compact
+canonical snapshot, not merely a link to a long Issue thread:
+
+- executor and filesystem/tool reach for every required local resource;
+- fresh `origin/main`, task branch/PR, and already-merged dependencies;
+- approved current product/learning decisions, including superseding comments;
+- explicit do-not-reimplement baseline behavior;
+- exact asset paths and current runtime contracts, plus pending assets and
+  approved fallbacks;
+- required verification, known gaps, and exact stop/escalation conditions.
+
+Do not apply this checklist to trivial interactive work. Resolve materially
+conflicting Issue comments into one quoted or written canonical final snapshot
+before implementation. Historical examples remain evidence only and must not
+override a verified current contract.
+
+Before assigning local-path work, verify that the selected executor can reach
+the path. If a cloud chat cannot reach a user-local path but a local Builder
+can, route the work there explicitly; never imply arbitrary local Windows paths
+are connector-readable.
+
+When a migration changes a shared contract, refresh downstream handoffs from
+live repository evidence and prefer a deterministic invariant that rejects
+reintroduction of the retired contract. After another chat reports a merge,
+verify live `main`/PR state before carrying the new baseline forward.
+
+For closely related variants, describe the shared shell/engine once and add an
+explicit delta matrix for intentional differences. Add regression coverage at
+the shared boundary so variants cannot silently fork.
 
 When switching Claude Code ↔ Codex, resuming work from another environment, or starting from an old checkout:
 
