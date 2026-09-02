@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { PRACTICE_CHECKPOINTS } from '../data/practiceCheckpoints'
 import { isKatakanaOnlyDish } from '../data/restaurantDishes'
 import { getCheckpointDishPool } from './checkpointDishPool'
+import { getReadableKana, isFullyReadable } from './kanaReadability'
 
 // Issue #164 review: multiple checkpoints used to share one RestaurantStageId
 // route (e.g. na-row and hiragana-complete both "/restaurant/hiragana"),
@@ -67,6 +68,58 @@ describe('getCheckpointDishPool — no future-item leakage', () => {
       const { targets, menuDishes } = getCheckpointDishPool(checkpoint.id, extraFilter)
       expect(targets.length, `${checkpoint.id}: too few targets`).toBeGreaterThanOrEqual(2)
       expect(menuDishes.length, `${checkpoint.id}: too few menu dishes`).toBeGreaterThanOrEqual(4)
+    }
+  })
+
+  // Issue #164 review (round 2): stage membership in `fillerStages` alone
+  // used to be enough for a pre-#160/untagged dish to become a menu filler,
+  // even if the learner hasn't actually been taught its kana yet (e.g.
+  // katakana-sa-row could draw ハンバーガー/ラーメン/ミルク just because
+  // they're old untagged "katakana"-stage dishes). getCheckpointDishPool now
+  // additionally requires readability via lib/kanaReadability.ts. This
+  // mechanically proves every runtime menu filler AND every checkpointed
+  // spotlight target is readable by their checkpoint, for all 10
+  // checkpoints — not just the spotlight-only cases already covered in
+  // restaurantDishes.test.ts. The ONE exemption: katakana-youon-complete's
+  // approved pre-#160 fallback target pool (untagged dishes reused wholesale
+  // as "existing suitable items carry it", per Issue #160) is intentionally
+  // NOT re-litigated here — see the "approved existing spotlight pool" test
+  // above and Issue #164 review's instruction to keep it intact.
+  it.each(PRACTICE_CHECKPOINTS)(
+    'checkpoint "$id": every checkpointed target and every menu filler is readable using kana taught by then',
+    (checkpoint) => {
+      const extraFilter = checkpoint.mode === 'cafe' ? isKatakanaOnlyDish : undefined
+      const { targets, menuDishes } = getCheckpointDishPool(checkpoint.id, extraFilter)
+      const kanaSet = getReadableKana(checkpoint.afterRowId)
+      expect(kanaSet.size).toBeGreaterThan(0)
+      const targetIds = new Set(targets.map((d) => d.id))
+      for (const dish of menuDishes) {
+        const isApprovedFallbackTarget = !dish.checkpointId && targetIds.has(dish.id)
+        if (isApprovedFallbackTarget) continue
+        expect(
+          isFullyReadable(dish.displayKana, kanaSet),
+          `${checkpoint.id}: dish "${dish.id}" ("${dish.displayKana}") is not readable using kana taught through "${checkpoint.afterRowId}"`,
+        ).toBe(true)
+      }
+    },
+  )
+
+  it('katakana-sa-row excludes later-row legacy Katakana fillers not yet readable (ラーメン/ミルク)', () => {
+    const { menuDishes } = getCheckpointDishPool('katakana-sa-row')
+    const ids = menuDishes.map((d) => d.id)
+    for (const id of ['raamen', 'miruku']) {
+      expect(ids, `unexpectedly includes not-yet-readable legacy item "${id}"`).not.toContain(id)
+    }
+    // アイス/ケーキ ARE readable this early (あ/か-row) and are the approved
+    // reuse pair named by the issue's correction for this checkpoint.
+    expect(ids).toEqual(expect.arrayContaining(['aisu', 'keeki']))
+  })
+
+  it('katakana-ha-row (Cafe) excludes later-row legacy Katakana fillers not yet readable (ラーメン/ミルク)', () => {
+    const { menuDishes } = getCheckpointDishPool('katakana-ha-row', isKatakanaOnlyDish)
+    const ids = menuDishes.map((d) => d.id)
+    for (const id of ['raamen', 'miruku']) {
+      expect(ids, `unexpectedly includes not-yet-readable legacy item "${id}"`).not.toContain(id)
     }
   })
 })

@@ -1,5 +1,6 @@
 import { PRACTICE_CHECKPOINTS, PRACTICE_CHECKPOINTS_BY_ID } from '../data/practiceCheckpoints'
 import { RESTAURANT_DISHES, type RestaurantDish } from '../data/restaurantDishes'
+import { getReadableKana, isFullyReadable } from './kanaReadability'
 
 // Builds a single checkpoint's target/menu dish pools, keyed by checkpoint
 // id rather than RestaurantStageId (see practiceCheckpoints.ts's routePath
@@ -14,11 +15,17 @@ import { RESTAURANT_DISHES, type RestaurantDish } from '../data/restaurantDishes
 //   suitable items carry it" (Issue #160) — rather than every dish in that
 //   stage, which would include a LATER checkpoint's own spotlight too.
 // - `menuDishes`: targets plus every dish eligible as filler — a pre-#160
-//   dish (no `checkpointId`) in one of `fillerStages`, or a checkpointed
-//   dish in `fillerStages` whose OWN checkpoint is this checkpoint or an
-//   earlier one in PRACTICE_CHECKPOINTS' approved order. A checkpointed
-//   dish from a LATER checkpoint is never eligible, even if its stage is
-//   listed in `fillerStages`.
+//   dish (no `checkpointId`) in one of `fillerStages` AND actually readable
+//   using only kana taught at/before this checkpoint's `afterRowId` (see
+//   lib/kanaReadability.ts) — being in `fillerStages` alone used to be
+//   enough, which let e.g. katakana-sa-row draw later-row legacy items like
+//   ハンバーガー/ラーメン/ミルク just because they were old untagged
+//   "katakana"-stage dishes (Issue #164 review) — or a checkpointed dish in
+//   `fillerStages` whose OWN checkpoint is this checkpoint or an earlier one
+//   in PRACTICE_CHECKPOINTS' approved order (already proven readable by its
+//   own checkpoint's spotlight readability tests, so no need to re-check).
+//   A checkpointed dish from a LATER checkpoint is never eligible, even if
+//   its stage is listed in `fillerStages`.
 export function getCheckpointDishPool(
   checkpointId: string,
   extraFilter?: (dish: RestaurantDish) => boolean,
@@ -27,10 +34,11 @@ export function getCheckpointDishPool(
   if (!checkpoint) return { targets: [], menuDishes: [] }
   const order = PRACTICE_CHECKPOINTS.indexOf(checkpoint)
   const passesExtra = (dish: RestaurantDish) => !extraFilter || extraFilter(dish)
+  const readableKana = getReadableKana(checkpoint.afterRowId)
 
   const isEligibleFiller = (dish: RestaurantDish) => {
     if (!checkpoint.fillerStages.includes(dish.stage)) return false
-    if (!dish.checkpointId) return true
+    if (!dish.checkpointId) return isFullyReadable(dish.displayKana, readableKana)
     const dishOrder = PRACTICE_CHECKPOINTS.findIndex((c) => c.id === dish.checkpointId)
     return dishOrder !== -1 && dishOrder <= order
   }

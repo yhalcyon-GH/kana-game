@@ -63,8 +63,8 @@ const PENDING_ASSET_IDS = new Set([
   'yakisoba', 'okonomiyaki', 'tamagoyaki', 'karaage',
   'kokoa', 'sooseeji', 'uisukii',
   'toosuto', 'chiizu', 'doonatsu', 'chiizukeeki', 'pankeeki',
-  // 'teriyakichikin' is NOT pending — it reuses チキン's existing art/audio
-  // via assetOverridesById below.
+  // 'teriyakichikin' is NOT pending — it reuses チキン's existing art (but
+  // has its own dedicated audio recording) via assetOverridesById below.
   'furaidochikin', 'biiru', 'wain', 'haibooru',
   'waffuru', 'esupuresso', 'appurupai',
   'soumen', 'kakigoori', 'yakitoumorokoshi',
