@@ -1,7 +1,7 @@
 import { PRACTICE_CHECKPOINTS } from '../data/practiceCheckpoints'
 import type { GojuonRow, ScriptCategory } from '../data/types'
 import type { PracticeMode } from '../data/restaurantDishes'
-import type { RowActivityCompletion } from '../store/progressStore'
+import type { AssessmentCompletion, AssessmentScript, RowActivityCompletion } from '../store/progressStore'
 
 // The Recommended Path is a separate, simpler system from Review (see
 // lib/srs.ts): Review recovers weak/missed items after the fact, while
@@ -9,11 +9,12 @@ import type { RowActivityCompletion } from '../store/progressStore'
 // activities so a learner never has to decide what to do next. Neither one
 // gates the other — see PracticeHubPage/the 4 game pages' callers.
 //
-// Restaurant/Cafe checkpoints are now explicit Recommended steps after Word
+// Restaurant/Cafe checkpoints are explicit Recommended steps after Word
 // Builder (Issue #183), but remain score-independent and isolated from
-// Review/SRS/mastery. Their only persisted signal is the row's `checkpoint`
-// completion flag in RowActivityCompletion.
-export type RecommendedActivity = 'learn' | 'kana-quiz' | 'listening' | 'word-builder' | PracticeMode | 'done'
+// Review/SRS/mastery. Hiragana/Katakana assessments are section endpoints
+// after the final checkpoint (Issue #189); their completion is also
+// score-independent and lives in assessmentCompletion rather than row state.
+export type RecommendedActivity = 'learn' | 'kana-quiz' | 'listening' | 'word-builder' | PracticeMode | 'assessment' | 'done'
 
 export type RecommendedPathInput = {
   // 'contrast-pairs' rows (促音/長音) have no Kana Quiz step — see
@@ -38,7 +39,8 @@ export type RecommendedPathInput = {
 // next recommended activity? 'done' means Word Builder — and, where one is
 // configured, the row's Restaurant/Cafe checkpoint — has been completed.
 // Kana Typing never appears here — it's optional and never part of this
-// sequence.
+// sequence. Section assessments are inserted by getGlobalRecommendedTarget,
+// not by this row-local helper.
 export function getRecommendedActivity(input: RecommendedPathInput): RecommendedActivity {
   if (!input.introCompleted) return 'learn'
   if (input.learnStyle === 'character-set' && !input.kanaQuizCompleted) return 'kana-quiz'
@@ -58,6 +60,7 @@ export const RECOMMENDED_ACTIVITY_LABELS: Record<Exclude<RecommendedActivity, 'd
   'word-builder': 'Word Builder',
   restaurant: 'Restaurant Practice',
   cafe: 'Cafe Practice',
+  assessment: 'Test',
 }
 
 function checkpointAfterRow(rowId: string) {
@@ -68,9 +71,8 @@ function checkpointAfterRow(rowId: string) {
 // getGlobalRecommendedTarget below — reused (not reimplemented) wherever a
 // screen needs "is THIS ROW's Recommended Path finished?" for a specific
 // row, e.g. gating the Chōon Guide's auto-display on Sokuon practice being
-// done (see CategoryRowsPage). Deliberately the exact same rule as the
-// Recommended Path itself, now including an approved Restaurant/Cafe
-// checkpoint when one follows that row.
+// done (see CategoryRowsPage). Deliberately the exact same row rule as the
+// Recommended Path itself. Section assessments are NOT part of a row.
 export function isRowRecommendedPathDone(
   row: GojuonRow,
   category: ScriptCategory,
@@ -97,6 +99,17 @@ export type GlobalRecommendedTarget = {
   categoryId: string
   rowId: string
   activity: Exclude<RecommendedActivity, 'done'>
+  // Present only for the two section-endpoint tests. rowId remains the
+  // section's final real row so existing section/row chrome can still point
+  // learners at the right place, while consumers can route directly to the
+  // assessment when this discriminator is set.
+  assessmentScript?: AssessmentScript
+}
+
+function assessmentScriptForCategory(categoryId: string): AssessmentScript | null {
+  if (categoryId === 'hiragana') return 'hiragana'
+  if (categoryId === 'katakana') return 'katakana'
+  return null
 }
 
 // The ONE app-wide Recommended Target — every screen (Home, Category/Row
@@ -107,9 +120,9 @@ export type GlobalRecommendedTarget = {
 // Walks categories in their declared order, and within each category its
 // real (non-summary) rows in curriculum order (`order` field), reusing
 // getRecommendedActivity per row — the first row/activity that isn't
-// 'done' is the target. null once every row in every category is done.
-// Restaurant/Cafe checkpoints live after their configured row in this same
-// sequence, but their score remains irrelevant to progression.
+// 'done' is the target. After every real Hiragana/Katakana row (including
+// its final Restaurant checkpoint) is done, the section assessment becomes
+// the target until its 20 questions are completed. Score is irrelevant.
 // Deliberately does NOT consider Review/SRS/mastery — this reflects
 // recommended-ROUTE progress, not proficiency.
 export function getGlobalRecommendedTarget(
@@ -117,6 +130,7 @@ export function getGlobalRecommendedTarget(
   categories: readonly ScriptCategory[],
   taughtRowIds: readonly string[],
   rowActivityCompletion: Record<string, RowActivityCompletion>,
+  assessmentCompletion?: Partial<Record<AssessmentScript, AssessmentCompletion>>,
 ): GlobalRecommendedTarget | null {
   for (const category of categories) {
     // Similar Letters (see GojuonRow.isSimilarLetters) is an optional
@@ -140,6 +154,25 @@ export function getGlobalRecommendedTarget(
         checkpointCompleted: completion?.checkpoint === true,
       })
       if (activity !== 'done') return { categoryId: category.id, rowId: row.id, activity }
+    }
+
+    const assessmentScript = assessmentScriptForCategory(category.id)
+    const finalRow = categoryRows.at(-1)
+    // Optional argument preserves the old pure-helper behavior for synthetic
+    // unit tests/callers that do not model section assessments. The real app
+    // always passes the persisted assessmentCompletion map from useCurriculum.
+    if (
+      assessmentCompletion &&
+      assessmentScript &&
+      finalRow &&
+      assessmentCompletion[assessmentScript]?.completed !== true
+    ) {
+      return {
+        categoryId: category.id,
+        rowId: finalRow.id,
+        activity: 'assessment',
+        assessmentScript,
+      }
     }
   }
   return null
