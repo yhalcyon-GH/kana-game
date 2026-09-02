@@ -49,28 +49,15 @@ const imageById: Record<string, string> = {
   koohii: 'word-icons/chouon-katakana-koohii.webp', koora: 'word-icons/chouon-katakana-koora.webp', aisu: 'word-icons/katakana-sa-aisu.webp', keeki: 'word-icons/katakana-a-keeki.webp', gyouza: 'word-icons/youon-ka-gyouza.webp', mirukutii: 'word-icons/special-katakana-fa-mirukutii.webp',
 }
 // Restaurant 1's 7 new dishes (Issue #158) had no art/audio when first
-// added; their audio has since landed (Issue #160's local recording drop —
-// see mapping.csv), but real illustration art is still pending for them AND
-// for every other new dish added by Issue #160's checkpoint roadmap (images
-// are explicitly out of scope for that issue — do not fabricate them).
-// Listed here so dish() can skip guessing an `image` path and fall straight
-// to the existing missing-image behavior (DishGlyph's placeholderEmoji
-// fallback in routes/games/RestaurantPage.tsx / CafePage.tsx) instead of
-// pointing at a public/ file that doesn't exist yet. Remove an id from this
-// set once its real restaurant-dishes/<stage>/<id>.webp lands.
-const PENDING_ASSET_IDS = new Set([
-  'katsudon', 'unagi', 'dango', 'tendon', 'kaisendon', 'unidon', 'kani',
-  'yakisoba', 'okonomiyaki', 'tamagoyaki', 'karaage',
-  'kokoa', 'sooseeji', 'uisukii',
-  'toosuto', 'chiizu', 'doonatsu', 'chiizukeeki', 'pankeeki',
-  // 'teriyakichikin' is NOT pending — it reuses チキン's existing art (but
-  // has its own dedicated audio recording) via assetOverridesById below.
-  'furaidochikin', 'biiru', 'wain', 'haibooru',
-  'waffuru', 'esupuresso', 'appurupai',
-  'soumen', 'kakigoori', 'yakitoumorokoshi',
-  'gyuudon', 'shuumai', 'kyuuri', 'koucha', 'nihonshu',
-  'remontii', 'mineraruwootaa',
-])
+// added; every id here has since gained real illustration art (PR #164's
+// image drop — see the mapping in restaurantDishes.test.ts) EXCEPT the ones
+// still listed below. Listed here so dish() can skip guessing an `image`
+// path for a still-pending id and fall straight to the existing
+// missing-image behavior (DishGlyph's placeholderEmoji fallback in
+// routes/games/RestaurantPage.tsx / CafePage.tsx) instead of pointing at a
+// public/ file that doesn't exist yet. Remove an id from this set once its
+// real restaurant-dishes/<stage>/<id>.webp lands.
+const PENDING_ASSET_IDS = new Set<string>([])
 const placeholderById: Record<string, string> = {
   udon: '🍲', yakitori: '🍗', oden: '🍢', edamame: '🫛', purin: '🍮', zerii: '🍧', suupu: '🥣', hanbaagaa: '🍔', suteeki: '🥩', poteto: '🍟', raamen: '🍜', miruku: '🥛', hotto: '☕', 'hotto-doggu': '🌭', sandoicchi: '🥪', 'hanbaagaa-setto': '🍔➕', korokke: '🥔', kukkii: '🍪', 'hotto-kokoa': '☕🍫', toufu: '🧈', chaahan: '🍳', shichuu: '🍲🥕', kaferate: '☕🥛', 'orenji-juusu': '🍊🥤', ryokucha: '🍵', pafe: '🍨🍓', tiramisu: '🍰☕', 'choko-aisu': '🍫🍨',
   katsudon: '🍚', unagi: '🐟', dango: '🍡', tendon: '🍤', kaisendon: '🍣', unidon: '🐚', kani: '🦀',
@@ -95,16 +82,14 @@ const englishById: Record<string, string> = {
   gyuudon: 'beef rice bowl', shuumai: 'shumai dumplings', kyuuri: 'cucumber', koucha: 'black tea', nihonshu: 'sake',
   remontii: 'lemon tea', mineraruwootaa: 'mineral water',
 }
-// Explicit image/audio path overrides for dishes whose id no longer matches
-// their on-disk filename or whose audio doesn't follow the default
-// restaurant-dishes/<stage>/<id> convention — currently only てりやきチキン,
-// which reuses the existing チキン illustration (Issue #160: "existing
-// チキン should become てりやきチキン") but has its OWN dedicated recording
-// (PR #164 review: a real てりやきチキン clip was supplied, so it must not
-// keep pointing at the plain チキン audio).
-const assetOverridesById: Partial<Record<string, { image?: string; audioPath?: string }>> = {
-  teriyakichikin: { image: 'restaurant-dishes/katakana/chikin.webp' },
-}
+// Explicit image/audio path overrides for dishes whose asset doesn't follow
+// the default restaurant-dishes/<stage>/<id>.webp / audio/restaurant/<stage>/
+// <id>.mp3 convention. Empty for now — てりやきチキン used to reuse the
+// existing チキン illustration here, but PR #164's image drop supplied a
+// dedicated てりやきチキン illustration (restaurant-dishes/katakana/
+// teriyakichikin.webp), which already matches the default convention, so no
+// override is needed for it anymore.
+const assetOverridesById: Partial<Record<string, { image?: string; audioPath?: string }>> = {}
 function dish(stage: RestaurantStageId, id: string, displayKana: string, romaji: string, priceYen: number, recognitionAliases: string[], checkpointId?: string): RestaurantDish {
   const overrides = assetOverridesById[id]
   return {

@@ -406,8 +406,11 @@ describe('RestaurantPage', () => {
       expect(row).toHaveTextContent(`¥${dish.priceYen}`)
       expect(row).not.toHaveTextContent(dish.romaji)
       expect(row).not.toHaveTextContent(dish.english)
-      // Restaurant 1's 7 pending-asset dishes (Issue #158) have no `image`
-      // yet and fall back to their placeholder emoji instead of an <img>.
+      // Every Hiragana Restaurant dish now has a real image (PR #164's
+      // image drop); this still covers both branches so a future
+      // still-pending dish keeps falling back to its placeholder emoji
+      // instead of an <img>, exactly like Restaurant 1's dishes did before
+      // their art landed (Issue #158).
       if (dish.image) {
         expect(row.querySelector('img')).toHaveClass('object-contain')
       } else {

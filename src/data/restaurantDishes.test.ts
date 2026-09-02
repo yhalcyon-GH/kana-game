@@ -106,7 +106,7 @@ describe('restaurantDishes (hiragana stage)', () => {
     expect(RESTAURANT_DISHES.find((dish) => dish.id === 'sushi')?.image).toBe('word-icons/sa-sushi.webp')
   })
 
-  it('has unique placeholder visuals among missing-image dishes in every stage', () => {
+  it('has unique placeholder visuals among missing-image dishes in every stage (none currently missing — PR #164 image drop)', () => {
     for (const stage of ['hiragana', 'katakana', 'other', 'special-katakana'] as const) {
       const missing = RESTAURANT_DISHES.filter((dish) => dish.stage === stage && !dish.image).map((dish) => dish.placeholderEmoji)
       expect(new Set(missing).size).toBe(missing.length)
@@ -127,15 +127,45 @@ describe('restaurantDishes (hiragana stage)', () => {
     }
   })
 
-  it('every dish without an `image` falls back to its placeholder emoji (pending art — Issue #158 + #160)', () => {
+  it('every dish has a non-empty placeholder emoji available as a fallback, even though none is currently missing an image (PR #164)', () => {
     for (const dish of RESTAURANT_DISHES) {
-      if (!dish.image) expect(dish.placeholderEmoji.length).toBeGreaterThan(0)
+      expect(dish.placeholderEmoji.length).toBeGreaterThan(0)
+      // Whether or not `image` is set, the placeholder must be ready for
+      // DishGlyph's onError fallback (routes/games/RestaurantPage.tsx) —
+      // a broken/missing image file still falls back to this at runtime.
     }
   })
 
-  it('every missing-image placeholder is unique, so the target bubble is never ambiguous', () => {
+  it('every missing-image placeholder is unique, so the target bubble is never ambiguous (none currently missing — PR #164)', () => {
     const emoji = HIRAGANA_RESTAURANT_DISHES.filter((d) => !d.image).map((d) => d.placeholderEmoji)
     expect(new Set(emoji).size).toBe(emoji.length)
+  })
+
+  it('every one of the 37 new dishes from Issue #160\'s checkpoint roadmap now has a real, resolvable illustration (PR #164 image drop)', () => {
+    const newDishIds = [
+      'katsudon', 'unagi', 'dango', 'tendon', 'kaisendon', 'unidon', 'kani', 'yakisoba', 'okonomiyaki', 'tamagoyaki', 'karaage',
+      'kokoa', 'sooseeji', 'uisukii', 'toosuto', 'chiizu', 'doonatsu', 'chiizukeeki', 'pankeeki', 'teriyakichikin', 'furaidochikin', 'biiru', 'wain', 'haibooru',
+      'waffuru', 'esupuresso', 'appurupai', 'soumen', 'kakigoori', 'yakitoumorokoshi', 'gyuudon', 'shuumai', 'kyuuri', 'koucha', 'nihonshu',
+      'remontii', 'mineraruwootaa',
+    ]
+    expect(newDishIds).toHaveLength(37)
+    for (const id of newDishIds) {
+      const dish = RESTAURANT_DISHES.find((d) => d.id === id)
+      expect(dish, `missing dish "${id}"`).toBeDefined()
+      expect(dish!.image, `${id} should have a real image, not fall back to placeholder`).toBeDefined()
+      expect(fs.existsSync(path.resolve(process.cwd(), 'public', dish!.image!)), `${id}: image ${dish!.image} does not exist`).toBe(true)
+      expect(dish!.image).toBe(`restaurant-dishes/${dish!.stage}/${id}.webp`)
+    }
+  })
+
+  it('has no duplicate image path across any two dishes (no source image reused for two production ids)', () => {
+    const withImage = RESTAURANT_DISHES.filter((d) => d.image)
+    const seen = new Map<string, string>()
+    for (const dish of withImage) {
+      const previousOwner = seen.get(dish.image!)
+      expect(previousOwner, `${dish.image} is used by both "${previousOwner}" and "${dish.id}"`).toBeUndefined()
+      seen.set(dish.image!, dish.id)
+    }
   })
 
   // Issue #158: Restaurant 1 is a checkpoint placed right after な行, so every
@@ -174,11 +204,18 @@ describe('restaurantDishes (hiragana stage)', () => {
     const renamed = RESTAURANT_DISHES.find((d) => d.id === 'teriyakichikin')
     expect(renamed).toBeDefined()
     expect(renamed!.displayKana).toBe('てりやきチキン')
-    // Reuses チキン's existing illustration (Issue #160) but has its own
-    // dedicated recording, not the plain チキン clip (PR #164 review fix).
-    expect(renamed!.image).toBe('restaurant-dishes/katakana/chikin.webp')
+    // Originally reused チキン's illustration (Issue #160), but PR #164
+    // supplied a dedicated てりやきチキン image, so it no longer reuses
+    // chikin.webp — same for its already-dedicated audio recording.
+    expect(renamed!.image).toBe('restaurant-dishes/katakana/teriyakichikin.webp')
+    expect(renamed!.image).not.toBe('restaurant-dishes/katakana/chikin.webp')
     expect(renamed!.audioPath).toBe('/audio/restaurant/katakana/teriyakichikin.mp3')
     expect(renamed!.audioPath).not.toBe('/audio/restaurant/katakana/chikin.mp3')
+  })
+
+  it('the pre-existing チキン illustration (chikin.webp) still exists on disk but is no longer referenced by any dish (Issue #160 asset preservation)', () => {
+    expect(fs.existsSync(path.resolve(process.cwd(), 'public/restaurant-dishes/katakana/chikin.webp'))).toBe(true)
+    expect(RESTAURANT_DISHES.some((d) => d.image === 'restaurant-dishes/katakana/chikin.webp')).toBe(false)
   })
 })
 
