@@ -16,6 +16,26 @@ export type RestaurantStageId = 'hiragana' | 'katakana' | 'other' | 'special-kat
 // flexible, not prohibited").
 export type PracticeMode = 'restaurant' | 'cafe'
 
+// Type-only in the other direction (practiceCheckpoints.ts imports
+// PracticeMode/RestaurantStageId from here via `import type`, which the
+// compiler erases), so importing the runtime checkpoint list/order back
+// here is not a circular dependency at runtime.
+import { PRACTICE_CHECKPOINTS, PRACTICE_CHECKPOINTS_BY_ID } from './practiceCheckpoints'
+
+// An additional (checkpoint, mode) pair at which a dish becomes eligible as
+// a session TARGET, beyond the implicit pair its own `checkpointId` already
+// grants (see getTargetIntroductions below). Two cases need this (Issue
+// #166): (a) a legacy pre-#160 dish (no `checkpointId`) that the finalized
+// checkpoint roadmap reuses as an actual target once its required kana/rule
+// is genuinely taught — readability is NOT the same as pedagogical
+// introduction, so this is curated by hand rather than inferred from the
+// dish's raw `stage`; (b) a dish already tagged for one mode that is ALSO
+// approved for reuse as a target in the OTHER mode from a later checkpoint
+// on (e.g. ココア/ソーセージ: Restaurant from katakana-sa-row, also Cafe
+// from katakana-ha-row on — "Restaurant/Cafe overlap is flexible, not
+// prohibited").
+export type TargetIntroduction = { checkpointId: string; mode: PracticeMode }
+
 export type RestaurantDish = {
   id: string
   stage: RestaurantStageId
@@ -41,6 +61,10 @@ export type RestaurantDish = {
   // the checkpoint roadmap (Issue #160) — those remain usable as filler
   // everywhere their stage already allowed, unaffected by this field.
   checkpointId?: string
+  // See TargetIntroduction above. Empty/undefined for the common case (a
+  // dish is only ever a target via its own `checkpointId`, or never a
+  // target at all, remaining filler-only).
+  targetIntroductions?: TargetIntroduction[]
 }
 
 const imageById: Record<string, string> = {
@@ -90,12 +114,70 @@ const englishById: Record<string, string> = {
 // teriyakichikin.webp), which already matches the default convention, so no
 // override is needed for it anymore.
 const assetOverridesById: Partial<Record<string, { image?: string; audioPath?: string }>> = {}
+// Issue #166's audited, finalized reuse-as-target decisions. "Existing/reuse"
+// in Issue #160 meant "already existed in the data", NOT "already introduced
+// to the learner" — several of these predate the checkpoint roadmap (built
+// via the legacy `build()` below, so they carry no `checkpointId`) but
+// require kana/rules the learner doesn't actually have until a LATER
+// checkpoint than their raw `stage` would suggest (see
+// checkpointDishPool.test.ts's readability audit). Each entry names the
+// EARLIEST checkpoint (and mode) at which the dish is both genuinely
+// readable and approved for reuse as an actual session target, not just a
+// menu filler. A dish already carrying its own `checkpointId` only needs an
+// entry here for a deliberate CROSS-mode reuse (e.g. ココア/ソーセージ,
+// approved as Restaurant targets from their own katakana-sa-row checkpoint,
+// are ALSO approved as Cafe targets once katakana-ha-row is reached).
+const targetIntroductionsById: Partial<Record<string, TargetIntroduction[]>> = {
+  soba: [{ checkpointId: 'hiragana-complete', mode: 'restaurant' }],
+  tenpura: [{ checkpointId: 'hiragana-complete', mode: 'restaurant' }],
+  onigiri: [{ checkpointId: 'hiragana-complete', mode: 'restaurant' }],
+  yakitori: [{ checkpointId: 'hiragana-complete', mode: 'restaurant' }],
+  sashimi: [{ checkpointId: 'hiragana-complete', mode: 'restaurant' }],
+  edamame: [{ checkpointId: 'hiragana-complete', mode: 'restaurant' }],
+  misoshiru: [{ checkpointId: 'hiragana-complete', mode: 'restaurant' }],
+  aisu: [{ checkpointId: 'katakana-sa-row', mode: 'restaurant' }, { checkpointId: 'katakana-ha-row', mode: 'cafe' }],
+  keeki: [{ checkpointId: 'katakana-sa-row', mode: 'restaurant' }, { checkpointId: 'katakana-ha-row', mode: 'cafe' }],
+  karee: [{ checkpointId: 'katakana-complete', mode: 'restaurant' }],
+  pasuta: [{ checkpointId: 'katakana-complete', mode: 'restaurant' }, { checkpointId: 'katakana-ha-row', mode: 'cafe' }],
+  sarada: [{ checkpointId: 'katakana-complete', mode: 'restaurant' }],
+  piza: [{ checkpointId: 'katakana-complete', mode: 'restaurant' }, { checkpointId: 'katakana-ha-row', mode: 'cafe' }],
+  suupu: [{ checkpointId: 'katakana-complete', mode: 'restaurant' }],
+  hanbaagaa: [{ checkpointId: 'katakana-complete', mode: 'restaurant' }],
+  suteeki: [{ checkpointId: 'katakana-complete', mode: 'restaurant' }],
+  poteto: [{ checkpointId: 'katakana-complete', mode: 'restaurant' }],
+  raamen: [{ checkpointId: 'katakana-complete', mode: 'restaurant' }],
+  koora: [{ checkpointId: 'katakana-complete', mode: 'restaurant' }],
+  miruku: [{ checkpointId: 'katakana-complete', mode: 'restaurant' }],
+  purin: [{ checkpointId: 'katakana-complete', mode: 'restaurant' }],
+  zerii: [{ checkpointId: 'katakana-complete', mode: 'restaurant' }],
+  koohii: [{ checkpointId: 'katakana-complete', mode: 'restaurant' }, { checkpointId: 'katakana-ha-row', mode: 'cafe' }],
+  kokoa: [{ checkpointId: 'katakana-ha-row', mode: 'cafe' }],
+  sooseeji: [{ checkpointId: 'katakana-ha-row', mode: 'cafe' }],
+  'hotto-doggu': [{ checkpointId: 'sokuon-complete', mode: 'cafe' }],
+  sandoicchi: [{ checkpointId: 'sokuon-complete', mode: 'cafe' }],
+  kukkii: [{ checkpointId: 'sokuon-complete', mode: 'cafe' }],
+  'hanbaagaa-setto': [{ checkpointId: 'sokuon-complete', mode: 'cafe' }],
+  korokke: [{ checkpointId: 'chouon-complete', mode: 'restaurant' }],
+  'hotto-kokoa': [{ checkpointId: 'chouon-complete', mode: 'restaurant' }],
+  toufu: [{ checkpointId: 'chouon-complete', mode: 'restaurant' }],
+  gyouza: [{ checkpointId: 'hiragana-youon-complete', mode: 'restaurant' }],
+  ryokucha: [{ checkpointId: 'hiragana-youon-complete', mode: 'restaurant' }],
+  chaahan: [{ checkpointId: 'katakana-youon-complete', mode: 'restaurant' }],
+  shichuu: [{ checkpointId: 'katakana-youon-complete', mode: 'restaurant' }],
+  'orenji-juusu': [{ checkpointId: 'katakana-youon-complete', mode: 'restaurant' }],
+  'choko-aisu': [{ checkpointId: 'katakana-youon-complete', mode: 'restaurant' }],
+  kaferate: [{ checkpointId: 'special-katakana-complete', mode: 'cafe' }],
+  mirukutii: [{ checkpointId: 'special-katakana-complete', mode: 'cafe' }],
+  pafe: [{ checkpointId: 'special-katakana-complete', mode: 'cafe' }],
+  tiramisu: [{ checkpointId: 'special-katakana-complete', mode: 'cafe' }],
+}
 function dish(stage: RestaurantStageId, id: string, displayKana: string, romaji: string, priceYen: number, recognitionAliases: string[], checkpointId?: string): RestaurantDish {
   const overrides = assetOverridesById[id]
   return {
     id, stage, displayKana, english: englishById[id] ?? displayKana, romaji, priceYen, recognitionAliases,
     placeholderEmoji: placeholderById[id] ?? '🍽️',
     requiredCategories: [stage],
+    targetIntroductions: targetIntroductionsById[id],
     image: overrides?.image ?? (PENDING_ASSET_IDS.has(id) ? undefined : (imageById[id] ?? `restaurant-dishes/${stage}/${id}.webp`)),
     audioPath: overrides?.audioPath ?? `/audio/restaurant/${stage}/${id}.mp3`,
     checkpointId,
@@ -122,6 +204,10 @@ const h: [string, string, string, number, string[], string][] = [
 ]
 // Hiragana complete → Restaurant (Issue #160, checkpoint 2): every dish is
 // spellable in plain hiragana using the full hiragana base set.
+const hLegacyReuse: (string | number | string[])[][] = [
+  ['soba','そば','soba',650,['そば','蕎麦']], ['tenpura','てんぷら','tenpura',900,['てんぷら','天ぷら','天麩羅']], ['onigiri','おにぎり','onigiri',250,['おにぎり','お握り','御握り']],
+  ['yakitori','やきとり','yakitori',480,['やきとり','焼き鳥','焼鳥']], ['sashimi','さしみ','sashimi',980,['さしみ','刺身']], ['edamame','えだまめ','edamame',380,['えだまめ','枝豆']], ['misoshiru','みそしる','misoshiru',420,['みそしる','味噌汁']],
+]
 const hComplete: [string, string, string, number, string[], string][] = [
   ['yakisoba','やきそば','yakisoba',680,['やきそば','焼きそば'],'hiragana-complete'],
   ['okonomiyaki','おこのみやき','okonomiyaki',900,['おこのみやき','お好み焼き'],'hiragana-complete'],
@@ -194,6 +280,7 @@ function buildWithCheckpoint(stage: RestaurantStageId, rows: [string, string, st
 }
 export const RESTAURANT_DISHES = [
   ...buildWithCheckpoint('hiragana', h),
+  ...build('hiragana', hLegacyReuse),
   ...buildWithCheckpoint('hiragana', hComplete),
   ...build('katakana', k),
   ...buildWithCheckpoint('katakana', kSa),
@@ -212,10 +299,33 @@ export const SPECIAL_KATAKANA_RESTAURANT_DISHES = RESTAURANT_DISHES.filter((d) =
 
 export const HIRAGANA_RESTAURANT_DISHES = RESTAURANT_DISHES.filter((d) => d.stage === 'hiragana')
 
-// Cafe-only dishes: every dish whose checkpoint places it in a Cafe
-// checkpoint (see data/practiceCheckpoints.ts's `kind: 'cafe'` entries).
-export const CAFE_CHECKPOINT_IDS = new Set(['katakana-ha-row', 'sokuon-complete', 'special-katakana-complete'])
-export const CAFE_DISHES = RESTAURANT_DISHES.filter((d) => d.checkpointId && CAFE_CHECKPOINT_IDS.has(d.checkpointId))
+// Every (checkpoint, mode) pair at which `dish` becomes eligible as a
+// session TARGET, in no particular order: the implicit pair from its own
+// `checkpointId` (if any) plus its curated `targetIntroductions` overrides
+// (see targetIntroductionsById above). Used by lib/checkpointDishPool.ts to
+// build each checkpoint's cumulative same-mode target pool (Issue #166).
+export function getTargetIntroductions(dish: RestaurantDish): TargetIntroduction[] {
+  const owner = dish.checkpointId ? PRACTICE_CHECKPOINTS_BY_ID[dish.checkpointId] : undefined
+  const implicit: TargetIntroduction[] = owner ? [{ checkpointId: owner.id, mode: owner.mode }] : []
+  return [...implicit, ...(dish.targetIntroductions ?? [])]
+}
+
+// True if `dish` has become a target for `mode` at or before the checkpoint
+// whose order is `maxOrder` (an index into PRACTICE_CHECKPOINTS; defaults to
+// "ever", i.e. eligible for `mode` at all, regardless of checkpoint).
+export function isTargetEligibleFor(dish: RestaurantDish, mode: PracticeMode, maxOrder: number = Infinity): boolean {
+  return getTargetIntroductions(dish).some((introduction) => {
+    if (introduction.mode !== mode) return false
+    const order = PRACTICE_CHECKPOINTS.findIndex((c) => c.id === introduction.checkpointId)
+    return order !== -1 && order <= maxOrder
+  })
+}
+
+// Every dish ever eligible as a Cafe target, at any Cafe checkpoint —
+// mainly a lookup convenience for tests/consumers, not itself a per-
+// checkpoint pool (see lib/checkpointDishPool.ts for the actual per-
+// checkpoint cumulative Cafe target pool).
+export const CAFE_DISHES = RESTAURANT_DISHES.filter((d) => isTargetEligibleFor(d, 'cafe'))
 
 // True if every character in `displayKana` is katakana, ー (chōon mark), or
 // ッ (sokuon mark) — Cafe's own hard constraint (Issue #160: "Cafe is

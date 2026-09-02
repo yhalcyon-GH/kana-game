@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import type { RestaurantDish } from '../data/restaurantDishes'
 import { useTTS } from './useTTS'
 import { pickIncorrectFeedback, pickResultFeedback } from '../lib/feedbackVoice'
-import { menuKey, pickRoundFromPools, shuffleRestaurantChoices, type RestaurantRound } from '../lib/restaurantRound'
+import { buildMenuAroundTarget, menuKey, shuffleRestaurantChoices, type RestaurantRound } from '../lib/restaurantRound'
 import { checkMultipleDishOrderAlternatives, checkOrderAlternatives, type OrderCheckResult } from '../lib/restaurantMatching'
+import { pickSessionTargets, type TargetUseCounts } from '../lib/targetSchedule'
 
 // Shared "order the target dish(es) from a 4-item menu" state machine behind
 // both Restaurant (routes/games/RestaurantPage.tsx) and Cafe
@@ -71,7 +72,16 @@ export type UseOrderingGameOptions = {
 export function useOrderingGame({ dishes, menuDishes, greetingAudioKey, greetingText, successAudioKey, successText }: UseOrderingGameOptions) {
   const { speak, speakAndWait, stop } = useTTS()
   const sequenceIdRef = useRef(0)
-  const [round, setRound] = useState<RestaurantRound>(() => pickRoundFromPools(dishes, menuDishes))
+  // Session-wide per-dish target-use tally (Issue #166's hard "max 2 target
+  // appearances per dish per 8-question session" cap) — shared by the
+  // initial round below and every later nextOrder()/playAgain() pick so the
+  // count is consistent across all 12 target slots (Q1-4: 1 each, Q5-8: 2
+  // each), not just resets per question.
+  const targetUseCountsRef = useRef<TargetUseCounts>(new Map())
+  const [round, setRound] = useState<RestaurantRound>(() => {
+    const [target] = pickSessionTargets(dishes, 1, targetUseCountsRef.current)
+    return { target, menu: buildMenuAroundTarget(target, menuDishes) }
+  })
   const [targets, setTargets] = useState<RestaurantDish[]>([round.target])
   const [romajiChoices, setRomajiChoices] = useState<RestaurantDish[]>(() => shuffleRestaurantChoices(round.menu))
   const [state, setState] = useState<OrderingResultState>({ kind: 'idle' })
@@ -83,8 +93,11 @@ export function useOrderingGame({ dishes, menuDishes, greetingAudioKey, greeting
   const [showRomaji, setShowRomaji] = useState(false)
   const [isRomajiRescue, setIsRomajiRescue] = useState(false)
   const [selectedRomaji, setSelectedRomaji] = useState<RestaurantDish[]>([])
-  const usedTargetIdsRef = useRef<string[]>([round.target.id])
-  const usedPairKeysRef = useRef<string[]>([])
+  // The previous question's target id(s) — used only as a SOFT
+  // "avoid immediate back-to-back repetition where practical" preference
+  // (Issue #166), not a hard exclusion (pickSessionTargets falls back to
+  // the lowest-use-count pool as a whole when every such dish is excluded).
+  const previousTargetIdsRef = useRef<string[]>([round.target.id])
   const lastMenuKeyRef = useRef(menuKey(round.menu))
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
   const recognitionTokenRef = useRef(0)
@@ -247,24 +260,17 @@ export function useOrderingGame({ dishes, menuDishes, greetingAudioKey, greeting
     recognitionTokenRef.current++
     recognitionRef.current?.abort()
     recognitionRef.current = null
-    const nextRound = pickRoundFromPools(dishes, menuDishes, Math.random, round.target.id, usedTargetIdsRef.current, lastMenuKeyRef.current)
-    usedTargetIdsRef.current = [...usedTargetIdsRef.current, nextRound.target.id]
     const isTwoTargetRound = questionNumber + 1 >= 5
-    let secondTarget: RestaurantDish | null = null
-    let nextMenu = nextRound.menu
-    if (isTwoTargetRound) {
-      const candidates = dishes.filter((dish) => dish.id !== nextRound.target.id)
-      const unseenTargets = candidates.filter((dish) => !usedTargetIdsRef.current.includes(dish.id))
-      const targetPool = unseenTargets.length ? unseenTargets : candidates
-      const unusedPairs = targetPool.filter((dish) => !usedPairKeysRef.current.includes([nextRound.target.id, dish.id].sort().join('|')))
-      const secondPool = unusedPairs.length ? unusedPairs : targetPool
-      const selectedSecondTarget = secondPool[Math.min(secondPool.length - 1, Math.floor(Math.random() * secondPool.length))]
-      secondTarget = selectedSecondTarget
+    const avoid = new Set(previousTargetIdsRef.current)
+    const [primaryTarget, secondTarget = null] = pickSessionTargets(dishes, isTwoTargetRound ? 2 : 1, targetUseCountsRef.current, Math.random, avoid)
+    previousTargetIdsRef.current = secondTarget ? [primaryTarget.id, secondTarget.id] : [primaryTarget.id]
 
-      const fillerPool = menuDishes.filter((dish) => dish.id !== nextRound.target.id && dish.id !== selectedSecondTarget.id)
+    let nextMenu: RestaurantDish[]
+    if (isTwoTargetRound && secondTarget) {
+      const fillerPool = menuDishes.filter((dish) => dish.id !== primaryTarget.id && dish.id !== secondTarget.id)
       const buildFinalMenu = () => shuffleRestaurantChoices([
-        nextRound.target,
-        selectedSecondTarget,
+        primaryTarget,
+        secondTarget,
         ...shuffleRestaurantChoices(fillerPool).slice(0, 2),
       ])
       nextMenu = buildFinalMenu()
@@ -274,7 +280,7 @@ export function useOrderingGame({ dishes, menuDishes, greetingAudioKey, greeting
       if (menuKey(nextMenu) === lastMenuKeyRef.current) {
         outer: for (let first = 0; first < fillerPool.length; first++) {
           for (let second = first + 1; second < fillerPool.length; second++) {
-            const alternative = [nextRound.target, selectedSecondTarget, fillerPool[first], fillerPool[second]]
+            const alternative = [primaryTarget, secondTarget, fillerPool[first], fillerPool[second]]
             if (menuKey(alternative) !== lastMenuKeyRef.current) {
               nextMenu = shuffleRestaurantChoices(alternative)
               break outer
@@ -282,14 +288,13 @@ export function useOrderingGame({ dishes, menuDishes, greetingAudioKey, greeting
           }
         }
       }
-
-      usedTargetIdsRef.current = [...usedTargetIdsRef.current, selectedSecondTarget.id]
-      usedPairKeysRef.current = [...usedPairKeysRef.current, [nextRound.target.id, selectedSecondTarget.id].sort().join('|')]
+    } else {
+      nextMenu = buildMenuAroundTarget(primaryTarget, menuDishes, Math.random, lastMenuKeyRef.current)
     }
-    const orderRound = { ...nextRound, menu: nextMenu }
+    const orderRound = { target: primaryTarget, menu: nextMenu }
     lastMenuKeyRef.current = menuKey(orderRound.menu)
     setRound(orderRound)
-    setTargets(secondTarget ? [orderRound.target, secondTarget] : [orderRound.target])
+    setTargets(secondTarget ? [primaryTarget, secondTarget] : [primaryTarget])
     setRomajiChoices(shuffleRestaurantChoices(orderRound.menu))
     setShowRomaji(false)
     setIsRomajiRescue(false)
@@ -306,9 +311,10 @@ export function useOrderingGame({ dishes, menuDishes, greetingAudioKey, greeting
     recognitionTokenRef.current++
     recognitionRef.current?.abort()
     recognitionRef.current = null
-    const firstRound = pickRoundFromPools(dishes, menuDishes)
-    usedTargetIdsRef.current = [firstRound.target.id]
-    usedPairKeysRef.current = []
+    targetUseCountsRef.current = new Map()
+    const [firstTarget] = pickSessionTargets(dishes, 1, targetUseCountsRef.current)
+    const firstRound = { target: firstTarget, menu: buildMenuAroundTarget(firstTarget, menuDishes) }
+    previousTargetIdsRef.current = [firstRound.target.id]
     setRound(firstRound)
     lastMenuKeyRef.current = menuKey(firstRound.menu)
     setTargets([firstRound.target])

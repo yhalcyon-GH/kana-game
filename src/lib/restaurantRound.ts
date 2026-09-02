@@ -5,17 +5,28 @@ export type RestaurantRound = {
   target: RestaurantDish
 }
 
+// Builds a 4-item menu around an already-chosen `target` (3 random fillers
+// from `menuDishes`, everything shuffled), retrying a few times to avoid
+// repeating `previousMenuKey` when another combination is available. Split
+// out from pickRoundFromPools so callers that select their own target (e.g.
+// useOrderingGame.ts's session-wide repeat-cap scheduler, see
+// lib/targetSchedule.ts) can reuse the same menu-building behavior.
+export function buildMenuAroundTarget(target: RestaurantDish, menuDishes: RestaurantDish[], rng: () => number = Math.random, previousMenuKey?: string): RestaurantDish[] {
+  const menuPool = menuDishes.filter((dish) => dish.id !== target.id)
+  let menu = shuffleRestaurantChoices([target, ...shuffleRestaurantChoices(menuPool, rng).slice(0, 3)], rng)
+  for (let attempt = 0; attempt < 3 && previousMenuKey && menuKey(menu) === previousMenuKey; attempt++) {
+    menu = shuffleRestaurantChoices([target, ...shuffleRestaurantChoices(menuPool, rng).slice(0, 3)], rng)
+  }
+  return menu
+}
+
 export function pickRoundFromPools(targetDishes: RestaurantDish[], menuDishes: RestaurantDish[], rng: () => number = Math.random, previousTargetId?: string, usedTargetIds: string[] = [], previousMenuKey?: string): RestaurantRound {
   if (targetDishes.length < 2 || menuDishes.length < 4) throw new Error('Restaurant pools need at least 2 targets and 4 menu dishes')
   const targetPool = targetDishes.filter((dish) => dish.id !== previousTargetId)
   const unseen = targetPool.filter((dish) => !usedTargetIds.includes(dish.id))
   const candidates = unseen.length >= 1 ? unseen : targetPool
   const target = candidates[Math.min(candidates.length - 1, Math.floor(rng() * candidates.length))]
-  const menuPool = menuDishes.filter((dish) => dish.id !== target.id)
-  let menu = shuffleRestaurantChoices([target, ...shuffleRestaurantChoices(menuPool, rng).slice(0, 3)], rng)
-  for (let attempt = 0; attempt < 3 && previousMenuKey && menuKey(menu) === previousMenuKey; attempt++) {
-    menu = shuffleRestaurantChoices([target, ...shuffleRestaurantChoices(menuPool, rng).slice(0, 3)], rng)
-  }
+  const menu = buildMenuAroundTarget(target, menuDishes, rng, previousMenuKey)
   return { target, menu }
 }
 

@@ -1,5 +1,5 @@
 import { PRACTICE_CHECKPOINTS, PRACTICE_CHECKPOINTS_BY_ID } from '../data/practiceCheckpoints'
-import { RESTAURANT_DISHES, type RestaurantDish } from '../data/restaurantDishes'
+import { RESTAURANT_DISHES, isTargetEligibleFor, type RestaurantDish } from '../data/restaurantDishes'
 import { getReadableKana, isFullyReadable } from './kanaReadability'
 
 // Builds a single checkpoint's target/menu dish pools, keyed by checkpoint
@@ -9,11 +9,15 @@ import { getReadableKana, isFullyReadable } from './kanaReadability'
 // other's dishes, so an earlier checkpoint could target/menu a later
 // checkpoint's not-yet-taught spotlight items (Issue #164 review).
 //
-// - `targets`: this checkpoint's own new spotlight dishes (`checkpointId`
-//   matches). If it has none (only katakana-youon-complete today), falls
-//   back to its approved pre-#160 dishes for its own `stage` — "existing
-//   suitable items carry it" (Issue #160) — rather than every dish in that
-//   stage, which would include a LATER checkpoint's own spotlight too.
+// - `targets`: every dish that has become a target for this checkpoint's
+//   own `mode` at or before this checkpoint's order (see
+//   data/restaurantDishes.ts's getTargetIntroductions/isTargetEligibleFor).
+//   This is CUMULATIVE across every earlier same-mode checkpoint, not just
+//   this checkpoint's own new spotlight — Issue #166: a checkpoint's
+//   question pool must include its own new vocabulary AND already-learned,
+//   readable same-mode vocabulary, not just whatever happens to be new here
+//   (which used to starve a checkpoint like Special Katakana Cafe, whose own
+//   spotlight is only 2 items, down to repeating just those 2 all session).
 // - `menuDishes`: targets plus every dish eligible as filler — a pre-#160
 //   dish (no `checkpointId`) in one of `fillerStages` AND actually readable
 //   using only kana taught at/before this checkpoint's `afterRowId` (see
@@ -36,18 +40,11 @@ export function getCheckpointDishPool(
   const passesExtra = (dish: RestaurantDish) => !extraFilter || extraFilter(dish)
   const readableKana = getReadableKana(checkpoint.afterRowId)
 
-  const isEligibleFiller = (dish: RestaurantDish) => {
-    if (!checkpoint.fillerStages.includes(dish.stage)) return false
-    if (!dish.checkpointId) return isFullyReadable(dish.displayKana, readableKana)
-    const dishOrder = PRACTICE_CHECKPOINTS.findIndex((c) => c.id === dish.checkpointId)
-    return dishOrder !== -1 && dishOrder <= order
-  }
-
-  const ownSpotlight = RESTAURANT_DISHES.filter((dish) => dish.checkpointId === checkpoint.id && passesExtra(dish))
-  const targets = ownSpotlight.length > 0
-    ? ownSpotlight
-    : RESTAURANT_DISHES.filter((dish) => !dish.checkpointId && dish.stage === checkpoint.stage && passesExtra(dish))
-  const fillerPool = RESTAURANT_DISHES.filter((dish) => isEligibleFiller(dish) && passesExtra(dish))
-  const menuDishes = Array.from(new Map([...targets, ...fillerPool].map((dish) => [dish.id, dish])).values())
+  const targets = RESTAURANT_DISHES.filter((dish) => isTargetEligibleFor(dish, checkpoint.mode, order) && passesExtra(dish))
+  const menuDishes = RESTAURANT_DISHES.filter((dish) =>
+    isTargetEligibleFor(dish, checkpoint.mode, order) &&
+    isFullyReadable(dish.displayKana, readableKana) &&
+    passesExtra(dish),
+  )
   return { targets, menuDishes }
 }
