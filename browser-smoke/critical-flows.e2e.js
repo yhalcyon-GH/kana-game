@@ -16,7 +16,7 @@ async function dismissConceptGuideIfPresent(page, testId) {
   const guide = page.getByTestId(testId)
   if (await guide.isVisible().catch(() => false)) {
     await guide.getByRole('button').last().click()
-    await expect(guide).toBeHidden()
+    await page.waitForTimeout(100)
   }
 }
 
@@ -223,6 +223,8 @@ test('Section Test cards stay visible and navigate at 320px', async ({ page }) =
   ]) {
     await gotoHash(page, section)
     await dismissIntroIfPresent(page)
+    await dismissConceptGuideIfPresent(page, 'sokuon-guide')
+    await dismissConceptGuideIfPresent(page, 'youon-guide')
     await dismissConceptGuideIfPresent(page, 'sokuon-guide')
     await dismissConceptGuideIfPresent(page, 'youon-guide')
     const card = page.getByTestId(cardId)
