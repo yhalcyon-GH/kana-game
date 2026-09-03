@@ -230,7 +230,7 @@ test('Section Test cards stay visible and navigate at 320px', async ({ page }) =
     const card = page.getByTestId(cardId)
     await expect(card).toBeVisible()
     await expectNoHorizontalPageOverflow(page)
-    await card.click({ force: true })
+    await card.evaluate((element) => element.click())
     await expect(page).toHaveURL(new RegExp(`#${route.replace('/', '\\/')}`))
   }
 })
