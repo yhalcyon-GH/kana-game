@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AnchorWord } from '../data/types'
-import { buildAssessmentPlan, buildYouonSpecialAssessmentPlan, createSeededRng, type AssessmentFamily } from './assessmentPlan'
+import { buildAssessmentPlan, buildFinalAssessmentPlan, buildYouonSpecialAssessmentPlan, createSeededRng, type AssessmentFamily } from './assessmentPlan'
 
 function makeWords(count: number, prefix = 'w'): AnchorWord[] {
   return Array.from({ length: count }, (_, i) => ({
@@ -124,5 +124,23 @@ describe('buildYouonSpecialAssessmentPlan', () => {
     const c = buildYouonSpecialAssessmentPlan({ characterIds: chars, words, rng: createSeededRng(4) })
     expect(a).toEqual(b)
     expect(a.questions.map((q) => q.characterId ?? q.word?.id)).not.toEqual(c.questions.map((q) => q.characterId ?? q.word?.id))
+  })
+})
+
+describe('buildFinalAssessmentPlan', () => {
+  const chars = ['a', 'katakana-a', 'ga', 'sokuon', 'katakana-chouon', 'kya', 'katakana-fa']
+  const words = Array.from({ length: 30 }, (_, i) => ({ id: `final-${i}`, kana: 'かな', romaji: `kana${i}`, meaning: 'word', characterIds: [chars[i % chars.length]], image: 'word.webp' }))
+  it('creates the stratified 30-question activity mix', () => {
+    const questions = buildFinalAssessmentPlan({ characterIds: chars, words, rng: createSeededRng(197) }).questions
+    expect(questions).toHaveLength(30)
+    expect(questions.filter((q) => q.family === 'kana-quiz')).toHaveLength(6)
+    for (const family of ['listening', 'word-builder', 'word-reading'] as const) expect(questions.filter((q) => q.family === family)).toHaveLength(8)
+  })
+  it('is deterministic and changes on retakes', () => {
+    const a = buildFinalAssessmentPlan({ characterIds: chars, words, rng: createSeededRng(1) }).questions
+    const b = buildFinalAssessmentPlan({ characterIds: chars, words, rng: createSeededRng(1) }).questions
+    const c = buildFinalAssessmentPlan({ characterIds: chars, words, rng: createSeededRng(2) }).questions
+    expect(a).toEqual(b)
+    expect(a.map((q) => q.word?.id ?? q.characterId)).not.toEqual(c.map((q) => q.word?.id ?? q.characterId))
   })
 })

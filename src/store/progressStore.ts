@@ -55,13 +55,19 @@ export type RowActivityKey = (typeof ROW_ACTIVITY_KEYS)[number]
 // (see curriculum.ts's SUMMARY_ROW_SOURCE_CATEGORY_IDS naming convention
 // for why 'hiragana'/'katakana' are used as keys instead of a synthetic
 // row id).
-export type AssessmentScript = 'hiragana' | 'katakana' | 'sokuon-chouon' | 'youon-special-katakana'
+export type AssessmentScript = 'hiragana' | 'katakana' | 'sokuon-chouon' | 'youon-special-katakana' | 'final-graduation'
 export type AssessmentCompletion = {
   completed: boolean
   lastScore?: { correct: number; total: number }
   completedAt?: number
 }
-const ASSESSMENT_SCRIPTS: AssessmentScript[] = ['hiragana', 'katakana', 'sokuon-chouon', 'youon-special-katakana']
+export type GraduationState = {
+  attempts: number
+  lastScore?: { correct: number; total: number; percentage: number }
+  graduated: boolean
+  graduatedAt?: number
+}
+const ASSESSMENT_SCRIPTS: AssessmentScript[] = ['hiragana', 'katakana', 'sokuon-chouon', 'youon-special-katakana', 'final-graduation']
 
 // "Continue" (Home's resume card, Issue #23) — deliberately separate from
 // Recommended Path: this just remembers the last real learning/practice
@@ -90,6 +96,7 @@ type ProgressState = {
   rowActivityCompletion: Record<string, RowActivityCompletion>
   // Hiragana/Katakana Test completion — see AssessmentCompletion's comment.
   assessmentCompletion: Record<AssessmentScript, AssessmentCompletion>
+  graduation: GraduationState
   // null until the learner has visited at least one resumable screen — see
   // LastStudied's comment. Home's Continue card simply doesn't render then.
   lastStudied: LastStudied | null
@@ -171,6 +178,7 @@ type ProgressState = {
   // AssessmentCompletion's comment). `score` is stored purely for display.
   markAssessmentCompleted: (script: AssessmentScript, score: { correct: number; total: number }) => void
   isAssessmentCompleted: (script: AssessmentScript) => boolean
+  markFinalGraduationCompleted: (score: { correct: number; total: number }) => void
   // Pure navigation bookkeeping for Continue (Issue #23) — never touches
   // Recommended Path/completion/Review/SRS/mastery.
   setLastStudied: (entry: LastStudied) => void
@@ -328,10 +336,18 @@ export function mergePersistedProgress(persistedState: unknown, currentState: Pr
         script,
         assessmentCompletionOr(
           isRecord(persisted.assessmentCompletion) ? persisted.assessmentCompletion[script] : undefined,
-          currentState.assessmentCompletion[script],
+          currentState.assessmentCompletion?.[script] ?? { completed: false },
         ),
       ]),
     ) as Record<AssessmentScript, AssessmentCompletion>,
+    graduation: isRecord(persisted.graduation) ? {
+      attempts: finiteOr(persisted.graduation.attempts, currentState.graduation?.attempts ?? 0),
+      lastScore: isRecord(persisted.graduation.lastScore) ? {
+        correct: finiteOr(persisted.graduation.lastScore.correct, 0), total: finiteOr(persisted.graduation.lastScore.total, 30), percentage: finiteOr(persisted.graduation.lastScore.percentage, 0),
+      } : currentState.graduation?.lastScore,
+      graduated: booleanOr(persisted.graduation.graduated, currentState.graduation?.graduated ?? false),
+      graduatedAt: finiteOr(persisted.graduation.graduatedAt, currentState.graduation?.graduatedAt ?? 0) || undefined,
+    } : (currentState.graduation ?? { attempts: 0, graduated: false }),
     audioEnabled: booleanOr(persisted.audioEnabled, currentState.audioEnabled),
     audioVolume: clampFiniteOr(persisted.audioVolume, MIN_VOLUME, MAX_VOLUME, currentState.audioVolume),
     audioSpeed: clampFiniteOr(persisted.audioSpeed, MIN_AUDIO_SPEED, MAX_AUDIO_SPEED, currentState.audioSpeed),
@@ -364,7 +380,8 @@ export const useProgressStore = create<ProgressState>()(
       unlockedRowIds: [FIRST_ROW_ID],
       taughtRowIds: [],
       rowActivityCompletion: {},
-        assessmentCompletion: { hiragana: { completed: false }, katakana: { completed: false }, 'sokuon-chouon': { completed: false }, 'youon-special-katakana': { completed: false } },
+        assessmentCompletion: { hiragana: { completed: false }, katakana: { completed: false }, 'sokuon-chouon': { completed: false }, 'youon-special-katakana': { completed: false }, 'final-graduation': { completed: false } },
+        graduation: { attempts: 0, graduated: false },
       lastStudied: null,
       audioEnabled: true,
       audioVolume: 1,
@@ -455,15 +472,28 @@ export const useProgressStore = create<ProgressState>()(
       },
       isRowActivityCompleted: (rowId, activity) => get().rowActivityCompletion[rowId]?.[activity] === true,
 
-      markAssessmentCompleted: (script, score) => {
+        markAssessmentCompleted: (script, score) => {
         set((state) => ({
           assessmentCompletion: {
             ...state.assessmentCompletion,
             [script]: { completed: true, lastScore: score, completedAt: Date.now() },
           },
         }))
-      },
-      isAssessmentCompleted: (script) => get().assessmentCompletion[script]?.completed === true,
+        },
+        isAssessmentCompleted: (script) => get().assessmentCompletion[script]?.completed === true,
+        markFinalGraduationCompleted: (score) => set((state) => {
+          const graduated = state.graduation.graduated || score.correct / Math.max(score.total, 1) >= 0.8
+          return {
+            graduation: { attempts: state.graduation.attempts + 1, lastScore: { ...score, percentage: Math.round((score.correct / Math.max(score.total, 1)) * 100) }, graduated, graduatedAt: graduated ? (state.graduation.graduatedAt ?? Date.now()) : undefined },
+            assessmentCompletion: {
+              ...state.assessmentCompletion,
+              'final-graduation': {
+                completed: graduated,
+                ...(graduated ? { lastScore: score, completedAt: Date.now() } : {}),
+              },
+            },
+          }
+        }),
 
       setLastStudied: (entry) => set({ lastStudied: entry }),
 
@@ -504,7 +534,8 @@ export const useProgressStore = create<ProgressState>()(
           unlockedRowIds: [FIRST_ROW_ID],
           taughtRowIds: [],
           rowActivityCompletion: {},
-            assessmentCompletion: { hiragana: { completed: false }, katakana: { completed: false }, 'sokuon-chouon': { completed: false }, 'youon-special-katakana': { completed: false } },
+            assessmentCompletion: { hiragana: { completed: false }, katakana: { completed: false }, 'sokuon-chouon': { completed: false }, 'youon-special-katakana': { completed: false }, 'final-graduation': { completed: false } },
+            graduation: { attempts: 0, graduated: false },
           lastStudied: null,
           audioEnabled: true,
           audioVolume: 1,

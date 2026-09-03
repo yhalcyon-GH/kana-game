@@ -128,4 +128,14 @@ describe('section assessment endpoints', () => {
     }
     expect(getGlobalRecommendedTarget(ASSESSMENT_ROWS, ASSESSMENT_CATS, ['ra-row', 'katakana-ra-row'], BOTH_ROWS_DONE, allDone)).toBeNull()
   })
+
+  it('stops on Final Graduation after the Yōon/Special assessment and ends after completion', () => {
+    const cats = [...ASSESSMENT_CATS, { id: 'special-katakana', label: 'Special', learnStyle: 'character-set' as const }]
+    const rows = [...ASSESSMENT_ROWS, { id: 'special-row', categoryId: 'special-katakana', label: 'Special', order: 0, characterIds: [] }]
+    const done = { ...BOTH_ROWS_DONE, 'special-row': BOTH_ROWS_DONE['ra-row'] }
+    const completion = { hiragana: { completed: true }, katakana: { completed: true }, 'sokuon-chouon': { completed: true }, 'youon-special-katakana': { completed: true }, 'final-graduation': { completed: false } }
+    expect(getGlobalRecommendedTarget(rows, cats, ['ra-row', 'katakana-ra-row', 'special-row'], done, completion)?.assessmentScript).toBe('final-graduation')
+    expect(getGlobalRecommendedTarget(rows, cats, ['ra-row', 'katakana-ra-row', 'special-row'], done, { ...completion, 'final-graduation': { completed: true } })).toBeNull()
+    expect(getGlobalRecommendedTarget(rows, cats, ['ra-row', 'katakana-ra-row', 'special-row'], done, { ...completion, 'final-graduation': { completed: false } })?.assessmentScript).toBe('final-graduation')
+  })
 })
