@@ -16,7 +16,11 @@ jobs:
       - run: npm ci
       - id: playwright-version
         name: Read pinned Playwright version
-        run: echo "version=$(node -p 'require(\"@playwright/test/package.json\").version')" >> "$GITHUB_OUTPUT"
+        shell: bash
+        run: |
+          version="$(node -e "process.stdout.write(require('@playwright/test/package.json').version)")"
+          test -n "$version"
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
       - id: playwright-cache
         name: Restore Playwright Chromium
         uses: actions/cache/restore@v4
