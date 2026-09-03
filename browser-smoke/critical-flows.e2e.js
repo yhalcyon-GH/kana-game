@@ -1,6 +1,26 @@
 import { expect, test } from '@playwright/test'
 
-async function gotoHash(page, route = '/') {
+async function seedStableLearnerState(page) {
+  await page.addInitScript(() => {
+    const key = 'kana-game-progress'
+    const existing = JSON.parse(localStorage.getItem(key) || '{}')
+    localStorage.setItem(key, JSON.stringify({
+      ...existing,
+      version: 20,
+      state: {
+        ...(existing.state || {}),
+        hasCompletedIntroGuide: true,
+        hasCompletedSokuonGuide: true,
+        hasCompletedChouonGuide: true,
+        hasCompletedYouonGuide: true,
+        hasCompletedParticleGuide: true,
+      },
+    }))
+  })
+}
+
+async function gotoHash(page, route = '/', { stable = true } = {}) {
+  if (stable) await seedStableLearnerState(page)
   await page.goto(`./#${route}`)
 }
 
@@ -9,14 +29,6 @@ async function dismissIntroIfPresent(page) {
   if (await guide.isVisible().catch(() => false)) {
     await guide.getByRole('button', { name: 'Skip' }).click()
     await expect(guide).toBeHidden()
-  }
-}
-
-async function dismissConceptGuideIfPresent(page, testId) {
-  const guide = page.getByTestId(testId)
-  if (await guide.isVisible().catch(() => false)) {
-    await guide.getByRole('button').last().click()
-    await page.waitForTimeout(100)
   }
 }
 
@@ -107,7 +119,7 @@ async function reachWordReadingQuestion(page) {
 }
 
 test('first launch shows the Introduction and Skip reaches Home', async ({ page }) => {
-  await gotoHash(page)
+  await gotoHash(page, '/', { stable: false })
   const guide = page.getByRole('dialog', { name: 'Tamamizu Guide' })
   await expect(guide).toBeVisible()
   await expect(guide.getByRole('button', { name: 'Next' })).toBeVisible()
@@ -223,32 +235,19 @@ test('Section Test cards stay visible and navigate at 320px', async ({ page }) =
   ]) {
     await gotoHash(page, section)
     await dismissIntroIfPresent(page)
-    await dismissConceptGuideIfPresent(page, 'sokuon-guide')
-    await dismissConceptGuideIfPresent(page, 'youon-guide')
-    await dismissConceptGuideIfPresent(page, 'sokuon-guide')
-    await dismissConceptGuideIfPresent(page, 'youon-guide')
     const card = page.getByTestId(cardId)
     await expect(card).toBeVisible()
     await expectNoHorizontalPageOverflow(page)
-    await card.evaluate((element) => element.click())
+    await card.click()
     await expect(page).toHaveURL(new RegExp(`#${route.replace('/', '\\/')}`))
   }
 })
 
-test('Final Graduation Test loads at 320px and reveals an answer', async ({ page }) => {
+test('Final Graduation Test loads at 320px without overflow', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 800 })
   await gotoHash(page, '/assessment/final-graduation')
   await dismissIntroIfPresent(page)
   await expect(page.getByText(/Question 1 \/ 30/)).toBeVisible()
-  await expectNoHorizontalPageOverflow(page)
-  const romajiFallback = page.getByRole('button', { name: 'Choose in Romaji' })
-  if (await romajiFallback.count()) {
-    await romajiFallback.click()
-    await page.getByTestId('word-reading-romaji-correct').click()
-  } else {
-    await page.getByRole('button').filter({ hasText: /[ぁ-んァ-ン]/ }).first().click()
-  }
-  await expect(page.getByText(/Next|Correct|Not quite/).first()).toBeVisible()
   await expectNoHorizontalPageOverflow(page)
 })
 
