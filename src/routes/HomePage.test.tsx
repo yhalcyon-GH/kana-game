@@ -149,14 +149,15 @@ describe('HomePage section Recommended (Issue #21)', () => {
     expect(getByRole('link', { name: /Yōon/ }).textContent).toMatch(/Recommended/)
   })
 
-  it('no card is Recommended once every category, including Special Katakana, is done', () => {
+  it('shows the Yōon/Special assessment after every learning category is done', () => {
     for (const categoryId of ['hiragana', 'katakana', 'sokuon', 'chouon', 'youon', 'special-katakana']) {
       completeCategory(categoryId)
     }
     useProgressStore.getState().markAssessmentCompleted('sokuon-chouon', { correct: 0, total: 20 })
     const { getAllByRole } = renderHome()
     const recommendedLinks = getAllByRole('link').filter((link) => link.textContent?.includes('Recommended'))
-    expect(recommendedLinks).toHaveLength(0)
+    expect(recommendedLinks).toHaveLength(1)
+    expect(recommendedLinks[0]).toHaveAttribute('href', '/assessment/youon-special-katakana')
   })
 })
 
