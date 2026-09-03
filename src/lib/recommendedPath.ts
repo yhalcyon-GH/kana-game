@@ -110,6 +110,7 @@ function assessmentScriptForCategory(categoryId: string): AssessmentScript | nul
   if (categoryId === 'hiragana') return 'hiragana'
   if (categoryId === 'katakana') return 'katakana'
   if (categoryId === 'chouon') return 'sokuon-chouon'
+  if (categoryId === 'special-katakana') return 'youon-special-katakana'
   return null
 }
 
@@ -165,6 +166,7 @@ export function getGlobalRecommendedTarget(
     if (
       assessmentCompletion &&
       assessmentScript &&
+      Object.prototype.hasOwnProperty.call(assessmentCompletion, assessmentScript) &&
       finalRow &&
       assessmentCompletion[assessmentScript]?.completed !== true
     ) {

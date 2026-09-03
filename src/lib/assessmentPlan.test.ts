@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AnchorWord } from '../data/types'
-import { buildAssessmentPlan, createSeededRng, type AssessmentFamily } from './assessmentPlan'
+import { buildAssessmentPlan, buildYouonSpecialAssessmentPlan, createSeededRng, type AssessmentFamily } from './assessmentPlan'
 
 function makeWords(count: number, prefix = 'w'): AnchorWord[] {
   return Array.from({ length: count }, (_, i) => ({
@@ -97,5 +97,32 @@ describe('buildAssessmentPlan', () => {
         expect(question.direction).toBe(question.kanaQuizDirection === 'read' ? 'kana-to-sound' : 'sound-to-kana')
       }
     }
+  })
+})
+
+describe('buildYouonSpecialAssessmentPlan', () => {
+  const chars = ['kya', 'kyu', 'kyo', 'sha', 'shu', 'sho', 'katakana-fa', 'katakana-fi', 'katakana-she']
+  const word = (id: string, characterIds: string[]) => ({ id, kana: characterIds.map((c) => c === 'katakana-fa' ? 'ファ' : 'きゃ').join(''), romaji: id, meaning: id, characterIds, image: `${id}.webp` })
+  const words = Array.from({ length: 12 }, (_, i) => word(`y${i}`, [chars[i % 6]])).concat(
+    Array.from({ length: 3 }, (_, i) => word(`s${i}`, [chars[6 + (i % 3)]])),
+  )
+
+  it('keeps the exact 20-question and 16/4 quotas per activity', () => {
+    const plan = buildYouonSpecialAssessmentPlan({ characterIds: chars, words, rng: createSeededRng(3) })
+    expect(plan.questions).toHaveLength(20)
+    for (const family of ['kana-quiz', 'listening', 'word-builder', 'word-reading'] as const) {
+      const questions = plan.questions.filter((q) => q.family === family)
+      expect(questions).toHaveLength(5)
+      expect(questions.filter((q) => q.domain === 'youon')).toHaveLength(4)
+      expect(questions.filter((q) => q.domain === 'special-katakana')).toHaveLength(1)
+    }
+  })
+
+  it('is deterministic for a seed and varies on retake seeds', () => {
+    const a = buildYouonSpecialAssessmentPlan({ characterIds: chars, words, rng: createSeededRng(3) })
+    const b = buildYouonSpecialAssessmentPlan({ characterIds: chars, words, rng: createSeededRng(3) })
+    const c = buildYouonSpecialAssessmentPlan({ characterIds: chars, words, rng: createSeededRng(4) })
+    expect(a).toEqual(b)
+    expect(a.questions.map((q) => q.characterId ?? q.word?.id)).not.toEqual(c.questions.map((q) => q.characterId ?? q.word?.id))
   })
 })

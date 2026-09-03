@@ -9,6 +9,7 @@ export type AssessmentQuestion = {
   kanaQuizDirection?: KanaQuizDirection
   word?: AnchorWord
   direction: 'kana-to-sound' | 'sound-to-kana'
+  domain?: 'youon' | 'special-katakana'
 }
 
 export type AssessmentPlan = { questions: AssessmentQuestion[] }
@@ -162,5 +163,32 @@ export function buildAssessmentPlan({ characterIds, words, rng }: BuildAssessmen
     'word-builder': buildWordFamilyQuestions('word-builder', wordBuilderWords),
     'word-reading': buildWordFamilyQuestions('word-reading', wordReadingWords),
   }
+  return { questions: interleave(blocks, rng) }
+}
+
+function domainOf(word: AnchorWord): 'youon' | 'special-katakana' {
+  return word.characterIds.some((id) => id.startsWith('katakana-') && CHAR_SPECIAL_IDS.has(id)) ? 'special-katakana' : 'youon'
+}
+
+const CHAR_SPECIAL_IDS = new Set(['katakana-fa', 'katakana-fi', 'katakana-fe', 'katakana-fo', 'katakana-ti', 'katakana-di', 'katakana-she', 'katakana-je', 'katakana-che', 'katakana-wi', 'katakana-we', 'katakana-special-wo'])
+
+export function buildYouonSpecialAssessmentPlan({ characterIds, words, rng }: BuildAssessmentPlanInput): AssessmentPlan {
+  const youonChars = characterIds.filter((id) => !CHAR_SPECIAL_IDS.has(id))
+  const specialChars = characterIds.filter((id) => CHAR_SPECIAL_IDS.has(id))
+  const youonWords = words.filter((word) => domainOf(word) === 'youon')
+  const specialWords = words.filter((word) => domainOf(word) === 'special-katakana')
+  const blocks = {} as Record<AssessmentFamily, AssessmentQuestion[]>
+  const yPool = shuffleWithRng(youonWords, rng)
+  const sPool = shuffleWithRng(specialWords, rng)
+  let yCursor = 0
+  let sCursor = 0
+  for (const family of ['listening', 'word-builder', 'word-reading'] as const) {
+    const selected: AnchorWord[] = []
+    for (let i = 0; i < 4; i++) selected.push(yPool[yCursor++ % yPool.length])
+    selected.push(sPool[sCursor++ % sPool.length])
+    blocks[family] = shuffleWithRng(selected, rng).map((word) => ({ family, word, direction: family === 'word-reading' ? 'kana-to-sound' : 'sound-to-kana', domain: domainOf(word) }))
+  }
+  const kanaTargets = [...takeWithFallback(shuffleWithRng(youonChars, rng), 4), ...takeWithFallback(shuffleWithRng(specialChars, rng), 1)]
+  blocks['kana-quiz'] = shuffleWithRng(kanaTargets, rng).map((characterId, i) => ({ family: 'kana-quiz', characterId, kanaQuizDirection: i % 2 === 0 ? 'read' : 'recall', direction: i % 2 === 0 ? 'kana-to-sound' : 'sound-to-kana', domain: CHAR_SPECIAL_IDS.has(characterId) ? 'special-katakana' : 'youon' }))
   return { questions: interleave(blocks, rng) }
 }

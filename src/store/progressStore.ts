@@ -55,13 +55,13 @@ export type RowActivityKey = (typeof ROW_ACTIVITY_KEYS)[number]
 // (see curriculum.ts's SUMMARY_ROW_SOURCE_CATEGORY_IDS naming convention
 // for why 'hiragana'/'katakana' are used as keys instead of a synthetic
 // row id).
-export type AssessmentScript = 'hiragana' | 'katakana' | 'sokuon-chouon'
+export type AssessmentScript = 'hiragana' | 'katakana' | 'sokuon-chouon' | 'youon-special-katakana'
 export type AssessmentCompletion = {
   completed: boolean
   lastScore?: { correct: number; total: number }
   completedAt?: number
 }
-const ASSESSMENT_SCRIPTS: AssessmentScript[] = ['hiragana', 'katakana', 'sokuon-chouon']
+const ASSESSMENT_SCRIPTS: AssessmentScript[] = ['hiragana', 'katakana', 'sokuon-chouon', 'youon-special-katakana']
 
 // "Continue" (Home's resume card, Issue #23) — deliberately separate from
 // Recommended Path: this just remembers the last real learning/practice
@@ -364,7 +364,7 @@ export const useProgressStore = create<ProgressState>()(
       unlockedRowIds: [FIRST_ROW_ID],
       taughtRowIds: [],
       rowActivityCompletion: {},
-      assessmentCompletion: { hiragana: { completed: false }, katakana: { completed: false }, 'sokuon-chouon': { completed: false } },
+        assessmentCompletion: { hiragana: { completed: false }, katakana: { completed: false }, 'sokuon-chouon': { completed: false }, 'youon-special-katakana': { completed: false } },
       lastStudied: null,
       audioEnabled: true,
       audioVolume: 1,
@@ -504,7 +504,7 @@ export const useProgressStore = create<ProgressState>()(
           unlockedRowIds: [FIRST_ROW_ID],
           taughtRowIds: [],
           rowActivityCompletion: {},
-          assessmentCompletion: { hiragana: { completed: false }, katakana: { completed: false }, 'sokuon-chouon': { completed: false } },
+            assessmentCompletion: { hiragana: { completed: false }, katakana: { completed: false }, 'sokuon-chouon': { completed: false }, 'youon-special-katakana': { completed: false } },
           lastStudied: null,
           audioEnabled: true,
           audioVolume: 1,

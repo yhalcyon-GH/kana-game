@@ -279,7 +279,7 @@ describe('useCurriculum', () => {
       expect(result.current.recommendedCategoryId).toBe(SPECIAL_KATAKANA_CATEGORY_ID)
     })
 
-    it('recommends nothing once every category, including Special Katakana, is done', () => {
+    it('recommends the Yōon/Special assessment once every learning category is done', () => {
       completeCategory(DEFAULT_CATEGORY_ID)
       completeCategory(KATAKANA_CATEGORY_ID)
       completeCategory(SOKUON_CATEGORY_ID)
@@ -288,7 +288,7 @@ describe('useCurriculum', () => {
       completeCategory(YOUON_CATEGORY_ID)
       completeCategory(SPECIAL_KATAKANA_CATEGORY_ID)
       const { result } = renderHook(() => useCurriculum())
-      expect(result.current.recommendedCategoryId).toBeNull()
+      expect(result.current.recommendedCategoryId).toBe(SPECIAL_KATAKANA_CATEGORY_ID)
     })
   })
 
