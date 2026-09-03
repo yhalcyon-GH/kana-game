@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { buildWeightedQueue } from './practiceSelection'
 
 describe('buildWeightedQueue', () => {
@@ -46,6 +46,12 @@ describe('buildWeightedQueue', () => {
     for (let i = 1; i < queue.length; i++) {
       expect(queue[i]).not.toBe(queue[i - 1])
     }
+  })
+
+  it('honors a preceding queue item when selecting an additional block', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    expect(buildWeightedQueue(['a', 'b'], () => 0, 1, 'a')).toEqual(['b'])
+    vi.restoreAllMocks()
   })
 
   it('returns an empty queue for an empty id list', () => {

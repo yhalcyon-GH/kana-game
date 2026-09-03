@@ -35,6 +35,11 @@ describe('pickCorrectFeedback', () => {
     expect(pickCorrectFeedback(10, 8, null).id).not.toBe('streak_10_saikou')
     expect(pickCorrectFeedback(15, 8, null).id).not.toBe('streak_15_perfect')
   })
+
+  it('uses ordinary per-answer feedback throughout 20- and 30-question assessments', () => {
+    expect(pickCorrectFeedback(15, 20, null).id).not.toBe('streak_15_perfect')
+    expect(pickCorrectFeedback(15, 30, null).id).not.toBe('streak_15_perfect')
+  })
 })
 
 describe('pickIncorrectFeedback', () => {

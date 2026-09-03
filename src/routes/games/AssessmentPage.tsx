@@ -8,7 +8,6 @@ import { UnbreakableKana } from '../../components/UnbreakableKana'
 import { WordImage } from '../../components/WordImage'
 import { CHARACTERS_BY_ID, getCharacterAudioId } from '../../data/characters'
 import { DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID } from '../../data/curriculum'
-import type { QuestionMode } from '../../data/feedback'
 import type { AnchorWord } from '../../data/types'
 import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
 import { useCurriculum } from '../../hooks/useCurriculum'
@@ -82,7 +81,7 @@ function ScriptAssessmentPage() {
   const [roundIndex, setRoundIndex] = useState(0)
   const [answers, setAnswers] = useState<AssessmentAnswer[]>([])
   const [finished, setFinished] = useState(false)
-  const { mood, onCorrect, onWrong, clear } = useAnswerFeedback(16 as QuestionMode)
+  const { mood, onCorrect, onWrong, clear } = useAnswerFeedback(script === 'final-graduation' ? 30 : 20)
 
   useEffect(() => {
     setRoundIndex(0)
@@ -592,15 +591,17 @@ function AssessmentWordReadingQuestion({
         <div className="flex w-full max-w-md flex-col items-center gap-4">
           {!showRomaji && (
             <>
-              <button
-                type="button"
-                onClick={speech.startListening}
-                disabled={!speech.speechSupported || speech.state.kind === 'listening'}
-                data-testid="word-reading-speak-button"
-                className="rounded-full bg-blue-600 px-6 py-3 text-base font-semibold text-white hover:bg-blue-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {speech.state.kind === 'listening' ? '🎤 Listening…' : '🎤 Speak'}
-              </button>
+              {!isSpeechFailure && (
+                <button
+                  type="button"
+                  onClick={speech.startListening}
+                  disabled={!speech.speechSupported || speech.state.kind === 'listening'}
+                  data-testid="word-reading-speak-button"
+                  className="rounded-full bg-blue-600 px-6 py-3 text-base font-semibold text-white hover:bg-blue-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {speech.state.kind === 'listening' ? '🎤 Listening…' : '🎤 Speak'}
+                </button>
+              )}
               {!speech.speechSupported && (
                 <p className="text-center text-xs text-neutral-500 dark:text-neutral-400">Voice input isn&apos;t available in this browser — use the button below instead.</p>
               )}
@@ -674,33 +675,23 @@ function AssessmentResultsScreen({
       </div>
 
       <div className="grid w-full max-w-md grid-cols-2 gap-3">
-        {(['kana-quiz', 'listening', 'word-builder', 'word-reading'] as const).map((family) => {
-          const score = results.familyScores[family]
-          return (
-            <div key={family} className="rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-center dark:border-neutral-700 dark:bg-neutral-900">
-              <p className="text-xs text-neutral-500 dark:text-neutral-400">{familyLabel(family)}</p>
-              <p className="text-lg font-bold">{score.correct} / {score.total}</p>
-            </div>
-          )
-        })}
-      </div>
-
-      <div className="grid w-full max-w-md grid-cols-2 gap-3">
         <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-center dark:border-neutral-700 dark:bg-neutral-900">
           <p className="text-xs text-neutral-500 dark:text-neutral-400">Kana → Sound</p>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">You can read kana</p>
           <p className="text-lg font-bold">{results.directionScores.kanaToSound.correct} / {results.directionScores.kanaToSound.total}</p>
         </div>
         <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-center dark:border-neutral-700 dark:bg-neutral-900">
           <p className="text-xs text-neutral-500 dark:text-neutral-400">Sound → Kana</p>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400">You can recognize kana by sound</p>
           <p className="text-lg font-bold">{results.directionScores.soundToKana.correct} / {results.directionScores.soundToKana.total}</p>
         </div>
       </div>
 
       {(weakKana.length > 0 || weakWords.length > 0) && (
         <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-center dark:border-neutral-700 dark:bg-neutral-900">
-          <h2 className="font-bold">Needs a little more practice</h2>
-          {weakKana.length > 0 && <p className="mt-2 font-kana text-xl font-semibold tracking-widest">{weakKana.join('　')}</p>}
-          {weakWords.length > 0 && <p className="mt-2 font-kana text-base">{weakWords.join('　')}</p>}
+          <h2 className="font-bold">Missed this round</h2>
+          {weakKana.length > 0 && <p className="mt-2 font-kana text-xl font-semibold tracking-widest">{weakKana.map((kana) => `${kana} — ${kanaToRomaji(kana)}`).join('　')}</p>}
+          {weakWords.length > 0 && <p className="mt-2 font-kana text-base">{weakWords.map((kana) => { const word = answers.find((answer) => answer.question.word?.kana === kana)?.question.word; return word ? `${word.kana} — ${word.romaji}` : kana }).join('　')}</p>}
         </div>
       )}
 

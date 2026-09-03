@@ -22,9 +22,13 @@ describe('sound-length assessment plan', () => {
   it('keeps orthography-specific choices live', () => {
     const questions = buildSoundLengthAssessmentPlan(words, createSoundLengthRng(7)).questions
     for (const question of questions) {
-      expect(question.choices).toContain('×')
-      if (question.domain === 'sokuon') expect(question.correct === 'っ' || question.correct === 'ッ').toBe(true)
-      if (question.diagnostic === 'katakana-chouon') expect(question.correct).toBe('ー')
+      expect(question.choices).toContain(question.correct)
+      if (question.domain === 'sokuon') expect(question.choices).toContain(question.correct)
+      if (question.diagnostic === 'katakana-chouon') expect(question.choices).toContain('ー')
+      if (question.domain === 'no-insertion') {
+        expect(question.correct).toBe('×')
+        expect(question.prompt.replace('□', '')).toBe(question.word.kana)
+      }
       if (question.word.id === 'chouon-e-oneesan') expect(question.choices).toEqual(expect.arrayContaining(['い', 'え']))
       if (question.word.id === 'chouon-o-ookii') expect(question.choices).toEqual(expect.arrayContaining(['う', 'お']))
     }

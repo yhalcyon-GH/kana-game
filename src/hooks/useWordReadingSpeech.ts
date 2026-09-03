@@ -56,9 +56,9 @@ export type WordReadingState =
   | { kind: 'listening' }
   | { kind: 'result'; result: WordReadingCheckResult; transcript: string | null }
 
-// One round's worth of speech-attempt state for a single target word.
-// `reset()` must be called by the caller whenever the target word changes
-// (a new question) — this hook has no knowledge of the question queue.
+// One round's worth of speech-attempt state for a single target word.  A
+// target-id change resets the round internally; `reset()` remains available
+// for callers that need to discard an in-progress attempt before then.
 export function useWordReadingSpeech(target: AnchorWord | undefined) {
   const [state, setState] = useState<WordReadingState>({ kind: 'idle' })
   const [speechSupported, setSpeechSupported] = useState(false)
@@ -76,6 +76,16 @@ export function useWordReadingSpeech(target: AnchorWord | undefined) {
       abortRecognition(recognitionRef)
     }
   }, [])
+
+  // A target change is a new question, so no recognition attempt, retry
+  // budget, or terminal result may leak into it even if the parent changes
+  // questions before a browser finishes dispatching its abort/end events.
+  useEffect(() => {
+    invalidateToken(tokenRef)
+    abortRecognition(recognitionRef)
+    setState({ kind: 'idle' })
+    setRetryUsed(false)
+  }, [target?.id])
 
   function reset() {
     tokenRef.current++

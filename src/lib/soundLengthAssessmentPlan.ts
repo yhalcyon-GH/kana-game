@@ -43,6 +43,12 @@ function vowelForLong(word: AnchorWord): string {
 
 function promptFor(word: AnchorWord, correct: string, domain: SoundLengthDomain): string {
   const chars = [...word.kana]
+  if (domain === 'no-insertion') {
+    // × means no character belongs between these two existing kana; preserve
+    // the whole word rather than replacing one of its characters.
+    const insertionIndex = Math.max(1, Math.min(chars.length - 1, Math.floor(chars.length / 2)))
+    return `${chars.slice(0, insertionIndex).join('')}□${chars.slice(insertionIndex).join('')}`
+  }
   const index = domain === 'sokuon'
     ? chars.findIndex((char) => char === 'っ' || char === 'ッ')
     : domain === 'long-vowel' && correct === 'ー'
@@ -61,8 +67,12 @@ function choicesFor(word: AnchorWord, correct: string, domain: SoundLengthDomain
     : domain === 'long-vowel' && (word.id.startsWith('chouon-o-') || word.id.startsWith('chouon-katakana-o-'))
       ? (hasKatakana(word) ? ['ウ', 'オ'] : ['う', 'お'])
       : [correct]
-  const candidates = [...new Set(['×', hasKatakana(word) ? 'ッ' : 'っ', 'ー', ...required, ...vowels])]
-  return shuffle(candidates.filter((choice) => choice === correct || choice === '×' || required.includes(choice) || vowels.includes(choice)).slice(0, 6), rng)
+  const marker = hasKatakana(word) ? 'ッ' : 'っ'
+  // The diagnostic alternatives are deliberately mandatory.  Shuffling
+  // before slicing previously allowed the correct marker to disappear.
+  const mandatory = [...new Set([correct, '×', marker, 'ー', ...required])]
+  const extras = shuffle(vowels.filter((vowel) => !mandatory.includes(vowel)), rng)
+  return shuffle([...mandatory, ...extras.slice(0, Math.max(0, 5 - mandatory.length))], rng)
 }
 
 function pickDistinct(words: AnchorWord[], count: number, predicate: (word: AnchorWord) => boolean, rng: () => number): AnchorWord[] {

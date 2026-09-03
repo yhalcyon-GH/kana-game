@@ -135,6 +135,11 @@ describe('AssessmentPage', () => {
     }
     await waitFor(() => expect(screen.getByText(/complete!/)).toBeInTheDocument())
     expect(useProgressStore.getState().isAssessmentCompleted('hiragana')).toBe(true)
+    expect(screen.getByText('Kana → Sound')).toBeInTheDocument()
+    expect(screen.getByText('Sound → Kana')).toBeInTheDocument()
+    // Family-level score cards were deliberately removed from the learner
+    // result UI; the two reading-direction summaries replace them.
+    expect(screen.queryByText('Kana Quiz')).not.toBeInTheDocument()
   }, 20000)
 
   it('never targets katakana characters/words for the Hiragana Test', async () => {
@@ -197,11 +202,38 @@ describe('AssessmentPage', () => {
       // answer) — it should still offer Try Again / Romaji fallback.
       await waitFor(() => expect(screen.getByText('Choose in Romaji')).toBeInTheDocument())
       expect(screen.queryByText('Not quite.')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('word-reading-speak-button')).not.toBeInTheDocument()
+      expect(screen.getByText('Try Again')).toBeInTheDocument()
+
+      fireEvent.click(screen.getByText('Try Again'))
+      const retryRecognition = FakeSpeechRecognition.instances.at(-1)!
+      expect(retryRecognition).not.toBe(recognition)
+      retryRecognition.error('no-speech')
+      await waitFor(() => expect(screen.queryByText('Try Again')).not.toBeInTheDocument())
+      expect(screen.queryByTestId('word-reading-speak-button')).not.toBeInTheDocument()
 
       fireEvent.click(screen.getByText('Choose in Romaji'))
       const correctButton = await screen.findByTestId('word-reading-romaji-correct')
       fireEvent.click(correctButton)
       await waitFor(() => expect(screen.getByText(/Correct!/)).toBeInTheDocument())
+
+      // Moving forward to another Word Reading question must create a fresh
+      // recognizer which can start normally; a failure in the previous word
+      // must never leave the speech hook in its fallback-only state.
+      await waitAndAdvanceIfPossible()
+      let nextWordReadingFound = false
+      for (let i = 0; i < 20 && !nextWordReadingFound; i++) {
+        if (screen.queryByTestId('word-reading-speak-button')) {
+          nextWordReadingFound = true
+          break
+        }
+        await answerCurrentQuestionAnyWay()
+      }
+      expect(nextWordReadingFound).toBe(true)
+      fireEvent.click(screen.getByTestId('word-reading-speak-button'))
+      const freshRecognition = FakeSpeechRecognition.instances.at(-1)!
+      expect(freshRecognition).not.toBe(retryRecognition)
+      expect(freshRecognition.start).toHaveBeenCalledTimes(1)
     })
   })
 

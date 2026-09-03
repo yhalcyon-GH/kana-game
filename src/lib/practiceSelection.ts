@@ -29,12 +29,12 @@ function weightedSampleWithoutReplacement(ids: string[], getBox: BoxLookup, coun
 // next to each other, whenever that's mathematically possible — greedily
 // placing whichever remaining id has the highest remaining count (breaking
 // ties randomly) that isn't the id just placed.
-function arrangeNoConsecutiveRepeats(items: string[]): string[] {
+function arrangeNoConsecutiveRepeats(items: string[], precedingId?: string): string[] {
   const remaining = new Map<string, number>()
   for (const item of items) remaining.set(item, (remaining.get(item) ?? 0) + 1)
 
   const result: string[] = []
-  let last: string | null = null
+  let last: string | null = precedingId ?? null
   for (let i = 0; i < items.length; i++) {
     let candidates = [...remaining.entries()].filter(([id, c]) => c > 0 && id !== last)
     if (candidates.length === 0) {
@@ -58,12 +58,18 @@ function arrangeNoConsecutiveRepeats(items: string[]): string[] {
 //   gets an equal base number of appearances first, and only the leftover
 //   rounds (as few as possible) go to extra, weighted-toward-weak picks.
 // Consecutive rounds never repeat the same id when more than one id exists.
-export function buildWeightedQueue(ids: string[], getBox: BoxLookup, count: number): string[] {
+export function buildWeightedQueue(ids: string[], getBox: BoxLookup, count: number, precedingId?: string): string[] {
   if (ids.length === 0) return []
 
   let picks: string[]
   if (ids.length >= count) {
-    picks = weightedSampleWithoutReplacement(ids, getBox, count)
+    // A one-off follow-on block can choose a different first item directly.
+    // When the block needs every id, keep the whole pool and let the
+    // arrangement step preserve coverage while selecting its first item.
+    const sampleIds = precedingId && ids.length > 1 && count < ids.length
+      ? ids.filter((id) => id !== precedingId)
+      : ids
+    picks = weightedSampleWithoutReplacement(sampleIds, getBox, count)
   } else {
     const base = Math.floor(count / ids.length)
     const remainder = count - base * ids.length
@@ -72,5 +78,5 @@ export function buildWeightedQueue(ids: string[], getBox: BoxLookup, count: numb
     picks.push(...weightedSampleWithoutReplacement(ids, getBox, remainder))
   }
 
-  return arrangeNoConsecutiveRepeats(picks)
+  return arrangeNoConsecutiveRepeats(picks, precedingId)
 }
