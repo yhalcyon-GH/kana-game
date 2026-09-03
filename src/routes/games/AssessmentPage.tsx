@@ -17,6 +17,7 @@ import { useTTS } from '../../hooks/useTTS'
 import { useWordReadingSpeech } from '../../hooks/useWordReadingSpeech'
 import {
   buildAssessmentPlan,
+  buildYouonSpecialAssessmentPlan,
   createSeededRng,
   type AssessmentFamily,
   type AssessmentQuestion,
@@ -30,10 +31,11 @@ import { buildFlatTargetTiles, displayGlyphsForCharId, type FlatTargetTile } fro
 import { useProgressStore, type AssessmentScript } from '../../store/progressStore'
 import { SoundLengthAssessmentPage } from './SoundLengthAssessmentPage'
 
-type ScriptAssessment = Extract<AssessmentScript, 'hiragana' | 'katakana'>
+type ScriptAssessment = Extract<AssessmentScript, 'hiragana' | 'katakana' | 'youon-special-katakana'>
 const SCRIPT_CONFIG: Record<ScriptAssessment, { categoryId: string; summaryRowId: string; label: string }> = {
   hiragana: { categoryId: DEFAULT_CATEGORY_ID, summaryRowId: 'hiragana-summary', label: 'Hiragana Test' },
   katakana: { categoryId: KATAKANA_CATEGORY_ID, summaryRowId: 'katakana-summary', label: 'Katakana Test' },
+  'youon-special-katakana': { categoryId: 'youon', summaryRowId: 'youon-summary', label: 'Yōon & Special Katakana Test' },
 }
 
 const DISTRACTOR_COUNT = 3
@@ -50,7 +52,7 @@ export function AssessmentPage() {
 
 function ScriptAssessmentPage() {
   const params = useParams<{ script: string }>()
-  const script: ScriptAssessment | null = params.script === 'katakana' ? 'katakana' : params.script === 'hiragana' ? 'hiragana' : null
+  const script: ScriptAssessment | null = params.script === 'katakana' ? 'katakana' : params.script === 'hiragana' ? 'hiragana' : params.script === 'youon-special-katakana' ? 'youon-special-katakana' : null
   const { getScopeCharacterIds, getScopeQuizCharacterIds, getScopeWords } = useCurriculum()
   const markAssessmentCompleted = useProgressStore((s) => s.markAssessmentCompleted)
 
@@ -71,8 +73,9 @@ function ScriptAssessmentPage() {
 
   const plan = useMemo(() => {
     if (!config || characterIds.length === 0 || words.length === 0) return null
-    return buildAssessmentPlan({ characterIds, words, rng: createSeededRng(sessionSeed) })
-  }, [config, characterIds, words, sessionSeed])
+    const build = script === 'youon-special-katakana' ? buildYouonSpecialAssessmentPlan : buildAssessmentPlan
+    return build({ characterIds, words, rng: createSeededRng(sessionSeed) })
+  }, [config, characterIds, words, sessionSeed, script])
 
   const [roundIndex, setRoundIndex] = useState(0)
   const [answers, setAnswers] = useState<AssessmentAnswer[]>([])
@@ -645,8 +648,8 @@ function AssessmentResultsScreen({
   onRetry: () => void
 }) {
   const results = useMemo(() => computeAssessmentResults(answers), [answers])
-  const recommendations = useMemo(() => getPracticeRecommendations(results, script), [results, script])
-  const backHref = script === 'hiragana' ? '/hiragana' : '/katakana'
+  const recommendations = useMemo(() => script === 'youon-special-katakana' ? [] : getPracticeRecommendations(results, script), [results, script])
+  const backHref = script === 'hiragana' ? '/hiragana' : script === 'katakana' ? '/katakana' : '/youon'
   const percent = results.overallTotal > 0 ? Math.round((results.overallCorrect / results.overallTotal) * 100) : 0
   const weakKana = results.weakCharacterIds
     .map((id) => CHARACTERS_BY_ID[id]?.kana)
