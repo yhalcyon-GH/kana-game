@@ -14,7 +14,7 @@ beforeEach(() => {
 // Rows with an approved Restaurant/Cafe checkpoint (Issue #183) only reach
 // Recommended Path 'done' once that score-independent checkpoint flag is set
 // too (see recommendedPath.ts's getRecommendedActivity).
-function completeCategory(categoryId: string) {
+function completeCategoryRows(categoryId: string) {
   for (const row of ROWS.filter((r) => r.categoryId === categoryId && !r.isSummary)) {
     useProgressStore.getState().markRowTaught(row.id)
     useProgressStore.getState().markRowActivityCompleted(row.id, 'kanaQuiz')
@@ -23,6 +23,13 @@ function completeCategory(categoryId: string) {
     if (PRACTICE_CHECKPOINTS.some((checkpoint) => checkpoint.afterRowId === row.id)) {
       useProgressStore.getState().markRowActivityCompleted(row.id, 'checkpoint')
     }
+  }
+}
+
+function completeCategory(categoryId: string) {
+  completeCategoryRows(categoryId)
+  if (categoryId === 'hiragana' || categoryId === 'katakana') {
+    useProgressStore.getState().markAssessmentCompleted(categoryId, { correct: 20, total: 20 })
   }
 }
 
@@ -91,6 +98,15 @@ describe('HomePage section Recommended (Issue #21)', () => {
     const { getByRole } = renderHome()
     expect(getByRole('link', { name: /Hiragana/ }).textContent).not.toMatch(/Recommended/)
     expect(getByRole('link', { name: /Katakana/ }).textContent).toMatch(/Recommended/)
+  })
+
+  it('recommends the Hiragana Test after Hiragana rows/checkpoints, while assessment is incomplete', () => {
+    completeCategoryRows(DEFAULT_CATEGORY_ID)
+    const { getByRole } = renderHome()
+    const hiraganaLink = getByRole('link', { name: /Hiragana/ })
+    expect(hiraganaLink.textContent).toMatch(/Recommended/)
+    expect(hiraganaLink.textContent).toMatch(/Test/)
+    expect(hiraganaLink).toHaveAttribute('href', '/assessment/hiragana')
   })
 
   it('recommends the bundled "Stop & Long Sound" card once sokuon is next (hiragana + katakana done)', () => {

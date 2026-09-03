@@ -98,6 +98,13 @@ describe('section assessment endpoints', () => {
   it('moves to Katakana only after Hiragana Test completion, then stops on Katakana Test', () => {
     const hiraganaDone = { ...incompleteAssessments, hiragana: { completed: true } }
     expect(getGlobalRecommendedTarget(ASSESSMENT_ROWS, ASSESSMENT_CATS, ['ra-row'], BOTH_ROWS_DONE, hiraganaDone)).toEqual({
+      categoryId: 'katakana', rowId: 'katakana-ra-row', activity: 'learn',
+    })
+  })
+
+  it('stops on Katakana Test only after Katakana rows/checkpoints are complete', () => {
+    const hiraganaDone = { ...incompleteAssessments, hiragana: { completed: true } }
+    expect(getGlobalRecommendedTarget(ASSESSMENT_ROWS, ASSESSMENT_CATS, ['ra-row', 'katakana-ra-row'], BOTH_ROWS_DONE, hiraganaDone)).toEqual({
       categoryId: 'katakana', rowId: 'katakana-ra-row', activity: 'assessment', assessmentScript: 'katakana',
     })
   })

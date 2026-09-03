@@ -61,6 +61,8 @@ async function completeOrderingCheckpoint(page, route, prefix, expectedAssessmen
     await next.click()
     if (round < 7) await expect(page.getByText(/Question \d+ \/ 8/)).toBeVisible()
   }
+  await expect(page.getByText('Session Summary', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Next' }).click()
   await expect(page).toHaveURL(new RegExp(`#${expectedAssessmentPath}$`))
   await expect(page.getByText(/Question 1 \/ 20/)).toBeVisible()
 }
@@ -79,11 +81,12 @@ async function reachWordReadingQuestion(page) {
   for (let round = 0; round < 20; round += 1) {
     if (await speakButton.isVisible().catch(() => false)) return
 
-    const wordBuilderSlot = page.locator('.border-dashed').first()
+    const wordBuilderSlot = page.locator('button.border-dashed').first()
     const choiceButtons = page.locator('.grid.grid-cols-2 button')
     if (await wordBuilderSlot.isVisible().catch(() => false)) {
-      const slotCount = await page.locator('.border-dashed').count()
-      for (let i = 0; i < slotCount; i += 1) await page.locator('button.font-kana:not([disabled])').first().click()
+      while (await page.locator('button.border-dashed').count() > 0) {
+        await page.locator('button.font-kana:not(.border-dashed):not([disabled])').first().click()
+      }
     } else if ((await choiceButtons.count()) > 0) {
       await choiceButtons.first().click()
     }
