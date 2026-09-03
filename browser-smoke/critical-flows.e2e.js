@@ -62,7 +62,7 @@ async function completeOrderingCheckpoint(page, route, prefix, expectedAssessmen
     if (round < 7) await expect(page.getByText(/Question \d+ \/ 8/)).toBeVisible()
   }
   await expect(page.getByText('Completed!', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Next' }).click()
+  await page.getByRole('link', { name: 'Next' }).click()
   await expect(page).toHaveURL(new RegExp(`#${expectedAssessmentPath}$`))
   await expect(page.getByText(/Question 1 \/ 20/)).toBeVisible()
 }
