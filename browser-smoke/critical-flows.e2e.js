@@ -12,6 +12,14 @@ async function dismissIntroIfPresent(page) {
   }
 }
 
+async function dismissConceptGuideIfPresent(page, testId) {
+  const guide = page.getByTestId(testId)
+  if (await guide.isVisible().catch(() => false)) {
+    await guide.getByRole('button').last().click()
+    await page.waitForTimeout(100)
+  }
+}
+
 async function startOrderingGame(page, route) {
   await gotoHash(page, route)
   await dismissIntroIfPresent(page)
@@ -205,6 +213,28 @@ test('Sokuon/Chōon Test loads and reveals the blank answer at 320px', async ({ 
   await expectNoHorizontalPageOverflow(page)
 })
 
+test('Section Test cards stay visible and navigate at 320px', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 800 })
+  for (const [section, cardId, route] of [
+    ['/hiragana', 'assessment-card-hiragana', '/assessment/hiragana'],
+    ['/katakana', 'assessment-card-katakana', '/assessment/katakana'],
+    ['/other', 'assessment-card-sokuon-chouon', '/assessment/sokuon-chouon'],
+    ['/youon', 'assessment-card-youon-special-katakana', '/assessment/youon-special-katakana'],
+  ]) {
+    await gotoHash(page, section)
+    await dismissIntroIfPresent(page)
+    await dismissConceptGuideIfPresent(page, 'sokuon-guide')
+    await dismissConceptGuideIfPresent(page, 'youon-guide')
+    await dismissConceptGuideIfPresent(page, 'sokuon-guide')
+    await dismissConceptGuideIfPresent(page, 'youon-guide')
+    const card = page.getByTestId(cardId)
+    await expect(card).toBeVisible()
+    await expectNoHorizontalPageOverflow(page)
+    await card.evaluate((element) => element.click())
+    await expect(page).toHaveURL(new RegExp(`#${route.replace('/', '\\/')}`))
+  }
+})
+
 test('Final Graduation Test loads at 320px and reveals an answer', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 800 })
   await gotoHash(page, '/assessment/final-graduation')
@@ -216,7 +246,7 @@ test('Final Graduation Test loads at 320px and reveals an answer', async ({ page
     await romajiFallback.click()
     await page.getByTestId('word-reading-romaji-correct').click()
   } else {
-    await page.getByRole('button').nth(3).click()
+    await page.getByRole('button').filter({ hasText: /[ぁ-んァ-ン]/ }).first().click()
   }
   await expect(page.getByText(/Next|Correct|Not quite/).first()).toBeVisible()
   await expectNoHorizontalPageOverflow(page)

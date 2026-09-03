@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { KanaIntroExcerptGuide } from '../components/KanaIntroExcerptGuide'
 import { ConceptGuide } from '../components/ConceptGuide'
 import { ChouonGuide } from '../components/ChouonGuide'
@@ -102,6 +102,8 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
   const setHasCompletedParticleGuide = useProgressStore((s) => s.setHasCompletedParticleGuide)
   const taughtRowIds = useProgressStore((s) => s.taughtRowIds)
   const rowActivityCompletion = useProgressStore((s) => s.rowActivityCompletion)
+  const assessmentCompletion = useProgressStore((s) => s.assessmentCompletion)
+  const graduation = useProgressStore((s) => s.graduation)
 
   const hasSokuonCategory = categoryIds.includes(SOKUON_CATEGORY_ID)
   const hasChouonCategory = categoryIds.includes(CHOUON_CATEGORY_ID)
@@ -248,6 +250,12 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
       {trailingRows.length > 0 && (
         <RowMap rows={trailingRows} isUnlocked={isRowUnlocked} isTaught={isRowTaught} isMastered={isRowMastered} />
       )}
+      <AssessmentCards
+        categoryIds={categoryIds}
+        assessmentCompletion={assessmentCompletion}
+        graduation={graduation}
+        recommendedScript={globalRecommendedTarget?.assessmentScript}
+      />
       {/* Optional supplementary "Ask Tamamizu about particles" entry point
           (は/へ/を pronunciation quirks) — Hiragana page only, deliberately
           not a new Home category card, Recommended Path step, or curriculum
@@ -288,6 +296,69 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
         />
       )}
     </div>
+  )
+}
+
+type AssessmentCardConfig = { script: 'hiragana' | 'katakana' | 'sokuon-chouon' | 'youon-special-katakana' | 'final-graduation'; label: string; questions: number; description: string; final?: boolean }
+
+const ASSESSMENT_CARDS: Record<string, AssessmentCardConfig> = {
+  hiragana: { script: 'hiragana', label: 'HIRAGANA TEST', questions: 20, description: 'Check what you know in Hiragana.' },
+  katakana: { script: 'katakana', label: 'KATAKANA TEST', questions: 20, description: 'Check what you know in Katakana.' },
+  other: { script: 'sokuon-chouon', label: 'STOP & LONG SOUND TEST', questions: 20, description: 'Check small tsu and long sounds.' },
+  youon: { script: 'youon-special-katakana', label: 'YŌON & SPECIAL KATAKANA TEST', questions: 20, description: 'Check small kana sound combinations.' },
+  final: { script: 'final-graduation', label: 'FINAL KANA TEST', questions: 30, description: 'Full Kana Graduation Test.', final: true },
+}
+
+function AssessmentCards({
+  categoryIds,
+  assessmentCompletion,
+  graduation,
+  recommendedScript,
+}: {
+  categoryIds: string[]
+  assessmentCompletion: ReturnType<typeof useProgressStore.getState>['assessmentCompletion']
+  graduation: ReturnType<typeof useProgressStore.getState>['graduation']
+  recommendedScript?: AssessmentCardConfig['script']
+}) {
+  const configs = categoryIds.includes(YOUON_CATEGORY_ID)
+    ? [ASSESSMENT_CARDS.youon, ASSESSMENT_CARDS.final]
+    : categoryIds.includes(SOKUON_CATEGORY_ID) || categoryIds.includes(CHOUON_CATEGORY_ID)
+      ? [ASSESSMENT_CARDS.other]
+      : categoryIds.includes('hiragana')
+        ? [ASSESSMENT_CARDS.hiragana]
+        : categoryIds.includes('katakana')
+          ? [ASSESSMENT_CARDS.katakana]
+          : []
+  return (
+    <div className="flex w-full flex-col items-center gap-4" data-testid="assessment-cards">
+      {configs.map((config) => {
+        const completion = assessmentCompletion[config.script]
+        const score = config.final ? graduation.lastScore : completion.lastScore
+        const recommended = recommendedScript === config.script
+        return <AssessmentCard key={config.script} config={config} score={score} graduated={config.final && graduation.graduated} recommended={recommended} />
+      })}
+    </div>
+  )
+}
+
+function AssessmentCard({ config, score, graduated, recommended }: { config: AssessmentCardConfig; score?: { correct: number; total: number } | { correct: number; total: number; percentage: number }; graduated?: boolean; recommended: boolean }) {
+  return (
+    <Link
+      to={`/assessment/${config.script}`}
+      data-testid={`assessment-card-${config.script}`}
+      className={`w-full max-w-md rounded-2xl border px-5 py-4 text-left shadow-md transition hover:scale-[1.01] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500 dark:focus-visible:outline-amber-300 ${config.final ? 'border-orange-400 bg-orange-50 hover:bg-orange-100 dark:border-orange-700 dark:bg-orange-950/50 dark:hover:bg-orange-900/60' : 'border-amber-300 bg-amber-50 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/40 dark:hover:bg-amber-900/50'} ${recommended ? 'ring-2 ring-yellow-400 ring-offset-2 dark:ring-yellow-300' : ''}`}
+    >
+      <span className="block text-xs font-bold tracking-[0.16em] text-amber-700 dark:text-amber-300">{recommended ? '📝 TEST · ⭐ RECOMMENDED' : '📝 TEST'}</span>
+      <span className="mt-1 flex items-center gap-3">
+        <span className="text-3xl" aria-hidden="true">{config.final ? '🏆' : '📝'}</span>
+        <span>
+          <span className="block text-lg font-bold text-amber-950 dark:text-amber-50">{config.label}</span>
+          <span className="block text-sm font-semibold text-amber-800 dark:text-amber-200">{config.questions} Questions</span>
+          <span className="mt-1 block text-sm text-amber-900/75 dark:text-amber-200/75">{config.description}</span>
+          {score && <span className="mt-1 block text-xs font-semibold text-amber-800 dark:text-amber-200">{graduated ? '🏆 Graduated' : '✓ Completed'} · {score.correct}/{score.total}</span>}
+        </span>
+      </span>
+    </Link>
   )
 }
 

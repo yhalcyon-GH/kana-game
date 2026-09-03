@@ -333,6 +333,40 @@ describe('Similar Letters entry card', () => {
   })
 })
 
+describe('always-available assessment cards', () => {
+  it.each([
+    [DEFAULT_CATEGORY_ID, 'HIRAGANA TEST', '/assessment/hiragana'],
+    [KATAKANA_CATEGORY_ID, 'KATAKANA TEST', '/assessment/katakana'],
+  ])('shows %s immediately after the summary and keeps it clickable', (categoryId, label, href) => {
+    const { getByTestId, getByText } = categoryId === DEFAULT_CATEGORY_ID ? renderHiragana() : renderKatakana()
+    const card = getByTestId(`assessment-card-${categoryId === DEFAULT_CATEGORY_ID ? 'hiragana' : 'katakana'}`)
+    expect(getByText(label)).toBeInTheDocument()
+    expect(card).toHaveAttribute('href', href)
+    expect(card.textContent).toContain('20 Questions')
+    const summary = categoryId === DEFAULT_CATEGORY_ID ? getByText(/あ〜ん/).closest('a') : getByText(/ア〜オ/).closest('a')
+    expect(summary!.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('shows the sound test after the Other summary and Yōon plus Final tests in order', () => {
+    const other = renderOtherPage()
+    expect(other.getByTestId('assessment-card-sokuon-chouon')).toHaveAttribute('href', '/assessment/sokuon-chouon')
+    const youon = renderYouonPage()
+    const youonCard = youon.getByTestId('assessment-card-youon-special-katakana')
+    const finalCard = youon.getByTestId('assessment-card-final-graduation')
+    expect(youonCard).toHaveAttribute('href', '/assessment/youon-special-katakana')
+    expect(finalCard).toHaveAttribute('href', '/assessment/final-graduation')
+    expect(youonCard.compareDocumentPosition(finalCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('keeps cards visible after completion and marks only the current recommendation', () => {
+    for (const id of ['a-row', 'i-row', 'u-row', 'e-row', 'o-row', 'n-row']) useProgressStore.getState().markRowTaught(id)
+    useProgressStore.getState().markAssessmentCompleted('hiragana', { correct: 17, total: 20 })
+    const { getByTestId } = renderHiragana()
+    expect(getByTestId('assessment-card-hiragana')).toBeInTheDocument()
+    expect(getByTestId('assessment-card-hiragana').textContent).toContain('17/20')
+  })
+})
+
 describe('Chōon section Guide replay', () => {
   it('no longer shows the old always-visible Chōon explanation', () => {
     const { queryByText } = renderOtherPage()
