@@ -109,6 +109,7 @@ export type GlobalRecommendedTarget = {
 function assessmentScriptForCategory(categoryId: string): AssessmentScript | null {
   if (categoryId === 'hiragana') return 'hiragana'
   if (categoryId === 'katakana') return 'katakana'
+  if (categoryId === 'chouon') return 'sokuon-chouon'
   return null
 }
 

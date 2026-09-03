@@ -192,6 +192,19 @@ test('Hiragana and Katakana Tests both load at 320px without overflow', async ({
   }
 })
 
+test('Sokuon/Chōon Test loads and reveals the blank answer at 320px', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 800 })
+  await gotoHash(page, '/assessment/sokuon-chouon')
+  await dismissIntroIfPresent(page)
+  const assessment = page.getByTestId('sound-length-assessment')
+  await expect(assessment.getByText(/Question 1 \/ 20/)).toBeVisible()
+  await expect(page.getByTestId('sound-length-prompt')).toBeVisible()
+  await expectNoHorizontalPageOverflow(page)
+  await assessment.getByRole('button').nth(3).click()
+  await expect(assessment.getByText(/(?:Next|[ぁ-んァ-ンーっッ]+)\s*\(/)).toBeVisible()
+  await expectNoHorizontalPageOverflow(page)
+})
+
 test('Word Reading hides clues before answer and reveals answer data afterward', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 800 })
   await gotoHash(page, '/assessment/hiragana')

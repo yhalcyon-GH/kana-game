@@ -297,7 +297,7 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
             to={`/assessment/${globalRecommendedTarget.assessmentScript}`}
             className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
           >
-            📝 {globalRecommendedTarget.assessmentScript === 'hiragana' ? 'Hiragana Test' : 'Katakana Test'}
+            📝 {globalRecommendedTarget.assessmentScript === 'hiragana' ? 'Hiragana Test' : globalRecommendedTarget.assessmentScript === 'katakana' ? 'Katakana Test' : 'Sokuon / Chōon Test'}
           </Link>
         </div>
       )}

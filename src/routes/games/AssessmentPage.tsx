@@ -28,8 +28,10 @@ import { kanaToRomaji } from '../../lib/kanaToRomaji'
 import { shuffle } from '../../lib/shuffle'
 import { buildFlatTargetTiles, displayGlyphsForCharId, type FlatTargetTile } from '../../lib/wordBuilderTiles'
 import { useProgressStore, type AssessmentScript } from '../../store/progressStore'
+import { SoundLengthAssessmentPage } from './SoundLengthAssessmentPage'
 
-const SCRIPT_CONFIG: Record<AssessmentScript, { categoryId: string; summaryRowId: string; label: string }> = {
+type ScriptAssessment = Extract<AssessmentScript, 'hiragana' | 'katakana'>
+const SCRIPT_CONFIG: Record<ScriptAssessment, { categoryId: string; summaryRowId: string; label: string }> = {
   hiragana: { categoryId: DEFAULT_CATEGORY_ID, summaryRowId: 'hiragana-summary', label: 'Hiragana Test' },
   katakana: { categoryId: KATAKANA_CATEGORY_ID, summaryRowId: 'katakana-summary', label: 'Katakana Test' },
 }
@@ -42,7 +44,13 @@ function familyLabel(family: AssessmentFamily): string {
 
 export function AssessmentPage() {
   const params = useParams<{ script: string }>()
-  const script = params.script === 'katakana' ? 'katakana' : params.script === 'hiragana' ? 'hiragana' : null
+  if (params.script === 'sokuon-chouon') return <SoundLengthAssessmentPage />
+  return <ScriptAssessmentPage />
+}
+
+function ScriptAssessmentPage() {
+  const params = useParams<{ script: string }>()
+  const script: ScriptAssessment | null = params.script === 'katakana' ? 'katakana' : params.script === 'hiragana' ? 'hiragana' : null
   const { getScopeCharacterIds, getScopeQuizCharacterIds, getScopeWords } = useCurriculum()
   const markAssessmentCompleted = useProgressStore((s) => s.markAssessmentCompleted)
 
@@ -631,7 +639,7 @@ function AssessmentResultsScreen({
   answers,
   onRetry,
 }: {
-  script: AssessmentScript
+  script: ScriptAssessment
   config: { categoryId: string; summaryRowId: string; label: string }
   answers: AssessmentAnswer[]
   onRetry: () => void

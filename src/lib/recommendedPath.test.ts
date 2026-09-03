@@ -31,6 +31,18 @@ describe('getRecommendedActivity: contrast-pairs', () => {
   })
 })
 
+describe('Sokuon/Chōon assessment endpoint', () => {
+  it('appears after Chōon and disappears after completion without score gating', () => {
+    const rows: GojuonRow[] = [
+      { id: 'chouon-row', categoryId: 'chouon', label: 'ー', characterIds: [], order: 1 },
+    ]
+    const categories: ScriptCategory[] = [{ id: 'chouon', label: '長音', learnStyle: 'contrast-pairs' }]
+    const completion = { 'chouon-row': { tracing: true, listening: true, wordBuilder: true } }
+    expect(getGlobalRecommendedTarget(rows, categories, [], completion, { 'sokuon-chouon': { completed: false } })).toMatchObject({ activity: 'assessment', assessmentScript: 'sokuon-chouon' })
+    expect(getGlobalRecommendedTarget(rows, categories, [], completion, { 'sokuon-chouon': { completed: true } })).toBeNull()
+  })
+})
+
 const CATS: ScriptCategory[] = [
   { id: 'cat-a', label: 'A', learnStyle: 'character-set' },
   { id: 'cat-b', label: 'B', learnStyle: 'contrast-pairs' },

@@ -48,6 +48,7 @@ export function RestaurantPage({ checkpointId = 'na-row' }: { checkpointId?: str
   const ASSESSMENT_AFTER_CHECKPOINT: Record<string, string> = {
     'hiragana-complete': '/assessment/hiragana',
     'katakana-complete': '/assessment/katakana',
+    'chouon-complete': '/assessment/sokuon-chouon',
   }
   const assessmentNextPath = checkpoint ? ASSESSMENT_AFTER_CHECKPOINT[checkpoint.id] : undefined
   const nextRow = !assessmentNextPath && checkpoint ? getNextGlobalRealRow(checkpoint.afterRowId) : null
