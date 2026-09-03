@@ -153,8 +153,11 @@ describe('AssessmentPage', () => {
       const progress = screen.getByText(`Question ${questionNumber} / 20`, { exact: false })
       const family = progress.textContent?.split('·')[1]?.trim()
       if (family) seenFamilies.add(family)
+      const feedbackCallsBefore = tts.speak.mock.calls.filter(([key]) => String(key).startsWith('feedback/')).length
       await answerCurrentQuestionWithoutNext()
       expect(screen.getByRole('button', { name: 'Next' })).toBeInTheDocument()
+      expect(tts.speak.mock.calls.filter(([key]) => String(key).startsWith('feedback/'))).toHaveLength(feedbackCallsBefore + 1)
+      expect(screen.getByTestId('mascot-stage').querySelector('img')).not.toHaveAttribute('src', expect.stringContaining('normal.webp'))
 
       act(() => vi.advanceTimersByTime(2500))
       expect(screen.getByText(`Question ${questionNumber} / 20`, { exact: false })).toBeInTheDocument()
