@@ -342,6 +342,7 @@ function AssessmentCards({
 }
 
 function AssessmentCard({ config, score, graduated, recommended }: { config: AssessmentCardConfig; score?: { correct: number; total: number } | { correct: number; total: number; percentage: number }; graduated?: boolean; recommended: boolean }) {
+  const scoreStatus = score ? getAssessmentCardScoreStatus(config.final === true, score, graduated === true) : null
   return (
     <Link
       to={`/assessment/${config.script}`}
@@ -355,11 +356,21 @@ function AssessmentCard({ config, score, graduated, recommended }: { config: Ass
           <span className="block text-lg font-bold text-amber-950 dark:text-amber-50">{config.label}</span>
           <span className="block text-sm font-semibold text-amber-800 dark:text-amber-200">{config.questions} Questions</span>
           <span className="mt-1 block text-sm text-amber-900/75 dark:text-amber-200/75">{config.description}</span>
-          {score && <span className="mt-1 block text-xs font-semibold text-amber-800 dark:text-amber-200">{graduated ? '🏆 Graduated' : '✓ Completed'} · {score.correct}/{score.total}</span>}
+          {score && scoreStatus && <span className="mt-1 block text-xs font-semibold text-amber-800 dark:text-amber-200">{scoreStatus} · {score.correct}/{score.total}</span>}
         </span>
       </span>
     </Link>
   )
+}
+
+function getAssessmentCardScoreStatus(isFinal: boolean, score: { correct: number; total: number }, graduated: boolean): string {
+  const perfect = score.total > 0 && score.correct === score.total
+  if (isFinal) {
+    if (perfect) return '👑 MASTERED'
+    return graduated ? '🎓 GRADUATED' : '✕ FAIL'
+  }
+  if (perfect) return '👑 PERFECT'
+  return score.total > 0 && score.correct / score.total >= 0.8 ? '✅ PASS' : '✕ FAIL'
 }
 
 // Shared CTA markup for every inline Restaurant/Cafe checkpoint. It stays

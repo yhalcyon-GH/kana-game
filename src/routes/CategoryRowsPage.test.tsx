@@ -366,6 +366,33 @@ describe('always-available assessment cards', () => {
     expect(getByTestId('assessment-card-hiragana')).toBeInTheDocument()
     expect(getByTestId('assessment-card-hiragana').textContent).toContain('17/20')
   })
+
+  it.each([
+    [15, '✕ FAIL · 15/20'],
+    [16, '✅ PASS · 16/20'],
+    [20, '👑 PERFECT · 20/20'],
+  ])('shows the section result status for %i/20', (correct, expected) => {
+    useProgressStore.getState().markAssessmentCompleted('hiragana', { correct, total: 20 })
+    const { getByTestId } = renderHiragana()
+    expect(getByTestId('assessment-card-hiragana')).toHaveTextContent(expected)
+  })
+
+  it.each([
+    [23, '✕ FAIL · 23/30'],
+    [24, '🎓 GRADUATED · 24/30'],
+    [30, '👑 MASTERED · 30/30'],
+  ])('shows the final result status for %i/30', (correct, expected) => {
+    useProgressStore.getState().markFinalGraduationCompleted({ correct, total: 30 })
+    const { getByTestId } = renderYouonPage()
+    expect(getByTestId('assessment-card-final-graduation')).toHaveTextContent(expected)
+  })
+
+  it('keeps GRADUATED after a low-score retake once graduation is earned', () => {
+    useProgressStore.getState().markFinalGraduationCompleted({ correct: 24, total: 30 })
+    useProgressStore.getState().markFinalGraduationCompleted({ correct: 10, total: 30 })
+    const { getByTestId } = renderYouonPage()
+    expect(getByTestId('assessment-card-final-graduation')).toHaveTextContent('🎓 GRADUATED · 10/30')
+  })
 })
 
 describe('Chōon section Guide replay', () => {
