@@ -485,7 +485,13 @@ export const useProgressStore = create<ProgressState>()(
           const graduated = state.graduation.graduated || score.correct / Math.max(score.total, 1) >= 0.8
           return {
             graduation: { attempts: state.graduation.attempts + 1, lastScore: { ...score, percentage: Math.round((score.correct / Math.max(score.total, 1)) * 100) }, graduated, graduatedAt: graduated ? (state.graduation.graduatedAt ?? Date.now()) : undefined },
-            assessmentCompletion: { ...state.assessmentCompletion, 'final-graduation': { completed: true, lastScore: score, completedAt: Date.now() } },
+            assessmentCompletion: {
+              ...state.assessmentCompletion,
+              'final-graduation': {
+                completed: graduated,
+                ...(graduated ? { lastScore: score, completedAt: Date.now() } : {}),
+              },
+            },
           }
         }),
 

@@ -1043,12 +1043,14 @@ describe('progressStore', () => {
     it('records fail, then pass, and preserves graduation after a low-score retake', () => {
       useProgressStore.getState().markFinalGraduationCompleted({ correct: 23, total: 30 })
       expect(useProgressStore.getState().graduation.graduated).toBe(false)
-      expect(useProgressStore.getState().isAssessmentCompleted('final-graduation')).toBe(true)
+      expect(useProgressStore.getState().isAssessmentCompleted('final-graduation')).toBe(false)
       useProgressStore.getState().markFinalGraduationCompleted({ correct: 24, total: 30 })
       const passedAt = useProgressStore.getState().graduation.graduatedAt
       expect(useProgressStore.getState().graduation.graduated).toBe(true)
+      expect(useProgressStore.getState().isAssessmentCompleted('final-graduation')).toBe(true)
       useProgressStore.getState().markFinalGraduationCompleted({ correct: 10, total: 30 })
       expect(useProgressStore.getState().graduation.graduated).toBe(true)
+      expect(useProgressStore.getState().isAssessmentCompleted('final-graduation')).toBe(true)
       expect(useProgressStore.getState().graduation.graduatedAt).toBe(passedAt)
       expect(useProgressStore.getState().graduation.lastScore).toMatchObject({ correct: 10, percentage: 33 })
     })

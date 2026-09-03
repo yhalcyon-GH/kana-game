@@ -136,5 +136,6 @@ describe('section assessment endpoints', () => {
     const completion = { hiragana: { completed: true }, katakana: { completed: true }, 'sokuon-chouon': { completed: true }, 'youon-special-katakana': { completed: true }, 'final-graduation': { completed: false } }
     expect(getGlobalRecommendedTarget(rows, cats, ['ra-row', 'katakana-ra-row', 'special-row'], done, completion)?.assessmentScript).toBe('final-graduation')
     expect(getGlobalRecommendedTarget(rows, cats, ['ra-row', 'katakana-ra-row', 'special-row'], done, { ...completion, 'final-graduation': { completed: true } })).toBeNull()
+    expect(getGlobalRecommendedTarget(rows, cats, ['ra-row', 'katakana-ra-row', 'special-row'], done, { ...completion, 'final-graduation': { completed: false } })?.assessmentScript).toBe('final-graduation')
   })
 })
