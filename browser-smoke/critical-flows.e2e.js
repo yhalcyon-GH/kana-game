@@ -205,6 +205,17 @@ test('Sokuon/Chōon Test loads and reveals the blank answer at 320px', async ({ 
   await expectNoHorizontalPageOverflow(page)
 })
 
+test('Final Graduation Test loads at 320px and reveals an answer', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 800 })
+  await gotoHash(page, '/assessment/final-graduation')
+  await dismissIntroIfPresent(page)
+  await expect(page.getByText(/Question 1 \/ 30/)).toBeVisible()
+  await expectNoHorizontalPageOverflow(page)
+  await page.getByRole('button').nth(3).click()
+  await expect(page.getByText(/Next|Correct|Not quite/).first()).toBeVisible()
+  await expectNoHorizontalPageOverflow(page)
+})
+
 test('Word Reading hides clues before answer and reveals answer data afterward', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 800 })
   await gotoHash(page, '/assessment/hiragana')

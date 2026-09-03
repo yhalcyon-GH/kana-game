@@ -1038,4 +1038,30 @@ describe('progressStore', () => {
       expect(useProgressStore.getState().assessmentCompletion.katakana.lastScore).toEqual({ correct: 15, total: 20 })
     })
   })
+
+  describe('Final Kana Graduation Test completion', () => {
+    it('records fail, then pass, and preserves graduation after a low-score retake', () => {
+      useProgressStore.getState().markFinalGraduationCompleted({ correct: 23, total: 30 })
+      expect(useProgressStore.getState().graduation.graduated).toBe(false)
+      expect(useProgressStore.getState().isAssessmentCompleted('final-graduation')).toBe(true)
+      useProgressStore.getState().markFinalGraduationCompleted({ correct: 24, total: 30 })
+      const passedAt = useProgressStore.getState().graduation.graduatedAt
+      expect(useProgressStore.getState().graduation.graduated).toBe(true)
+      useProgressStore.getState().markFinalGraduationCompleted({ correct: 10, total: 30 })
+      expect(useProgressStore.getState().graduation.graduated).toBe(true)
+      expect(useProgressStore.getState().graduation.graduatedAt).toBe(passedAt)
+      expect(useProgressStore.getState().graduation.lastScore).toMatchObject({ correct: 10, percentage: 33 })
+    })
+
+    it('persists graduation state and final assessment completion through rehydration', async () => {
+      useProgressStore.getState().markFinalGraduationCompleted({ correct: 30, total: 30 })
+      const persisted = localStorage.getItem('kana-game-progress')
+      expect(persisted).not.toBeNull()
+      useProgressStore.getState().resetProgress()
+      localStorage.setItem('kana-game-progress', persisted!)
+      await useProgressStore.persist.rehydrate()
+      expect(useProgressStore.getState().graduation).toMatchObject({ attempts: 1, graduated: true, lastScore: { correct: 30, percentage: 100 } })
+      expect(useProgressStore.getState().isAssessmentCompleted('final-graduation')).toBe(true)
+    })
+  })
 })
