@@ -2,7 +2,10 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useProgressStore } from '../../store/progressStore'
-import { AssessmentPage } from './AssessmentPage'
+import { CHARACTERS_BY_ID } from '../../data/characters'
+import { WORDS_BY_ROW } from '../../data/words'
+import type { AssessmentAnswer } from '../../lib/assessmentResults'
+import { AssessmentPage, AssessmentResultsScreen } from './AssessmentPage'
 
 const tts = vi.hoisted(() => ({ speak: vi.fn(), speakAndWait: vi.fn(), speakStaticOnly: vi.fn(), stop: vi.fn(), supported: true }))
 vi.mock('../../hooks/useTTS', () => ({ useTTS: () => tts }))
@@ -135,6 +138,11 @@ describe('AssessmentPage', () => {
     }
     await waitFor(() => expect(screen.getByText(/complete!/)).toBeInTheDocument())
     expect(useProgressStore.getState().isAssessmentCompleted('hiragana')).toBe(true)
+    expect(screen.getByText('Kana → Sound')).toBeInTheDocument()
+    expect(screen.getByText('Sound → Kana')).toBeInTheDocument()
+    // Family-level score cards were deliberately removed from the learner
+    // result UI; the two reading-direction summaries replace them.
+    expect(screen.queryByText('Kana Quiz')).not.toBeInTheDocument()
   }, 20000)
 
   it('never targets katakana characters/words for the Hiragana Test', async () => {
@@ -197,11 +205,38 @@ describe('AssessmentPage', () => {
       // answer) — it should still offer Try Again / Romaji fallback.
       await waitFor(() => expect(screen.getByText('Choose in Romaji')).toBeInTheDocument())
       expect(screen.queryByText('Not quite.')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('word-reading-speak-button')).not.toBeInTheDocument()
+      expect(screen.getByText('Try Again')).toBeInTheDocument()
+
+      fireEvent.click(screen.getByText('Try Again'))
+      const retryRecognition = FakeSpeechRecognition.instances.at(-1)!
+      expect(retryRecognition).not.toBe(recognition)
+      retryRecognition.error('no-speech')
+      await waitFor(() => expect(screen.queryByText('Try Again')).not.toBeInTheDocument())
+      expect(screen.queryByTestId('word-reading-speak-button')).not.toBeInTheDocument()
 
       fireEvent.click(screen.getByText('Choose in Romaji'))
       const correctButton = await screen.findByTestId('word-reading-romaji-correct')
       fireEvent.click(correctButton)
       await waitFor(() => expect(screen.getByText(/Correct!/)).toBeInTheDocument())
+
+      // Moving forward to another Word Reading question must create a fresh
+      // recognizer which can start normally; a failure in the previous word
+      // must never leave the speech hook in its fallback-only state.
+      await waitAndAdvanceIfPossible()
+      let nextWordReadingFound = false
+      for (let i = 0; i < 20 && !nextWordReadingFound; i++) {
+        if (screen.queryByTestId('word-reading-speak-button')) {
+          nextWordReadingFound = true
+          break
+        }
+        await answerCurrentQuestionAnyWay()
+      }
+      expect(nextWordReadingFound).toBe(true)
+      fireEvent.click(screen.getByTestId('word-reading-speak-button'))
+      const freshRecognition = FakeSpeechRecognition.instances.at(-1)!
+      expect(freshRecognition).not.toBe(retryRecognition)
+      expect(freshRecognition.start).toHaveBeenCalledTimes(1)
     })
   })
 
@@ -223,5 +258,37 @@ describe('AssessmentPage', () => {
       // 🔊 prompt icon, matching the "before answering" hidden state).
       expect(screen.getByText('🔊')).toBeInTheDocument()
     })
+  })
+
+  it('lists every distinct kana and word missed in a result, beyond the former display caps', () => {
+    const characterIds = ['a', 'i', 'u', 'e', 'o', 'ka', 'ki']
+    const words = Object.values(WORDS_BY_ROW).flat().slice(0, 6)
+    const answers: AssessmentAnswer[] = [
+      ...characterIds.map((characterId) => ({
+        question: { family: 'kana-quiz' as const, characterId, direction: 'kana-to-sound' as const },
+        correct: false,
+      })),
+      ...words.map((word) => ({
+        question: { family: 'word-reading' as const, word, direction: 'kana-to-sound' as const },
+        correct: false,
+      })),
+    ]
+
+    render(
+      <MemoryRouter>
+        <AssessmentResultsScreen
+          script="hiragana"
+          config={{ categoryId: 'hiragana', summaryRowId: 'hiragana-summary', label: 'Hiragana Test' }}
+          answers={answers}
+          onRetry={vi.fn()}
+        />
+      </MemoryRouter>,
+    )
+
+    for (const characterId of characterIds) {
+      const character = CHARACTERS_BY_ID[characterId]
+      expect(screen.getAllByText((_, element) => element?.textContent?.includes(`${character.kana} — ${character.romaji}`) ?? false).length).toBeGreaterThan(0)
+    }
+    for (const word of words) expect(screen.getAllByText((_, element) => element?.textContent?.includes(`${word.kana} — ${word.romaji}`) ?? false).length).toBeGreaterThan(0)
   })
 })

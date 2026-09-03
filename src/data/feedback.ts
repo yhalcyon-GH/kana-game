@@ -36,12 +36,16 @@ export const STREAK_15_PERFECT: FeedbackLine = { id: 'streak_15_perfect', text: 
 // Issue #180 adds Kana-Quiz-only 12- and 16-question modes for the large
 // は/ハ and first Katakana rows. They reuse the already-recorded milestone
 // clips; no new voice assets or feedback semantics are introduced.
-export type QuestionMode = 8 | 12 | 15 | 16
+export type QuestionMode = 8 | 12 | 15 | 16 | 20 | 30
 export const STREAK_MILESTONES: Record<QuestionMode, Record<number, FeedbackLine>> = {
   8: { 5: STREAK_5_SUGOI, 8: STREAK_8_KANPEKI },
   12: { 5: STREAK_5_SUGOI, 8: STREAK_8_KANPEKI, 10: STREAK_10_SAIKOU },
   15: { 5: STREAK_5_SUGOI, 8: STREAK_8_KANPEKI, 10: STREAK_10_SAIKOU, 15: STREAK_15_PERFECT },
   16: { 5: STREAK_5_SUGOI, 8: STREAK_8_KANPEKI, 10: STREAK_10_SAIKOU, 15: STREAK_15_PERFECT },
+  // Assessments deliberately avoid completion-sounding streak milestones;
+  // their only final evaluation belongs on the result screen.
+  20: {},
+  30: {},
 }
 
 // --- Session-end evaluation screen. A separate mechanism from the
