@@ -129,6 +129,7 @@ describe('HomePage section Recommended (Issue #21)', () => {
     completeCategory(KATAKANA_CATEGORY_ID)
     completeCategory(SOKUON_CATEGORY_ID)
     completeCategory(CHOUON_CATEGORY_ID)
+    useProgressStore.getState().markAssessmentCompleted('sokuon-chouon', { correct: 0, total: 20 })
     const { getByRole } = renderHome()
     expect(getByRole('link', { name: /Yōon/ }).textContent).toMatch(/Recommended/)
   })
@@ -142,6 +143,7 @@ describe('HomePage section Recommended (Issue #21)', () => {
     completeCategory(KATAKANA_CATEGORY_ID)
     completeCategory(SOKUON_CATEGORY_ID)
     completeCategory(CHOUON_CATEGORY_ID)
+    useProgressStore.getState().markAssessmentCompleted('sokuon-chouon', { correct: 0, total: 20 })
     completeCategory('youon')
     const { getByRole } = renderHome()
     expect(getByRole('link', { name: /Yōon/ }).textContent).toMatch(/Recommended/)
@@ -151,6 +153,7 @@ describe('HomePage section Recommended (Issue #21)', () => {
     for (const categoryId of ['hiragana', 'katakana', 'sokuon', 'chouon', 'youon', 'special-katakana']) {
       completeCategory(categoryId)
     }
+    useProgressStore.getState().markAssessmentCompleted('sokuon-chouon', { correct: 0, total: 20 })
     const { getAllByRole } = renderHome()
     const recommendedLinks = getAllByRole('link').filter((link) => link.textContent?.includes('Recommended'))
     expect(recommendedLinks).toHaveLength(0)
