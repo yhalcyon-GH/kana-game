@@ -12,6 +12,14 @@ async function dismissIntroIfPresent(page) {
   }
 }
 
+async function dismissConceptGuideIfPresent(page, testId) {
+  const guide = page.getByTestId(testId)
+  if (await guide.isVisible().catch(() => false)) {
+    await guide.getByRole('button').last().click()
+    await expect(guide).toBeHidden()
+  }
+}
+
 async function startOrderingGame(page, route) {
   await gotoHash(page, route)
   await dismissIntroIfPresent(page)
@@ -215,6 +223,7 @@ test('Section Test cards stay visible and navigate at 320px', async ({ page }) =
   ]) {
     await gotoHash(page, section)
     await dismissIntroIfPresent(page)
+    await dismissConceptGuideIfPresent(page, 'sokuon-guide')
     const card = page.getByTestId(cardId)
     await expect(card).toBeVisible()
     await expectNoHorizontalPageOverflow(page)
@@ -234,7 +243,7 @@ test('Final Graduation Test loads at 320px and reveals an answer', async ({ page
     await romajiFallback.click()
     await page.getByTestId('word-reading-romaji-correct').click()
   } else {
-    await page.getByRole('button').nth(3).click()
+    await page.locator('button.font-kana').first().click()
   }
   await expect(page.getByText(/Next|Correct|Not quite/).first()).toBeVisible()
   await expectNoHorizontalPageOverflow(page)
