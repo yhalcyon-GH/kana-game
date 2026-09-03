@@ -224,6 +224,7 @@ test('Section Test cards stay visible and navigate at 320px', async ({ page }) =
     await gotoHash(page, section)
     await dismissIntroIfPresent(page)
     await dismissConceptGuideIfPresent(page, 'sokuon-guide')
+    await dismissConceptGuideIfPresent(page, 'youon-guide')
     const card = page.getByTestId(cardId)
     await expect(card).toBeVisible()
     await expectNoHorizontalPageOverflow(page)
@@ -243,7 +244,7 @@ test('Final Graduation Test loads at 320px and reveals an answer', async ({ page
     await romajiFallback.click()
     await page.getByTestId('word-reading-romaji-correct').click()
   } else {
-    await page.locator('button.font-kana').first().click()
+    await page.getByRole('button').filter({ hasText: /[ぁ-んァ-ン]/ }).first().click()
   }
   await expect(page.getByText(/Next|Correct|Not quite/).first()).toBeVisible()
   await expectNoHorizontalPageOverflow(page)
