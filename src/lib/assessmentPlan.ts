@@ -2,6 +2,7 @@ import type { AnchorWord } from '../data/types'
 
 export type AssessmentFamily = 'kana-quiz' | 'listening' | 'word-builder' | 'word-reading'
 export type KanaQuizDirection = 'read' | 'recall'
+export type AssessmentDomain = 'youon' | 'special-katakana' | 'basic-hiragana' | 'basic-katakana' | 'dakuon-handakuon' | 'sokuon' | 'long-vowel'
 
 export type AssessmentQuestion = {
   family: AssessmentFamily
@@ -9,7 +10,7 @@ export type AssessmentQuestion = {
   kanaQuizDirection?: KanaQuizDirection
   word?: AnchorWord
   direction: 'kana-to-sound' | 'sound-to-kana'
-  domain?: 'youon' | 'special-katakana'
+  domain?: AssessmentDomain
 }
 
 export type AssessmentPlan = { questions: AssessmentQuestion[] }
@@ -191,4 +192,73 @@ export function buildYouonSpecialAssessmentPlan({ characterIds, words, rng }: Bu
   const kanaTargets = [...takeWithFallback(shuffleWithRng(youonChars, rng), 4), ...takeWithFallback(shuffleWithRng(specialChars, rng), 1)]
   blocks['kana-quiz'] = shuffleWithRng(kanaTargets, rng).map((characterId, i) => ({ family: 'kana-quiz', characterId, kanaQuizDirection: i % 2 === 0 ? 'read' : 'recall', direction: i % 2 === 0 ? 'kana-to-sound' : 'sound-to-kana', domain: CHAR_SPECIAL_IDS.has(characterId) ? 'special-katakana' : 'youon' }))
   return { questions: interleave(blocks, rng) }
+}
+
+export type FinalAssessmentDomain = 'basic-hiragana' | 'basic-katakana' | 'dakuon-handakuon' | 'sokuon' | 'long-vowel' | 'youon' | 'special-katakana'
+
+const FINAL_DOMAIN_ORDER: FinalAssessmentDomain[] = ['basic-hiragana', 'basic-katakana', 'dakuon-handakuon', 'sokuon', 'long-vowel', 'youon', 'special-katakana']
+
+export function finalAssessmentDomains(word: AnchorWord): FinalAssessmentDomain[] {
+  const rows = word.characterIds.map((id) => CHARACTERS_BY_ID_FOR_PLAN[id]?.rowId ?? '')
+  const ids = word.characterIds
+  const domains = new Set<FinalAssessmentDomain>()
+  if (rows.some((row) => row.startsWith('youon-'))) domains.add('youon')
+  if (rows.some((row) => row.startsWith('special-katakana-'))) domains.add('special-katakana')
+  if (rows.some((row) => row === 'sokuon-row') || ids.includes('sokuon') || ids.includes('katakana-sokuon')) domains.add('sokuon')
+  if (rows.some((row) => row.startsWith('chouon-')) || ids.includes('katakana-chouon')) domains.add('long-vowel')
+  if (ids.some((id) => CHARACTERS_BY_ID_FOR_PLAN[id]?.type === 'dakuten' || CHARACTERS_BY_ID_FOR_PLAN[id]?.type === 'handakuten')) domains.add('dakuon-handakuon')
+  if (ids.some((id) => id.startsWith('katakana-'))) domains.add('basic-katakana')
+  else domains.add('basic-hiragana')
+  return [...domains]
+}
+
+// Kept local to avoid making the plan depend on React/UI modules.
+import { CHARACTERS_BY_ID as CHARACTERS_BY_ID_FOR_PLAN } from '../data/characters'
+
+export function buildFinalAssessmentPlan({ characterIds, words, rng }: BuildAssessmentPlanInput): AssessmentPlan {
+  const shuffledWords = shuffleWithRng(words, rng)
+  const selected: AnchorWord[] = []
+  const used = new Set<string>()
+  for (const domain of FINAL_DOMAIN_ORDER) {
+    const candidate = shuffledWords.find((word) => !used.has(word.id) && finalAssessmentDomains(word).includes(domain))
+    if (candidate) { selected.push(candidate); used.add(candidate.id) }
+  }
+  for (const word of shuffledWords) {
+    if (selected.length >= 24) break
+    if (!used.has(word.id)) { selected.push(word); used.add(word.id) }
+  }
+  const pool = selected.length >= 24 ? selected : takeWithFallback(shuffledWords, 24)
+  const familyTargets = { listening: 8, 'word-builder': 8, 'word-reading': 8 } as const
+  const blocks = {} as Record<AssessmentFamily, AssessmentQuestion[]>
+  let cursor = 0
+  for (const [family, count] of Object.entries(familyTargets) as [AssessmentFamily, number][]) {
+    blocks[family] = Array.from({ length: count }, () => {
+      const index = cursor++
+      const word = pool[index % pool.length]
+      const preferred = FINAL_DOMAIN_ORDER[index % FINAL_DOMAIN_ORDER.length]
+      return { family, word, direction: family === 'word-reading' ? 'kana-to-sound' : 'sound-to-kana', domain: finalAssessmentDomains(word).includes(preferred) ? preferred : finalAssessmentDomains(word)[0] }
+    })
+  }
+  const kanaIds = shuffleWithRng(characterIds, rng)
+  blocks['kana-quiz'] = Array.from({ length: 6 }, (_, i) => {
+    const characterId = kanaIds[i % kanaIds.length]
+    return { family: 'kana-quiz', characterId, kanaQuizDirection: i % 2 === 0 ? 'read' : 'recall', direction: i % 2 === 0 ? 'kana-to-sound' : 'sound-to-kana', domain: undefined }
+  })
+  return { questions: interleaveFinal(blocks, rng) }
+}
+
+function interleaveFinal(blocks: Record<AssessmentFamily, AssessmentQuestion[]>, rng: () => number): AssessmentQuestion[] {
+  const remaining = Object.fromEntries(Object.entries(blocks).map(([key, value]) => [key, [...value]])) as Record<AssessmentFamily, AssessmentQuestion[]>
+  const result: AssessmentQuestion[] = []
+  let lastFamily: AssessmentFamily | null = null
+  let run = 0
+  while (result.length < 30) {
+    const choices = shuffleWithRng((Object.keys(remaining) as AssessmentFamily[]).filter((family) => remaining[family].length && !(family === lastFamily && run >= 2)), rng)
+    const family = choices[0] ?? (Object.keys(remaining) as AssessmentFamily[]).find((key) => remaining[key].length)
+    if (!family) break
+    result.push(remaining[family].shift()!)
+    run = family === lastFamily ? run + 1 : 1
+    lastFamily = family
+  }
+  return result
 }

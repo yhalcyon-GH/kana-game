@@ -178,5 +178,12 @@ export function getGlobalRecommendedTarget(
       }
     }
   }
+  const finalAssessment = assessmentCompletion?.['final-graduation']
+  const phase3Complete = assessmentCompletion?.['youon-special-katakana']?.completed === true
+  if (phase3Complete && finalAssessment?.completed !== true) {
+    const finalCategory = categories.find((category) => category.id === 'special-katakana')
+    const finalRow = rows.filter((row) => row.categoryId === 'special-katakana' && !row.isSummary && !row.isSimilarLetters).sort((a, b) => a.order - b.order).at(-1)
+    if (finalCategory && finalRow) return { categoryId: finalCategory.id, rowId: finalRow.id, activity: 'assessment', assessmentScript: 'final-graduation' }
+  }
   return null
 }

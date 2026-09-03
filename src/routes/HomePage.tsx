@@ -46,11 +46,13 @@ function SavedCard() {
 
 export function HomePage() {
   const { recommendedCategoryId, globalRecommendedTarget } = useCurriculum()
+  const graduated = useProgressStore((s) => s.graduation.graduated)
   const recommendedRow = globalRecommendedTarget ? ROWS_BY_ID[globalRecommendedTarget.rowId] : undefined
 
   return (
     <div className="flex flex-col items-center gap-6">
       <h1 className="text-3xl font-bold">Kana Game</h1>
+      {graduated && <p className="rounded-full border border-green-300 bg-green-50 px-4 py-2 font-semibold text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-300">✓ Kana Complete — Graduated</p>}
       <div className="grid w-full max-w-2xl grid-cols-2 gap-4 sm:grid-cols-4">
         {SCRIPT_ENTRY_POINTS.map((card) => {
           const isRecommended = !!recommendedCategoryId && card.categoryIds.includes(recommendedCategoryId)

@@ -18,6 +18,7 @@ import { useWordReadingSpeech } from '../../hooks/useWordReadingSpeech'
 import {
   buildAssessmentPlan,
   buildYouonSpecialAssessmentPlan,
+  buildFinalAssessmentPlan,
   createSeededRng,
   type AssessmentFamily,
   type AssessmentQuestion,
@@ -31,11 +32,12 @@ import { buildFlatTargetTiles, displayGlyphsForCharId, type FlatTargetTile } fro
 import { useProgressStore, type AssessmentScript } from '../../store/progressStore'
 import { SoundLengthAssessmentPage } from './SoundLengthAssessmentPage'
 
-type ScriptAssessment = Extract<AssessmentScript, 'hiragana' | 'katakana' | 'youon-special-katakana'>
+type ScriptAssessment = Extract<AssessmentScript, 'hiragana' | 'katakana' | 'youon-special-katakana' | 'final-graduation'>
 const SCRIPT_CONFIG: Record<ScriptAssessment, { categoryId: string; summaryRowId: string; label: string }> = {
   hiragana: { categoryId: DEFAULT_CATEGORY_ID, summaryRowId: 'hiragana-summary', label: 'Hiragana Test' },
   katakana: { categoryId: KATAKANA_CATEGORY_ID, summaryRowId: 'katakana-summary', label: 'Katakana Test' },
   'youon-special-katakana': { categoryId: 'youon', summaryRowId: 'youon-summary', label: 'Yōon & Special Katakana Test' },
+  'final-graduation': { categoryId: 'special-katakana', summaryRowId: 'youon-summary', label: 'Final Kana Graduation Test' },
 }
 
 const DISTRACTOR_COUNT = 3
@@ -52,20 +54,20 @@ export function AssessmentPage() {
 
 function ScriptAssessmentPage() {
   const params = useParams<{ script: string }>()
-  const script: ScriptAssessment | null = params.script === 'katakana' ? 'katakana' : params.script === 'hiragana' ? 'hiragana' : params.script === 'youon-special-katakana' ? 'youon-special-katakana' : null
+  const script: ScriptAssessment | null = params.script === 'katakana' ? 'katakana' : params.script === 'hiragana' ? 'hiragana' : params.script === 'youon-special-katakana' ? 'youon-special-katakana' : params.script === 'final-graduation' ? 'final-graduation' : null
   const { getScopeCharacterIds, getScopeQuizCharacterIds, getScopeWords } = useCurriculum()
   const markAssessmentCompleted = useProgressStore((s) => s.markAssessmentCompleted)
 
   const config = script ? SCRIPT_CONFIG[script] : null
   const characterIds = useMemo(
-    () => (config ? getScopeQuizCharacterIds(config.summaryRowId) : []),
-    [config, getScopeQuizCharacterIds],
+    () => script === 'final-graduation' ? [...new Set(['hiragana-summary', 'katakana-summary', 'other-summary', 'youon-summary'].flatMap((id) => getScopeQuizCharacterIds(id)))] : (config ? getScopeQuizCharacterIds(config.summaryRowId) : []),
+    [config, getScopeQuizCharacterIds, script],
   )
   const distractorCharPool = useMemo(
-    () => (config ? getScopeCharacterIds(config.summaryRowId) : []),
-    [config, getScopeCharacterIds],
+    () => script === 'final-graduation' ? [...new Set(['hiragana-summary', 'katakana-summary', 'other-summary', 'youon-summary'].flatMap((id) => getScopeCharacterIds(id)))] : (config ? getScopeCharacterIds(config.summaryRowId) : []),
+    [config, getScopeCharacterIds, script],
   )
-  const words = useMemo(() => (config ? getScopeWords(config.summaryRowId) : []), [config, getScopeWords])
+  const words = useMemo(() => script === 'final-graduation' ? [...new Map(['hiragana-summary', 'katakana-summary', 'other-summary', 'youon-summary'].flatMap((id) => getScopeWords(id)).map((word) => [word.id, word])).values()] : (config ? getScopeWords(config.summaryRowId) : []), [config, getScopeWords, script])
 
   const [attempt, setAttempt] = useState(0)
   const [seed] = useState(() => Math.floor(Math.random() * 2 ** 31))
@@ -73,7 +75,7 @@ function ScriptAssessmentPage() {
 
   const plan = useMemo(() => {
     if (!config || characterIds.length === 0 || words.length === 0) return null
-    const build = script === 'youon-special-katakana' ? buildYouonSpecialAssessmentPlan : buildAssessmentPlan
+    const build = script === 'youon-special-katakana' ? buildYouonSpecialAssessmentPlan : script === 'final-graduation' ? buildFinalAssessmentPlan : buildAssessmentPlan
     return build({ characterIds, words, rng: createSeededRng(sessionSeed) })
   }, [config, characterIds, words, sessionSeed, script])
 
@@ -116,7 +118,8 @@ function ScriptAssessmentPage() {
     if (config && questions.length > 0 && answers.length === questions.length && !finished) {
       setFinished(true)
       const correct = answers.filter((answer) => answer.correct).length
-      markAssessmentCompleted(script as AssessmentScript, { correct, total: questions.length })
+      if (script === 'final-graduation') useProgressStore.getState().markFinalGraduationCompleted({ correct, total: questions.length })
+      else markAssessmentCompleted(script as AssessmentScript, { correct, total: questions.length })
     }
   }, [answers, questions.length, config, script, finished, markAssessmentCompleted])
 
@@ -648,7 +651,7 @@ function AssessmentResultsScreen({
   onRetry: () => void
 }) {
   const results = useMemo(() => computeAssessmentResults(answers), [answers])
-  const recommendations = useMemo(() => script === 'youon-special-katakana' ? [] : getPracticeRecommendations(results, script), [results, script])
+  const recommendations = useMemo(() => script === 'youon-special-katakana' || script === 'final-graduation' ? [] : getPracticeRecommendations(results, script), [results, script])
   const backHref = script === 'hiragana' ? '/hiragana' : script === 'katakana' ? '/katakana' : '/youon'
   const percent = results.overallTotal > 0 ? Math.round((results.overallCorrect / results.overallTotal) * 100) : 0
   const weakKana = results.weakCharacterIds
@@ -663,9 +666,11 @@ function AssessmentResultsScreen({
   return (
     <div className="flex w-full flex-col items-center gap-6">
       <h1 className="text-2xl font-bold">{config.label} complete!</h1>
+      {script === 'final-graduation' && <p className="text-center font-semibold">80% threshold: 24 / 30</p>}
       <div className="text-center">
         <p className="text-lg font-semibold">{results.overallCorrect} / {results.overallTotal}</p>
         <p className="text-2xl font-bold">{percent}%</p>
+        {script === 'final-graduation' && <p className="font-semibold">{percent >= 80 ? 'Graduated' : 'Almost there — keep practicing'}</p>}
       </div>
 
       <div className="grid w-full max-w-md grid-cols-2 gap-3">
