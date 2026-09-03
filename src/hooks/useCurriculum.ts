@@ -86,6 +86,7 @@ export function useCurriculum() {
   const characters = useProgressStore((s) => s.characters)
   const words = useProgressStore((s) => s.words)
   const rowActivityCompletion = useProgressStore((s) => s.rowActivityCompletion)
+  const assessmentCompletion = useProgressStore((s) => s.assessmentCompletion)
 
   // Characters actually attempted at least once, regardless of whether
   // Learn was ever formally completed for their row — rows are never
@@ -180,18 +181,13 @@ export function useCurriculum() {
 
   const isRowTaught = (rowId: string) => taughtRowIds.includes(rowId)
 
-  // The ONE app-wide Recommended Target (Issue #25) — every screen (Home,
-  // Category/Row selection, Practice Hub) reads this SAME value instead of
-  // computing its own, so skipping ahead in the curriculum never produces
-  // more than one "recommended" thing at once. Walks categories/rows in
-  // curriculum order and stops at the first incomplete step — reuses
-  // getRecommendedActivity's exact per-row 'done' signal (not row mastery/
-  // 👍 — chōon rows have empty characterIds and can structurally never
-  // reach box-4 mastery, so keying this off isRowMastered would get
-  // permanently stuck once chōon is reached). null once everything is done.
+  // The ONE app-wide Recommended Target (Issue #25/#189) — every screen
+  // reads the same value. Section assessment completion is passed explicitly
+  // so finishing a final Restaurant checkpoint cannot skip the Test after a
+  // Home navigation or reload.
   const globalRecommendedTarget = useMemo(
-    () => getGlobalRecommendedTarget(ROWS, CATEGORIES, taughtRowIds, rowActivityCompletion),
-    [taughtRowIds, rowActivityCompletion],
+    () => getGlobalRecommendedTarget(ROWS, CATEGORIES, taughtRowIds, rowActivityCompletion, assessmentCompletion),
+    [taughtRowIds, rowActivityCompletion, assessmentCompletion],
   )
   const recommendedCategoryId = globalRecommendedTarget?.categoryId ?? null
 

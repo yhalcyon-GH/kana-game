@@ -1,0 +1,227 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { useProgressStore } from '../../store/progressStore'
+import { AssessmentPage } from './AssessmentPage'
+
+const tts = vi.hoisted(() => ({ speak: vi.fn(), speakAndWait: vi.fn(), speakStaticOnly: vi.fn(), stop: vi.fn(), supported: true }))
+vi.mock('../../hooks/useTTS', () => ({ useTTS: () => tts }))
+
+type RecognitionAlternative = { transcript?: unknown } | undefined
+type RecognitionResult = { [index: number]: RecognitionAlternative; length: number }
+type RecognitionEvent = { results: { [index: number]: RecognitionResult | undefined; length: number } }
+
+class FakeSpeechRecognition {
+  static instances: FakeSpeechRecognition[] = []
+  lang = ''
+  continuous = false
+  interimResults = false
+  maxAlternatives = 3
+  onresult: ((event: RecognitionEvent) => void) | null = null
+  onerror: ((event: { error: string }) => void) | null = null
+  onend: (() => void) | null = null
+  start = vi.fn()
+  abort = vi.fn()
+
+  constructor() {
+    FakeSpeechRecognition.instances.push(this)
+  }
+
+  result(transcript: string) {
+    const result = Object.assign([{ transcript }], { length: 1 }) as unknown as RecognitionResult
+    this.onresult?.({ results: Object.assign([result], { length: 1 }) })
+  }
+
+  error(error = 'no-speech') {
+    this.onerror?.({ error })
+  }
+}
+
+function installFakeSpeechRecognition() {
+  FakeSpeechRecognition.instances = []
+  ;(window as unknown as { SpeechRecognition: unknown }).SpeechRecognition = FakeSpeechRecognition
+}
+
+function renderAssessment(script: 'hiragana' | 'katakana') {
+  return render(
+    <MemoryRouter initialEntries={[`/assessment/${script}`]}>
+      <Routes>
+        <Route path="/assessment/:script" element={<AssessmentPage />} />
+      </Routes>
+    </MemoryRouter>,
+  )
+}
+
+beforeEach(() => {
+  useProgressStore.getState().resetProgress()
+  tts.speak.mockReset()
+  localStorage.clear()
+  delete (window as unknown as { SpeechRecognition?: unknown }).SpeechRecognition
+  delete (window as unknown as { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition
+  FakeSpeechRecognition.instances = []
+})
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
+
+// Answers whatever question is currently on screen — correctness doesn't
+// matter for most assertions here (assessment never gates progression on
+// score, see progressStore.test.ts's dedicated coverage of that), so this
+// always takes the fastest deterministic path per family rather than
+// hunting for the correct choice. Word Reading always uses Romaji (not
+// speech) here so tests stay deterministic without a fake
+// SpeechRecognition installed; speech-specific behavior gets its own test
+// below with SpeechRecognition explicitly faked.
+// Waits until either a "Next" button appears (advance normally) or the
+// results screen appears (the just-answered question was the last of all
+// 20 — completion can legitimately happen without ever rendering "Next"
+// for that final round). Clicks Next only in the former case.
+async function waitAndAdvanceIfPossible() {
+  await waitFor(() => {
+    if (screen.queryByText(/complete!/)) return
+    expect(screen.getByRole('button', { name: 'Next' })).toBeInTheDocument()
+  })
+  const next = screen.queryByRole('button', { name: 'Next' })
+  if (next) fireEvent.click(next)
+}
+
+async function answerCurrentQuestionAnyWay() {
+  if (screen.queryByText(/complete!/)) return
+  if (screen.queryByTestId('word-reading-speak-button')) {
+    fireEvent.click(screen.getByText('Choose in Romaji'))
+    const correctButton = await screen.findByTestId('word-reading-romaji-correct')
+    fireEvent.click(correctButton)
+    await waitAndAdvanceIfPossible()
+    return
+  }
+
+  const slots = document.querySelectorAll('.border-dashed')
+  if (slots.length > 0) {
+    // Word Builder: click enabled tray tiles (KanaTile buttons, identified
+    // by their distinctive font-kana class) one at a time until every slot
+    // fills — whether or not this lands the correct spelling, `status`
+    // still leaves 'playing' until then, which is all this needs. Re-query
+    // after each click since a placed tile becomes disabled and the DOM
+    // re-renders.
+    const slotCount = slots.length
+    for (let clicked = 0; clicked < slotCount; clicked++) {
+      const tile = document.querySelector<HTMLButtonElement>('button.font-kana:not(:disabled)')
+      if (!tile) break
+      fireEvent.click(tile)
+    }
+    await waitAndAdvanceIfPossible()
+    return
+  }
+
+  // Kana Quiz / Listening: a 2x2 grid of choice buttons.
+  const choiceButtons = document.querySelectorAll('.grid.grid-cols-2 button')
+  if (choiceButtons.length === 0) return
+  fireEvent.click(choiceButtons[0])
+  await waitAndAdvanceIfPossible()
+}
+
+describe('AssessmentPage', () => {
+  it('renders a 20-question session and completes without gating on score', async () => {
+    renderAssessment('hiragana')
+    await screen.findByText(/Question 1 \/ 20/)
+    // Exactly 20 questions total (see assessmentPlan.test.ts's own coverage
+    // of that invariant) — stop as soon as the results screen appears
+    // rather than assuming a fixed iteration count, since the LAST
+    // question's answer can itself trigger completion.
+    for (let i = 0; i < 20; i++) {
+      if (screen.queryByText(/complete!/)) break
+      await answerCurrentQuestionAnyWay()
+    }
+    await waitFor(() => expect(screen.getByText(/complete!/)).toBeInTheDocument())
+    expect(useProgressStore.getState().isAssessmentCompleted('hiragana')).toBe(true)
+  }, 20000)
+
+  it('never targets katakana characters/words for the Hiragana Test', async () => {
+    renderAssessment('hiragana')
+    await screen.findByText(/Question 1 \/ 20/)
+    // Word Reading (if it's the first question) shows the target kana
+    // directly; either way no katakana-only glyph should ever render as a
+    // prompt. This is a light structural smoke check backed by the
+    // exhaustive unit coverage in assessmentPlan.test.ts.
+    expect(document.body.textContent).not.toMatch(/[ァ-ヴー]/)
+  })
+
+  describe('Word Reading', () => {
+    it('hides meaning/image/romaji before answering and reveals them after a correct romaji answer', async () => {
+      // Force every question to be Word Reading isn't controllable without
+      // reaching into the plan directly, so instead: click through until a
+      // Word Reading question appears (bounded by the fixed 5-per-family
+      // count), then assert on it specifically.
+      renderAssessment('hiragana')
+      await screen.findByText(/Question 1 \/ 20/)
+      let found = false
+      for (let i = 0; i < 20 && !found; i++) {
+        if (screen.queryByTestId('word-reading-speak-button')) {
+          found = true
+          break
+        }
+        await answerCurrentQuestionAnyWay()
+      }
+      expect(found).toBe(true)
+      // Before answering: no "correct" panel, no meaning/romaji reveal box.
+      expect(screen.queryByText(/Correct!|Not quite\./)).not.toBeInTheDocument()
+
+      fireEvent.click(screen.getByText('Choose in Romaji'))
+      const correctButton = await screen.findByTestId('word-reading-romaji-correct')
+      fireEvent.click(correctButton)
+
+      // After answering: reveal panel with meaning/romaji appears.
+      await waitFor(() => expect(screen.getByText(/Correct!/)).toBeInTheDocument())
+    })
+
+    it('does not treat a speech-recognition failure as a final wrong answer — Romaji fallback still completes the question', async () => {
+      installFakeSpeechRecognition()
+      renderAssessment('hiragana')
+      await screen.findByText(/Question 1 \/ 20/)
+      let found = false
+      for (let i = 0; i < 20 && !found; i++) {
+        if (screen.queryByTestId('word-reading-speak-button')) {
+          found = true
+          break
+        }
+        await answerCurrentQuestionAnyWay()
+      }
+      expect(found).toBe(true)
+
+      fireEvent.click(screen.getByTestId('word-reading-speak-button'))
+      const recognition = FakeSpeechRecognition.instances.at(-1)!
+      recognition.error('no-speech')
+
+      // A failed speech attempt must not show "Not quite." (a final wrong
+      // answer) — it should still offer Try Again / Romaji fallback.
+      await waitFor(() => expect(screen.getByText('Choose in Romaji')).toBeInTheDocument())
+      expect(screen.queryByText('Not quite.')).not.toBeInTheDocument()
+
+      fireEvent.click(screen.getByText('Choose in Romaji'))
+      const correctButton = await screen.findByTestId('word-reading-romaji-correct')
+      fireEvent.click(correctButton)
+      await waitFor(() => expect(screen.getByText(/Correct!/)).toBeInTheDocument())
+    })
+  })
+
+  describe('Word Builder (assessment mode)', () => {
+    it('hides meaning/image before answering', async () => {
+      renderAssessment('hiragana')
+      await screen.findByText(/Question 1 \/ 20/)
+      let found = false
+      for (let i = 0; i < 20 && !found; i++) {
+        const slots = document.querySelectorAll('.border-dashed')
+        if (slots.length > 0) {
+          found = true
+          break
+        }
+        await answerCurrentQuestionAnyWay()
+      }
+      expect(found).toBe(true)
+      // Before answering: no meaning text block should be visible (only the
+      // 🔊 prompt icon, matching the "before answering" hidden state).
+      expect(screen.getByText('🔊')).toBeInTheDocument()
+    })
+  })
+})

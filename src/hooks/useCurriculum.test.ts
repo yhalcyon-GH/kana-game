@@ -29,6 +29,9 @@ function completeCategory(categoryId: string) {
       useProgressStore.getState().markRowActivityCompleted(row.id, 'checkpoint')
     }
   }
+  if (categoryId === 'hiragana' || categoryId === 'katakana') {
+    useProgressStore.getState().markAssessmentCompleted(categoryId, { correct: 20, total: 20 })
+  }
 }
 
 beforeEach(() => {

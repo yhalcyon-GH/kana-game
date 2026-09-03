@@ -833,3 +833,49 @@ describe('RestaurantPage progress isolation', () => {
     expect(snapshotSaved()).toBe(before.saved)
   })
 })
+
+describe('RestaurantPage Recommended flow into the Hiragana/Katakana Test (Issue #189)', () => {
+  it('reaches the Hiragana Test after completing the hiragana-complete checkpoint', () => {
+    render(
+      <MemoryRouter>
+        <RestaurantPage checkpointId="hiragana-complete" />
+      </MemoryRouter>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Choose in Romaji' }))
+    clickTargetAnswer()
+    finishSessionWithCorrectRomajiAnswers()
+    expect(screen.getByText('8 of 8 correct')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Next' })).toHaveAttribute('href', '/assessment/hiragana')
+  })
+
+  it('reaches the Katakana Test after completing the katakana-complete checkpoint', () => {
+    render(
+      <MemoryRouter>
+        <RestaurantPage checkpointId="katakana-complete" />
+      </MemoryRouter>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Choose in Romaji' }))
+    clickTargetAnswer()
+    finishSessionWithCorrectRomajiAnswers()
+    expect(screen.getByText('8 of 8 correct')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Next' })).toHaveAttribute('href', '/assessment/katakana')
+  })
+
+  it('leaves every other checkpoint pointing at the next real row as before (no regression)', () => {
+    render(
+      <MemoryRouter>
+        <RestaurantPage checkpointId="na-row" />
+      </MemoryRouter>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Start' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Choose in Romaji' }))
+    clickTargetAnswer()
+    finishSessionWithCorrectRomajiAnswers()
+    expect(screen.getByText('8 of 8 correct')).toBeInTheDocument()
+    const nextLink = screen.queryByRole('link', { name: 'Next' })
+    const href = nextLink?.getAttribute('href') ?? ''
+    expect(href.startsWith('/assessment/')).toBe(false)
+  })
+})

@@ -9,12 +9,6 @@ import { RECOMMENDED_ACTIVITY_LABELS } from '../lib/recommendedPath'
 import { useProgressStore } from '../store/progressStore'
 import { useSavedItemsStore } from '../store/savedItemsStore'
 
-// "Continue" (Issue #23/#27) is deliberately separate from "⭐ Recommended":
-// Continue = go back to the ROW you were last studying (its Practice Hub —
-// see lib/lastStudied.ts's resumeRowHref — not the exact activity page),
-// Recommended = the next specific step to do. Styled quietly on purpose —
-// no sparkles/red/⭐ — so it's never confused with Recommended's decoration;
-// only "Continue" itself is colored, as the one clickable cue.
 function ContinueCard() {
   const lastStudied = useProgressStore((s) => s.lastStudied)
   if (!lastStudied) return null
@@ -35,11 +29,6 @@ function ContinueCard() {
   )
 }
 
-// Independent entry point into the learner's manually-Saved Characters/Words
-// (see savedItemsStore.ts) — deliberately styled like ContinueCard (quiet,
-// neutral border, no sparkles) rather than Recommended's ⭐ styling: Saved
-// isn't a curriculum category, isn't "next up," and isn't a resume target,
-// so it must not visually read as any of those three existing concepts.
 function SavedCard() {
   const savedCount = useSavedItemsStore((s) => s.savedCharacterIds.length + s.savedWordIds.length)
   return (
@@ -55,12 +44,6 @@ function SavedCard() {
   )
 }
 
-// Top-level chooser — four script groups, each its own page
-// (CategoryRowsPage), rather than one long page stacking every category's
-// rows together. "その他" bundles every category that isn't hiragana/
-// katakana/拗音 (see App.tsx's OTHER_CATEGORY_IDS) so it doesn't need a new
-// card here each time a small category is added later; 拗音 gets its own
-// card since it has enough rows to deserve one.
 export function HomePage() {
   const { recommendedCategoryId, globalRecommendedTarget } = useCurriculum()
   const recommendedRow = globalRecommendedTarget ? ROWS_BY_ID[globalRecommendedTarget.rowId] : undefined
@@ -71,10 +54,14 @@ export function HomePage() {
       <div className="grid w-full max-w-2xl grid-cols-2 gap-4 sm:grid-cols-4">
         {SCRIPT_ENTRY_POINTS.map((card) => {
           const isRecommended = !!recommendedCategoryId && card.categoryIds.includes(recommendedCategoryId)
+          const destination =
+            isRecommended && globalRecommendedTarget?.assessmentScript
+              ? `/assessment/${globalRecommendedTarget.assessmentScript}`
+              : card.to
           const link = (
             <Link
               key={card.to}
-              to={card.to}
+              to={destination}
               className="flex h-full flex-col items-center gap-2 rounded-xl border border-neutral-300 bg-white p-6 text-center hover:border-blue-400 dark:border-neutral-600 dark:bg-neutral-800"
             >
               <CategoryIcon icon={card.icon} className="h-10 w-10 text-2xl" />
