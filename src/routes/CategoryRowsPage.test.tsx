@@ -354,6 +354,7 @@ describe('always-available assessment cards', () => {
     const youonCard = youon.getByTestId('assessment-card-youon-special-katakana')
     const finalCard = youon.getByTestId('assessment-card-final-graduation')
     expect(youonCard).toHaveAttribute('href', '/assessment/youon-special-katakana')
+    expect(youonCard).toHaveTextContent('ゃゅょ / SPECIAL KATAKANA TEST')
     expect(finalCard).toHaveAttribute('href', '/assessment/final-graduation')
     expect(youonCard.compareDocumentPosition(finalCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })

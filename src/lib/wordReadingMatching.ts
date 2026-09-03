@@ -6,10 +6,14 @@ import { normalizeJapanese } from './restaurantMatching'
 // (NFKC + punctuation-strip + katakana->hiragana folding) so a transcript is
 // compared on the same footing, but does NOT reuse RestaurantDish's
 // `recognitionAliases` list (vocabulary words have no such curated alias
-// list) — instead it matches directly against the target word's own kana
-// spelling, which is the one thing every AnchorWord always has.
+// list) — instead it builds a small, safe alias set from the target word's
+// own kana, optional audioText, and romaji.
 
 export type WordReadingCheckResult = { outcome: 'success' } | { outcome: 'incorrect' } | { outcome: 'unrecognized' }
+
+function normalizeRomaji(text: string): string {
+  return text.normalize('NFKC').toLocaleLowerCase().replace(/[\s\-‐‑‒–—'’・,.!?！？。、]/gu, '')
+}
 
 // A transcript "reads" the target word correctly if its normalized form
 // contains the word's normalized kana spelling. `includes` (not exact
@@ -19,8 +23,17 @@ export type WordReadingCheckResult = { outcome: 'success' } | { outcome: 'incorr
 export function checkWordReading(rawTranscript: string, target: AnchorWord): WordReadingCheckResult {
   const normalizedTranscript = normalizeJapanese(rawTranscript)
   if (!normalizedTranscript) return { outcome: 'unrecognized' }
-  const normalizedTarget = normalizeJapanese(target.kana)
-  return normalizedTranscript.includes(normalizedTarget) ? { outcome: 'success' } : { outcome: 'incorrect' }
+  const japaneseAliases = [target.kana, target.audioText]
+    .filter((alias): alias is string => Boolean(alias))
+    .map(normalizeJapanese)
+    .filter(Boolean)
+  if (japaneseAliases.some((alias) => normalizedTranscript.includes(alias))) return { outcome: 'success' }
+
+  const normalizedRomajiTranscript = normalizeRomaji(rawTranscript)
+  const normalizedTargetRomaji = normalizeRomaji(target.romaji)
+  return normalizedTargetRomaji && normalizedRomajiTranscript.includes(normalizedTargetRomaji)
+    ? { outcome: 'success' }
+    : { outcome: 'incorrect' }
 }
 
 // Checks up to 3 SpeechRecognition alternatives — succeeds if ANY is a

@@ -17,6 +17,15 @@ describe('checkWordReading', () => {
     expect(checkWordReading('サカナ', SAKANA)).toEqual({ outcome: 'success' })
   })
 
+  it('accepts safe romaji case, spacing, and hyphen variation', () => {
+    expect(checkWordReading('SA-KA NA', SAKANA)).toEqual({ outcome: 'success' })
+  })
+
+  it('accepts the word audio text as a common recognition form', () => {
+    const oneesan = { ...SAKANA, kana: 'おねえさん', romaji: 'oneesan', audioText: 'お姉さん' }
+    expect(checkWordReading('お姉さん', oneesan)).toEqual({ outcome: 'success' })
+  })
+
   it('is incorrect for a different real word', () => {
     expect(checkWordReading('いぬ', SAKANA)).toEqual({ outcome: 'incorrect' })
   })

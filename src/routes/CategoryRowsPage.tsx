@@ -305,7 +305,7 @@ const ASSESSMENT_CARDS: Record<string, AssessmentCardConfig> = {
   hiragana: { script: 'hiragana', label: 'HIRAGANA TEST', questions: 20, description: 'Check what you know in Hiragana.' },
   katakana: { script: 'katakana', label: 'KATAKANA TEST', questions: 20, description: 'Check what you know in Katakana.' },
   other: { script: 'sokuon-chouon', label: 'STOP & LONG SOUND TEST', questions: 20, description: 'Check small tsu and long sounds.' },
-  youon: { script: 'youon-special-katakana', label: 'YŌON & SPECIAL KATAKANA TEST', questions: 20, description: 'Check small kana sound combinations.' },
+  youon: { script: 'youon-special-katakana', label: 'ゃゅょ / SPECIAL KATAKANA TEST', questions: 20, description: 'Check small kana sound combinations.' },
   final: { script: 'final-graduation', label: 'FINAL KANA TEST', questions: 30, description: 'Full Kana Graduation Test.', final: true },
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { WORDS_BY_ROW } from '../data/words'
-import { buildSoundLengthAssessmentPlan, createSoundLengthRng } from './soundLengthAssessmentPlan'
+import { buildSoundLengthAssessmentPlan, buildSoundLengthPrompt, createSoundLengthRng } from './soundLengthAssessmentPlan'
 
 describe('sound-length assessment plan', () => {
   const words = Object.entries(WORDS_BY_ROW).filter(([rowId]) => rowId === 'sokuon-row' || rowId.startsWith('chouon-')).flatMap(([, rowWords]) => rowWords)
@@ -32,5 +32,19 @@ describe('sound-length assessment plan', () => {
       if (question.word.id === 'chouon-e-oneesan') expect(question.choices).toEqual(expect.arrayContaining(['い', 'え']))
       if (question.word.id === 'chouon-o-ookii') expect(question.choices).toEqual(expect.arrayContaining(['う', 'お']))
     }
+  })
+
+  it.each([
+    ['chouon-o-ohayou', 'う', 'long-vowel', 'おはよ□'],
+    ['chouon-e-oneesan', 'え', 'long-vowel', 'おね□さん'],
+    ['chouon-katakana-koohii', 'ー', 'long-vowel', 'コ□ヒー'],
+  ] as const)('places the blank at the spelling decision for %s', (id, correct, domain, expected) => {
+    const word = words.find((candidate) => candidate.id === id)!
+    expect(buildSoundLengthPrompt(word, correct, domain)).toBe(expected)
+  })
+
+  it('places a sokuon blank exactly where っ belongs', () => {
+    const word = { id: 'sokuon-gakkou', kana: 'がっこう', romaji: 'gakkou', meaning: 'school', characterIds: ['ga', 'sokuon', 'ko', 'u'] }
+    expect(buildSoundLengthPrompt(word, 'っ', 'sokuon')).toBe('が□こう')
   })
 })

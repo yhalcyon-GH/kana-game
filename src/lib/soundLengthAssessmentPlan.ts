@@ -37,11 +37,15 @@ function isLongVowel(word: AnchorWord) {
 
 function vowelForLong(word: AnchorWord): string {
   if (hasKatakana(word)) return 'ー'
-  const index = word.kana.search(/[あいうえお](?=[あいうえお])/u)
-  return index >= 0 ? [...word.kana][index + 1] : 'う'
+  if (word.id.startsWith('chouon-a-')) return 'あ'
+  if (word.id.startsWith('chouon-i-')) return 'い'
+  if (word.id.startsWith('chouon-u-')) return 'う'
+  if (word.id.startsWith('chouon-e-')) return word.id === 'chouon-e-oneesan' ? 'え' : 'い'
+  if (word.id.startsWith('chouon-o-')) return ['chouon-o-ookii', 'chouon-o-tooi', 'chouon-o-koori'].includes(word.id) ? 'お' : 'う'
+  return 'う'
 }
 
-function promptFor(word: AnchorWord, correct: string, domain: SoundLengthDomain): string {
+export function buildSoundLengthPrompt(word: AnchorWord, correct: string, domain: SoundLengthDomain): string {
   const chars = [...word.kana]
   if (domain === 'no-insertion') {
     // × means no character belongs between these two existing kana; preserve
@@ -54,7 +58,7 @@ function promptFor(word: AnchorWord, correct: string, domain: SoundLengthDomain)
     : domain === 'long-vowel' && correct === 'ー'
       ? chars.findIndex((char) => char === 'ー')
       : domain === 'long-vowel'
-        ? chars.findIndex((char, i) => /[あいうえお]/u.test(char) && /[あいうえお]/u.test(chars[i + 1] ?? '')) + 1
+        ? chars.findIndex((char, i) => i > 0 && char === correct)
         : Math.max(1, chars.length - 1)
   const safeIndex = index >= 0 ? index : Math.max(1, chars.length - 1)
   return `${chars.slice(0, safeIndex).join('')}□${chars.slice(safeIndex + 1).join('')}`
@@ -88,7 +92,7 @@ export function buildSoundLengthAssessmentPlan(words: readonly AnchorWord[], rng
   if (sokuon.length < 5 || longVowels.length < 10 || plain.length < 5) throw new Error('Insufficient vocabulary coverage for Sokuon/Chōon assessment')
   const make = (domain: SoundLengthDomain, word: AnchorWord): SoundLengthQuestion => {
     const correct = domain === 'sokuon' ? (word.kana.includes('ッ') ? 'ッ' : 'っ') : domain === 'long-vowel' ? vowelForLong(word) : '×'
-    return { domain, word, prompt: promptFor(word, correct, domain), correct, choices: choicesFor(word, correct, domain, rng), diagnostic: domain === 'sokuon' ? 'sokuon' : domain === 'no-insertion' ? 'no-insertion' : correct === 'ー' ? 'katakana-chouon' : 'hiragana-vowel' }
+    return { domain, word, prompt: buildSoundLengthPrompt(word, correct, domain), correct, choices: choicesFor(word, correct, domain, rng), diagnostic: domain === 'sokuon' ? 'sokuon' : domain === 'no-insertion' ? 'no-insertion' : correct === 'ー' ? 'katakana-chouon' : 'hiragana-vowel' }
   }
   const blocks = {
     sokuon: shuffle(sokuon.map((w) => make('sokuon', w)), rng),

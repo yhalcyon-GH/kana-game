@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { AnswerFeedbackRow } from '../../components/AnswerFeedbackRow'
 import { AnswerReveal } from '../../components/AnswerReveal'
+import { AssessmentScoreVisual } from '../../components/AssessmentScoreVisual'
 import { KanaTile } from '../../components/KanaTile'
 import { SaveWordToggle } from '../../components/SaveWordToggle'
 import { UnbreakableKana } from '../../components/UnbreakableKana'
@@ -11,7 +12,6 @@ import { DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID } from '../../data/curriculum
 import type { AnchorWord } from '../../data/types'
 import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
 import { useCurriculum } from '../../hooks/useCurriculum'
-import { useDelayedAction } from '../../hooks/useDelayedAction'
 import { useTTS } from '../../hooks/useTTS'
 import { useWordReadingSpeech } from '../../hooks/useWordReadingSpeech'
 import {
@@ -35,7 +35,7 @@ type ScriptAssessment = Extract<AssessmentScript, 'hiragana' | 'katakana' | 'you
 const SCRIPT_CONFIG: Record<ScriptAssessment, { categoryId: string; summaryRowId: string; label: string }> = {
   hiragana: { categoryId: DEFAULT_CATEGORY_ID, summaryRowId: 'hiragana-summary', label: 'Hiragana Test' },
   katakana: { categoryId: KATAKANA_CATEGORY_ID, summaryRowId: 'katakana-summary', label: 'Katakana Test' },
-  'youon-special-katakana': { categoryId: 'youon', summaryRowId: 'youon-summary', label: 'Yōon & Special Katakana Test' },
+  'youon-special-katakana': { categoryId: 'youon', summaryRowId: 'youon-summary', label: 'ゃゅょ / Special Katakana Test' },
   'final-graduation': { categoryId: 'special-katakana', summaryRowId: 'youon-summary', label: 'Final Kana Graduation Test' },
 }
 
@@ -81,7 +81,7 @@ function ScriptAssessmentPage() {
   const [roundIndex, setRoundIndex] = useState(0)
   const [answers, setAnswers] = useState<AssessmentAnswer[]>([])
   const [finished, setFinished] = useState(false)
-  const { mood, onCorrect, onWrong, clear } = useAnswerFeedback(script === 'final-graduation' ? 30 : 20)
+  const { mood, onCorrect, onWrong, clear, resetSession } = useAnswerFeedback(script === 'final-graduation' ? 30 : 20)
 
   useEffect(() => {
     setRoundIndex(0)
@@ -110,17 +110,15 @@ function ScriptAssessmentPage() {
 
   const advance = () => {
     clear()
-    if (roundIndex + 1 < questions.length) setRoundIndex((i) => i + 1)
-  }
-
-  useEffect(() => {
-    if (config && questions.length > 0 && answers.length === questions.length && !finished) {
+    if (roundIndex + 1 < questions.length) {
+      setRoundIndex((i) => i + 1)
+    } else if (config && answers.length === questions.length && !finished) {
       setFinished(true)
       const correct = answers.filter((answer) => answer.correct).length
       if (script === 'final-graduation') useProgressStore.getState().markFinalGraduationCompleted({ correct, total: questions.length })
       else markAssessmentCompleted(script as AssessmentScript, { correct, total: questions.length })
     }
-  }, [answers, questions.length, config, script, finished, markAssessmentCompleted])
+  }
 
   if (!script || !config) {
     return (
@@ -134,7 +132,7 @@ function ScriptAssessmentPage() {
   if (!plan || questions.length === 0) return null
 
   if (finished) {
-    return <AssessmentResultsScreen script={script} config={config} answers={answers} onRetry={() => setAttempt((value) => value + 1)} />
+    return <AssessmentResultsScreen script={script} config={config} answers={answers} onRetry={() => { resetSession(); setAttempt((value) => value + 1) }} />
   }
 
   if (!currentQuestion) return null
@@ -214,7 +212,6 @@ function AssessmentKanaQuizQuestion({
   onAdvance: () => void
 }) {
   const { speak, supported } = useTTS()
-  const { schedule: scheduleAdvance } = useDelayedAction()
   const [choices, setChoices] = useState<string[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [answered, setAnswered] = useState(false)
@@ -235,7 +232,6 @@ function AssessmentKanaQuizQuestion({
     setAnswered(true)
     const correct = choiceId === characterId
     onAnswered(correct)
-    if (correct) scheduleAdvance(onAdvance, 2000)
   }
 
   return (
@@ -300,7 +296,6 @@ function AssessmentListeningQuestion({
   onAdvance: () => void
 }) {
   const { speak, supported } = useTTS()
-  const { schedule: scheduleAdvance } = useDelayedAction()
   const [choices, setChoices] = useState<AnchorWord[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [answered, setAnswered] = useState(false)
@@ -320,7 +315,6 @@ function AssessmentListeningQuestion({
     setAnswered(true)
     const correct = choice.id === word.id
     onAnswered(correct)
-    if (correct) scheduleAdvance(onAdvance, 2000)
   }
 
   return (
@@ -378,7 +372,6 @@ function AssessmentWordBuilderQuestion({
   onAdvance: () => void
 }) {
   const { speak, supported } = useTTS()
-  const { schedule: scheduleAdvance } = useDelayedAction()
   const [slots, setSlots] = useState<(string | null)[]>([])
   const [tray, setTray] = useState<{ key: string; glyph: string; placed: boolean }[]>([])
   const [status, setStatus] = useState<'playing' | 'correct' | 'wrong'>('playing')
@@ -405,7 +398,6 @@ function AssessmentWordBuilderQuestion({
     if (isCorrect) {
       setStatus('correct')
       onAnswered(true)
-      scheduleAdvance(onAdvance, 2000)
     } else {
       setStatus('wrong')
       onAnswered(false)
@@ -511,8 +503,6 @@ function AssessmentWordReadingQuestion({
   onAnswered: (correct: boolean) => void
   onAdvance: () => void
 }) {
-  const { speak } = useTTS()
-  const { schedule: scheduleAdvance } = useDelayedAction()
   const speech = useWordReadingSpeech(word)
   const [showRomaji, setShowRomaji] = useState(false)
   const [romajiChoices, setRomajiChoices] = useState<{ id: string; romaji: string; correct: boolean }[]>([])
@@ -547,8 +537,6 @@ function AssessmentWordReadingQuestion({
     if (speech.state.result.outcome === 'success') {
       setFinalResult('correct')
       onAnswered(true)
-      speak(`words/${word.id}`, word.audioText ?? word.kana)
-      scheduleAdvance(onAdvance, 2000)
     }
     // Incorrect/unrecognized speech is not a final knowledge error: retry
     // and Romaji fallback remain available.
@@ -559,10 +547,6 @@ function AssessmentWordReadingQuestion({
     if (finalResult) return
     setFinalResult(choice.correct ? 'correct' : 'incorrect')
     onAnswered(choice.correct)
-    if (choice.correct) {
-      speak(`words/${word.id}`, word.audioText ?? word.kana)
-      scheduleAdvance(onAdvance, 2000)
-    }
   }
 
   const isSpeechFailure = speech.state.kind === 'result' && speech.state.result.outcome !== 'success' && !finalResult
@@ -654,10 +638,9 @@ export function AssessmentResultsScreen({
   const results = useMemo(() => computeAssessmentResults(answers), [answers])
   const recommendations = useMemo(() => script === 'youon-special-katakana' || script === 'final-graduation' ? [] : getPracticeRecommendations(results, script), [results, script])
   const backHref = script === 'hiragana' ? '/hiragana' : script === 'katakana' ? '/katakana' : '/youon'
-  const percent = results.overallTotal > 0 ? Math.round((results.overallCorrect / results.overallTotal) * 100) : 0
   const weakKana = results.weakCharacterIds
-    .map((id) => CHARACTERS_BY_ID[id]?.kana)
-    .filter((kana): kana is string => Boolean(kana))
+    .map((id) => CHARACTERS_BY_ID[id])
+    .filter((character): character is NonNullable<typeof character> => Boolean(character))
   const weakWords = results.weakWordIds
     .map((id) => answers.find((answer) => answer.question.word?.id === id)?.question.word)
     .filter((word): word is AnchorWord => Boolean(word))
@@ -665,12 +648,7 @@ export function AssessmentResultsScreen({
   return (
     <div className="flex w-full flex-col items-center gap-6">
       <h1 className="text-2xl font-bold">{config.label} complete!</h1>
-      {script === 'final-graduation' && <p className="text-center font-semibold">80% threshold: 24 / 30</p>}
-      <div className="text-center">
-        <p className="text-lg font-semibold">{results.overallCorrect} / {results.overallTotal}</p>
-        <p className="text-2xl font-bold">{percent}%</p>
-        {script === 'final-graduation' && <p className="font-semibold">{percent >= 80 ? 'Graduated' : 'Almost there — keep practicing'}</p>}
-      </div>
+      <AssessmentScoreVisual correct={results.overallCorrect} total={results.overallTotal} isFinal={script === 'final-graduation'} />
 
       <div className="grid w-full max-w-md grid-cols-2 gap-3">
         <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-center dark:border-neutral-700 dark:bg-neutral-900">
@@ -686,10 +664,22 @@ export function AssessmentResultsScreen({
       </div>
 
       {(weakKana.length > 0 || weakWords.length > 0) && (
-        <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-center dark:border-neutral-700 dark:bg-neutral-900">
+        <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-left dark:border-neutral-700 dark:bg-neutral-900">
           <h2 className="font-bold">Missed this round</h2>
-          {weakKana.length > 0 && <p className="mt-2 break-words font-kana text-xl font-semibold tracking-widest">{weakKana.map((kana) => `${kana} — ${kanaToRomaji(kana)}`).join('　')}</p>}
-          {weakWords.length > 0 && <p className="mt-2 break-words font-kana text-base">{weakWords.map((word) => `${word.kana} — ${word.romaji}`).join('　')}</p>}
+          <ul className="mt-2 flex min-w-0 flex-col gap-1" data-testid="assessment-mistake-list">
+            {weakKana.map((character) => (
+              <li key={character.id} className="flex min-w-0 flex-wrap justify-between gap-x-3 text-neutral-600 dark:text-neutral-400">
+                <span className="font-kana font-semibold text-neutral-800 dark:text-neutral-200">{character.kana}</span>
+                <span className="break-all">{character.displayLabel ?? character.romaji}</span>
+              </li>
+            ))}
+            {weakWords.map((word) => (
+              <li key={word.id} className="flex min-w-0 flex-wrap justify-between gap-x-3 text-neutral-600 dark:text-neutral-400">
+                <span className="font-kana break-all font-semibold text-neutral-800 dark:text-neutral-200">{word.kana}</span>
+                <span className="break-all">{word.romaji}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
