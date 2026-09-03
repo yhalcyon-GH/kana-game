@@ -7,8 +7,6 @@ jobs:
   browser-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    env:
-      PLAYWRIGHT_VERSION: 1.55.0
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -16,17 +14,29 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - name: Install pinned Playwright test runner
-        run: npm install --no-save --package-lock=false @playwright/test@${PLAYWRIGHT_VERSION}
-      - name: Cache Playwright Chromium
-        uses: actions/cache@v4
+      - id: playwright-version
+        name: Read pinned Playwright version
+        shell: bash
+        run: |
+          version="$(node -e "process.stdout.write(require('@playwright/test/package.json').version)")"
+          test -n "$version"
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+      - id: playwright-cache
+        name: Restore Playwright Chromium
+        uses: actions/cache/restore@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-chromium-${{ runner.os }}-${{ env.PLAYWRIGHT_VERSION }}
+          key: playwright-chromium-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
+      - name: Save Playwright Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ steps.playwright-cache.outputs.cache-primary-key }}
       - name: Run bounded browser smoke suite
-        run: npx playwright test --config=playwright.config.mjs
+        run: npm run test:browser-smoke
       - name: Upload browser failure artifacts
         if: failure()
         uses: actions/upload-artifact@v4

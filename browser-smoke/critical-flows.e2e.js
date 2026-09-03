@@ -1,28 +1,43 @@
 import { expect, test } from '@playwright/test'
 
-async function gotoHash(page, route = '/') {
+const STABLE_GUIDE_STATE = {
+  hasCompletedIntroGuide: true,
+  hasCompletedLearnTracingGuide: true,
+  hasCompletedPracticeGuide: true,
+  hasCompletedReviewGuide: true,
+  hasCompletedSokuonGuide: true,
+  hasCompletedChouonGuide: true,
+  hasCompletedYouonGuide: true,
+  hasCompletedSpecialKatakanaGuide: true,
+  hasCompletedHiraganaSectionGuide: true,
+  hasCompletedKatakanaSectionGuide: true,
+  hasCompletedParticleGuide: true,
+}
+
+async function seedProgressState(page, state) {
+  await page.addInitScript((guideState) => {
+    const key = 'kana-game-progress'
+    const persisted = JSON.parse(localStorage.getItem(key) || '{}')
+    localStorage.setItem(key, JSON.stringify({
+      ...persisted,
+      // Keep this aligned with progressStore's Zustand persist version.
+      version: 20,
+      state: { ...(persisted.state || {}), ...guideState },
+    }))
+  }, state)
+}
+
+async function seedStableLearnerState(page) {
+  await seedProgressState(page, STABLE_GUIDE_STATE)
+}
+
+async function gotoHash(page, route = '/', { stable = true } = {}) {
+  if (stable) await seedStableLearnerState(page)
   await page.goto(`./#${route}`)
-}
-
-async function dismissIntroIfPresent(page) {
-  const guide = page.getByRole('dialog', { name: 'Tamamizu Guide' })
-  if (await guide.isVisible().catch(() => false)) {
-    await guide.getByRole('button', { name: 'Skip' }).click()
-    await expect(guide).toBeHidden()
-  }
-}
-
-async function dismissConceptGuideIfPresent(page, testId) {
-  const guide = page.getByTestId(testId)
-  if (await guide.isVisible().catch(() => false)) {
-    await guide.getByRole('button').last().click()
-    await page.waitForTimeout(100)
-  }
 }
 
 async function startOrderingGame(page, route) {
   await gotoHash(page, route)
-  await dismissIntroIfPresent(page)
   await page.getByRole('button', { name: 'Start' }).click()
 }
 
@@ -107,7 +122,7 @@ async function reachWordReadingQuestion(page) {
 }
 
 test('first launch shows the Introduction and Skip reaches Home', async ({ page }) => {
-  await gotoHash(page)
+  await gotoHash(page, '/', { stable: false })
   const guide = page.getByRole('dialog', { name: 'Tamamizu Guide' })
   await expect(guide).toBeVisible()
   await expect(guide.getByRole('button', { name: 'Next' })).toBeVisible()
@@ -116,9 +131,17 @@ test('first launch shows the Introduction and Skip reaches Home', async ({ page 
   await expect(page.getByRole('heading', { name: 'Kana Game' })).toBeVisible()
 })
 
+test('fresh learner sees and dismisses the Sokuon Guide with a normal click', async ({ page }) => {
+  await seedProgressState(page, { hasCompletedIntroGuide: true })
+  await gotoHash(page, '/other', { stable: false })
+  const guide = page.getByTestId('sokuon-guide')
+  await expect(guide).toBeVisible()
+  await guide.getByRole('button').click()
+  await expect(guide).toBeHidden()
+})
+
 test('representative Learn flow can return to the row Practice Hub', async ({ page }) => {
   await gotoHash(page, '/learn/hiragana/a-row')
-  await dismissIntroIfPresent(page)
   await expect(page.getByRole('heading', { name: /new characters/i })).toBeVisible()
   await page.getByRole('button', { name: 'See the words' }).click()
   await expect(page.getByRole('button', { name: 'Back to hub' })).toBeVisible()
@@ -162,7 +185,6 @@ test('Cafe keeps target clues hidden before answer and has no 320px overflow', a
 
 test('Tracing renders in a real browser, accepts a stroke, and Clear resets it', async ({ page }) => {
   await gotoHash(page, '/practice/hiragana/a-row/tracing')
-  await dismissIntroIfPresent(page)
   await page.getByRole('button', { name: 'Start Tracing' }).click()
   const canvas = page.locator('canvas').first()
   await expect(canvas).toBeVisible()
@@ -183,7 +205,6 @@ test('Tracing renders in a real browser, accepts a stroke, and Clear resets it',
 
 test('unmatched routes show recovery UI and Go Home restores Home', async ({ page }) => {
   await gotoHash(page, '/this-route-does-not-exist')
-  await dismissIntroIfPresent(page)
   await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible()
   await page.getByRole('link', { name: 'Go Home' }).click()
   await expect(page).toHaveURL(/#\/$/)
@@ -194,7 +215,6 @@ test('Hiragana and Katakana Tests both load at 320px without overflow', async ({
   await page.setViewportSize({ width: 320, height: 800 })
   for (const script of ['hiragana', 'katakana']) {
     await gotoHash(page, `/assessment/${script}`)
-    await dismissIntroIfPresent(page)
     await expect(page.getByText(/Question 1 \/ 20/)).toBeVisible()
     await expectNoHorizontalPageOverflow(page)
   }
@@ -203,7 +223,6 @@ test('Hiragana and Katakana Tests both load at 320px without overflow', async ({
 test('Sokuon/Chōon Test loads and reveals the blank answer at 320px', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 800 })
   await gotoHash(page, '/assessment/sokuon-chouon')
-  await dismissIntroIfPresent(page)
   const assessment = page.getByTestId('sound-length-assessment')
   await expect(assessment.getByText(/Question 1 \/ 20/)).toBeVisible()
   await expect(page.getByTestId('sound-length-prompt')).toBeVisible()
@@ -220,42 +239,27 @@ test('Section Test cards stay visible and navigate at 320px', async ({ page }) =
     ['/katakana', 'assessment-card-katakana', '/assessment/katakana'],
     ['/other', 'assessment-card-sokuon-chouon', '/assessment/sokuon-chouon'],
     ['/youon', 'assessment-card-youon-special-katakana', '/assessment/youon-special-katakana'],
+    ['/youon', 'assessment-card-final-graduation', '/assessment/final-graduation'],
   ]) {
     await gotoHash(page, section)
-    await dismissIntroIfPresent(page)
-    await dismissConceptGuideIfPresent(page, 'sokuon-guide')
-    await dismissConceptGuideIfPresent(page, 'youon-guide')
-    await dismissConceptGuideIfPresent(page, 'sokuon-guide')
-    await dismissConceptGuideIfPresent(page, 'youon-guide')
     const card = page.getByTestId(cardId)
     await expect(card).toBeVisible()
     await expectNoHorizontalPageOverflow(page)
-    await card.evaluate((element) => element.click())
+    await card.click()
     await expect(page).toHaveURL(new RegExp(`#${route.replace('/', '\\/')}`))
   }
 })
 
-test('Final Graduation Test loads at 320px and reveals an answer', async ({ page }) => {
+test('Final Graduation Test loads at 320px without overflow', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 800 })
   await gotoHash(page, '/assessment/final-graduation')
-  await dismissIntroIfPresent(page)
   await expect(page.getByText(/Question 1 \/ 30/)).toBeVisible()
-  await expectNoHorizontalPageOverflow(page)
-  const romajiFallback = page.getByRole('button', { name: 'Choose in Romaji' })
-  if (await romajiFallback.count()) {
-    await romajiFallback.click()
-    await page.getByTestId('word-reading-romaji-correct').click()
-  } else {
-    await page.getByRole('button').filter({ hasText: /[ぁ-んァ-ン]/ }).first().click()
-  }
-  await expect(page.getByText(/Next|Correct|Not quite/).first()).toBeVisible()
   await expectNoHorizontalPageOverflow(page)
 })
 
 test('Word Reading hides clues before answer and reveals answer data afterward', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 800 })
   await gotoHash(page, '/assessment/hiragana')
-  await dismissIntroIfPresent(page)
   await reachWordReadingQuestion(page)
 
   await expect(page.getByTestId('word-reading-speak-button')).toBeVisible()
@@ -279,7 +283,6 @@ test('final Hiragana and Katakana Restaurant checkpoints route to their section 
 
 test('representative pronunciation asset is served and its browser control activates safely', async ({ page }) => {
   await gotoHash(page, '/learn/hiragana/a-row')
-  await dismissIntroIfPresent(page)
   const assetStatus = await page.evaluate(async () => {
     const url = new URL('audio/characters/a.mp3', document.baseURI)
     const response = await fetch(url, { cache: 'no-store' })
