@@ -205,6 +205,24 @@ test('Sokuon/Chōon Test loads and reveals the blank answer at 320px', async ({ 
   await expectNoHorizontalPageOverflow(page)
 })
 
+test('Section Test cards stay visible and navigate at 320px', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 800 })
+  for (const [section, cardId, route] of [
+    ['/hiragana', 'assessment-card-hiragana', '/assessment/hiragana'],
+    ['/katakana', 'assessment-card-katakana', '/assessment/katakana'],
+    ['/other', 'assessment-card-sokuon-chouon', '/assessment/sokuon-chouon'],
+    ['/youon', 'assessment-card-youon-special-katakana', '/assessment/youon-special-katakana'],
+  ]) {
+    await gotoHash(page, section)
+    await dismissIntroIfPresent(page)
+    const card = page.getByTestId(cardId)
+    await expect(card).toBeVisible()
+    await expectNoHorizontalPageOverflow(page)
+    await card.click()
+    await expect(page).toHaveURL(new RegExp(`#${route.replace('/', '\\/')}`))
+  }
+})
+
 test('Final Graduation Test loads at 320px and reveals an answer', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 800 })
   await gotoHash(page, '/assessment/final-graduation')
