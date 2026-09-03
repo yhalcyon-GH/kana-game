@@ -30,51 +30,82 @@ function shuffle<T>(items: readonly T[], rng: () => number): T[] {
 }
 
 function hasKatakana(word: AnchorWord) { return /[ァ-ヺー]/u.test(word.kana) }
-function isSokuon(word: AnchorWord) { return word.characterIds.includes('sokuon') || word.characterIds.includes('katakana-sokuon') }
-function isLongVowel(word: AnchorWord) {
-  return word.characterIds.includes('katakana-chouon') || /[あいうえお][あいうえお]/u.test(word.kana) || /[いえうお]/u.test(word.kana) && word.id.startsWith('chouon-')
+
+type SoundLengthQuestionSpec = {
+  domain: SoundLengthDomain
+  blankIndex: number
+  correct: string
+  contrast?: 'sokuon' | 'chouon'
+  confusable?: string[]
 }
 
-function vowelForLong(word: AnchorWord): string {
-  if (hasKatakana(word)) return 'ー'
-  if (word.id.startsWith('chouon-a-')) return 'あ'
-  if (word.id.startsWith('chouon-i-')) return 'い'
-  if (word.id.startsWith('chouon-u-')) return 'う'
-  if (word.id.startsWith('chouon-e-')) return word.id === 'chouon-e-oneesan' ? 'え' : 'い'
-  if (word.id.startsWith('chouon-o-')) return ['chouon-o-ookii', 'chouon-o-tooi', 'chouon-o-koori'].includes(word.id) ? 'お' : 'う'
-  return 'う'
+// Every word taught by the Sokuon/Chōon curriculum has one explicit spelling
+// decision. This is intentionally exhaustive: buildSoundLengthAssessmentPlan
+// fails closed if vocabulary is added without a matching entry, so assessment
+// behavior can never silently fall back to ID-prefix or vowel heuristics.
+const SOUND_LENGTH_QUESTION_SPECS: Record<string, SoundLengthQuestionSpec> = {
+  'sokuon-oto': { domain: 'no-insertion', blankIndex: 1, correct: '×', contrast: 'sokuon' },
+  'sokuon-otto': { domain: 'sokuon', blankIndex: 1, correct: 'っ' },
+  'sokuon-kako': { domain: 'no-insertion', blankIndex: 1, correct: '×', contrast: 'sokuon' },
+  'sokuon-kakko': { domain: 'sokuon', blankIndex: 1, correct: 'っ' },
+  'sokuon-katakana-bagu': { domain: 'no-insertion', blankIndex: 1, correct: '×', contrast: 'sokuon' },
+  'sokuon-katakana-baggu': { domain: 'sokuon', blankIndex: 1, correct: 'ッ' },
+  'sokuon-kite': { domain: 'no-insertion', blankIndex: 1, correct: '×', contrast: 'sokuon' },
+  'sokuon-kitte': { domain: 'sokuon', blankIndex: 1, correct: 'っ' },
+  'sokuon-mate': { domain: 'no-insertion', blankIndex: 1, correct: '×', contrast: 'sokuon' },
+  'sokuon-matte': { domain: 'sokuon', blankIndex: 1, correct: 'っ' },
+  'sokuon-mote': { domain: 'no-insertion', blankIndex: 1, correct: '×', contrast: 'sokuon' },
+  'sokuon-motte': { domain: 'sokuon', blankIndex: 1, correct: 'っ' },
+  'sokuon-iki': { domain: 'no-insertion', blankIndex: 1, correct: '×', contrast: 'sokuon' },
+  'sokuon-ikki': { domain: 'sokuon', blankIndex: 1, correct: 'っ' },
+  'sokuon-machi': { domain: 'no-insertion', blankIndex: 1, correct: '×', contrast: 'sokuon' },
+  'sokuon-katakana-macchi': { domain: 'sokuon', blankIndex: 1, correct: 'ッ' },
+  'chouon-a-obasan': { domain: 'no-insertion', blankIndex: 2, correct: '×', contrast: 'chouon' },
+  'chouon-a-obaasan': { domain: 'long-vowel', blankIndex: 2, correct: 'あ' },
+  'chouon-a-okaasan': { domain: 'long-vowel', blankIndex: 2, correct: 'あ' },
+  'chouon-a-maamaa': { domain: 'long-vowel', blankIndex: 1, correct: 'あ' },
+  'chouon-i-ojisan': { domain: 'no-insertion', blankIndex: 2, correct: '×', contrast: 'chouon' },
+  'chouon-i-ojiisan': { domain: 'long-vowel', blankIndex: 2, correct: 'い' },
+  'chouon-i-oniisan': { domain: 'long-vowel', blankIndex: 2, correct: 'い' },
+  'chouon-i-ii': { domain: 'long-vowel', blankIndex: 1, correct: 'い' },
+  'chouon-u-yuuki': { domain: 'long-vowel', blankIndex: 1, correct: 'う' },
+  'chouon-u-suuji': { domain: 'long-vowel', blankIndex: 1, correct: 'う' },
+  'chouon-u-fuusen': { domain: 'long-vowel', blankIndex: 1, correct: 'う' },
+  'chouon-u-kuuki': { domain: 'long-vowel', blankIndex: 1, correct: 'う' },
+  'chouon-e-eiga': { domain: 'long-vowel', blankIndex: 1, correct: 'い', confusable: ['い', 'え'] },
+  'chouon-e-yuumei': { domain: 'long-vowel', blankIndex: 3, correct: 'い', confusable: ['い', 'え'] },
+  'chouon-e-teinei': { domain: 'long-vowel', blankIndex: 1, correct: 'い', confusable: ['い', 'え'] },
+  'chouon-e-oneesan': { domain: 'long-vowel', blankIndex: 2, correct: 'え', confusable: ['い', 'え'] },
+  'chouon-e-gakusei': { domain: 'long-vowel', blankIndex: 3, correct: 'い', confusable: ['い', 'え'] },
+  'chouon-e-sensei': { domain: 'long-vowel', blankIndex: 3, correct: 'い', confusable: ['い', 'え'] },
+  'chouon-o-otouto': { domain: 'long-vowel', blankIndex: 2, correct: 'う', confusable: ['う', 'お'] },
+  'chouon-o-ohayou': { domain: 'long-vowel', blankIndex: 3, correct: 'う', confusable: ['う', 'お'] },
+  'chouon-o-koukou': { domain: 'long-vowel', blankIndex: 1, correct: 'う', confusable: ['う', 'お'] },
+  'chouon-o-ookii': { domain: 'long-vowel', blankIndex: 1, correct: 'お', confusable: ['う', 'お'] },
+  'chouon-o-tooi': { domain: 'long-vowel', blankIndex: 1, correct: 'お', confusable: ['う', 'お'] },
+  'chouon-o-koori': { domain: 'long-vowel', blankIndex: 1, correct: 'お', confusable: ['う', 'お'] },
+  'chouon-o-imouto': { domain: 'long-vowel', blankIndex: 2, correct: 'う', confusable: ['う', 'お'] },
+  'chouon-katakana-biru': { domain: 'no-insertion', blankIndex: 1, correct: '×', contrast: 'chouon' },
+  'chouon-katakana-biiru': { domain: 'long-vowel', blankIndex: 1, correct: 'ー' },
+  'chouon-katakana-koohii': { domain: 'long-vowel', blankIndex: 1, correct: 'ー' },
+  'chouon-katakana-koora': { domain: 'long-vowel', blankIndex: 1, correct: 'ー' },
 }
 
-export function buildSoundLengthPrompt(word: AnchorWord, correct: string, domain: SoundLengthDomain): string {
+function promptFromSpec(word: AnchorWord, spec: SoundLengthQuestionSpec): string {
   const chars = [...word.kana]
-  if (domain === 'no-insertion') {
-    // × means no character belongs between these two existing kana; preserve
-    // the whole word rather than replacing one of its characters.
-    const insertionIndex = Math.max(1, Math.min(chars.length - 1, Math.floor(chars.length / 2)))
-    return `${chars.slice(0, insertionIndex).join('')}□${chars.slice(insertionIndex).join('')}`
+  if (spec.domain === 'no-insertion') {
+    return `${chars.slice(0, spec.blankIndex).join('')}□${chars.slice(spec.blankIndex).join('')}`
   }
-  const index = domain === 'sokuon'
-    ? chars.findIndex((char) => char === 'っ' || char === 'ッ')
-    : domain === 'long-vowel' && correct === 'ー'
-      ? chars.findIndex((char) => char === 'ー')
-      : domain === 'long-vowel'
-        ? chars.findIndex((char, i) => i > 0 && char === correct)
-        : Math.max(1, chars.length - 1)
-  const safeIndex = index >= 0 ? index : Math.max(1, chars.length - 1)
-  return `${chars.slice(0, safeIndex).join('')}□${chars.slice(safeIndex + 1).join('')}`
+  return `${chars.slice(0, spec.blankIndex).join('')}□${chars.slice(spec.blankIndex + 1).join('')}`
 }
 
-function choicesFor(word: AnchorWord, correct: string, domain: SoundLengthDomain, rng: () => number): string[] {
+function choicesFor(word: AnchorWord, spec: SoundLengthQuestionSpec, rng: () => number): string[] {
+  const { correct } = spec
   const vowels = hasKatakana(word) ? ['ア', 'イ', 'ウ', 'エ', 'オ'] : ['あ', 'い', 'う', 'え', 'お']
-  const required = domain === 'long-vowel' && (word.id.startsWith('chouon-e-') || word.id.startsWith('chouon-katakana-e-'))
-    ? (hasKatakana(word) ? ['イ', 'エ'] : ['い', 'え'])
-    : domain === 'long-vowel' && (word.id.startsWith('chouon-o-') || word.id.startsWith('chouon-katakana-o-'))
-      ? (hasKatakana(word) ? ['ウ', 'オ'] : ['う', 'お'])
-      : [correct]
   const marker = hasKatakana(word) ? 'ッ' : 'っ'
   // The diagnostic alternatives are deliberately mandatory.  Shuffling
   // before slicing previously allowed the correct marker to disappear.
-  const mandatory = [...new Set([correct, '×', marker, 'ー', ...required])]
+  const mandatory = [...new Set([correct, '×', marker, 'ー', ...(spec.confusable ?? [])])]
   const extras = shuffle(vowels.filter((vowel) => !mandatory.includes(vowel)), rng)
   return shuffle([...mandatory, ...extras.slice(0, Math.max(0, 5 - mandatory.length))], rng)
 }
@@ -85,14 +116,20 @@ function pickDistinct(words: AnchorWord[], count: number, predicate: (word: Anch
 
 export function buildSoundLengthAssessmentPlan(words: readonly AnchorWord[], rng: () => number): SoundLengthAssessmentPlan {
   const pool = [...words]
-  const sokuon = pickDistinct(pool, 5, isSokuon, rng)
-  const longVowels = pickDistinct(pool, 10, isLongVowel, rng)
-  const used = new Set([...sokuon, ...longVowels].map((word) => word.id))
-  const plain = pickDistinct(pool, 5, (word) => !used.has(word.id) && !isSokuon(word) && !isLongVowel(word), rng)
+  const unmapped = pool.filter((word) => !SOUND_LENGTH_QUESTION_SPECS[word.id])
+  if (unmapped.length > 0) {
+    throw new Error(`Missing explicit Sound Length spec for: ${unmapped.map((word) => word.id).join(', ')}`)
+  }
+  const sokuon = pickDistinct(pool, 5, (word) => SOUND_LENGTH_QUESTION_SPECS[word.id].domain === 'sokuon', rng)
+  const longVowels = pickDistinct(pool, 10, (word) => SOUND_LENGTH_QUESTION_SPECS[word.id].domain === 'long-vowel', rng)
+  const shortSokuon = pickDistinct(pool, 3, (word) => SOUND_LENGTH_QUESTION_SPECS[word.id].domain === 'no-insertion' && SOUND_LENGTH_QUESTION_SPECS[word.id].contrast === 'sokuon', rng)
+  const shortChouon = pickDistinct(pool, 2, (word) => SOUND_LENGTH_QUESTION_SPECS[word.id].domain === 'no-insertion' && SOUND_LENGTH_QUESTION_SPECS[word.id].contrast === 'chouon', rng)
+  const plain = shuffle([...shortSokuon, ...shortChouon], rng)
   if (sokuon.length < 5 || longVowels.length < 10 || plain.length < 5) throw new Error('Insufficient vocabulary coverage for Sokuon/Chōon assessment')
   const make = (domain: SoundLengthDomain, word: AnchorWord): SoundLengthQuestion => {
-    const correct = domain === 'sokuon' ? (word.kana.includes('ッ') ? 'ッ' : 'っ') : domain === 'long-vowel' ? vowelForLong(word) : '×'
-    return { domain, word, prompt: buildSoundLengthPrompt(word, correct, domain), correct, choices: choicesFor(word, correct, domain, rng), diagnostic: domain === 'sokuon' ? 'sokuon' : domain === 'no-insertion' ? 'no-insertion' : correct === 'ー' ? 'katakana-chouon' : 'hiragana-vowel' }
+    const spec = SOUND_LENGTH_QUESTION_SPECS[word.id]
+    const correct = spec.correct
+    return { domain, word, prompt: promptFromSpec(word, spec), correct, choices: choicesFor(word, spec, rng), diagnostic: domain === 'sokuon' ? 'sokuon' : domain === 'no-insertion' ? 'no-insertion' : correct === 'ー' ? 'katakana-chouon' : 'hiragana-vowel' }
   }
   const blocks = {
     sokuon: shuffle(sokuon.map((w) => make('sokuon', w)), rng),

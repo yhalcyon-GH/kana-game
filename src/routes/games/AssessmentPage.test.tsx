@@ -3,8 +3,11 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useProgressStore } from '../../store/progressStore'
 import { CHARACTERS_BY_ID } from '../../data/characters'
-import { WORDS_BY_ROW } from '../../data/words'
+import { KATAKANA_CATEGORY_ID } from '../../data/curriculum'
+import { WORDS_BY_ID, WORDS_BY_ROW } from '../../data/words'
 import type { AssessmentAnswer } from '../../lib/assessmentResults'
+import { buildFlatTargetTiles } from '../../lib/wordBuilderTiles'
+import { CategoryRowsPage } from '../CategoryRowsPage'
 import { AssessmentPage, AssessmentResultsScreen } from './AssessmentPage'
 
 const tts = vi.hoisted(() => ({ speak: vi.fn(), speakAndWait: vi.fn(), speakStaticOnly: vi.fn(), stop: vi.fn(), supported: true }))
@@ -110,7 +113,7 @@ async function answerCurrentQuestionAnyWay() {
     // re-renders.
     const slotCount = slots.length
     for (let clicked = 0; clicked < slotCount; clicked++) {
-      const tile = document.querySelector<HTMLButtonElement>('button.font-kana:not(:disabled)')
+      const tile = document.querySelector<HTMLButtonElement>('button.font-kana[aria-pressed="false"]:not(:disabled)')
       if (!tile) break
       fireEvent.click(tile)
     }
@@ -134,13 +137,50 @@ async function answerCurrentQuestionWithoutNext() {
   const slots = document.querySelectorAll('.border-dashed')
   if (slots.length > 0) {
     for (let clicked = 0; clicked < slots.length; clicked++) {
-      const tile = document.querySelector<HTMLButtonElement>('button.font-kana:not(:disabled)')
+      const tile = document.querySelector<HTMLButtonElement>('button.font-kana[aria-pressed="false"]:not(:disabled)')
       if (tile) fireEvent.click(tile)
     }
     return
   }
   const choice = document.querySelector<HTMLButtonElement>('.grid.grid-cols-2 button')
   if (choice) fireEvent.click(choice)
+}
+
+async function answerCurrentQuestionCorrectly() {
+  const progress = screen.getByText(/Question \d+ \/ 20/)
+  const family = progress.textContent?.split('·')[1]?.trim()
+  if (family === 'Word Reading') {
+    fireEvent.click(screen.getByText('Choose in Romaji'))
+    fireEvent.click(await screen.findByTestId('word-reading-romaji-correct'))
+  } else if (family === 'Word Builder') {
+    const wordKey = [...tts.speak.mock.calls].reverse().find(([key]) => String(key).startsWith('words/'))?.[0] as string
+    const word = WORDS_BY_ID[wordKey.replace('words/', '')]
+    for (const { glyph } of buildFlatTargetTiles(word.characterIds)) {
+      const tile = Array.from(document.querySelectorAll<HTMLButtonElement>('button.font-kana[aria-pressed="false"]:not(:disabled)'))
+        .find((button) => button.textContent === glyph)
+      expect(tile).toBeDefined()
+      fireEvent.click(tile!)
+    }
+  } else if (family === 'Listening') {
+    const wordKey = [...tts.speak.mock.calls].reverse().find(([key]) => String(key).startsWith('words/'))?.[0] as string
+    const word = WORDS_BY_ID[wordKey.replace('words/', '')]
+    const choice = Array.from(document.querySelectorAll<HTMLButtonElement>('.grid.grid-cols-2 button'))
+      .find((button) => button.textContent?.includes(word.kana))
+    expect(choice).toBeDefined()
+    fireEvent.click(choice!)
+  } else {
+    const replay = screen.queryByRole('button', { name: 'Replay audio' })
+    const character = Object.values(CHARACTERS_BY_ID).find((candidate) => candidate.kana === document.querySelector('.font-kana.text-7xl')?.textContent)
+    const spokenKana = [...tts.speak.mock.calls].reverse().find(([key]) => String(key).startsWith('characters/'))?.[1] as string | undefined
+    if (!replay) expect(character).toBeDefined()
+    else expect(spokenKana).toBeDefined()
+    const expected = replay ? spokenKana : (character!.displayLabel ?? character!.romaji)
+    const choice = Array.from(document.querySelectorAll<HTMLButtonElement>('.grid.grid-cols-2 button'))
+      .find((button) => button.textContent === expected)
+    expect(choice).toBeDefined()
+    fireEvent.click(choice!)
+  }
+  await waitAndAdvanceIfPossible()
 }
 
 describe('AssessmentPage', () => {
@@ -184,6 +224,43 @@ describe('AssessmentPage', () => {
     // Family-level score cards were deliberately removed from the learner
     // result UI; the two reading-direction summaries replace them.
     expect(screen.queryByText('Kana Quiz')).not.toBeInTheDocument()
+  }, 20000)
+
+  it('persists a real Katakana 20/20 completion through Back navigation, remount, and rehydrate', async () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    const view = render(
+      <MemoryRouter initialEntries={['/assessment/katakana']}>
+        <Routes>
+          <Route path="/assessment/:script" element={<AssessmentPage />} />
+          <Route path="/katakana" element={<CategoryRowsPage title="カタカナ" description="" categoryIds={[KATAKANA_CATEGORY_ID]} />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    await screen.findByText(/Question 1 \/ 20/)
+    for (let i = 0; i < 20; i++) await answerCurrentQuestionCorrectly()
+
+    await screen.findByText('Katakana Test complete!')
+    expect(useProgressStore.getState().assessmentCompletion.katakana).toMatchObject({
+      completed: true,
+      lastScore: { correct: 20, total: 20 },
+    })
+    fireEvent.click(screen.getByRole('link', { name: 'Back' }))
+    expect(await screen.findByTestId('assessment-card-katakana-status')).toHaveTextContent('👑 PERFECT')
+    expect(screen.getByTestId('assessment-card-katakana-score')).toHaveTextContent('20/20')
+
+    const persisted = localStorage.getItem('kana-game-progress')
+    expect(persisted).not.toBeNull()
+    view.unmount()
+    useProgressStore.getState().resetProgress()
+    localStorage.setItem('kana-game-progress', persisted!)
+    await useProgressStore.persist.rehydrate()
+    render(
+      <MemoryRouter>
+        <CategoryRowsPage title="カタカナ" description="" categoryIds={[KATAKANA_CATEGORY_ID]} />
+      </MemoryRouter>,
+    )
+    expect(screen.getByTestId('assessment-card-katakana-status')).toHaveTextContent('👑 PERFECT')
+    expect(screen.getByTestId('assessment-card-katakana-score')).toHaveTextContent('20/20')
   }, 20000)
 
   it('never targets katakana characters/words for the Hiragana Test', async () => {
@@ -301,6 +378,15 @@ describe('AssessmentPage', () => {
   })
 
   describe('Word Builder (assessment mode)', () => {
+    async function reachWordBuilder() {
+      renderAssessment('hiragana')
+      await screen.findByText(/Question 1 \/ 20/)
+      for (let i = 0; i < 20 && document.querySelectorAll('button.border-dashed').length === 0; i++) {
+        await answerCurrentQuestionAnyWay()
+      }
+      expect(document.querySelectorAll('button.border-dashed').length).toBeGreaterThan(0)
+    }
+
     it('hides meaning/image before answering', async () => {
       renderAssessment('hiragana')
       await screen.findByText(/Question 1 \/ 20/)
@@ -317,6 +403,50 @@ describe('AssessmentPage', () => {
       // Before answering: no meaning text block should be visible (only the
       // 🔊 prompt icon, matching the "before answering" hidden state).
       expect(screen.getByText('🔊')).toBeInTheDocument()
+    })
+
+    it('lets a placed tile return from the upper slot or its original tray button', async () => {
+      await reachWordBuilder()
+      const slot = document.querySelector<HTMLButtonElement>('button.border-dashed')!
+      const tile = document.querySelector<HTMLButtonElement>('button.font-kana:not(.border-dashed):not(:disabled)')!
+      fireEvent.click(tile)
+      expect(slot.textContent?.trim()).not.toBe('')
+      expect(tile).not.toBeDisabled()
+
+      fireEvent.click(tile)
+      expect(slot.textContent?.trim()).toBe('')
+      fireEvent.click(tile)
+      fireEvent.click(slot)
+      expect(slot.textContent?.trim()).toBe('')
+    })
+
+    it('keeps a wrong completed arrangement editable and evaluates the round only once', async () => {
+      await reachWordBuilder()
+      const wordKey = [...tts.speak.mock.calls].reverse().find(([key]) => String(key).startsWith('words/'))?.[0] as string
+      const wordId = wordKey.replace('words/', '')
+      const word = Object.values(WORDS_BY_ROW).flat().find((candidate) => candidate.id === wordId)!
+      const targetGlyphs = word.characterIds.flatMap((id) => CHARACTERS_BY_ID[id] ? [...CHARACTERS_BY_ID[id].kana] : [])
+      const trayButtons = () => Array.from(document.querySelectorAll<HTMLButtonElement>('button.font-kana[aria-pressed="false"]:not(.border-dashed):not(:disabled)'))
+      const slots = () => Array.from(document.querySelectorAll<HTMLButtonElement>('button.border-dashed'))
+      const wrong = trayButtons().find((button) => !targetGlyphs.includes(button.textContent ?? ''))!
+      fireEvent.click(wrong)
+      for (const glyph of targetGlyphs.slice(1)) {
+        fireEvent.click(trayButtons().find((button) => button.textContent === glyph)!)
+      }
+      const feedbackCount = tts.speak.mock.calls.filter(([key]) => String(key).startsWith('feedback/')).length
+      expect(screen.getByRole('button', { name: 'Next' })).toBeInTheDocument()
+
+      fireEvent.click(slots()[0])
+      expect(slots()[0].textContent?.trim()).toBe('')
+      fireEvent.click(trayButtons().find((button) => button.textContent === targetGlyphs[0])!)
+      expect(tts.speak.mock.calls.filter(([key]) => String(key).startsWith('feedback/'))).toHaveLength(feedbackCount)
+    })
+
+    it('wraps its ordered slots for narrow screens', async () => {
+      await reachWordBuilder()
+      const slotGroup = document.querySelector<HTMLButtonElement>('button.border-dashed')!.parentElement!
+      expect(slotGroup.className).toContain('flex-wrap')
+      expect(slotGroup.className).toContain('max-w-full')
     })
   })
 

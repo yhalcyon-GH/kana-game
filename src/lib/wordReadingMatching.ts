@@ -23,7 +23,7 @@ function normalizeRomaji(text: string): string {
 export function checkWordReading(rawTranscript: string, target: AnchorWord): WordReadingCheckResult {
   const normalizedTranscript = normalizeJapanese(rawTranscript)
   if (!normalizedTranscript) return { outcome: 'unrecognized' }
-  const japaneseAliases = [target.kana, target.audioText]
+  const japaneseAliases = [target.kana, target.audioText, ...(target.recognitionAliases ?? [])]
     .filter((alias): alias is string => Boolean(alias))
     .map(normalizeJapanese)
     .filter(Boolean)

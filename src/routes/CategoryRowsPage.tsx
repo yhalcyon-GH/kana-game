@@ -299,14 +299,14 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
   )
 }
 
-type AssessmentCardConfig = { script: 'hiragana' | 'katakana' | 'sokuon-chouon' | 'youon-special-katakana' | 'final-graduation'; label: string; questions: number; description: string; final?: boolean }
+type AssessmentCardConfig = { script: 'hiragana' | 'katakana' | 'sokuon-chouon' | 'youon-special-katakana' | 'final-graduation'; label: string; questions: number; final?: boolean }
 
 const ASSESSMENT_CARDS: Record<string, AssessmentCardConfig> = {
-  hiragana: { script: 'hiragana', label: 'HIRAGANA TEST', questions: 20, description: 'Check what you know in Hiragana.' },
-  katakana: { script: 'katakana', label: 'KATAKANA TEST', questions: 20, description: 'Check what you know in Katakana.' },
-  other: { script: 'sokuon-chouon', label: 'STOP & LONG SOUND TEST', questions: 20, description: 'Check small tsu and long sounds.' },
-  youon: { script: 'youon-special-katakana', label: 'ゃゅょ / SPECIAL KATAKANA TEST', questions: 20, description: 'Check small kana sound combinations.' },
-  final: { script: 'final-graduation', label: 'FINAL KANA TEST', questions: 30, description: 'Full Kana Graduation Test.', final: true },
+  hiragana: { script: 'hiragana', label: 'HIRAGANA TEST', questions: 20 },
+  katakana: { script: 'katakana', label: 'KATAKANA TEST', questions: 20 },
+  other: { script: 'sokuon-chouon', label: 'STOP & LONG SOUND TEST', questions: 20 },
+  youon: { script: 'youon-special-katakana', label: 'ゃゅょ / SPECIAL KATAKANA TEST', questions: 20 },
+  final: { script: 'final-graduation', label: 'FINAL KANA TEST', questions: 30, final: true },
 }
 
 function AssessmentCards({
@@ -350,13 +350,18 @@ function AssessmentCard({ config, score, graduated, recommended }: { config: Ass
       className={`w-full max-w-md rounded-2xl border px-5 py-4 text-left shadow-md transition hover:scale-[1.01] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500 dark:focus-visible:outline-amber-300 ${config.final ? 'border-orange-400 bg-orange-50 hover:bg-orange-100 dark:border-orange-700 dark:bg-orange-950/50 dark:hover:bg-orange-900/60' : 'border-amber-300 bg-amber-50 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/40 dark:hover:bg-amber-900/50'} ${recommended ? 'ring-2 ring-yellow-400 ring-offset-2 dark:ring-yellow-300' : ''}`}
     >
       <span className="block text-xs font-bold tracking-[0.16em] text-amber-700 dark:text-amber-300">{recommended ? '📝 TEST · ⭐ RECOMMENDED' : '📝 TEST'}</span>
-      <span className="mt-1 flex items-center gap-3">
+      <span className="mt-1 flex min-w-0 items-start gap-3">
         <span className="text-3xl" aria-hidden="true">{config.final ? '🏆' : '📝'}</span>
-        <span>
-          <span className="block text-lg font-bold text-amber-950 dark:text-amber-50">{config.label}</span>
+        <span className="min-w-0 flex-1">
+          <span className="block break-words text-lg font-bold text-amber-950 dark:text-amber-50">{config.label}</span>
           <span className="block text-sm font-semibold text-amber-800 dark:text-amber-200">{config.questions} Questions</span>
-          <span className="mt-1 block text-sm text-amber-900/75 dark:text-amber-200/75">{config.description}</span>
-          {score && scoreStatus && <span className="mt-1 block text-xs font-semibold text-amber-800 dark:text-amber-200">{scoreStatus} · {score.correct}/{score.total}</span>}
+          <span className="mt-1 block text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-300">80%+ to pass</span>
+          {score && scoreStatus && (
+            <span className="mt-3 block border-t border-amber-300/70 pt-2 dark:border-amber-700/70">
+              <span data-testid={`assessment-card-${config.script}-status`} className="block text-lg font-extrabold text-amber-950 dark:text-amber-50">{scoreStatus}</span>
+              <span data-testid={`assessment-card-${config.script}-score`} className="block text-sm font-semibold text-amber-800 dark:text-amber-200">{score.correct}/{score.total}</span>
+            </span>
+          )}
         </span>
       </span>
     </Link>

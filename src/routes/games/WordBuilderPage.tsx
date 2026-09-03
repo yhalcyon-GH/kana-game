@@ -25,11 +25,11 @@ import { shuffle } from '../../lib/shuffle'
 import { buildSimilarLettersWordQueue, pickSimilarLettersDistractorCharIds } from '../../lib/similarLettersSelection'
 import { isNearMissWordBuilder } from '../../lib/nearMiss'
 import { buildFlatTargetTiles, displayGlyphsForCharId, type FlatTargetTile } from '../../lib/wordBuilderTiles'
+import { removeWordBuilderSlot, toggleWordBuilderTrayTile, type WordBuilderTrayTile } from '../../lib/wordBuilderPlacement'
 import { useProgressStore } from '../../store/progressStore'
 
 const DISTRACTOR_COUNT = 3
 
-type TrayTile = { key: string; glyph: string; placed: boolean }
 
 type Props = {
   // Set only by the /practice/review/word-builder route — see REVIEW_SCOPE_ID.
@@ -106,8 +106,9 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
   }, [cancelAdvance, advance])
 
   const [slots, setSlots] = useState<(string | null)[]>([])
-  const [tray, setTray] = useState<TrayTile[]>([])
+  const [tray, setTray] = useState<WordBuilderTrayTile[]>([])
   const [status, setStatus] = useState<'playing' | 'correct' | 'wrong'>('playing')
+  const [resultRecorded, setResultRecorded] = useState(false)
   const [targetTiles, setTargetTiles] = useState<FlatTargetTile[]>([])
 
   const setupRound = useCallback(
@@ -122,6 +123,7 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
       setTargetTiles(flatTarget)
       setSlots(new Array(flatTarget.length).fill(null))
       setStatus('playing')
+      setResultRecorded(false)
       clear()
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -144,8 +146,9 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
   }, [currentWord?.id, roundIndex])
 
   useEffect(() => {
-    if (!currentWord || status !== 'playing') return
+    if (!currentWord || resultRecorded) return
     if (slots.some((s) => s === null)) return
+    setResultRecorded(true)
 
     const placedGlyphs = slots.map((key) => tray.find((t) => t.key === key)?.glyph)
     const isCorrect = placedGlyphs.every((glyph, i) => glyph === targetTiles[i]?.glyph)
@@ -205,27 +208,18 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
       ? { label: 'Continue → Next Row', to: `/practice/${nextRowCategoryId}/${nextRowId}` }
       : undefined
 
-  const handleTrayClick = (tile: TrayTile) => {
-    if (tile.placed || status !== 'playing') return
-    const emptyIndex = slots.findIndex((s) => s === null)
-    if (emptyIndex === -1) return
-    setSlots((prev) => {
-      const next = [...prev]
-      next[emptyIndex] = tile.key
-      return next
-    })
-    setTray((prev) => prev.map((t) => (t.key === tile.key ? { ...t, placed: true } : t)))
+  const handleTrayClick = (tile: WordBuilderTrayTile) => {
+    if (status === 'correct') return
+    const next = toggleWordBuilderTrayTile({ slots, tray }, tile.key)
+    setSlots(next.slots)
+    setTray(next.tray)
   }
 
   const handleSlotClick = (index: number) => {
-    const key = slots[index]
-    if (!key || status !== 'playing') return
-    setSlots((prev) => {
-      const next = [...prev]
-      next[index] = null
-      return next
-    })
-    setTray((prev) => prev.map((t) => (t.key === key ? { ...t, placed: false } : t)))
+    if (status === 'correct') return
+    const next = removeWordBuilderSlot({ slots, tray }, index)
+    setSlots(next.slots)
+    setTray(next.tray)
   }
 
   if (!rowId || (!isReview && !row)) return null
@@ -268,7 +262,7 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
         )}
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex max-w-full flex-wrap justify-center gap-2">
         {slots.map((key, i) => {
           const tile = key ? tray.find((t) => t.key === key) : undefined
           return (
@@ -310,7 +304,8 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
           <KanaTile
             key={tile.key}
             kana={tile.glyph}
-            disabled={tile.placed || status !== 'playing'}
+            disabled={status === 'correct'}
+            pressed={tile.placed}
             onClick={() => handleTrayClick(tile)}
           />
         ))}

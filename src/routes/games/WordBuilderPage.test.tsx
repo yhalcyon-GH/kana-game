@@ -48,7 +48,7 @@ describe('WordBuilderPage per-character attribution', () => {
     const [target0, target1] = A_ROW_WORDS[meaning]
     expect(target0).toBeDefined()
 
-    const trayButtons = () => Array.from(container.querySelectorAll('button.font-kana:not(.border-dashed)')) as HTMLButtonElement[]
+    const trayButtons = () => Array.from(container.querySelectorAll('button.font-kana[aria-pressed="false"]:not(.border-dashed)')) as HTMLButtonElement[]
     const glyphOf = (id: string) => ({ a: 'あ', i: 'い', u: 'う', e: 'え', o: 'お', n: 'ん' })[id]
 
     // Slot 0: deliberately WRONG — click a tile that's neither target's
@@ -68,10 +68,80 @@ describe('WordBuilderPage per-character attribution', () => {
   })
 })
 
+describe('WordBuilderPage editable placement', () => {
+  function renderArowBuilder() {
+    return render(
+      <MemoryRouter initialEntries={['/practice/hiragana/a-row/word-builder']}>
+        <Routes>
+          <Route path="/practice/:categoryId/:rowId/word-builder" element={<WordBuilderPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+  }
+
+  const slots = (container: HTMLElement) => Array.from(container.querySelectorAll<HTMLButtonElement>('button.border-dashed'))
+  const tray = (container: HTMLElement) => Array.from(container.querySelectorAll<HTMLButtonElement>('button.font-kana:not(.border-dashed)'))
+
+  it('lets a placed tile return from either its upper slot or original tray button', () => {
+    const { container } = renderArowBuilder()
+    const firstTile = tray(container)[0]
+    fireEvent.click(firstTile)
+    expect(slots(container)[0].textContent?.trim()).not.toBe('')
+    expect(firstTile).not.toBeDisabled()
+
+    fireEvent.click(firstTile)
+    expect(slots(container)[0].textContent?.trim()).toBe('')
+
+    fireEvent.click(firstTile)
+    fireEvent.click(slots(container)[0])
+    expect(slots(container)[0].textContent?.trim()).toBe('')
+  })
+
+  it('stays editable after a wrong completed arrangement without recording progress twice', () => {
+    const { container } = renderArowBuilder()
+    const meaning = container.querySelector('.text-lg.font-semibold')!.textContent!.trim()
+    const [firstId, secondId] = A_ROW_WORDS[meaning]
+    const firstGlyph = CHARACTERS_BY_ID[firstId].kana
+    const secondGlyph = CHARACTERS_BY_ID[secondId].kana
+    const wrongTile = tray(container).find((button) => button.textContent !== firstGlyph && button.textContent !== secondGlyph)!
+    const secondTile = tray(container).find((button) => button.textContent === secondGlyph)!
+
+    fireEvent.click(wrongTile)
+    fireEvent.click(secondTile)
+    const recorded = structuredClone({
+      characters: useProgressStore.getState().characters,
+      words: useProgressStore.getState().words,
+    })
+
+    fireEvent.click(slots(container)[0])
+    expect(slots(container)[0].textContent?.trim()).toBe('')
+    const correctFirstTile = tray(container).find((button) => button.textContent === firstGlyph)!
+    fireEvent.click(correctFirstTile)
+
+    expect({
+      characters: useProgressStore.getState().characters,
+      words: useProgressStore.getState().words,
+    }).toEqual(recorded)
+  })
+
+  it('wraps the ordered slot group instead of overflowing narrow screens', () => {
+    const { container } = render(
+      <MemoryRouter initialEntries={['/practice/special-katakana/special-katakana-fa-row/word-builder']}>
+        <Routes>
+          <Route path="/practice/:categoryId/:rowId/word-builder" element={<WordBuilderPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+    const slotGroup = slots(container)[0].parentElement!
+    expect(slotGroup.className).toContain('flex-wrap')
+    expect(slotGroup.className).toContain('max-w-full')
+  })
+})
+
 const MEANING_TO_GLYPHS: Record<string, [string, string]> = { love: ['あ', 'い'], house: ['い', 'え'] }
 
 function finishVisibleWordBuilderSessionKeepingHouseWeak(container: HTMLElement) {
-  const trayButtons = () => Array.from(container.querySelectorAll('button.font-kana:not(.border-dashed)')) as HTMLButtonElement[]
+  const trayButtons = () => Array.from(container.querySelectorAll('button.font-kana[aria-pressed="false"]:not(.border-dashed)')) as HTMLButtonElement[]
 
   for (let round = 0; round < 6; round++) {
     const meaning = container.querySelector('.text-lg.font-semibold')!.textContent!.trim()
@@ -126,7 +196,7 @@ describe('WordBuilderPage Review session', () => {
 
     const roundText = () => container.querySelector('p')!.textContent!
     const meaningText = () => container.querySelector('.text-lg.font-semibold')!.textContent!.trim()
-    const trayButtons = () => Array.from(container.querySelectorAll('button.font-kana:not(.border-dashed)')) as HTMLButtonElement[]
+    const trayButtons = () => Array.from(container.querySelectorAll('button.font-kana[aria-pressed="false"]:not(.border-dashed)')) as HTMLButtonElement[]
 
     expect(roundText()).toMatch('Round 1 / 6')
     const [g0, g1] = MEANING_TO_GLYPHS[meaningText()]
@@ -210,7 +280,7 @@ function renderRowWordBuilder() {
 // clears the round via whichever path evaluation lands on.
 function clickThroughWordBuilderRound(container: HTMLElement) {
   const availableTrayButtons = () =>
-    Array.from(container.querySelectorAll('button.font-kana:not(.border-dashed):not([disabled])')) as HTMLButtonElement[]
+    Array.from(container.querySelectorAll('button.font-kana[aria-pressed="false"]:not(.border-dashed):not([disabled])')) as HTMLButtonElement[]
   const emptySlotCount = () =>
     Array.from(container.querySelectorAll('button.border-dashed span.font-kana')).filter((s) => !s.textContent).length
 
@@ -329,7 +399,7 @@ describe('WordBuilderPage result summary (correct/total count)', () => {
   // Save toggle (wrong-only) appears, not from Next's presence.
   function playSessionTallyingCorrectness(container: HTMLElement, rounds: number): number {
     const availableTrayButtons = () =>
-      Array.from(container.querySelectorAll('button.font-kana:not(.border-dashed):not([disabled])')) as HTMLButtonElement[]
+      Array.from(container.querySelectorAll('button.font-kana[aria-pressed="false"]:not(.border-dashed):not([disabled])')) as HTMLButtonElement[]
     const emptySlotCount = () =>
       Array.from(container.querySelectorAll('button.border-dashed span.font-kana')).filter((s) => !s.textContent).length
 
@@ -374,7 +444,7 @@ describe('WordBuilderPage result summary (correct/total count)', () => {
     )
 
     const availableTrayButtons = () =>
-      Array.from(container.querySelectorAll('button.font-kana:not(.border-dashed):not([disabled])')) as HTMLButtonElement[]
+      Array.from(container.querySelectorAll('button.font-kana[aria-pressed="false"]:not(.border-dashed):not([disabled])')) as HTMLButtonElement[]
     const emptySlotCount = () =>
       Array.from(container.querySelectorAll('button.border-dashed span.font-kana')).filter((s) => !s.textContent).length
 
@@ -465,7 +535,7 @@ describe('WordBuilderPage pre-answer mascot', () => {
     const { container } = renderRowWordBuilder()
 
     const availableTrayButtons = () =>
-      Array.from(container.querySelectorAll('button.font-kana:not(.border-dashed):not([disabled])')) as HTMLButtonElement[]
+      Array.from(container.querySelectorAll('button.font-kana[aria-pressed="false"]:not(.border-dashed):not([disabled])')) as HTMLButtonElement[]
     const emptySlotCount = () =>
       Array.from(container.querySelectorAll('button.border-dashed span.font-kana')).filter((s) => !s.textContent).length
 
@@ -513,7 +583,7 @@ describe('WordBuilderPage: Save checkbox on wrong answer only', () => {
     const [target0, target1] = A_ROW_WORDS[meaning]
 
     const trayButtons = () =>
-      Array.from(container.querySelectorAll('button.font-kana:not(.border-dashed):not([disabled])')) as HTMLButtonElement[]
+      Array.from(container.querySelectorAll('button.font-kana[aria-pressed="false"]:not(.border-dashed):not([disabled])')) as HTMLButtonElement[]
     const wrongTile = trayButtons().find((b) => b.textContent !== glyphOf(target0) && b.textContent !== glyphOf(target1))!
     fireEvent.click(wrongTile)
     const secondTile = trayButtons()[0]
@@ -535,7 +605,7 @@ describe('WordBuilderPage: Save checkbox on wrong answer only', () => {
     const meaning = container.querySelector('.text-lg.font-semibold')!.textContent!.trim()
     const [target0, target1] = A_ROW_WORDS[meaning]
 
-    const trayButtons = () => Array.from(container.querySelectorAll('button.font-kana:not(.border-dashed)')) as HTMLButtonElement[]
+    const trayButtons = () => Array.from(container.querySelectorAll('button.font-kana[aria-pressed="false"]:not(.border-dashed)')) as HTMLButtonElement[]
     fireEvent.click(trayButtons().find((b) => b.textContent === glyphOf(target0))!)
     fireEvent.click(trayButtons().find((b) => b.textContent === glyphOf(target1))!)
 
@@ -676,7 +746,7 @@ describe('WordBuilderPage yōon + Special Katakana spelling-tile split', () => {
     )
 
     const trayButtons = () =>
-      Array.from(container.querySelectorAll('button.font-kana:not(.border-dashed):not([disabled])')) as HTMLButtonElement[]
+      Array.from(container.querySelectorAll('button.font-kana[aria-pressed="false"]:not(.border-dashed):not([disabled])')) as HTMLButtonElement[]
     const emptySlotCount = () =>
       Array.from(container.querySelectorAll('button.border-dashed span.font-kana')).filter((s) => !s.textContent).length
 
@@ -735,7 +805,7 @@ describe('WordBuilderPage yōon + Special Katakana spelling-tile split', () => {
     // naturally drop out of this query on the next call — no need to track
     // which specific tile instance was already used.
     const trayButtons = () =>
-      Array.from(container.querySelectorAll('button.font-kana:not(.border-dashed):not([disabled])')) as HTMLButtonElement[]
+      Array.from(container.querySelectorAll('button.font-kana[aria-pressed="false"]:not(.border-dashed):not([disabled])')) as HTMLButtonElement[]
     const clickCorrect = (glyph: string) => {
       const chosen = trayButtons().find((b) => b.textContent === glyph)
       expect(chosen).toBeDefined()

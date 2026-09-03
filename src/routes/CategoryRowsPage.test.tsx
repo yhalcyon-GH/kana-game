@@ -359,6 +359,17 @@ describe('always-available assessment cards', () => {
     expect(youonCard.compareDocumentPosition(finalCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
+  it('shows the pass threshold on every card and removes repeated descriptions', () => {
+    const pages = [renderHiragana(), renderKatakana(), renderOtherPage(), renderYouonPage()]
+    const cards = pages.flatMap((page) => Array.from(page.container.querySelectorAll('[data-testid^="assessment-card-"]')))
+    expect(cards).toHaveLength(5)
+    for (const card of cards) expect(card).toHaveTextContent('80%+ to pass')
+    expect(document.body).not.toHaveTextContent('Check what you know in Hiragana.')
+    expect(document.body).not.toHaveTextContent('Check what you know in Katakana.')
+    expect(document.body).not.toHaveTextContent('Check small tsu and long sounds.')
+    expect(document.body).not.toHaveTextContent('Full Kana Graduation Test.')
+  })
+
   it('keeps cards visible after completion and marks only the current recommendation', () => {
     for (const id of ['a-row', 'i-row', 'u-row', 'e-row', 'o-row', 'n-row']) useProgressStore.getState().markRowTaught(id)
     useProgressStore.getState().markAssessmentCompleted('hiragana', { correct: 17, total: 20 })
@@ -368,30 +379,49 @@ describe('always-available assessment cards', () => {
   })
 
   it.each([
-    [15, '✕ FAIL · 15/20'],
-    [16, '✅ PASS · 16/20'],
-    [20, '👑 PERFECT · 20/20'],
-  ])('shows the section result status for %i/20', (correct, expected) => {
+    [15, '✕ FAIL'],
+    [16, '✅ PASS'],
+    [20, '👑 PERFECT'],
+  ])('shows the section result status for %i/20', (correct, expectedStatus) => {
     useProgressStore.getState().markAssessmentCompleted('hiragana', { correct, total: 20 })
     const { getByTestId } = renderHiragana()
-    expect(getByTestId('assessment-card-hiragana')).toHaveTextContent(expected)
+    expect(getByTestId('assessment-card-hiragana-status')).toHaveTextContent(expectedStatus)
+    expect(getByTestId('assessment-card-hiragana-score')).toHaveTextContent(`${correct}/20`)
   })
 
   it.each([
-    [23, '✕ FAIL · 23/30'],
-    [24, '🎓 GRADUATED · 24/30'],
-    [30, '👑 MASTERED · 30/30'],
-  ])('shows the final result status for %i/30', (correct, expected) => {
+    [15, '✕ FAIL'],
+    [16, '✅ PASS'],
+    [20, '👑 PERFECT'],
+  ])('shows the Katakana result hierarchy for %i/20', (correct, expectedStatus) => {
+    useProgressStore.getState().markAssessmentCompleted('katakana', { correct, total: 20 })
+    const { getByTestId } = renderKatakana()
+    const card = getByTestId('assessment-card-katakana')
+    const status = getByTestId('assessment-card-katakana-status')
+    const score = getByTestId('assessment-card-katakana-score')
+    expect(card).toHaveTextContent(expectedStatus)
+    expect(score).toHaveTextContent(`${correct}/20`)
+    expect(status.className).toContain('text-lg')
+    expect(score.className).toContain('text-sm')
+  })
+
+  it.each([
+    [23, '✕ FAIL'],
+    [24, '🎓 GRADUATED'],
+    [30, '👑 MASTERED'],
+  ])('shows the final result status for %i/30', (correct, expectedStatus) => {
     useProgressStore.getState().markFinalGraduationCompleted({ correct, total: 30 })
     const { getByTestId } = renderYouonPage()
-    expect(getByTestId('assessment-card-final-graduation')).toHaveTextContent(expected)
+    expect(getByTestId('assessment-card-final-graduation-status')).toHaveTextContent(expectedStatus)
+    expect(getByTestId('assessment-card-final-graduation-score')).toHaveTextContent(`${correct}/30`)
   })
 
   it('keeps GRADUATED after a low-score retake once graduation is earned', () => {
     useProgressStore.getState().markFinalGraduationCompleted({ correct: 24, total: 30 })
     useProgressStore.getState().markFinalGraduationCompleted({ correct: 10, total: 30 })
     const { getByTestId } = renderYouonPage()
-    expect(getByTestId('assessment-card-final-graduation')).toHaveTextContent('🎓 GRADUATED · 10/30')
+    expect(getByTestId('assessment-card-final-graduation-status')).toHaveTextContent('🎓 GRADUATED')
+    expect(getByTestId('assessment-card-final-graduation-score')).toHaveTextContent('10/30')
   })
 })
 
