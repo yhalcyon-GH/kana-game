@@ -211,7 +211,13 @@ test('Final Graduation Test loads at 320px and reveals an answer', async ({ page
   await dismissIntroIfPresent(page)
   await expect(page.getByText(/Question 1 \/ 30/)).toBeVisible()
   await expectNoHorizontalPageOverflow(page)
-  await page.getByRole('button').nth(3).click()
+  const romajiFallback = page.getByRole('button', { name: 'Choose in Romaji' })
+  if (await romajiFallback.count()) {
+    await romajiFallback.click()
+    await page.getByTestId('word-reading-romaji-correct').click()
+  } else {
+    await page.getByRole('button').nth(3).click()
+  }
   await expect(page.getByText(/Next|Correct|Not quite/).first()).toBeVisible()
   await expectNoHorizontalPageOverflow(page)
 })
