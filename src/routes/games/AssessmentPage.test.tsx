@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useProgressStore } from '../../store/progressStore'
@@ -65,6 +65,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.restoreAllMocks()
 })
 
@@ -124,7 +125,47 @@ async function answerCurrentQuestionAnyWay() {
   await waitAndAdvanceIfPossible()
 }
 
+async function answerCurrentQuestionWithoutNext() {
+  if (screen.queryByTestId('word-reading-speak-button')) {
+    fireEvent.click(screen.getByText('Choose in Romaji'))
+    fireEvent.click(screen.getByTestId('word-reading-romaji-correct'))
+    return
+  }
+  const slots = document.querySelectorAll('.border-dashed')
+  if (slots.length > 0) {
+    for (let clicked = 0; clicked < slots.length; clicked++) {
+      const tile = document.querySelector<HTMLButtonElement>('button.font-kana:not(:disabled)')
+      if (tile) fireEvent.click(tile)
+    }
+    return
+  }
+  const choice = document.querySelector<HTMLButtonElement>('.grid.grid-cols-2 button')
+  if (choice) fireEvent.click(choice)
+}
+
 describe('AssessmentPage', () => {
+  it('keeps every question family on feedback until the learner presses Next', async () => {
+    renderAssessment('hiragana')
+    await screen.findByText('Question 1 / 20', { exact: false })
+    vi.useFakeTimers()
+    const seenFamilies = new Set<string>()
+    for (let questionNumber = 1; questionNumber <= 20; questionNumber++) {
+      const progress = screen.getByText(`Question ${questionNumber} / 20`, { exact: false })
+      const family = progress.textContent?.split('·')[1]?.trim()
+      if (family) seenFamilies.add(family)
+      const feedbackCallsBefore = tts.speak.mock.calls.filter(([key]) => String(key).startsWith('feedback/')).length
+      await answerCurrentQuestionWithoutNext()
+      expect(screen.getByRole('button', { name: 'Next' })).toBeInTheDocument()
+      expect(tts.speak.mock.calls.filter(([key]) => String(key).startsWith('feedback/'))).toHaveLength(feedbackCallsBefore + 1)
+      expect(screen.getByTestId('mascot-stage').querySelector('img')).not.toHaveAttribute('src', expect.stringContaining('normal.webp'))
+
+      act(() => vi.advanceTimersByTime(2500))
+      expect(screen.getByText(`Question ${questionNumber} / 20`, { exact: false })).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    }
+    expect(seenFamilies).toEqual(new Set(['Kana Quiz', 'Listening', 'Word Builder', 'Word Reading']))
+  }, 10000)
+
   it('renders a 20-question session and completes without gating on score', async () => {
     renderAssessment('hiragana')
     await screen.findByText(/Question 1 \/ 20/)
@@ -238,6 +279,25 @@ describe('AssessmentPage', () => {
       expect(freshRecognition).not.toBe(retryRecognition)
       expect(freshRecognition.start).toHaveBeenCalledTimes(1)
     })
+
+    it('uses only Tamamizu answer feedback after a successful spoken reading', async () => {
+      installFakeSpeechRecognition()
+      renderAssessment('hiragana')
+      await screen.findByText(/Question 1 \/ 20/)
+      for (let i = 0; i < 20 && !screen.queryByTestId('word-reading-speak-button'); i++) await answerCurrentQuestionAnyWay()
+
+      const targetKana = document.querySelector('[data-testid="word-reading-speak-button"]')
+        ?.parentElement?.parentElement?.querySelector('.font-kana')?.textContent
+      expect(targetKana).toBeTruthy()
+      const callCount = tts.speak.mock.calls.length
+      fireEvent.click(screen.getByTestId('word-reading-speak-button'))
+      FakeSpeechRecognition.instances.at(-1)!.result(targetKana!)
+
+      await screen.findByText('Correct!')
+      const answerCalls = tts.speak.mock.calls.slice(callCount)
+      expect(answerCalls.some(([key]) => String(key).startsWith('feedback/'))).toBe(true)
+      expect(answerCalls.some(([key]) => String(key).startsWith('words/'))).toBe(false)
+    })
   })
 
   describe('Word Builder (assessment mode)', () => {
@@ -285,10 +345,20 @@ describe('AssessmentPage', () => {
       </MemoryRouter>,
     )
 
+    const mistakeList = screen.getByTestId('assessment-mistake-list')
     for (const characterId of characterIds) {
       const character = CHARACTERS_BY_ID[characterId]
-      expect(screen.getAllByText((_, element) => element?.textContent?.includes(`${character.kana} — ${character.romaji}`) ?? false).length).toBeGreaterThan(0)
+      expect(mistakeList.textContent).toContain(character.kana)
+      expect(mistakeList.textContent).toContain(character.romaji)
     }
-    for (const word of words) expect(screen.getAllByText((_, element) => element?.textContent?.includes(`${word.kana} — ${word.romaji}`) ?? false).length).toBeGreaterThan(0)
+    for (const word of words) {
+      expect(mistakeList.textContent).toContain(word.kana)
+      expect(mistakeList.textContent).toContain(word.romaji)
+    }
+    expect(mistakeList.children).toHaveLength(characterIds.length + words.length)
+    expect([...mistakeList.children].every((entry) => entry.tagName === 'LI')).toBe(true)
+    expect(screen.getByTestId('assessment-result-status')).toHaveTextContent('FAIL')
+    expect(screen.getByTestId('assessment-result-image')).toHaveAttribute('src', expect.stringContaining('assessment-fail.png'))
+    expect(tts.speak).toHaveBeenCalledWith('feedback/assessment-results/assessment-fail', 'FAIL')
   })
 })

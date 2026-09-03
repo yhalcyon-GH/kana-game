@@ -4,9 +4,8 @@ import { Mascot, type MascotMood } from './Mascot'
 type Props = {
   mood: MascotMood
   // Whether the Next button should render this round — true on BOTH correct
-  // (in addition to the existing auto-advance timer) and wrong answers, but
-  // never before an answer is given. See onNext below for how a manual
-  // click interacts with the correct-answer auto-advance timer.
+  // and wrong answers, but never before an answer is given. Graded flows
+  // stay on their feedback state until the learner explicitly chooses Next.
   showNext: boolean
   onNext: () => void
   // Only ever passed on a WRONG answer (Save is never offered on correct —

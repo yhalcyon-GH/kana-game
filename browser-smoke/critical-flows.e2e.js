@@ -226,9 +226,24 @@ test('Sokuon/Chōon Test loads and reveals the blank answer at 320px', async ({ 
   const assessment = page.getByTestId('sound-length-assessment')
   await expect(assessment.getByText(/Question 1 \/ 20/)).toBeVisible()
   await expect(page.getByTestId('sound-length-prompt')).toBeVisible()
+  await expect(page.getByTestId('sound-length-blank')).toBeVisible()
   await expectNoHorizontalPageOverflow(page)
-  await assessment.getByRole('button').nth(3).click()
-  await expect(assessment.getByText(/(?:Next|[ぁ-んァ-ンーっッ]+)\s*\(/)).toBeVisible()
+  const answerChoices = assessment.locator('div.grid button')
+  for (let questionNumber = 1; questionNumber <= 20; questionNumber++) {
+    await expect(assessment.getByText(`Question ${questionNumber} / 20`)).toBeVisible()
+    await answerChoices.first().click()
+    const next = assessment.getByRole('button', { name: 'Next' })
+    await expect(next).toBeVisible()
+    if (questionNumber === 1) {
+      await page.waitForTimeout(1100)
+      await expect(assessment.getByText('Question 1 / 20')).toBeVisible()
+    }
+    await next.click()
+  }
+  await expect(page.getByTestId('assessment-result-status')).toHaveText(/FAIL|PASS|PERFECT/)
+  const resultImage = page.getByTestId('assessment-result-image')
+  await expect(resultImage).toBeVisible()
+  await expect.poll(() => resultImage.evaluate((image) => image.naturalWidth)).toBeGreaterThan(0)
   await expectNoHorizontalPageOverflow(page)
 })
 
