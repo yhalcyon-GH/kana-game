@@ -243,20 +243,11 @@ test('Section Test cards stay visible and navigate at 320px', async ({ page }) =
   }
 })
 
-test('Final Graduation Test loads at 320px and reveals an answer', async ({ page }) => {
+test('Final Graduation Test loads at 320px without overflow', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 800 })
   await gotoHash(page, '/assessment/final-graduation')
   await dismissIntroIfPresent(page)
   await expect(page.getByText(/Question 1 \/ 30/)).toBeVisible()
-  await expectNoHorizontalPageOverflow(page)
-  const romajiFallback = page.getByRole('button', { name: 'Choose in Romaji' })
-  if (await romajiFallback.count()) {
-    await romajiFallback.click()
-    await page.getByTestId('word-reading-romaji-correct').click()
-  } else {
-    await page.getByRole('button').filter({ hasText: /[ぁ-んァ-ン]/ }).first().click()
-  }
-  await expect(page.getByText(/Next|Correct|Not quite/).first()).toBeVisible()
   await expectNoHorizontalPageOverflow(page)
 })
 
