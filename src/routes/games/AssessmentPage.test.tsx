@@ -2,7 +2,10 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useProgressStore } from '../../store/progressStore'
-import { AssessmentPage } from './AssessmentPage'
+import { CHARACTERS_BY_ID } from '../../data/characters'
+import { WORDS_BY_ROW } from '../../data/words'
+import type { AssessmentAnswer } from '../../lib/assessmentResults'
+import { AssessmentPage, AssessmentResultsScreen } from './AssessmentPage'
 
 const tts = vi.hoisted(() => ({ speak: vi.fn(), speakAndWait: vi.fn(), speakStaticOnly: vi.fn(), stop: vi.fn(), supported: true }))
 vi.mock('../../hooks/useTTS', () => ({ useTTS: () => tts }))
@@ -255,5 +258,37 @@ describe('AssessmentPage', () => {
       // 🔊 prompt icon, matching the "before answering" hidden state).
       expect(screen.getByText('🔊')).toBeInTheDocument()
     })
+  })
+
+  it('lists every distinct kana and word missed in a result, beyond the former display caps', () => {
+    const characterIds = ['a', 'i', 'u', 'e', 'o', 'ka', 'ki']
+    const words = Object.values(WORDS_BY_ROW).flat().slice(0, 6)
+    const answers: AssessmentAnswer[] = [
+      ...characterIds.map((characterId) => ({
+        question: { family: 'kana-quiz' as const, characterId, direction: 'kana-to-sound' as const },
+        correct: false,
+      })),
+      ...words.map((word) => ({
+        question: { family: 'word-reading' as const, word, direction: 'kana-to-sound' as const },
+        correct: false,
+      })),
+    ]
+
+    render(
+      <MemoryRouter>
+        <AssessmentResultsScreen
+          script="hiragana"
+          config={{ categoryId: 'hiragana', summaryRowId: 'hiragana-summary', label: 'Hiragana Test' }}
+          answers={answers}
+          onRetry={vi.fn()}
+        />
+      </MemoryRouter>,
+    )
+
+    for (const characterId of characterIds) {
+      const character = CHARACTERS_BY_ID[characterId]
+      expect(screen.getAllByText((_, element) => element?.textContent?.includes(`${character.kana} — ${character.romaji}`) ?? false).length).toBeGreaterThan(0)
+    }
+    for (const word of words) expect(screen.getAllByText((_, element) => element?.textContent?.includes(`${word.kana} — ${word.romaji}`) ?? false).length).toBeGreaterThan(0)
   })
 })

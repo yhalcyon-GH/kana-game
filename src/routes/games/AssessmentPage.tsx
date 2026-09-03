@@ -640,7 +640,7 @@ function AssessmentWordReadingQuestion({
   )
 }
 
-function AssessmentResultsScreen({
+export function AssessmentResultsScreen({
   script,
   config,
   answers,
@@ -658,11 +658,9 @@ function AssessmentResultsScreen({
   const weakKana = results.weakCharacterIds
     .map((id) => CHARACTERS_BY_ID[id]?.kana)
     .filter((kana): kana is string => Boolean(kana))
-    .slice(0, 6)
   const weakWords = results.weakWordIds
-    .map((id) => answers.find((answer) => answer.question.word?.id === id)?.question.word?.kana)
-    .filter((kana): kana is string => Boolean(kana))
-    .slice(0, 5)
+    .map((id) => answers.find((answer) => answer.question.word?.id === id)?.question.word)
+    .filter((word): word is AnchorWord => Boolean(word))
 
   return (
     <div className="flex w-full flex-col items-center gap-6">
@@ -690,8 +688,8 @@ function AssessmentResultsScreen({
       {(weakKana.length > 0 || weakWords.length > 0) && (
         <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-center dark:border-neutral-700 dark:bg-neutral-900">
           <h2 className="font-bold">Missed this round</h2>
-          {weakKana.length > 0 && <p className="mt-2 font-kana text-xl font-semibold tracking-widest">{weakKana.map((kana) => `${kana} — ${kanaToRomaji(kana)}`).join('　')}</p>}
-          {weakWords.length > 0 && <p className="mt-2 font-kana text-base">{weakWords.map((kana) => { const word = answers.find((answer) => answer.question.word?.kana === kana)?.question.word; return word ? `${word.kana} — ${word.romaji}` : kana }).join('　')}</p>}
+          {weakKana.length > 0 && <p className="mt-2 break-words font-kana text-xl font-semibold tracking-widest">{weakKana.map((kana) => `${kana} — ${kanaToRomaji(kana)}`).join('　')}</p>}
+          {weakWords.length > 0 && <p className="mt-2 break-words font-kana text-base">{weakWords.map((word) => `${word.kana} — ${word.romaji}`).join('　')}</p>}
         </div>
       )}
 
