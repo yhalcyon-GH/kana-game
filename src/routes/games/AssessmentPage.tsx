@@ -28,6 +28,7 @@ import { pickDistractorCharIds, pickDistractorWords } from '../../lib/distractor
 import { kanaToRomaji } from '../../lib/kanaToRomaji'
 import { shuffle } from '../../lib/shuffle'
 import { buildFlatTargetTiles, displayGlyphsForCharId, type FlatTargetTile } from '../../lib/wordBuilderTiles'
+import { removeWordBuilderSlot, toggleWordBuilderTrayTile, type WordBuilderTrayTile } from '../../lib/wordBuilderPlacement'
 import { useProgressStore, type AssessmentScript } from '../../store/progressStore'
 import { SoundLengthAssessmentPage } from './SoundLengthAssessmentPage'
 
@@ -373,8 +374,9 @@ function AssessmentWordBuilderQuestion({
 }) {
   const { speak, supported } = useTTS()
   const [slots, setSlots] = useState<(string | null)[]>([])
-  const [tray, setTray] = useState<{ key: string; glyph: string; placed: boolean }[]>([])
+  const [tray, setTray] = useState<WordBuilderTrayTile[]>([])
   const [status, setStatus] = useState<'playing' | 'correct' | 'wrong'>('playing')
+  const [resultRecorded, setResultRecorded] = useState(false)
   const [targetTiles, setTargetTiles] = useState<FlatTargetTile[]>([])
 
   useEffect(() => {
@@ -386,13 +388,15 @@ function AssessmentWordBuilderQuestion({
     setTargetTiles(flatTarget)
     setSlots(new Array(flatTarget.length).fill(null))
     setStatus('playing')
+    setResultRecorded(false)
     speak(`words/${word.id}`, word.audioText ?? word.kana)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [word.id])
 
   useEffect(() => {
-    if (status !== 'playing') return
+    if (resultRecorded) return
     if (slots.length === 0 || slots.some((slot) => slot === null)) return
+    setResultRecorded(true)
     const placedGlyphs = slots.map((key) => tray.find((tile) => tile.key === key)?.glyph)
     const isCorrect = placedGlyphs.every((glyph, index) => glyph === targetTiles[index]?.glyph)
     if (isCorrect) {
@@ -405,27 +409,18 @@ function AssessmentWordBuilderQuestion({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slots])
 
-  const handleTrayClick = (tile: { key: string; glyph: string; placed: boolean }) => {
-    if (tile.placed || status !== 'playing') return
-    const emptyIndex = slots.findIndex((slot) => slot === null)
-    if (emptyIndex === -1) return
-    setSlots((prev) => {
-      const next = [...prev]
-      next[emptyIndex] = tile.key
-      return next
-    })
-    setTray((prev) => prev.map((item) => (item.key === tile.key ? { ...item, placed: true } : item)))
+  const handleTrayClick = (tile: WordBuilderTrayTile) => {
+    if (status === 'correct') return
+    const next = toggleWordBuilderTrayTile({ slots, tray }, tile.key)
+    setSlots(next.slots)
+    setTray(next.tray)
   }
 
   const handleSlotClick = (index: number) => {
-    const key = slots[index]
-    if (!key || status !== 'playing') return
-    setSlots((prev) => {
-      const next = [...prev]
-      next[index] = null
-      return next
-    })
-    setTray((prev) => prev.map((item) => (item.key === key ? { ...item, placed: false } : item)))
+    if (status === 'correct') return
+    const next = removeWordBuilderSlot({ slots, tray }, index)
+    setSlots(next.slots)
+    setTray(next.tray)
   }
 
   return (
@@ -451,7 +446,7 @@ function AssessmentWordBuilderQuestion({
         )}
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex max-w-full flex-wrap justify-center gap-2">
         {slots.map((key, index) => {
           const tile = key ? tray.find((item) => item.key === key) : undefined
           return (
@@ -483,7 +478,7 @@ function AssessmentWordBuilderQuestion({
 
       <div className="flex flex-wrap justify-center gap-2">
         {tray.map((tile) => (
-          <KanaTile key={tile.key} kana={tile.glyph} disabled={tile.placed || status !== 'playing'} onClick={() => handleTrayClick(tile)} />
+          <KanaTile key={tile.key} kana={tile.glyph} disabled={status === 'correct'} pressed={tile.placed} onClick={() => handleTrayClick(tile)} />
         ))}
       </div>
     </div>
@@ -554,7 +549,7 @@ function AssessmentWordReadingQuestion({
   return (
     <div className="flex w-full flex-col items-center gap-6">
       <div className="flex flex-col items-center gap-2">
-        <span className="font-kana text-6xl font-bold whitespace-nowrap"><UnbreakableKana kana={word.kana} /></span>
+        <span className="font-kana max-w-full whitespace-nowrap text-4xl font-bold sm:text-6xl"><UnbreakableKana kana={word.kana} /></span>
       </div>
 
       {finalResult && (

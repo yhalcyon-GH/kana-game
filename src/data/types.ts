@@ -127,4 +127,8 @@ export type AnchorWord = {
   image?: string
   characterIds: string[]
   audioText?: string
+  // Explicit speech-recognition variants for this word only. Keep this
+  // curated: generic fuzzy matching can turn a different real word into a
+  // false positive (for example きやく vs きゃく).
+  recognitionAliases?: string[]
 }

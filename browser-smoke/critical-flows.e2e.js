@@ -109,7 +109,7 @@ async function reachWordReadingQuestion(page) {
     if (await wordBuilderSlot.isVisible().catch(() => false)) {
       const emptySlots = () => page.locator('button.border-dashed').filter({ has: page.locator('span.font-kana:empty') })
       while (await emptySlots().count() > 0) {
-        await page.locator('button.font-kana:not(.border-dashed):not([disabled])').first().click()
+        await page.locator('button.font-kana[aria-pressed="false"]:not(.border-dashed):not([disabled])').first().click()
       }
     } else if ((await choiceButtons.count()) > 0) {
       await choiceButtons.first().click()
@@ -229,9 +229,12 @@ test('Sokuon/Chōon Test loads and reveals the blank answer at 320px', async ({ 
   await expect(page.getByTestId('sound-length-blank')).toBeVisible()
   await expectNoHorizontalPageOverflow(page)
   const answerChoices = assessment.locator('div.grid button')
+  let sawNoInsertionContrast = false
   for (let questionNumber = 1; questionNumber <= 20; questionNumber++) {
     await expect(assessment.getByText(`Question ${questionNumber} / 20`)).toBeVisible()
-    await answerChoices.first().click()
+    const noInsertion = answerChoices.filter({ hasText: '×' })
+    await noInsertion.click()
+    if ((await noInsertion.getAttribute('class'))?.includes('border-green-500')) sawNoInsertionContrast = true
     const next = assessment.getByRole('button', { name: 'Next' })
     await expect(next).toBeVisible()
     if (questionNumber === 1) {
@@ -240,6 +243,7 @@ test('Sokuon/Chōon Test loads and reveals the blank answer at 320px', async ({ 
     }
     await next.click()
   }
+  expect(sawNoInsertionContrast).toBe(true)
   await expect(page.getByTestId('assessment-result-status')).toHaveText(/FAIL|PASS|PERFECT/)
   const resultImage = page.getByTestId('assessment-result-image')
   await expect(resultImage).toBeVisible()
@@ -259,10 +263,61 @@ test('Section Test cards stay visible and navigate at 320px', async ({ page }) =
     await gotoHash(page, section)
     const card = page.getByTestId(cardId)
     await expect(card).toBeVisible()
+    await expect(card).toContainText('80%+ to pass')
     await expectNoHorizontalPageOverflow(page)
     await card.click()
     await expect(page).toHaveURL(new RegExp(`#${route.replace('/', '\\/')}`))
   }
+})
+
+test('Katakana Test card shows a persisted PERFECT result clearly', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 800 })
+  await seedProgressState(page, {
+    assessmentCompletion: {
+      katakana: { completed: true, lastScore: { correct: 20, total: 20 }, completedAt: 1 },
+    },
+  })
+  await gotoHash(page, '/katakana')
+  const card = page.getByTestId('assessment-card-katakana')
+  await expect(card.getByTestId('assessment-card-katakana-status')).toHaveText('👑 PERFECT')
+  await expect(card.getByTestId('assessment-card-katakana-score')).toHaveText('20/20')
+  await expectNoHorizontalPageOverflow(page)
+})
+
+test('long Word Builder stays within 320px and placed tiles can return from the tray', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 800 })
+  await gotoHash(page, '/practice/special-katakana/special-katakana-she-row/word-builder')
+
+  for (let round = 1; round <= 8; round += 1) {
+    const progress = page.getByText(new RegExp(`Round ${round} / 8`))
+    await expect(progress).toBeVisible()
+    const slots = page.locator('button.border-dashed')
+    if (await slots.count() >= 5) {
+      await expectNoHorizontalPageOverflow(page)
+      const slotGroup = slots.first().locator('..')
+      const box = await slotGroup.boundingBox()
+      expect(box).not.toBeNull()
+      expect(box.x + box.width).toBeLessThanOrEqual(320.5)
+
+      const unplacedTiles = page.locator('button.font-kana[aria-pressed="false"]:not(.border-dashed):not([disabled])')
+      const initialUnplacedCount = await unplacedTiles.count()
+      await unplacedTiles.first().click()
+      const placedTile = page.locator('button.font-kana[aria-pressed="true"]:not(.border-dashed):not([disabled])')
+      await expect(placedTile).toHaveCount(1)
+      await placedTile.click()
+      await expect(placedTile).toHaveCount(0)
+      await expect(unplacedTiles).toHaveCount(initialUnplacedCount)
+      return
+    }
+
+    while (await slots.locator('span.font-kana:empty').count() > 0) {
+      await page.locator('button.font-kana[aria-pressed="false"]:not(.border-dashed):not([disabled])').first().click()
+    }
+    const next = page.getByRole('button', { name: 'Next' })
+    if (await next.isVisible().catch(() => false)) await next.click()
+    else await expect(progress).toBeHidden({ timeout: 3500 })
+  }
+  throw new Error('Did not reach a long real Word Builder word')
 })
 
 test('Final Graduation Test loads at 320px without overflow', async ({ page }) => {

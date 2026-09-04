@@ -1,9 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import { WORDS_BY_ROW } from '../data/words'
-import { buildSoundLengthAssessmentPlan, buildSoundLengthPrompt, createSoundLengthRng } from './soundLengthAssessmentPlan'
+import { buildSoundLengthAssessmentPlan, createSoundLengthRng } from './soundLengthAssessmentPlan'
 
 describe('sound-length assessment plan', () => {
   const words = Object.entries(WORDS_BY_ROW).filter(([rowId]) => rowId === 'sokuon-row' || rowId.startsWith('chouon-')).flatMap(([, rowWords]) => rowWords)
+
+  function questionsAcrossSeeds() {
+    const byWordId = new Map<string, ReturnType<typeof buildSoundLengthAssessmentPlan>['questions'][number]>()
+    for (let seed = 0; seed < 250 && byWordId.size < words.length; seed++) {
+      for (const question of buildSoundLengthAssessmentPlan(words, createSoundLengthRng(seed)).questions) {
+        byWordId.set(question.word.id, question)
+      }
+    }
+    return byWordId
+  }
   it('builds the required mixed 5/10/5 assessment deterministically', () => {
     const first = buildSoundLengthAssessmentPlan(words, createSoundLengthRng(42))
     const second = buildSoundLengthAssessmentPlan(words, createSoundLengthRng(42))
@@ -35,16 +45,71 @@ describe('sound-length assessment plan', () => {
   })
 
   it.each([
-    ['chouon-o-ohayou', 'う', 'long-vowel', 'おはよ□'],
-    ['chouon-e-oneesan', 'え', 'long-vowel', 'おね□さん'],
-    ['chouon-katakana-koohii', 'ー', 'long-vowel', 'コ□ヒー'],
-  ] as const)('places the blank at the spelling decision for %s', (id, correct, domain, expected) => {
-    const word = words.find((candidate) => candidate.id === id)!
-    expect(buildSoundLengthPrompt(word, correct, domain)).toBe(expected)
+    ['chouon-i-ojisan', 'おじ□さん', '×', 'no-insertion'],
+    ['chouon-i-ojiisan', 'おじ□さん', 'い', 'long-vowel'],
+    ['chouon-a-obasan', 'おば□さん', '×', 'no-insertion'],
+    ['chouon-a-obaasan', 'おば□さん', 'あ', 'long-vowel'],
+    ['sokuon-oto', 'お□と', '×', 'no-insertion'],
+    ['sokuon-otto', 'お□と', 'っ', 'sokuon'],
+    ['sokuon-kako', 'か□こ', '×', 'no-insertion'],
+    ['sokuon-kakko', 'か□こ', 'っ', 'sokuon'],
+    ['chouon-katakana-biru', 'ビ□ル', '×', 'no-insertion'],
+    ['chouon-katakana-biiru', 'ビ□ル', 'ー', 'long-vowel'],
+    ['chouon-o-ohayou', 'おはよ□', 'う', 'long-vowel'],
+    ['chouon-e-oneesan', 'おね□さん', 'え', 'long-vowel'],
+  ] as const)('uses the explicit spelling decision for %s', (id, prompt, correct, domain) => {
+    const question = questionsAcrossSeeds().get(id)
+    expect(question).toMatchObject({ prompt, correct, domain })
   })
 
-  it('places a sokuon blank exactly where っ belongs', () => {
-    const word = { id: 'sokuon-gakkou', kana: 'がっこう', romaji: 'gakkou', meaning: 'school', characterIds: ['ga', 'sokuon', 'ko', 'u'] }
-    expect(buildSoundLengthPrompt(word, 'っ', 'sokuon')).toBe('が□こう')
+  it('covers every registered Sound Length word with an internally valid explicit decision', () => {
+    const questions = questionsAcrossSeeds()
+    expect([...questions.keys()].sort()).toEqual(words.map((word) => word.id).sort())
+
+    for (const word of words) {
+      const question = questions.get(word.id)!
+      if (question.correct === '×') {
+        expect(question.prompt.replace('□', '')).toBe(word.kana)
+      } else {
+        expect(question.prompt.replace('□', question.correct)).toBe(word.kana)
+      }
+    }
+  })
+
+  it('always includes the direct contrast choice for every no-insertion word', () => {
+    const expectedContrastChoiceById: Record<string, string> = {
+      'sokuon-oto': 'っ',
+      'sokuon-kako': 'っ',
+      'sokuon-katakana-bagu': 'ッ',
+      'sokuon-kite': 'っ',
+      'sokuon-mate': 'っ',
+      'sokuon-mote': 'っ',
+      'sokuon-iki': 'っ',
+      'sokuon-machi': 'っ',
+      'chouon-a-obasan': 'あ',
+      'chouon-i-ojisan': 'い',
+      'chouon-katakana-biru': 'ー',
+    }
+    const seen = new Set<string>()
+
+    for (let seed = 0; seed < 250; seed++) {
+      for (const question of buildSoundLengthAssessmentPlan(words, createSoundLengthRng(seed)).questions) {
+        const contrastChoice = expectedContrastChoiceById[question.word.id]
+        if (!contrastChoice) continue
+        seen.add(question.word.id)
+        expect(question.correct).toBe('×')
+        expect(question.choices).toContain('×')
+        expect(question.choices).toContain(contrastChoice)
+      }
+    }
+
+    expect([...seen].sort()).toEqual(Object.keys(expectedContrastChoiceById).sort())
+  })
+
+  it('fails closed when Sound Length vocabulary is added without an explicit decision spec', () => {
+    expect(() => buildSoundLengthAssessmentPlan([
+      ...words,
+      { id: 'new-unmapped-word', kana: 'てすと', romaji: 'tesuto', meaning: 'test', characterIds: ['te', 'su', 'to'] },
+    ], createSoundLengthRng(1))).toThrow(/explicit Sound Length spec.*new-unmapped-word/i)
   })
 })
