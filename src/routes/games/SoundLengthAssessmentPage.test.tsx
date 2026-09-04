@@ -17,7 +17,24 @@ vi.mock('../../lib/soundLengthAssessmentPlan', async (importOriginal) => {
 const word = WORDS_BY_ROW['sokuon-row'][0]
 const question: SoundLengthQuestion = {
   domain: 'no-insertion', word, prompt: `${word.kana[0]}□${word.kana.slice(1)}`,
-  correct: '×', choices: ['×', 'っ'], diagnostic: 'no-insertion',
+  blankIndex: 1, correct: '×', choices: ['×', 'っ'], diagnostic: 'no-insertion',
+}
+
+const soundLengthWords = Object.entries(WORDS_BY_ROW)
+  .filter(([rowId]) => rowId === 'sokuon-row' || rowId.startsWith('chouon-'))
+  .flatMap(([, rowWords]) => rowWords)
+
+function questionFor(wordId: string, blankIndex: number, correct: string): SoundLengthQuestion {
+  const matchingWord = soundLengthWords.find((candidate) => candidate.id === wordId)!
+  return {
+    domain: correct === '×' ? 'no-insertion' : correct === 'っ' || correct === 'ッ' ? 'sokuon' : 'long-vowel',
+    word: matchingWord,
+    prompt: '',
+    blankIndex,
+    correct,
+    choices: [correct],
+    diagnostic: correct === '×' ? 'no-insertion' : 'hiragana-vowel',
+  }
 }
 
 describe('SoundLengthAssessmentPage', () => {
@@ -78,5 +95,41 @@ describe('SoundLengthAssessmentPage', () => {
     expect(screen.getByRole('button', { name: 'Play Again' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Continue' })).toHaveAttribute('href', '/youon')
     expect(screen.getByRole('link', { name: 'Back' })).toHaveAttribute('href', '/other')
+  })
+
+  it.each([
+    ['chouon-o-otouto', 2, 'う', 'おとうと'],
+    ['chouon-i-ojiisan', 2, 'い', 'おじいさん'],
+    ['sokuon-otto', 1, 'っ', 'おっと'],
+    ['chouon-katakana-biiru', 1, 'ー', 'ビール'],
+  ] as const)('highlights only the inserted character in the completed word for %s', (wordId, blankIndex, correct, completedWord) => {
+    const revealQuestion = questionFor(wordId, blankIndex, correct)
+    soundPlan.build.mockReturnValue({ questions: Array.from({ length: 20 }, () => revealQuestion) })
+    render(<MemoryRouter><SoundLengthAssessmentPage /></MemoryRouter>)
+
+    fireEvent.click(screen.getByRole('button', { name: correct }))
+
+    const reveal = screen.getByTestId('sound-length-word-reveal')
+    const highlighted = screen.getByTestId('sound-length-correct-character')
+    expect(reveal).toHaveTextContent(completedWord)
+    expect(reveal).not.toHaveTextContent(`(${correct})`)
+    expect(highlighted).toHaveTextContent(correct)
+    expect(highlighted).toHaveClass('text-red-600')
+  })
+
+  it.each([
+    ['chouon-i-ojisan', 2, 'おじさん'],
+    ['chouon-a-obasan', 2, 'おばさん'],
+  ] as const)('shows a no-insertion answer without a parenthetical or red character for %s', (wordId, blankIndex, completedWord) => {
+    const revealQuestion = questionFor(wordId, blankIndex, '×')
+    soundPlan.build.mockReturnValue({ questions: Array.from({ length: 20 }, () => revealQuestion) })
+    render(<MemoryRouter><SoundLengthAssessmentPage /></MemoryRouter>)
+
+    fireEvent.click(screen.getByRole('button', { name: '×' }))
+
+    const reveal = screen.getByTestId('sound-length-word-reveal')
+    expect(reveal).toHaveTextContent(completedWord)
+    expect(reveal).not.toHaveTextContent('(×)')
+    expect(screen.queryByTestId('sound-length-correct-character')).not.toBeInTheDocument()
   })
 })

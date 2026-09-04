@@ -5,6 +5,7 @@ export type SoundLengthQuestion = {
   domain: SoundLengthDomain
   word: AnchorWord
   prompt: string
+  blankIndex: number
   correct: string
   choices: string[]
   diagnostic: 'sokuon' | 'hiragana-vowel' | 'katakana-chouon' | 'no-insertion'
@@ -129,7 +130,7 @@ export function buildSoundLengthAssessmentPlan(words: readonly AnchorWord[], rng
   const make = (domain: SoundLengthDomain, word: AnchorWord): SoundLengthQuestion => {
     const spec = SOUND_LENGTH_QUESTION_SPECS[word.id]
     const correct = spec.correct
-    return { domain, word, prompt: promptFromSpec(word, spec), correct, choices: choicesFor(word, spec, rng), diagnostic: domain === 'sokuon' ? 'sokuon' : domain === 'no-insertion' ? 'no-insertion' : correct === 'ー' ? 'katakana-chouon' : 'hiragana-vowel' }
+    return { domain, word, prompt: promptFromSpec(word, spec), blankIndex: spec.blankIndex, correct, choices: choicesFor(word, spec, rng), diagnostic: domain === 'sokuon' ? 'sokuon' : domain === 'no-insertion' ? 'no-insertion' : correct === 'ー' ? 'katakana-chouon' : 'hiragana-vowel' }
   }
   const blocks = {
     sokuon: shuffle(sokuon.map((w) => make('sokuon', w)), rng),
