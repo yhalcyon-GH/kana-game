@@ -15,11 +15,12 @@ function normalizeRomaji(text: string): string {
   return text.normalize('NFKC').toLocaleLowerCase().replace(/[\s\-‐‑‒–—'’・,.!?！？。、]/gu, '')
 }
 
-// A transcript "reads" the target word correctly if its normalized form
-// contains the word's normalized kana spelling. `includes` (not exact
-// equality) tolerates SpeechRecognition sometimes prepending/appending
-// filler the target word itself doesn't have (e.g. a trailing 。 already
-// stripped by normalizeJapanese, or an honorific/particle artifact).
+// A transcript reads the target only when it exactly matches one of that
+// target's normalized representations. Unlike Restaurant/Cafe ordering,
+// Word Reading assesses a single displayed word, so surrounding conversation
+// or a longer word must not count as correct. Curated recognition aliases
+// exist only for safe ASR representations of the same pronunciation — never
+// to accept a learner's different pronunciation.
 export function checkWordReading(rawTranscript: string, target: AnchorWord): WordReadingCheckResult {
   const normalizedTranscript = normalizeJapanese(rawTranscript)
   if (!normalizedTranscript) return { outcome: 'unrecognized' }
@@ -27,11 +28,11 @@ export function checkWordReading(rawTranscript: string, target: AnchorWord): Wor
     .filter((alias): alias is string => Boolean(alias))
     .map(normalizeJapanese)
     .filter(Boolean)
-  if (japaneseAliases.some((alias) => normalizedTranscript.includes(alias))) return { outcome: 'success' }
+  if (japaneseAliases.some((alias) => normalizedTranscript === alias)) return { outcome: 'success' }
 
   const normalizedRomajiTranscript = normalizeRomaji(rawTranscript)
   const normalizedTargetRomaji = normalizeRomaji(target.romaji)
-  return normalizedTargetRomaji && normalizedRomajiTranscript.includes(normalizedTargetRomaji)
+  return normalizedTargetRomaji && normalizedRomajiTranscript === normalizedTargetRomaji
     ? { outcome: 'success' }
     : { outcome: 'incorrect' }
 }

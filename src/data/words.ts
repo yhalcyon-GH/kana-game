@@ -438,7 +438,7 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     // both forms.
   ],
   'youon-sha-row': [
-    { id: 'youon-sha-shashin', kana: 'しゃしん', romaji: 'shashin', meaning: 'photo', image: 'word-icons/youon-sha-shashin.webp', characterIds: ['sha', 'shi', 'n'], audioText: '写真', recognitionAliases: ['しやしん'] },
+    { id: 'youon-sha-shashin', kana: 'しゃしん', romaji: 'shashin', meaning: 'photo', image: 'word-icons/youon-sha-shashin.webp', characterIds: ['sha', 'shi', 'n'], audioText: '写真' },
     { id: 'youon-sha-densha', kana: 'でんしゃ', romaji: 'densha', meaning: 'train', image: 'word-icons/youon-sha-densha.webp', characterIds: ['de', 'n', 'sha'], audioText: '電車' },
     { id: 'youon-sha-kaisha', kana: 'かいしゃ', romaji: 'kaisha', meaning: 'company', image: 'word-icons/youon-sha-kaisha.webp', characterIds: ['ka', 'i', 'sha'], audioText: '会社' },
     { id: 'youon-sha-jisho', kana: 'じしょ', romaji: 'jisho', meaning: 'dictionary', image: 'word-icons/youon-sha-jisho.webp', characterIds: ['ji', 'sho'], audioText: '辞書' },
@@ -459,7 +459,7 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'youon-cha-na-ocha', kana: 'おちゃ', romaji: 'ocha', meaning: 'tea', image: 'word-icons/youon-cha-na-ocha.webp', characterIds: ['o', 'cha'], audioText: 'お茶' },
     { id: 'youon-cha-na-chawan', kana: 'ちゃわん', romaji: 'chawan', meaning: 'rice bowl', image: 'word-icons/youon-cha-na-chawan.webp', characterIds: ['cha', 'wa', 'n'], audioText: '茶碗。' },
     { id: 'youon-cha-na-chou', kana: 'ちょう', romaji: 'chou', meaning: 'butterfly', image: 'word-icons/youon-cha-na-chou.webp', characterIds: ['cho', 'u'] },
-    { id: 'youon-cha-na-chuui', kana: 'ちゅうい', romaji: 'chuui', meaning: 'caution / attention', image: 'word-icons/youon-cha-na-chuui.webp', characterIds: ['chu', 'u', 'i'], audioText: '注意。', recognitionAliases: ['ちゆうい'] },
+    { id: 'youon-cha-na-chuui', kana: 'ちゅうい', romaji: 'chuui', meaning: 'caution / attention', image: 'word-icons/youon-cha-na-chuui.webp', characterIds: ['chu', 'u', 'i'], audioText: '注意。' },
     { id: 'youon-cha-na-omocha', kana: 'おもちゃ', romaji: 'omocha', meaning: 'toy', image: 'word-icons/youon-cha-na-omocha.webp', characterIds: ['o', 'mo', 'cha'] },
     { id: 'youon-cha-na-chokin', kana: 'ちょきん', romaji: 'chokin', meaning: 'savings', image: 'word-icons/youon-cha-na-chokin.webp', characterIds: ['cho', 'ki', 'n'], audioText: '貯金' },
     { id: 'youon-cha-na-nyuuin', kana: 'にゅういん', romaji: 'nyuuin', meaning: 'hospitalization', image: 'word-icons/youon-cha-na-nyuuin.webp', characterIds: ['nyu', 'u', 'i', 'n'], audioText: '入院。' },
@@ -486,10 +486,10 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
   'youon-ma-ra-row': [
     { id: 'youon-ma-ra-myouji', kana: 'みょうじ', romaji: 'myouji', meaning: 'surname / family name', image: 'word-icons/youon-ma-ra-myouji.webp', characterIds: ['myo', 'u', 'ji'], audioText: '名字。' },
     { id: 'youon-ma-ra-myaku', kana: 'みゃく', romaji: 'myaku', meaning: 'pulse', image: 'word-icons/youon-ma-ra-myaku.webp', characterIds: ['mya', 'ku'], audioText: '脈' },
-    { id: 'youon-ma-ra-bimyou', kana: 'びみょう', romaji: 'bimyou', meaning: 'subtle / delicate', image: 'word-icons/youon-ma-ra-bimyou.webp', characterIds: ['bi', 'myo', 'u'], recognitionAliases: ['びみよう', '微妙'] },
+    { id: 'youon-ma-ra-bimyou', kana: 'びみょう', romaji: 'bimyou', meaning: 'subtle / delicate', image: 'word-icons/youon-ma-ra-bimyou.webp', characterIds: ['bi', 'myo', 'u'], recognitionAliases: ['微妙'] },
     { id: 'youon-ma-ra-ryokou', kana: 'りょこう', romaji: 'ryokou', meaning: 'travel / trip', image: 'word-icons/youon-ma-ra-ryokou.webp', characterIds: ['ryo', 'ko', 'u'], audioText: '旅行。' },
     { id: 'youon-ma-ra-ryouri', kana: 'りょうり', romaji: 'ryouri', meaning: 'cooking / cuisine', image: 'word-icons/youon-ma-ra-ryouri.webp', characterIds: ['ryo', 'u', 'ri'], audioText: '料理' },
-    { id: 'youon-ma-ra-ryokan', kana: 'りょかん', romaji: 'ryokan', meaning: 'traditional Japanese inn', image: 'word-icons/youon-ma-ra-ryokan.webp', characterIds: ['ryo', 'ka', 'n'], recognitionAliases: ['りよかん', '旅館'] },
+    { id: 'youon-ma-ra-ryokan', kana: 'りょかん', romaji: 'ryokan', meaning: 'traditional Japanese inn', image: 'word-icons/youon-ma-ra-ryokan.webp', characterIds: ['ryo', 'ka', 'n'], recognitionAliases: ['旅館'] },
   ],
 
   // ===== 拗音 (yōon) vocabulary — カタカナ =====
@@ -500,7 +500,7 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
   // ギョーザ removed here — kept only as ぎょうざ in youon-ka-row, same
   // duplicate-meaning fix as elsewhere in this category (2026-08-15).
   'youon-katakana-ka-row': [
-    { id: 'youon-katakana-ka-kyabetsu', kana: 'キャベツ', romaji: 'kyabetsu', meaning: 'cabbage', image: 'word-icons/youon-katakana-ka-kyabetsu.webp', characterIds: ['katakana-kya', 'katakana-be', 'katakana-tsu'], recognitionAliases: ['キヤベツ'] },
+    { id: 'youon-katakana-ka-kyabetsu', kana: 'キャベツ', romaji: 'kyabetsu', meaning: 'cabbage', image: 'word-icons/youon-katakana-ka-kyabetsu.webp', characterIds: ['katakana-kya', 'katakana-be', 'katakana-tsu'] },
     { id: 'youon-katakana-ka-kyanpu', kana: 'キャンプ', romaji: 'kyanpu', meaning: 'camp', image: 'word-icons/youon-katakana-ka-kyanpu.webp', characterIds: ['katakana-kya', 'katakana-n', 'katakana-pu'] },
     { id: 'youon-katakana-ka-gyagu', kana: 'ギャグ', romaji: 'gyagu', meaning: 'gag / joke', image: 'word-icons/youon-katakana-ka-gyagu.webp', characterIds: ['katakana-gya', 'katakana-gu'] },
     { id: 'youon-katakana-ka-kyuuri', kana: 'キュウリ', romaji: 'kyuuri', meaning: 'cucumber (katakana spelling)', image: 'word-icons/youon-katakana-ka-kyuuri.webp', characterIds: ['katakana-kyu', 'katakana-u', 'katakana-ri'] },
@@ -512,7 +512,7 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'youon-katakana-sha-shuuto', kana: 'シュート', romaji: 'shuuto', meaning: 'shoot (sports)', image: 'word-icons/youon-katakana-sha-shuuto.webp', characterIds: ['katakana-shu', 'katakana-chouon', 'katakana-to'] },
     { id: 'youon-katakana-sha-shooto', kana: 'ショート', romaji: 'shooto', meaning: 'short', image: 'word-icons/youon-katakana-sha-shooto.webp', characterIds: ['katakana-sho', 'katakana-chouon', 'katakana-to'] },
     { id: 'youon-katakana-sha-jamu', kana: 'ジャム', romaji: 'jamu', meaning: 'jam', image: 'word-icons/youon-katakana-sha-jamu.webp', characterIds: ['katakana-ja', 'katakana-mu'] },
-    { id: 'youon-katakana-sha-juusu', kana: 'ジュース', romaji: 'juusu', meaning: 'juice', image: 'word-icons/youon-katakana-sha-juusu.webp', characterIds: ['katakana-ju', 'katakana-chouon', 'katakana-su'], recognitionAliases: ['ジユース'] },
+    { id: 'youon-katakana-sha-juusu', kana: 'ジュース', romaji: 'juusu', meaning: 'juice', image: 'word-icons/youon-katakana-sha-juusu.webp', characterIds: ['katakana-ju', 'katakana-chouon', 'katakana-su'] },
     { id: 'youon-katakana-sha-jogingu', kana: 'ジョギング', romaji: 'jogingu', meaning: 'jogging', image: 'word-icons/youon-katakana-sha-jogingu.webp', characterIds: ['katakana-jo', 'katakana-gi', 'katakana-n', 'katakana-gu'] },
   ],
   // チャ行 + ニャ行 merged into one row (2026-08-15), mirroring the
@@ -570,7 +570,7 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'special-katakana-fa-fan', kana: 'ファン', romaji: 'fan', meaning: 'fan (of a celebrity/show/etc.)', image: 'word-icons/special-katakana-fa-fan.webp', characterIds: ['katakana-fa', 'katakana-n'] },
     { id: 'special-katakana-fa-sofa', kana: 'ソファ', romaji: 'sofa', meaning: 'sofa', image: 'word-icons/special-katakana-fa-sofa.webp', characterIds: ['katakana-so', 'katakana-fa'] },
     { id: 'special-katakana-fa-firumu', kana: 'フィルム', romaji: 'firumu', meaning: 'film', image: 'word-icons/special-katakana-fa-firumu.webp', characterIds: ['katakana-fi', 'katakana-ru', 'katakana-mu'] },
-    { id: 'special-katakana-fa-figyua', kana: 'フィギュア', romaji: 'figyua', meaning: 'figure (anime/character figure)', image: 'word-icons/special-katakana-fa-figyua.webp', characterIds: ['katakana-fi', 'katakana-gyu', 'katakana-a'], recognitionAliases: ['フィギユア'] },
+    { id: 'special-katakana-fa-figyua', kana: 'フィギュア', romaji: 'figyua', meaning: 'figure (anime/character figure)', image: 'word-icons/special-katakana-fa-figyua.webp', characterIds: ['katakana-fi', 'katakana-gyu', 'katakana-a'] },
     { id: 'special-katakana-fa-kafe', kana: 'カフェ', romaji: 'kafe', meaning: 'café', image: 'word-icons/special-katakana-fa-kafe.webp', characterIds: ['katakana-ka', 'katakana-fe'] },
     { id: 'special-katakana-fa-feiku', kana: 'フェイク', romaji: 'feiku', meaning: 'fake', image: 'word-icons/special-katakana-fa-feiku.webp', characterIds: ['katakana-fe', 'katakana-i', 'katakana-ku'] },
     { id: 'special-katakana-fa-fooku', kana: 'フォーク', romaji: 'fōku', meaning: 'fork', image: 'word-icons/special-katakana-fa-fooku.webp', characterIds: ['katakana-fo', 'katakana-chouon', 'katakana-ku'] },
@@ -584,7 +584,7 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
   'special-katakana-she-row': [
     { id: 'special-katakana-she-shefu', kana: 'シェフ', romaji: 'shefu', meaning: 'chef', image: 'word-icons/special-katakana-she-shefu.webp', characterIds: ['katakana-she', 'katakana-fu'] },
     { id: 'special-katakana-she-shea', kana: 'シェア', romaji: 'shea', meaning: 'share', image: 'word-icons/special-katakana-she-shea.webp', characterIds: ['katakana-she', 'katakana-a'] },
-    { id: 'special-katakana-she-jesuchaa', kana: 'ジェスチャー', romaji: 'jesuchā', meaning: 'gesture', image: 'word-icons/special-katakana-she-jesuchaa.webp', characterIds: ['katakana-je', 'katakana-su', 'katakana-cha', 'katakana-chouon'], recognitionAliases: ['ジェスチヤー'] },
+    { id: 'special-katakana-she-jesuchaa', kana: 'ジェスチャー', romaji: 'jesuchā', meaning: 'gesture', image: 'word-icons/special-katakana-she-jesuchaa.webp', characterIds: ['katakana-je', 'katakana-su', 'katakana-cha', 'katakana-chouon'] },
     { id: 'special-katakana-she-purojekuto', kana: 'プロジェクト', romaji: 'purojekuto', meaning: 'project', image: 'word-icons/special-katakana-she-purojekuto.webp', characterIds: ['katakana-pu', 'katakana-ro', 'katakana-je', 'katakana-ku', 'katakana-to'] },
     { id: 'special-katakana-she-chekku', kana: 'チェック', romaji: 'chekku', meaning: 'check', image: 'word-icons/special-katakana-she-chekku.webp', characterIds: ['katakana-che', 'katakana-sokuon', 'katakana-ku'] },
     { id: 'special-katakana-she-chesu', kana: 'チェス', romaji: 'chesu', meaning: 'chess', image: 'word-icons/special-katakana-she-chesu.webp', characterIds: ['katakana-che', 'katakana-su'] },
