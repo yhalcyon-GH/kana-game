@@ -1,7 +1,7 @@
 import { fireEvent, render } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { getNextRowId, ROWS } from '../data/curriculum'
+import { CHOUON_CATEGORY_ID, DEFAULT_CATEGORY_ID, getNextRowId, KATAKANA_CATEGORY_ID, ROWS, SOKUON_CATEGORY_ID } from '../data/curriculum'
 import { PRACTICE_CHECKPOINTS } from '../data/practiceCheckpoints'
 import { REVIEW_SCOPE_ID } from '../hooks/useCurriculum'
 import { useProgressStore } from '../store/progressStore'
@@ -50,6 +50,18 @@ function completeRow(rowId: string) {
   useProgressStore.getState().markRowActivityCompleted(rowId, 'kanaQuiz')
   useProgressStore.getState().markRowActivityCompleted(rowId, 'listening')
   useProgressStore.getState().markRowActivityCompleted(rowId, 'wordBuilder')
+}
+
+function completeCategoryRows(categoryId: string) {
+  for (const row of ROWS.filter((item) => item.categoryId === categoryId && !item.isSummary)) {
+    useProgressStore.getState().markRowTaught(row.id)
+    useProgressStore.getState().markRowActivityCompleted(row.id, 'kanaQuiz')
+    useProgressStore.getState().markRowActivityCompleted(row.id, 'listening')
+    useProgressStore.getState().markRowActivityCompleted(row.id, 'wordBuilder')
+    if (PRACTICE_CHECKPOINTS.some((checkpoint) => checkpoint.afterRowId === row.id)) {
+      useProgressStore.getState().markRowActivityCompleted(row.id, 'checkpoint')
+    }
+  }
 }
 
 // Item 5: the Global Recommended Target no longer gets its own dedicated
@@ -533,6 +545,33 @@ describe('PracticeHubPage 4-section layout (Issue #15)', () => {
 // marks/Lesson complete) still works normally either way. Item 5: this is
 // now always a badge on a normal grid card, never a separate section.
 describe('PracticeHubPage Global Recommended Target (Issue #25)', () => {
+  it('uses STOP & LONG SOUND TEST for the sound assessment recommendation', () => {
+    for (const categoryId of [DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID, SOKUON_CATEGORY_ID, CHOUON_CATEGORY_ID]) {
+      completeCategoryRows(categoryId)
+    }
+    useProgressStore.getState().markAssessmentCompleted('hiragana', { correct: 20, total: 20 })
+    useProgressStore.getState().markAssessmentCompleted('katakana', { correct: 20, total: 20 })
+    useProgressStore.getState().setHasCompletedChouonGuide(true)
+
+    const hub = renderRowHub('chouon', 'chouon-katakana-row')
+    expect(hub.getByRole('link', { name: /STOP & LONG SOUND TEST/ })).toHaveAttribute('href', '/assessment/sokuon-chouon')
+    expect(hub.container.textContent).not.toMatch(/Sokuon|Chōon|Chouon|促音|長音/)
+  })
+
+  it('uses FINAL KANA TEST for the Final assessment recommendation', () => {
+    for (const categoryId of [DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID, SOKUON_CATEGORY_ID, CHOUON_CATEGORY_ID, 'youon', 'special-katakana']) {
+      completeCategoryRows(categoryId)
+    }
+    useProgressStore.getState().markAssessmentCompleted('hiragana', { correct: 20, total: 20 })
+    useProgressStore.getState().markAssessmentCompleted('katakana', { correct: 20, total: 20 })
+    useProgressStore.getState().markAssessmentCompleted('sokuon-chouon', { correct: 20, total: 20 })
+    useProgressStore.getState().markAssessmentCompleted('youon-special-katakana', { correct: 20, total: 20 })
+    useProgressStore.getState().setHasCompletedSpecialKatakanaGuide(true)
+
+    const hub = renderRowHub('special-katakana', 'special-katakana-she-row')
+    expect(hub.getByRole('link', { name: /FINAL KANA TEST/ })).toHaveAttribute('href', '/assessment/final-graduation')
+  })
+
   it('a later row visited before an earlier row is finished shows no ⭐ marker', () => {
     // a-row (curriculum-first) is still untouched — ka-row is not the
     // global target no matter what's done on ka-row itself.

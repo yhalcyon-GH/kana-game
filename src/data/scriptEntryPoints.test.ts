@@ -5,8 +5,8 @@ import { SCRIPT_ENTRY_POINTS } from './scriptEntryPoints'
 // order here (rather than duplicating the same order check in both routes'
 // own test files) is enough to cover both.
 describe('SCRIPT_ENTRY_POINTS top-level order (2026-08-26)', () => {
-  it('is Hiragana -> Katakana -> Stop & Long Sound -> Yōon', () => {
-    expect(SCRIPT_ENTRY_POINTS.map((e) => e.english)).toEqual(['Hiragana', 'Katakana', 'Stop & Long Sound', 'Yōon'])
+  it('is Hiragana -> Katakana -> Stop & Long Sound -> ゃゅょ', () => {
+    expect(SCRIPT_ENTRY_POINTS.map((e) => e.english)).toEqual(['Hiragana', 'Katakana', 'Stop & Long Sound', undefined])
   })
 
   // Special Katakana (see curriculum.ts's SPECIAL_KATAKANA_CATEGORY_ID) is
@@ -17,8 +17,8 @@ describe('SCRIPT_ENTRY_POINTS top-level order (2026-08-26)', () => {
     expect(SCRIPT_ENTRY_POINTS).toHaveLength(4)
   })
 
-  it('the Yōon entry\'s categoryIds also cover Special Katakana, so it stays the Recommended card once the target moves there', () => {
-    const youon = SCRIPT_ENTRY_POINTS.find((e) => e.english === 'Yōon')!
+  it('the ゃゅょ entry\'s categoryIds also cover Special Katakana, so it stays the Recommended card once the target moves there', () => {
+    const youon = SCRIPT_ENTRY_POINTS.find((e) => e.label === 'ゃゅょ')!
     expect(youon.categoryIds).toEqual(expect.arrayContaining(['youon', 'special-katakana']))
   })
 })

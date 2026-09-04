@@ -355,7 +355,7 @@ const REAL_ROWS: GojuonRow[] = [
     label: 'っ・ッ',
     order: 0,
     characterIds: ['sokuon', 'katakana-sokuon'],
-    englishLabel: 'Sokuon',
+    englishLabel: 'っ・ッ',
   },
 
   // ===== 長音 (chōon) — own order sequence, starting at 0 again =====
@@ -391,7 +391,7 @@ const REAL_ROWS: GojuonRow[] = [
     order: 0,
     characterIds: [],
     explanation: '①ア段 (a-column): a long vowel after an あ-row sound is written by adding あ. E.g. おかあさん (mother) — compare おばさん (aunt, no long vowel) with おばあさん (grandmother, long vowel).',
-    englishLabel: 'Chōon: A',
+    englishLabel: 'あ + あ',
   },
   {
     id: 'chouon-i-row',
@@ -400,7 +400,7 @@ const REAL_ROWS: GojuonRow[] = [
     order: 1,
     characterIds: [],
     explanation: '②イ段 (i-column): a long vowel after an い-row sound is written by adding い. E.g. おじさん (uncle, no long vowel) vs. おじいさん (grandfather, long vowel).',
-    englishLabel: 'Chōon: I',
+    englishLabel: 'い + い',
   },
   {
     id: 'chouon-u-row',
@@ -409,7 +409,7 @@ const REAL_ROWS: GojuonRow[] = [
     order: 2,
     characterIds: [],
     explanation: '③ウ段 (u-column): a long vowel after a う-row sound is written by adding う. E.g. ゆうき (courage).',
-    englishLabel: 'Chōon: U',
+    englishLabel: 'う + う',
   },
   {
     id: 'chouon-e-row',
@@ -418,7 +418,7 @@ const REAL_ROWS: GojuonRow[] = [
     order: 3,
     characterIds: [],
     explanation: '④エ段 (e-column): a long vowel after an え-row sound is usually written with い, not え — e.g. えいが (movie). The big exception: おねえさん (older sister) really is spelled with え.',
-    englishLabel: 'Chōon: E',
+    englishLabel: 'え + い',
   },
   {
     id: 'chouon-o-row',
@@ -427,7 +427,7 @@ const REAL_ROWS: GojuonRow[] = [
     order: 4,
     characterIds: [],
     explanation: '⑤オ段 (o-column): a long vowel after an お-row sound is usually written with う, not お — e.g. おはよう (good morning). But several common words really are spelled with お: おおきい (big), とおい (far), こおり (ice), and a few more — these just have to be memorized.',
-    englishLabel: 'Chōon: O',
+    englishLabel: 'お + う',
   },
   {
     id: 'chouon-katakana-row',
@@ -436,7 +436,7 @@ const REAL_ROWS: GojuonRow[] = [
     order: 5,
     characterIds: [],
     explanation: 'Katakana never has this problem — a long vowel is always written with ー, no matter which vowel it follows. Compare ビル (building, no long vowel) with ビール (beer, long vowel).',
-    englishLabel: 'Chōon: Katakana ー',
+    englishLabel: 'Katakana ー',
   },
 
   // ===== 拗音 (yōon) — own order sequence, starting at 0 again =====

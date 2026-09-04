@@ -14,6 +14,15 @@ const STABLE_GUIDE_STATE = {
   hasCompletedParticleGuide: true,
 }
 
+const FINAL_PENDING_ROW_IDS = [
+  'a-row', 'ka-row', 'sa-row', 'ta-row', 'na-row', 'ha-row', 'ma-row', 'ya-row', 'ra-row',
+  'katakana-a-row', 'katakana-sa-row', 'katakana-ta-row', 'katakana-na-row', 'katakana-ha-row', 'katakana-ma-row', 'katakana-ya-row', 'katakana-ra-row',
+  'sokuon-row', 'chouon-a-row', 'chouon-i-row', 'chouon-u-row', 'chouon-e-row', 'chouon-o-row', 'chouon-katakana-row',
+  'youon-ka-row', 'youon-sha-row', 'youon-cha-na-row', 'youon-ha-row', 'youon-ma-ra-row',
+  'youon-katakana-ka-row', 'youon-katakana-sha-row', 'youon-katakana-cha-na-row', 'youon-katakana-ha-row', 'youon-katakana-ma-ra-row',
+  'special-katakana-fa-row', 'special-katakana-she-row',
+]
+
 async function seedProgressState(page, state) {
   await page.addInitScript((guideState) => {
     const key = 'kana-game-progress'
@@ -129,6 +138,30 @@ test('first launch shows the Introduction and Skip reaches Home', async ({ page 
   await expect(guide.getByRole('button', { name: 'Back' })).toBeDisabled()
   await guide.getByRole('button', { name: 'Skip' }).click()
   await expect(page.getByRole('heading', { name: 'Kana Game' })).toBeVisible()
+})
+
+test('Final pending Home recommendation is clear and fits at 320px', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 800 })
+  await seedProgressState(page, {
+    ...STABLE_GUIDE_STATE,
+    taughtRowIds: FINAL_PENDING_ROW_IDS,
+    rowActivityCompletion: Object.fromEntries(FINAL_PENDING_ROW_IDS.map((rowId) => [rowId, { kanaQuiz: true, listening: true, wordBuilder: true, checkpoint: true }])),
+    assessmentCompletion: {
+      hiragana: { completed: true, lastScore: { correct: 20, total: 20 }, completedAt: 1 },
+      katakana: { completed: true, lastScore: { correct: 20, total: 20 }, completedAt: 1 },
+      'sokuon-chouon': { completed: true, lastScore: { correct: 20, total: 20 }, completedAt: 1 },
+      'youon-special-katakana': { completed: true, lastScore: { correct: 20, total: 20 }, completedAt: 1 },
+      'final-graduation': { completed: false },
+    },
+    graduation: { attempts: 0, graduated: false },
+  })
+  await gotoHash(page, '/', { stable: false })
+
+  const finalLink = page.locator('main').getByRole('link', { name: /FINAL KANA TEST/ })
+  await expect(finalLink).toHaveAttribute('href', '#/assessment/final-graduation')
+  await expect(finalLink).not.toContainText('シェ〜ウォ')
+  await expect(finalLink).not.toContainText('Yōon')
+  await expectNoHorizontalPageOverflow(page)
 })
 
 test('fresh learner sees and dismisses the Sokuon Guide with a normal click', async ({ page }) => {

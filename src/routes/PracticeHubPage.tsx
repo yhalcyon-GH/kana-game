@@ -33,6 +33,14 @@ const PRACTICE_GAMES = [
 ]
 const KANA_TYPING_GAME = { path: 'kana-typing', label: 'Kana Typing', emoji: '⌨️', description: 'Type the kana' }
 
+function assessmentRecommendedLabel(script: string) {
+  if (script === 'hiragana') return 'Hiragana Test'
+  if (script === 'katakana') return 'Katakana Test'
+  if (script === 'sokuon-chouon') return 'STOP & LONG SOUND TEST'
+  if (script === 'youon-special-katakana') return 'ゃゅょ / Special Katakana Test'
+  return 'FINAL KANA TEST'
+}
+
 type Activity = {
   path: string
   label: string
@@ -297,7 +305,7 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
             to={`/assessment/${globalRecommendedTarget.assessmentScript}`}
             className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-700"
           >
-            📝 {globalRecommendedTarget.assessmentScript === 'hiragana' ? 'Hiragana Test' : globalRecommendedTarget.assessmentScript === 'katakana' ? 'Katakana Test' : 'Sokuon / Chōon Test'}
+            📝 {assessmentRecommendedLabel(globalRecommendedTarget.assessmentScript)}
           </Link>
         </div>
       )}
