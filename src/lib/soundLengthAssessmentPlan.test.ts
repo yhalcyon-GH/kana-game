@@ -62,6 +62,17 @@ describe('sound-length assessment plan', () => {
     expect(question).toMatchObject({ prompt, correct, domain })
   })
 
+  it.each([
+    ['chouon-o-otouto', 2],
+    ['chouon-i-ojiisan', 2],
+    ['sokuon-otto', 1],
+    ['chouon-katakana-biiru', 1],
+    ['chouon-i-ojisan', 2],
+    ['chouon-a-obasan', 2],
+  ] as const)('exposes the explicit blank position for %s', (id, blankIndex) => {
+    expect(questionsAcrossSeeds().get(id)?.blankIndex).toBe(blankIndex)
+  })
+
   it('covers every registered Sound Length word with an internally valid explicit decision', () => {
     const questions = questionsAcrossSeeds()
     expect([...questions.keys()].sort()).toEqual(words.map((word) => word.id).sort())

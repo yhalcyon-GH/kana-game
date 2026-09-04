@@ -70,7 +70,15 @@ export function SoundLengthAssessmentPage() {
   </div>
 }
 
-function WordReveal({ question }: { question: SoundLengthQuestion }) { return <>{question.word.kana} <span className="font-sans text-base">({question.correct})</span></> }
+function WordReveal({ question }: { question: SoundLengthQuestion }) {
+  const characters = [...question.word.kana]
+  if (question.correct === '×') return <span data-testid="sound-length-word-reveal">{question.word.kana}</span>
+  return <span data-testid="sound-length-word-reveal">
+    {characters.slice(0, question.blankIndex).join('')}
+    <span className="text-red-600 dark:text-red-400" data-testid="sound-length-correct-character">{characters[question.blankIndex]}</span>
+    {characters.slice(question.blankIndex + 1).join('')}
+  </span>
+}
 
 function SoundLengthPrompt({ prompt }: { prompt: string }) {
   const [before, after = ''] = prompt.split('□')
