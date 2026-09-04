@@ -76,6 +76,36 @@ describe('sound-length assessment plan', () => {
     }
   })
 
+  it('always includes the direct contrast choice for every no-insertion word', () => {
+    const expectedContrastChoiceById: Record<string, string> = {
+      'sokuon-oto': 'っ',
+      'sokuon-kako': 'っ',
+      'sokuon-katakana-bagu': 'ッ',
+      'sokuon-kite': 'っ',
+      'sokuon-mate': 'っ',
+      'sokuon-mote': 'っ',
+      'sokuon-iki': 'っ',
+      'sokuon-machi': 'っ',
+      'chouon-a-obasan': 'あ',
+      'chouon-i-ojisan': 'い',
+      'chouon-katakana-biru': 'ー',
+    }
+    const seen = new Set<string>()
+
+    for (let seed = 0; seed < 250; seed++) {
+      for (const question of buildSoundLengthAssessmentPlan(words, createSoundLengthRng(seed)).questions) {
+        const contrastChoice = expectedContrastChoiceById[question.word.id]
+        if (!contrastChoice) continue
+        seen.add(question.word.id)
+        expect(question.correct).toBe('×')
+        expect(question.choices).toContain('×')
+        expect(question.choices).toContain(contrastChoice)
+      }
+    }
+
+    expect([...seen].sort()).toEqual(Object.keys(expectedContrastChoiceById).sort())
+  })
+
   it('fails closed when Sound Length vocabulary is added without an explicit decision spec', () => {
     expect(() => buildSoundLengthAssessmentPlan([
       ...words,
