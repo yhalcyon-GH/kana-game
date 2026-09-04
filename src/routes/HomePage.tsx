@@ -22,7 +22,7 @@ function ContinueCard() {
       to={resumeRowHref(lastStudied)}
       className="flex w-full max-w-md flex-col items-center gap-1 rounded-xl border border-neutral-300 bg-white p-4 text-center hover:border-blue-400 dark:border-neutral-600 dark:bg-neutral-800"
     >
-      <span className="font-semibold">{section?.english ?? row.categoryId}</span>
+      <span className="font-semibold">{section?.english ?? section?.label ?? row.categoryId}</span>
       <span className="text-sm text-neutral-500 dark:text-neutral-400">{row.label}</span>
       <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">Continue</span>
     </Link>
@@ -48,6 +48,12 @@ export function HomePage() {
   const { recommendedCategoryId, globalRecommendedTarget } = useCurriculum()
   const graduated = useProgressStore((s) => s.graduation.graduated)
   const recommendedRow = globalRecommendedTarget ? ROWS_BY_ID[globalRecommendedTarget.rowId] : undefined
+  const recommendedDetail =
+    globalRecommendedTarget?.assessmentScript === 'final-graduation'
+      ? 'FINAL KANA TEST'
+      : recommendedRow && globalRecommendedTarget
+        ? `${recommendedRow.label} · ${RECOMMENDED_ACTIVITY_LABELS[globalRecommendedTarget.activity]}`
+        : null
 
   return (
     <div className="flex flex-col items-center gap-6">
@@ -68,13 +74,13 @@ export function HomePage() {
             >
               <CategoryIcon icon={card.icon} className="h-10 w-10 text-2xl" />
               <span className="font-kana text-2xl font-bold">{card.label}</span>
-              <span className="text-sm font-semibold text-neutral-500 dark:text-neutral-400">{card.english}</span>
+              {card.english && <span className="text-sm font-semibold text-neutral-500 dark:text-neutral-400">{card.english}</span>}
               {isRecommended && (
                 <>
                   <RecommendedLabel />
-                  {recommendedRow && globalRecommendedTarget && (
+                  {recommendedDetail && (
                     <span className="text-xs text-neutral-500 dark:text-neutral-400">
-                      {recommendedRow.label} · {RECOMMENDED_ACTIVITY_LABELS[globalRecommendedTarget.activity]}
+                      {recommendedDetail}
                     </span>
                   )}
                 </>

@@ -7,7 +7,7 @@ import {
   YOUON_CATEGORY_ID,
 } from './curriculum'
 
-export type ScriptEntryPoint = { to: string; label: string; english: string; icon: string; categoryIds: string[] }
+export type ScriptEntryPoint = { to: string; label: string; english?: string; icon: string; categoryIds: string[] }
 
 // The four top-level script pages, shared by HomePage's card grid and
 // NavBar's script-jump row — a single source so an icon/label change only
@@ -49,7 +49,6 @@ export const SCRIPT_ENTRY_POINTS: ScriptEntryPoint[] = [
   {
     to: '/youon',
     label: 'ゃゅょ',
-    english: 'Yōon',
     icon: 'category-icons/youon.webp',
     // Special Katakana (see curriculum.ts's SPECIAL_KATAKANA_CATEGORY_ID) is
     // bundled onto this SAME /youon page as a continuation of Yōon — no

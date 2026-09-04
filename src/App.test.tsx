@@ -177,6 +177,7 @@ describe('script chooser pages', () => {
     expect(screen.getByText('ウィ・ウェ・ウォ')).toBeInTheDocument()
     expect(screen.queryByText('っ・ッ')).not.toBeInTheDocument()
     expect(screen.queryByText('あー')).not.toBeInTheDocument()
+    expect(document.body.textContent).not.toMatch(/Yōon|Youon|拗音/)
   })
 
   // OTHER_CATEGORY_IDS (App.tsx) is computed from CATEGORIES, so /other
@@ -196,13 +197,16 @@ describe('script chooser pages', () => {
     expect(screen.queryByText('きゃ・きゅ・きょ・ぎゃ・ぎゅ・ぎょ')).not.toBeInTheDocument()
     expect(screen.queryByText('あ〜お')).not.toBeInTheDocument()
     expect(screen.queryByText('ア〜オ・カ〜ゴ・ン・ー')).not.toBeInTheDocument()
+    expect(document.body.textContent).not.toMatch(/Sokuon|Chōon|Chouon|促音|長音/)
   })
 
-  it('home page links to all four script pages, each paired with an English label', () => {
+  it('home page uses learner-friendly labels for all four script pages', () => {
     renderAt('/')
     expect(screen.getByRole('link', { name: /ひらがな.*Hiragana/s })).toHaveAttribute('href', '/hiragana')
     expect(screen.getByRole('link', { name: /カタカナ.*Katakana/s })).toHaveAttribute('href', '/katakana')
-    expect(screen.getByRole('link', { name: /ゃゅょ.*Yōon/s })).toHaveAttribute('href', '/youon')
+    const youonLink = screen.getAllByRole('link', { name: /^ゃゅょ$/ }).find((link) => link.getAttribute('href') === '/youon')!
+    expect(youonLink).toHaveAttribute('href', '/youon')
+    expect(youonLink.textContent).not.toMatch(/Yōon|Youon|拗音/)
     expect(screen.getByRole('link', { name: /っ・ー.*Stop & Long Sound/s })).toHaveAttribute('href', '/other')
   })
 })
@@ -240,6 +244,13 @@ describe('Practice Hub cross-session navigation', () => {
     // sokuon-row is the only row in its category, so both should be absent.
     renderAt('/practice/sokuon/sokuon-row')
     expect(screen.queryByRole('link', { name: /Row/ })).not.toBeInTheDocument()
+  })
+
+  it('uses the actual long-vowel pattern rather than technical terminology in session navigation', () => {
+    renderAt('/practice/chouon/chouon-i-row')
+    expect(screen.getByRole('link', { name: /あ \+ あ/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /う \+ う/ })).toBeInTheDocument()
+    expect(document.body.textContent).not.toMatch(/Chōon|Chouon|長音/)
   })
 
 })

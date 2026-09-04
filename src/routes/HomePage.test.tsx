@@ -124,21 +124,19 @@ describe('HomePage section Recommended (Issue #21)', () => {
     expect(getByRole('link', { name: /Stop & Long Sound/ }).textContent).toMatch(/Recommended/)
   })
 
-  it('recommends the Yōon card once both sokuon and chōon are done (Sokuon -> Chōon -> Yōon)', () => {
+  it('recommends the ゃゅょ card once both っ and ー sections are done', () => {
     completeCategory(DEFAULT_CATEGORY_ID)
     completeCategory(KATAKANA_CATEGORY_ID)
     completeCategory(SOKUON_CATEGORY_ID)
     completeCategory(CHOUON_CATEGORY_ID)
     useProgressStore.getState().markAssessmentCompleted('sokuon-chouon', { correct: 0, total: 20 })
     const { getByRole } = renderHome()
-    expect(getByRole('link', { name: /Yōon/ }).textContent).toMatch(/Recommended/)
+    const youonLink = getByRole('link', { name: /ゃゅょ/ })
+    expect(youonLink.textContent).toMatch(/Recommended/)
+    expect(youonLink.textContent).not.toMatch(/Yōon/)
   })
 
-  // Special Katakana (see curriculum.ts's SPECIAL_KATAKANA_CATEGORY_ID) is
-  // bundled onto the SAME /youon page/nav entry as Yōon — no separate
-  // top-level card — so the Yōon/ゃゅょ card is still the one that lights up
-  // as Recommended once the target moves past Yōon itself into it.
-  it('still recommends the Yōon/ゃゅょ card once yōon itself is done and Special Katakana is next', () => {
+  it('still recommends the ゃゅょ card once its rows are done and Special Katakana is next', () => {
     completeCategory(DEFAULT_CATEGORY_ID)
     completeCategory(KATAKANA_CATEGORY_ID)
     completeCategory(SOKUON_CATEGORY_ID)
@@ -146,7 +144,9 @@ describe('HomePage section Recommended (Issue #21)', () => {
     useProgressStore.getState().markAssessmentCompleted('sokuon-chouon', { correct: 0, total: 20 })
     completeCategory('youon')
     const { getByRole } = renderHome()
-    expect(getByRole('link', { name: /Yōon/ }).textContent).toMatch(/Recommended/)
+    const youonLink = getByRole('link', { name: /ゃゅょ/ })
+    expect(youonLink.textContent).toMatch(/Recommended/)
+    expect(youonLink.textContent).not.toMatch(/Yōon/)
   })
 
   it('shows the Yōon/Special assessment after every learning category is done', () => {
@@ -158,6 +158,20 @@ describe('HomePage section Recommended (Issue #21)', () => {
     const recommendedLinks = getAllByRole('link').filter((link) => link.textContent?.includes('Recommended'))
     expect(recommendedLinks).toHaveLength(1)
     expect(recommendedLinks[0]).toHaveAttribute('href', '/assessment/youon-special-katakana')
+  })
+
+  it('shows FINAL KANA TEST, not the backing row, when the Final assessment is recommended', () => {
+    for (const categoryId of ['hiragana', 'katakana', 'sokuon', 'chouon', 'youon', 'special-katakana']) {
+      completeCategory(categoryId)
+    }
+    useProgressStore.getState().markAssessmentCompleted('sokuon-chouon', { correct: 0, total: 20 })
+    useProgressStore.getState().markAssessmentCompleted('youon-special-katakana', { correct: 0, total: 20 })
+
+    const { getByRole } = renderHome()
+    const finalLink = getByRole('link', { name: /FINAL KANA TEST/ })
+    expect(finalLink).toHaveAttribute('href', '/assessment/final-graduation')
+    expect(finalLink.textContent).not.toMatch(/シェ〜ウォ.*Test/)
+    expect(finalLink.textContent).not.toMatch(/Yōon/)
   })
 })
 
