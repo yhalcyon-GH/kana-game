@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { AnchorWord } from '../data/types'
-import { WORDS_BY_ROW } from '../data/words'
+import { WORDS_BY_ID, WORDS_BY_ROW } from '../data/words'
 import { checkWordReading, checkWordReadingAlternatives } from './wordReadingMatching'
 
 const SAKANA: AnchorWord = { id: 'w-sakana', kana: 'さかな', romaji: 'sakana', meaning: 'fish', characterIds: ['sa', 'ka', 'na'] }
@@ -10,8 +10,8 @@ describe('checkWordReading', () => {
     expect(checkWordReading('さかな', SAKANA)).toEqual({ outcome: 'success' })
   })
 
-  it('succeeds when transcript has extra trailing content', () => {
-    expect(checkWordReading('さかなです', SAKANA)).toEqual({ outcome: 'success' })
+  it('requires an exact normalized reading rather than accepting extra speech', () => {
+    expect(checkWordReading('さかなです', SAKANA)).toEqual({ outcome: 'incorrect' })
   })
 
   it('succeeds across katakana/hiragana folding', () => {
@@ -52,6 +52,14 @@ describe('checkWordReading', () => {
     expect(checkWordReading('いぬ', SAKANA)).toEqual({ outcome: 'incorrect' })
   })
 
+  it.each([
+    ['kao', { kana: 'あお', romaji: 'ao' }],
+    ['外国', WORDS_BY_ID['ta-soto']],
+    ['ティッシュ', WORDS_BY_ID['ta-te']],
+  ])('rejects a longer different word that only contains the target: %s', (transcript, target) => {
+    expect(checkWordReading(transcript, { ...SAKANA, ...target })).toEqual({ outcome: 'incorrect' })
+  })
+
   it('is unrecognized for an empty transcript', () => {
     expect(checkWordReading('', SAKANA)).toEqual({ outcome: 'unrecognized' })
   })
@@ -78,7 +86,7 @@ describe('yōon vocabulary recognition aliases', () => {
       .flatMap(([, rowWords]) => rowWords.map((word) => [word.id, word])),
   )
 
-  it('keeps canonical kana, audioText/kanji, romaji, and every curated alias valid across the full audited pool', () => {
+  it('keeps canonical kana, audioText/kanji, romaji, and only safe representation aliases valid across the full audited pool', () => {
     for (const word of Object.values(words)) {
       expect(checkWordReading(word.kana, word)).toEqual({ outcome: 'success' })
       expect(checkWordReading(word.romaji.toUpperCase(), word)).toEqual({ outcome: 'success' })
@@ -90,15 +98,9 @@ describe('yōon vocabulary recognition aliases', () => {
   })
 
   it.each([
-    ['youon-sha-shashin', 'しやしん'],
-    ['youon-cha-na-chuui', 'ちゆうい'],
     ['youon-ma-ra-bimyou', '微妙'],
     ['youon-ma-ra-ryokan', '旅館'],
-    ['youon-katakana-ka-kyabetsu', 'キヤベツ'],
-    ['youon-katakana-sha-juusu', 'ジユース'],
-    ['special-katakana-fa-figyua', 'フィギユア'],
-    ['special-katakana-she-jesuchaa', 'ジェスチヤー'],
-  ])('accepts the audited target-specific alias for %s', (id, alias) => {
+  ])('accepts a target-specific alias only when it is a safe ASR representation of the correct pronunciation: %s', (id, alias) => {
     expect(checkWordReading(alias, words[id])).toEqual({ outcome: 'success' })
   })
 
@@ -109,5 +111,38 @@ describe('yōon vocabulary recognition aliases', () => {
     ['youon-ha-hyaku', 'ひやく'],
   ])('keeps unsafe real-word collision %s incorrect', (id, transcript) => {
     expect(checkWordReading(transcript, words[id])).toEqual({ outcome: 'incorrect' })
+  })
+
+  it.each([
+    ['youon-sha-shashin', 'しやしん'],
+    ['youon-cha-na-chuui', 'ちゆうい'],
+    ['youon-ma-ra-bimyou', 'びみよう'],
+    ['youon-ma-ra-ryokan', 'りよかん'],
+    ['youon-katakana-ka-kyabetsu', 'キヤベツ'],
+    ['youon-katakana-sha-juusu', 'ジユース'],
+    ['special-katakana-fa-figyua', 'フィギユア'],
+    ['special-katakana-she-jesuchaa', 'ジェスチヤー'],
+  ])('rejects a large や/ゆ/よ pronunciation error for %s', (id, transcript) => {
+    expect(checkWordReading(transcript, words[id])).toEqual({ outcome: 'incorrect' })
+  })
+
+  it('rejects every allowed form from a different Word Reading target', () => {
+    const allWords = Object.values(WORDS_BY_ROW).flat()
+    const crossTargetSuccesses: { sourceId: string; targetId: string; form: string }[] = []
+
+    for (const source of allWords) {
+      const allowedForms = [source.kana, source.audioText, ...(source.recognitionAliases ?? []), source.romaji]
+        .filter((form): form is string => Boolean(form))
+      for (const target of allWords) {
+        if (source.id === target.id) continue
+        for (const form of allowedForms) {
+          if (checkWordReading(form, target).outcome === 'success') {
+            crossTargetSuccesses.push({ sourceId: source.id, targetId: target.id, form })
+          }
+        }
+      }
+    }
+
+    expect(crossTargetSuccesses).toEqual([])
   })
 })
