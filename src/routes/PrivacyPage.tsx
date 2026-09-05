@@ -115,13 +115,14 @@ export function PrivacyPage() {
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Feedback</h2>
         {feedbackActive ? (
           <p>
-            <strong>This build has Tally feedback enabled.</strong> A Send Feedback option is available; clicking it
-            opens a Tally form in a new browser tab, and nothing is sent until you choose to fill it in and submit it
-            there. Along with whatever you write and a category you pick, the link carries your current in-app
-            route, the build version, and a coarse screen-size category (small/medium/large, never your exact screen
-            dimensions) as context — never your learning progress, saved items, or any identifier tied to you. This
-            app does not ask for your name or email, though Tally's own form fields are outside this app's control.
-            Tally is the processor for whatever you submit there; see{' '}
+            <strong>This build has Tally feedback enabled.</strong> A Send Feedback option is available. Clicking it
+            opens a Tally form in a new browser tab — opening that form itself sends your current in-app route, the
+            build version, and a coarse screen-size category (small/medium/large, never your exact screen
+            dimensions) to Tally as part of the form's web address, since that's how this app passes that context
+            along. Your written feedback and the category you pick are sent separately, only if and when you choose
+            to fill in and submit the form. Neither step sends your learning progress, saved items, or any
+            identifier tied to you. This app does not ask for your name or email, though Tally's own form fields are
+            outside this app's control. Tally is the processor for whatever it receives, at either step; see{' '}
             <a href="https://tally.so/help/privacy-policy" target="_blank" rel="noreferrer" className="underline">
               Tally's privacy policy
             </a>{' '}

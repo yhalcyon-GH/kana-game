@@ -115,4 +115,25 @@ describe('PrivacyPage reflects actual build config', () => {
     expect(text).toMatch(/This build has Tally feedback enabled/)
     expect(text).not.toMatch(/no feedback destination is configured/)
   })
+
+  // Round 3 fix (PR #210 final review): buildFeedbackDestinationUrl
+  // (src/lib/feedback/config.ts) appends route/build/screen as query
+  // parameters on the Tally URL itself, so simply OPENING the form already
+  // sends that context to Tally as part of the HTTP request for the page —
+  // it is not true that "nothing is sent until submission." The active
+  // wording must say so precisely, and must not claim otherwise.
+  it('Feedback active wording accurately describes when context is sent vs. when submission content is sent', () => {
+    vi.stubEnv('VITE_FEEDBACK_URL', 'https://tally.so/r/abc123')
+    render(<PrivacyPage />)
+    const heading = screen.getByRole('heading', { name: 'Feedback', level: 2 })
+    const text = heading.parentElement?.textContent ?? ''
+    // Opening the form sends route/build/screen via the URL itself.
+    expect(text).toMatch(/opening that form itself sends your current in-app route/)
+    // Written feedback + category are separate, and only sent on submit.
+    expect(text).toMatch(/Your written feedback and the category you pick are sent separately, only if and when/)
+    // Must not claim nothing is sent until submission — that's false for
+    // the route/build/screen context, which goes out the moment the form
+    // opens.
+    expect(text).not.toMatch(/nothing is sent until you choose to fill it in and submit/)
+  })
 })
