@@ -33,6 +33,61 @@ either. Do not add a rating field unless you specifically want one; the
 spec allows at most one small addition, but two questions is the intended
 minimum.
 
+### Data collection rules for this form (keep it minimal)
+
+Tamamizu's feedback form is intended to collect, in total:
+
+- Category (the fixed 4-option question above)
+- Feedback text (the free-text field above)
+- `route`, `build`, and coarse `screen` size — via the hidden fields in
+  step 3 below, populated automatically by the app's link, not typed by
+  hand
+
+Do not add any of the following to the form unless a future, deliberate
+decision changes this spec (and the Privacy Policy is updated first — see
+section 9):
+
+- Name, email, or phone fields
+- Any account-ID or identity field
+- A question asking for exact screen resolution (this app only ever
+  passes a coarse small/medium/large category — see `screenSizeCategory.ts`)
+- Anything that would capture a speech transcript, microphone audio,
+  learning progress, or Saved contents (this app never sends any of
+  these to the feedback link in the first place)
+- A country/location question
+- Any Tamamizu-specific persistent user/feedback ID — this app does not
+  generate or send one (see "Tally's own Respondent ID" below for the
+  identifier Tally itself assigns, which is separate from anything this
+  app adds)
+
+Do not add any third-party analytics or advertising script to the Tally
+form itself (Google Analytics, Google Tag Manager, Meta/Facebook Pixel,
+or any other marketing/advertising tracker) unless the user explicitly
+decides to do so later — this is out of scope for the current setup, and
+Tally's own editor may offer integrations that add such scripts, so avoid
+enabling anything beyond the form questions and hidden fields above.
+
+### Tally's own Respondent ID
+
+Separately from the fields above, Tally automatically assigns every form
+respondent a "Respondent ID" — per Tally's own documentation
+([tally.so/help/faq](https://tally.so/help/faq),
+[tally.so/help/prevent-duplicate-submissions](https://tally.so/help/prevent-duplicate-submissions)),
+this is a randomly generated (UUID v4) identifier that Tally stores in the
+respondent's browser local storage, and which persists across every Tally
+form in the same Tally workspace — it lets the form owner recognize a
+repeat respondent (someone who has answered this or another form in this
+workspace before), though a respondent can bypass this by using a
+different browser/device or private/incognito mode. This is a Tally
+platform behavior, not something this app's own code creates or reads —
+this app's implementation has no setting related to it, and no official
+Tally documentation reviewed described a way for a form creator to turn
+it off; do not claim in the app's Privacy Policy that it can be disabled
+unless Tally's own docs are found to say otherwise. This app's own
+Privacy Policy (`src/routes/PrivacyPage.tsx`) already discloses the
+Respondent ID's existence and behavior; keep that disclosure accurate if
+Tally's own documentation is ever clarified further or changes.
+
 ## 3. Add hidden fields for context
 
 In the Tally form editor, type `/hidden` to insert a hidden field block for

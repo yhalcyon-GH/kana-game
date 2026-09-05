@@ -28,8 +28,9 @@ decision — both integrations are code-complete and gated behind unset
 | Implementation complexity | External link or iframe embed — no SDK/npm package | Plain HTML `<form>` works with zero JS; optional npm package for AJAX |
 | Data export | CSV export included on free tier | CSV export requires a paid plan |
 | GitHub Pages fit | No CORS/referrer concerns for a plain external link | AJAX submission has documented Referrer-Policy/Brave-browser edge cases (not an issue for a plain-link, non-AJAX integration) |
+| **Privacy trade-off: respondent identifier** | **Tally automatically assigns every form respondent a "Respondent ID"** — a randomly generated (UUID v4) identifier stored in the respondent's browser local storage, persistent across every Tally form in the same Tally workspace, usable to recognize repeat respondents ([tally.so/help/faq](https://tally.so/help/faq), [tally.so/help/prevent-duplicate-submissions](https://tally.so/help/prevent-duplicate-submissions)) | No equivalent respondent-identifier behavior was found documented for Formspree during this research (not independently verified either way — Formspree was not selected, so this was not researched to the same depth) |
 
-Sources: [tally.so/pricing](https://tally.so/pricing), [tally.so/help/hidden-fields](https://tally.so/help/hidden-fields), [tally.so/help/gdpr](https://tally.so/help/gdpr), [tally.so/help/terms-conditions](https://tally.so/help/terms-conditions), [formspree.io/security](https://formspree.io/security/), [help.formspree.io/articles/account-management/account-limits](https://help.formspree.io/articles/account-management/account-limits).
+Sources: [tally.so/pricing](https://tally.so/pricing), [tally.so/help/hidden-fields](https://tally.so/help/hidden-fields), [tally.so/help/gdpr](https://tally.so/help/gdpr), [tally.so/help/terms-conditions](https://tally.so/help/terms-conditions), [tally.so/help/faq](https://tally.so/help/faq), [tally.so/help/prevent-duplicate-submissions](https://tally.so/help/prevent-duplicate-submissions), [formspree.io/security](https://formspree.io/security/), [help.formspree.io/articles/account-management/account-limits](https://help.formspree.io/articles/account-management/account-limits).
 
 ### Decision: Tally
 
@@ -45,7 +46,30 @@ Sources: [tally.so/pricing](https://tally.so/pricing), [tally.so/help/hidden-fie
    matched by Formspree's own free-tier branding (on notification emails),
    so it isn't a clean differentiator either way.
 
-No deal-breaking issue was found with Tally for this use case. This
+**Privacy trade-off, disclosed rather than hidden (added 2026-09, PR #210
+final review round 4):** Tally's Respondent ID (see the comparison row
+above) is a real, documented persistent identifier — not a marketing
+claim to dismiss. The user reviewing this task explicitly reviewed this
+behavior and decided to keep Tally as the feedback provider anyway, given
+the balance of implementation simplicity (Hidden Fields), free-tier terms,
+and EU data handling described above. To keep the actual data collection
+minimal despite this trade-off:
+
+- Tamamizu itself will not add its own name/email/account-ID fields or any
+  Tamamizu-specific persistent feedback-user identifier on top of what
+  Tally already assigns (see `docs/feedback-setup.md`'s data collection
+  rules).
+- The app's Privacy Policy (`src/routes/PrivacyPage.tsx`) discloses the
+  Respondent ID's existence, its documented behavior, and that it is a
+  Tally platform behavior independent of this app's own code, once
+  feedback is active.
+- No provider change was made because of this trade-off — Tally remains
+  selected, per explicit user decision, with the trade-off now disclosed
+  rather than glossed over. An earlier version of this document did not
+  mention the Respondent ID at all; that omission is what this update
+  corrects.
+
+No other deal-breaking issue was found with Tally for this use case. This
 confirms the task's initial hypothesis; no provider change was made.
 
 ## Analytics: Umami Cloud vs. PostHog vs. Plausible
