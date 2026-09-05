@@ -1,4 +1,10 @@
+import { isUmamiConfigured } from '../lib/analytics/umamiConfig'
+import { isFeedbackEnabled } from '../lib/feedback/config'
+
 export function PrivacyPage() {
+  const analyticsActive = isUmamiConfigured()
+  const feedbackActive = isFeedbackEnabled()
+
   return (
     <div className="flex w-full max-w-2xl flex-col gap-4 text-sm text-neutral-600 dark:text-neutral-300">
       <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">Privacy Policy</h1>
@@ -64,22 +70,89 @@ export function PrivacyPage() {
 
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Analytics</h2>
-        <p>
-          The app can record anonymous, aggregate usage events (for example, which activity was started or
-          completed) to help understand how the app is used. As of this release, that data is <strong>not</strong>{' '}
-          sent to any third-party analytics service — no external analytics provider is active. If that changes in
-          the future, this page will be updated to name the provider and describe what's collected before it's
-          enabled.
-        </p>
+        {analyticsActive ? (
+          <>
+            <p>
+              <strong>This build has Umami analytics active.</strong> This app sends a small set of anonymous usage
+              events (for example, which activity was started or completed, or a Word Reading speech attempt's
+              outcome) to help understand where learners get stuck.
+            </p>
+            <p>
+              Each event this app sends contains only: the Umami website id, the event's name (one of a fixed,
+              approved list — e.g. <code>lesson_started</code>), and a small properties object limited to
+              low-cardinality fields such as category/row/activity/assessment/score/questionCount/result/screenSize
+              (screenSize is a coarse small/medium/large bucket, never your exact screen dimensions). This app never
+              includes a speech transcript, microphone audio, free-text you entered, your name/email, or a
+              persistent identifier tied to you across visits in that properties object, and Umami's own automatic
+              pageview/click/referrer/page-title collection is explicitly disabled for this integration — this app
+              does not send the hostname, page title, referrer, or exact screen size that Umami's tracker sends by
+              default. This app never enables Umami's separate session-replay or heatmap features.
+            </p>
+            <p>
+              Separately from what this app's code sends, Umami's own servers process the standard technical
+              request data every web request includes (such as your IP address and browser User-Agent string) to
+              derive approximate, aggregate session information (for example: country/region, and browser/operating
+              system name) for its usage dashboard — this is a normal part of how Umami's hosted service operates,
+              independent of this app's own payload, and is not something this app's code controls or can suppress.
+              See{' '}
+              <a href="https://umami.is/docs" target="_blank" rel="noreferrer" className="underline">
+                Umami's documentation
+              </a>{' '}
+              for Umami's own account of what it collects and how.
+            </p>
+          </>
+        ) : (
+          <p>
+            <strong>As of this build, analytics is inactive</strong> — no event is sent anywhere; this behavior is
+            controlled entirely by a build-time configuration flag, not a runtime toggle a learner sets. If a future
+            build enables this, the provider is <strong>Umami</strong> (specifically Umami Cloud); this page will
+            switch to describing exactly what's sent, as it does above whenever that build-time flag is on.
+          </p>
+        )}
       </section>
 
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Feedback</h2>
-        <p>
-          A Send Feedback option may be available if a feedback destination is configured for this build. Feedback
-          you choose to submit is sent only when you actively use that feature; it is not linked to your learning
-          progress data or any identity.
-        </p>
+        {feedbackActive ? (
+          <>
+            <p>
+              <strong>This build has Tally feedback enabled.</strong> A Send Feedback option is available. Clicking
+              it opens a Tally form in a new browser tab — opening that form itself sends your current in-app route,
+              the build version, and a coarse screen-size category (small/medium/large, never your exact screen
+              dimensions) to Tally as part of the form's web address, since that's how this app passes that context
+              along. Your written feedback and the category you pick are sent separately, only if and when you
+              choose to fill in and submit the form. Neither step sends your learning progress, saved items, this
+              app's own persistent user identifiers (there aren't any — see "No accounts" above), or your name or
+              email — this app does not ask for either, though Tally's own form fields are outside this app's
+              control.
+            </p>
+            <p>
+              Separately from what this app sends, Tally itself automatically assigns every form respondent a
+              "Respondent ID" — a randomly generated identifier that Tally stores in your browser's local storage.
+              Per Tally's own documentation, this identifier is not tied to a name or email by itself, but it is
+              designed to persist across every Tally form in the same Tally workspace and lets the form owner (this
+              app) tell whether the same browser has responded before. This app does not read, use, or store that
+              identifier itself, and does not add any identifier of its own on top of it — it's part of how Tally
+              operates the form, independent of this app's own code.
+            </p>
+            <p>
+              For a submitted response, this app (as the form's creator) is the party responsible for that response
+              data, and Tally acts as the service that stores and processes it on this app's behalf; per Tally's own
+              documentation, form data is stored in the EU. See{' '}
+              <a href="https://tally.so/help/privacy-policy" target="_blank" rel="noreferrer" className="underline">
+                Tally's privacy policy
+              </a>{' '}
+              for Tally's own account of what it collects and how.
+            </p>
+          </>
+        ) : (
+          <p>
+            <strong>As of this build, no feedback destination is configured</strong>, so the Send Feedback option
+            does not appear at all — it is absent, not just quiet. If a future build enables this, the destination
+            is a <strong>Tally</strong> form; this page will switch to describing exactly what's sent, as it does
+            above whenever that build-time flag is on.
+          </p>
+        )}
       </section>
 
       <section className="flex flex-col gap-2">

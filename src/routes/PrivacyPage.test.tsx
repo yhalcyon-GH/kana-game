@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PrivacyPage } from './PrivacyPage'
 
 describe('PrivacyPage', () => {
@@ -14,10 +14,27 @@ describe('PrivacyPage', () => {
     expect(screen.getAllByText(/local storage/i).length).toBeGreaterThan(0)
   })
 
-  it('accurately states no third-party analytics service is currently active', () => {
+  it('accurately states analytics is currently inactive, and names Umami as the provider if a future build enables it', () => {
     render(<PrivacyPage />)
     const heading = screen.getByRole('heading', { name: 'Analytics', level: 2 })
-    expect(heading.parentElement?.textContent).toMatch(/not.*sent to any third-party analytics service/)
+    const text = heading.parentElement?.textContent ?? ''
+    expect(text).toMatch(/As of this build, analytics is inactive/)
+    expect(text).toMatch(/Umami/)
+  })
+
+  it('accurately states no feedback destination is currently configured, and names Tally as the destination if a future build enables it', () => {
+    render(<PrivacyPage />)
+    const heading = screen.getByRole('heading', { name: 'Feedback', level: 2 })
+    const text = heading.parentElement?.textContent ?? ''
+    expect(text).toMatch(/no feedback destination is configured/)
+    expect(text).toMatch(/Tally/)
+  })
+
+  it('does not mention a Tally Respondent ID while feedback is inactive (no Tally form is ever loaded)', () => {
+    render(<PrivacyPage />)
+    const heading = screen.getByRole('heading', { name: 'Feedback', level: 2 })
+    const text = heading.parentElement?.textContent ?? ''
+    expect(text).not.toMatch(/Respondent ID/)
   })
 
   it('describes speech recognition as browser/platform-handled, not server-recorded, and notes that provider\'s own terms apply', () => {
@@ -48,5 +65,130 @@ describe('PrivacyPage', () => {
     const heading = screen.getByRole('heading', { name: 'Hosting', level: 2 })
     expect(heading.parentElement?.textContent).toMatch(/hosting provider/)
     expect(heading.parentElement?.textContent).toMatch(/provider's own privacy terms/)
+  })
+})
+
+// P1 fix (PR #210 final review): the wording used to be static regardless
+// of whether VITE_ANALYTICS_PROVIDER/VITE_UMAMI_WEBSITE_ID or
+// VITE_FEEDBACK_URL were actually set, so a rebuild with those enabled
+// would silently make the page's "inactive" claims false. It must now
+// read the same config functions the app itself uses (isUmamiConfigured,
+// isFeedbackEnabled) and switch wording accordingly.
+describe('PrivacyPage reflects actual build config', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('Analytics section switches to active wording once Umami is actually configured', () => {
+    vi.stubEnv('VITE_ANALYTICS_PROVIDER', 'umami')
+    vi.stubEnv('VITE_UMAMI_WEBSITE_ID', 'test-website-id')
+    render(<PrivacyPage />)
+    const heading = screen.getByRole('heading', { name: 'Analytics', level: 2 })
+    const text = heading.parentElement?.textContent ?? ''
+    expect(text).toMatch(/This build has Umami analytics active/)
+    expect(text).not.toMatch(/As of this build, analytics is inactive/)
+    expect(text).toMatch(/session-replay or heatmap/)
+    expect(text).toMatch(/never includes.*speech transcript, microphone audio, free-text/)
+  })
+
+  it('Analytics active wording does not overclaim what Umami itself does', () => {
+    vi.stubEnv('VITE_ANALYTICS_PROVIDER', 'umami')
+    vi.stubEnv('VITE_UMAMI_WEBSITE_ID', 'test-website-id')
+    render(<PrivacyPage />)
+    const heading = screen.getByRole('heading', { name: 'Analytics', level: 2 })
+    const text = heading.parentElement?.textContent ?? ''
+    // Must not claim Umami generates no visitor/session information at
+    // all — Umami's own servers derive approximate location/browser/OS
+    // from standard request metadata (IP, User-Agent) regardless of what
+    // this app's JS payload contains.
+    expect(text).not.toMatch(/Umami (generates|receives) (no|only)/)
+    expect(text).toMatch(/IP address and browser User-Agent/)
+    expect(text).toMatch(/independent of this app's own payload/)
+  })
+
+  it('does not activate the Analytics section on a half-configured environment (provider flag with no website id)', () => {
+    vi.stubEnv('VITE_ANALYTICS_PROVIDER', 'umami')
+    render(<PrivacyPage />)
+    const heading = screen.getByRole('heading', { name: 'Analytics', level: 2 })
+    const text = heading.parentElement?.textContent ?? ''
+    expect(text).toMatch(/As of this build, analytics is inactive/)
+  })
+
+  it('Feedback section switches to active wording once a feedback URL is actually configured', () => {
+    vi.stubEnv('VITE_FEEDBACK_URL', 'https://tally.so/r/abc123')
+    render(<PrivacyPage />)
+    const heading = screen.getByRole('heading', { name: 'Feedback', level: 2 })
+    const text = heading.parentElement?.textContent ?? ''
+    expect(text).toMatch(/This build has Tally feedback enabled/)
+    expect(text).not.toMatch(/no feedback destination is configured/)
+  })
+
+  // Round 3 fix (PR #210 final review): buildFeedbackDestinationUrl
+  // (src/lib/feedback/config.ts) appends route/build/screen as query
+  // parameters on the Tally URL itself, so simply OPENING the form already
+  // sends that context to Tally as part of the HTTP request for the page —
+  // it is not true that "nothing is sent until submission." The active
+  // wording must say so precisely, and must not claim otherwise.
+  it('Feedback active wording accurately describes when context is sent vs. when submission content is sent', () => {
+    vi.stubEnv('VITE_FEEDBACK_URL', 'https://tally.so/r/abc123')
+    render(<PrivacyPage />)
+    const heading = screen.getByRole('heading', { name: 'Feedback', level: 2 })
+    const text = heading.parentElement?.textContent ?? ''
+    // Opening the form sends route/build/screen via the URL itself.
+    expect(text).toMatch(/opening that form itself sends your current in-app route/)
+    // Written feedback + category are separate, and only sent on submit.
+    expect(text).toMatch(/Your written feedback and the category you pick are sent separately, only if and when/)
+    // Must not claim nothing is sent until submission — that's false for
+    // the route/build/screen context, which goes out the moment the form
+    // opens.
+    expect(text).not.toMatch(/nothing is sent until you choose to fill it in and submit/)
+  })
+
+  // Round 4 fix (PR #210 final review): the active Feedback wording used
+  // to say "Neither step sends ... any identifier tied to you," which
+  // contradicts Tally's own documented Respondent ID — a UUID v4 Tally
+  // automatically assigns to every form respondent, stores in the
+  // browser's local storage, and which persists across every Tally form
+  // in the same Tally workspace (per tally.so/help/faq and
+  // tally.so/help/prevent-duplicate-submissions). Tally selection is
+  // unchanged; only the disclosure accuracy is fixed here.
+  it('discloses Tally\'s Respondent ID accurately once feedback is active', () => {
+    vi.stubEnv('VITE_FEEDBACK_URL', 'https://tally.so/r/abc123')
+    render(<PrivacyPage />)
+    const heading = screen.getByRole('heading', { name: 'Feedback', level: 2 })
+    const text = heading.parentElement?.textContent ?? ''
+    expect(text).toMatch(/Respondent ID/)
+    expect(text).toMatch(/randomly generated identifier/)
+    expect(text).toMatch(/local storage/)
+    expect(text).toMatch(/persist across every Tally form in the same Tally workspace/)
+    expect(text).toMatch(/whether the same browser has responded before/)
+  })
+
+  it('does not falsely claim no identifier is sent/used once feedback is active (Tally\'s Respondent ID exists)', () => {
+    vi.stubEnv('VITE_FEEDBACK_URL', 'https://tally.so/r/abc123')
+    render(<PrivacyPage />)
+    const heading = screen.getByRole('heading', { name: 'Feedback', level: 2 })
+    const text = heading.parentElement?.textContent ?? ''
+    expect(text).not.toMatch(/any identifier tied to you/)
+    expect(text).not.toMatch(/no identifier (is|of any kind)/i)
+  })
+
+  it('states Tamamizu does not ask for name/email and does not add its own persistent feedback identifier', () => {
+    vi.stubEnv('VITE_FEEDBACK_URL', 'https://tally.so/r/abc123')
+    render(<PrivacyPage />)
+    const heading = screen.getByRole('heading', { name: 'Feedback', level: 2 })
+    const text = heading.parentElement?.textContent ?? ''
+    expect(text).toMatch(/does not ask for either/)
+    expect(text).toMatch(/does not add any identifier of its own/)
+  })
+
+  it('describes the form-creator/Tally data role and EU storage using only confirmed official wording', () => {
+    vi.stubEnv('VITE_FEEDBACK_URL', 'https://tally.so/r/abc123')
+    render(<PrivacyPage />)
+    const heading = screen.getByRole('heading', { name: 'Feedback', level: 2 })
+    const text = heading.parentElement?.textContent ?? ''
+    expect(text).toMatch(/this app \(as the form's creator\) is the party responsible for that response data/)
+    expect(text).toMatch(/Tally acts as the service that stores and processes it/)
+    expect(text).toMatch(/stored in the EU/)
   })
 })

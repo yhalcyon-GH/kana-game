@@ -56,11 +56,14 @@ Instrumented call sites as of this release:
 - `cafe_started` / `cafe_completed` — `CafePage`.
 - `graduated` — fired once, the moment `progressStore`'s graduation flag
   first flips to `true`.
-- `feedback_opened` — the Send Feedback UI, fired only once
-  `window.open(destination, ...)` actually returns a window handle (a
-  popup blocker silently returning `null` does NOT fire this — see
-  `SendFeedback.tsx`). Only appears at all when `VITE_FEEDBACK_URL` is
-  configured.
+- `feedback_opened` — fired from a plain `<a target="_blank" rel="noopener
+  noreferrer">`'s `onClick`, meaning "the feedback destination link was
+  activated" — it does NOT confirm the destination tab actually rendered,
+  loaded, or that the learner did anything there (see `SendFeedback.tsx`).
+  An earlier version gated this on `window.open()`'s return value, which
+  is not a reliable cross-browser success signal; this was replaced with a
+  normal link + click handler, which fires exactly on user activation and
+  nothing else. Only appears at all when `VITE_FEEDBACK_URL` is configured.
 - `feedback_submitted` — never actually fired as of this release: there is
   no in-app submission step (Send Feedback opens an external destination
   and the app has no way to know what, if anything, the learner did

@@ -54,7 +54,7 @@ describe('Review Guide (Issue #40)', () => {
 
     const reviewLink = summary.getByRole('link', { name: /Review\s*1/ })
     expect(reviewLink).toHaveClass('text-orange-600', 'ring-orange-400')
-    expect(reviewLink.querySelector('span')).toHaveClass('bg-orange-500', 'ring-orange-300')
+    expect(reviewLink.querySelector('span.bg-orange-500')).toHaveClass('bg-orange-500', 'ring-orange-300')
   })
 
   // Retry (this-round-only) vs Review (persistent, cross-session) are easy

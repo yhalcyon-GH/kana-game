@@ -1,12 +1,25 @@
 import { consoleProvider } from './consoleProvider'
 import { noopProvider } from './noopProvider'
 import type { AnalyticsEventName, AnalyticsProperties, AnalyticsProvider } from './types'
+import { isUmamiConfigured } from './umamiConfig'
+import { createUmamiProvider } from './umamiProvider'
 
-// Dev builds log to the console for local visibility; production ships
-// with the no-op provider — no third-party analytics service is connected
-// by this foundation (see docs/analytics-foundation.md). Swapping in a real
-// provider later means changing only this one assignment.
-export const activeProvider: AnalyticsProvider = import.meta.env.DEV ? consoleProvider : noopProvider
+// Provider selection: Umami is used only when BOTH VITE_ANALYTICS_PROVIDER
+// is set to 'umami' AND a website id is configured (isUmamiConfigured
+// checks both) — a half-configured environment (e.g. the provider flag set
+// with no website id yet, such as before the id is obtained — see
+// docs/feedback-analytics-provider-decision.md's USER ACTION REQUIRED
+// section) falls back to the safe no-op/dev-console providers below rather
+// than loading a script that can't work. Dev builds without Umami
+// configured log to the console for local visibility; production without
+// Umami configured ships the no-op provider — no third-party analytics
+// service is connected unless explicitly configured. Swapping in a
+// different provider later means changing only this one assignment.
+export const activeProvider: AnalyticsProvider = isUmamiConfigured()
+  ? createUmamiProvider()
+  : import.meta.env.DEV
+    ? consoleProvider
+    : noopProvider
 
 // Exported only so track.test.ts can prove the try/catch below actually
 // swallows a throwing provider — not meant for use outside this module.
