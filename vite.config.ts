@@ -54,9 +54,9 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'Kana Game',
-        short_name: 'Kana Game',
-        description: 'Learn hiragana one row at a time, paired with real everyday words.',
+        name: 'Tamamizu: Hiragana & Katakana',
+        short_name: 'Tamamizu',
+        description: 'Learn hiragana and katakana one row at a time, paired with real everyday words.',
         theme_color: '#ffffff',
         background_color: '#ffffff',
         display: 'standalone',

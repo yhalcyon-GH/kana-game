@@ -57,9 +57,9 @@ describe('WordCard with a yōon word (2 glyphs, 1 character id, but mismatched m
   })
 
   it('falls back to plain kana (no svg) for a word with no accent data at all', () => {
-    // Every real word in the curriculum has accent data as of this test's
-    // writing (261/261 — see buildAccentData.mjs's MANUAL_OVERRIDES for the
-    // ones with no accentjiten entry). Use a word id that doesn't exist in
+    // Every multi-mora word in the curriculum has accent data (298/298 as
+    // of the 2026-09 commercial-release audit — see
+    // docs/pitch-accent-provenance.md). Use a word id that doesn't exist in
     // ACCENT_PATTERNS to prove the fallback path still engages correctly,
     // rather than relying on a specific real word staying data-less forever.
     expect(ACCENT_PATTERNS['not-a-real-word-id']).toBeUndefined()

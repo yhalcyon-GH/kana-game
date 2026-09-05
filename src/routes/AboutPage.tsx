@@ -1,21 +1,42 @@
+import { Link } from 'react-router-dom'
+import { SendFeedback } from '../components/SendFeedback'
+import { SHORT_BUILD_SHA } from '../lib/buildInfo'
+
 export function AboutPage() {
   return (
     <div className="flex w-full max-w-sm flex-col items-center gap-6">
       <h1 className="text-2xl font-bold">About</h1>
 
       <p className="text-center text-sm text-neutral-600 dark:text-neutral-300">
-        Kana Game is a kana learning app (hiragana and katakana): it teaches one gojūon row at a time, paired with real
-        everyday words, and reviews you on both with a spaced-repetition-style practice loop.
+        <strong>Tamamizu: Hiragana &amp; Katakana</strong> is a kana learning app: it teaches one gojūon row at a
+        time, paired with real everyday words, and reviews you on both with a spaced-repetition-style practice loop.
       </p>
 
       <div className="w-full rounded-xl border border-neutral-300 bg-white p-3 text-sm text-neutral-600 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
         <span className="font-semibold text-neutral-700 dark:text-neutral-300">About the Audio</span>
         <p className="mt-1">
-          Characters, words, and reading prompts are voiced by a dedicated narrator voice, and the mascot's
-          correct/incorrect answer reactions are voiced by a separate character voice — both generated with{' '}
-          <strong>ElevenLabs</strong>.
+          Individual kana character audio is real human speech. Vocabulary and reading-prompt audio is a mix of
+          real recordings and synthesized narrator voices from <strong>Microsoft Azure AI Speech</strong> and{' '}
+          <strong>ElevenLabs</strong>. Tamamizu's own correct/incorrect answer reactions use a separate character
+          voice.
         </p>
         <p className="mt-2">Built with React, TypeScript, Vite, Tailwind CSS, React Router, and Zustand.</p>
+      </div>
+
+      <div className="w-full rounded-xl border border-neutral-300 bg-white p-3 text-sm text-neutral-600 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
+        <span className="font-semibold text-neutral-700 dark:text-neutral-300">Legal</span>
+        <ul className="mt-2 flex flex-col gap-1">
+          <li>
+            <Link to="/privacy" className="underline">
+              Privacy Policy
+            </Link>
+          </li>
+          <li>
+            <Link to="/third-party-notices" className="underline">
+              Third-Party Notices
+            </Link>
+          </li>
+        </ul>
       </div>
 
       <div className="w-full rounded-xl border border-neutral-300 bg-white p-3 text-sm text-neutral-600 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
@@ -43,6 +64,10 @@ export function AboutPage() {
           for full attribution and license text.
         </p>
       </div>
+
+      <SendFeedback />
+
+      <p className="text-xs text-neutral-400 dark:text-neutral-500">Build: {SHORT_BUILD_SHA}</p>
     </div>
   )
 }

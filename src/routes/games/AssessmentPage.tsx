@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { AnswerFeedbackRow } from '../../components/AnswerFeedbackRow'
 import { AnswerReveal } from '../../components/AnswerReveal'
@@ -14,6 +14,7 @@ import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
 import { useCurriculum } from '../../hooks/useCurriculum'
 import { useTTS } from '../../hooks/useTTS'
 import { useWordReadingSpeech } from '../../hooks/useWordReadingSpeech'
+import { track } from '../../lib/analytics/track'
 import {
   buildAssessmentPlan,
   buildYouonSpecialAssessmentPlan,
@@ -90,6 +91,17 @@ function ScriptAssessmentPage() {
     setFinished(false)
   }, [sessionSeed])
 
+  // Fires once per real attempt (sessionSeed changes on Retry, see
+  // setAttempt above) — guarded by a ref so React StrictMode's dev-only
+  // double-invoke of effects can't double-fire it.
+  const startedSeedRef = useRef<number | null>(null)
+  useEffect(() => {
+    if (!script || !config || startedSeedRef.current === sessionSeed) return
+    startedSeedRef.current = sessionSeed
+    track('assessment_started', { assessment: script })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionSeed, script])
+
   const questions = plan?.questions ?? []
   const currentQuestion: AssessmentQuestion | undefined = questions[roundIndex]
 
@@ -116,8 +128,14 @@ function ScriptAssessmentPage() {
     } else if (config && answers.length === questions.length && !finished) {
       setFinished(true)
       const correct = answers.filter((answer) => answer.correct).length
-      if (script === 'final-graduation') useProgressStore.getState().markFinalGraduationCompleted({ correct, total: questions.length })
-      else markAssessmentCompleted(script as AssessmentScript, { correct, total: questions.length })
+      if (script === 'final-graduation') {
+        const wasGraduated = useProgressStore.getState().graduation.graduated
+        useProgressStore.getState().markFinalGraduationCompleted({ correct, total: questions.length })
+        if (!wasGraduated && useProgressStore.getState().graduation.graduated) track('graduated')
+      } else {
+        markAssessmentCompleted(script as AssessmentScript, { correct, total: questions.length })
+      }
+      track('assessment_completed', { assessment: script ?? undefined, score: correct, questionCount: questions.length })
     }
   }
 
@@ -530,6 +548,7 @@ function AssessmentWordReadingQuestion({
   useEffect(() => {
     if (speech.state.kind !== 'result') return
     if (speech.state.result.outcome === 'success') {
+      track('word_reading_speech_success')
       setFinalResult('correct')
       onAnswered(true)
     }
@@ -585,9 +604,9 @@ function AssessmentWordReadingQuestion({
                 <p className="text-center text-xs text-neutral-500 dark:text-neutral-400">Voice input isn&apos;t available in this browser — use the button below instead.</p>
               )}
               {isSpeechFailure && !speech.retryUsed && (
-                <button type="button" onClick={speech.tryAgain} className="rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white">Try Again</button>
+                <button type="button" onClick={() => { track('word_reading_speech_retry'); speech.tryAgain() }} className="rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold text-white">Try Again</button>
               )}
-              <button type="button" onClick={() => setShowRomaji(true)} className="rounded-full border px-5 py-2 text-sm font-semibold">
+              <button type="button" onClick={() => { track('word_reading_romaji_fallback'); setShowRomaji(true) }} className="rounded-full border px-5 py-2 text-sm font-semibold">
                 Choose in Romaji
               </button>
             </>

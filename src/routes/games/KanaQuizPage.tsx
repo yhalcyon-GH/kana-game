@@ -13,6 +13,7 @@ import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
 import { useDelayedAction } from '../../hooks/useDelayedAction'
 import { useEnterAdvance } from '../../hooks/useEnterAdvance'
 import { useGameSession } from '../../hooks/useGameSession'
+import { usePracticeAnalytics } from '../../hooks/usePracticeAnalytics'
 import { useTTS } from '../../hooks/useTTS'
 import { pickDistractorCharIds } from '../../lib/distractorPicker'
 import { buildKanaQuizTargetQueue, getKanaQuizRounds } from '../../lib/kanaQuizSelection'
@@ -122,6 +123,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
 
   const { queue, roundIndex, correctCount, setCorrectCount, finished, startSession, startMistakeReview, advance } =
     useGameSession({ ids: quizCharacterIds, weight: getBox, onFinish, resetSession, rounds, sessionKey: rowId, buildQueue })
+  usePracticeAnalytics('kanaQuiz', categoryId, isReview || isSimilarLetters ? undefined : rowId, rowId, finished, correctCount, queue.length)
   const { schedule: scheduleAdvance, cancel: cancelAdvance } = useDelayedAction()
   // Manual Next after a correct answer must cancel the pending 2s auto-
   // advance timer before advancing, so a click right after answering

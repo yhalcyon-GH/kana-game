@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { HIRAGANA_RESTAURANT_DISHES } from '../../data/restaurantDishes'
+import * as trackModule from '../../lib/analytics/track'
 import { useProgressStore } from '../../store/progressStore'
 import { RestaurantPage } from './RestaurantPage'
 
@@ -294,6 +295,25 @@ describe('RestaurantPage', () => {
     expect(screen.getByText('Completed!')).toBeInTheDocument()
     const resultCalls = tts.speak.mock.calls.filter(([key]) => key === 'feedback/kanpeki')
     expect(resultCalls.length).toBe(1)
+  })
+
+  // Regression: restaurant_completed used to mislabel the session's total
+  // question count as `attempt` (an actual attempt/retry number this app
+  // doesn't track). `questionCount` is the correctly-named field for "how
+  // many questions were in this session" — `attempt` must stay absent here
+  // since no real attempt number exists.
+  it('fires restaurant_completed with questionCount (not attempt) for the session total', () => {
+    const trackSpy = vi.spyOn(trackModule, 'track')
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    renderPage()
+    for (let question = 1; question <= 8; question++) {
+      clickTargetAnswer()
+      fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    }
+    expect(trackSpy).toHaveBeenCalledWith('restaurant_completed', expect.objectContaining({ score: 8, questionCount: 8 }))
+    const [, properties] = trackSpy.mock.calls.find(([event]) => event === 'restaurant_completed')!
+    expect(properties).not.toHaveProperty('attempt')
+    trackSpy.mockRestore()
   })
 
   it('does not replay the Tamamizu result reaction on an unrelated re-render after completion', () => {

@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:browser-smoke": "playwright test --config=playwright.config.mjs",
-    "verify": "tsx scripts/convertStrokesvg.ts --check && npm test && npm run lint && npm run build && git diff --check",
+    "verify": "tsx scripts/convertStrokesvg.ts --check && node scripts/checkAccentData.mjs && npm test && npm run lint && npm run build && git diff --check",
     "check-voices": "tsx scripts/checkVoiceQuality.ts",
     "voice:analyze": "tsx scripts/voicePipeline/cli.ts --analyze-only",
     "voice:split": "tsx scripts/voicePipeline/cli.ts --split-only",

@@ -5,6 +5,7 @@ import { AssessmentScoreVisual } from '../../components/AssessmentScoreVisual'
 import { WordImage } from '../../components/WordImage'
 import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
 import { useTTS } from '../../hooks/useTTS'
+import { track } from '../../lib/analytics/track'
 import { buildSoundLengthAssessmentPlan, createSoundLengthRng, type SoundLengthQuestion } from '../../lib/soundLengthAssessmentPlan'
 import { useProgressStore } from '../../store/progressStore'
 import { WORDS_BY_ROW } from '../../data/words'
@@ -12,6 +13,13 @@ import { WORDS_BY_ROW } from '../../data/words'
 export function SoundLengthAssessmentPage() {
   const markCompleted = useProgressStore((state) => state.markAssessmentCompleted)
   const [seed] = useState(() => Math.floor(Math.random() * 2 ** 31))
+  const startedSeedRef = useRef<number | null>(null)
+  useEffect(() => {
+    if (startedSeedRef.current === seed) return
+    startedSeedRef.current = seed
+    track('assessment_started', { assessment: 'sokuon-chouon' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seed])
   const words = useMemo(() => Object.entries(WORDS_BY_ROW).filter(([rowId]) => rowId === 'sokuon-row' || rowId.startsWith('chouon-')).flatMap(([, rowWords]) => rowWords), [])
   const plan = useMemo(() => buildSoundLengthAssessmentPlan(words, createSoundLengthRng(seed)), [seed, words])
   const [index, setIndex] = useState(0)
@@ -41,6 +49,7 @@ export function SoundLengthAssessmentPage() {
     }
     const correct = answers.filter((answer) => answer.correct).length
     markCompleted('sokuon-chouon', { correct, total: plan.questions.length })
+    track('assessment_completed', { assessment: 'sokuon-chouon', score: correct, questionCount: plan.questions.length })
     setFinished(true)
   }
 
@@ -56,7 +65,7 @@ export function SoundLengthAssessmentPage() {
       <h1 className="text-2xl font-bold">Stop &amp; Long Sound Test complete!</h1>
       <AssessmentScoreVisual correct={correct} total={plan.questions.length} />
       {mistakes.length > 0 && <div className="w-full max-w-md rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-left dark:border-neutral-700 dark:bg-neutral-900"><h2 className="font-bold">Missed this round</h2><ul className="mt-2 flex min-w-0 flex-col gap-1" data-testid="assessment-mistake-list">{[...new Map(mistakes.map((answer) => [answer.question.word.id, answer])).values()].map((answer) => <li key={answer.question.word.id} className="flex min-w-0 flex-wrap justify-between gap-x-3 text-neutral-600 dark:text-neutral-400"><span className="font-kana break-all font-semibold text-neutral-800 dark:text-neutral-200">{answer.question.word.kana}</span><span className="break-all">{answer.question.word.romaji}</span></li>)}</ul></div>}
-      <div className="flex flex-wrap justify-center gap-3"><button type="button" onClick={() => { setIndex(0); setAnswers([]); setSelected(null); setFinished(false); playedQuestionRef.current = null; resetSession() }} className="rounded-full border px-6 py-2 font-semibold">Play Again</button><Link to="/youon" className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white">Continue</Link><Link to="/other" className="rounded-full border px-6 py-2 font-semibold">Back</Link></div>
+      <div className="flex flex-wrap justify-center gap-3"><button type="button" onClick={() => { setIndex(0); setAnswers([]); setSelected(null); setFinished(false); playedQuestionRef.current = null; resetSession(); track('assessment_started', { assessment: 'sokuon-chouon' }) }} className="rounded-full border px-6 py-2 font-semibold">Play Again</button><Link to="/youon" className="rounded-full bg-blue-600 px-6 py-2 font-semibold text-white">Continue</Link><Link to="/other" className="rounded-full border px-6 py-2 font-semibold">Back</Link></div>
     </div>
   }
 

@@ -26,10 +26,12 @@ import { CategoryRowsPage } from './routes/CategoryRowsPage'
 import { HomePage } from './routes/HomePage'
 import { LearnPage } from './routes/LearnPage'
 import { PracticeHubPage } from './routes/PracticeHubPage'
+import { PrivacyPage } from './routes/PrivacyPage'
 import { ReviewMistakesPage } from './routes/ReviewMistakesPage'
 import { ReviewPage } from './routes/ReviewPage'
 import { SavedPage } from './routes/SavedPage'
 import { SettingsPage } from './routes/SettingsPage'
+import { ThirdPartyNoticesPage } from './routes/ThirdPartyNoticesPage'
 
 function RestaurantRoute() {
   const { checkpointId } = useParams()
@@ -170,6 +172,8 @@ function App() {
               <Route path="/saved" element={<SavedPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/about" element={<AboutPage />} />
+              <Route path="/privacy" element={<PrivacyPage />} />
+              <Route path="/third-party-notices" element={<ThirdPartyNoticesPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </ErrorBoundary>

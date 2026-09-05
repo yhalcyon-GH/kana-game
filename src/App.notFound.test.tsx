@@ -31,6 +31,6 @@ describe('unmatched route recovery', () => {
 
     fireEvent.click(screen.getByRole('link', { name: 'Go Home' }))
 
-    expect(screen.getByRole('heading', { name: 'Kana Game' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Tamamizu' })).toBeInTheDocument()
   })
 })
