@@ -14,10 +14,28 @@ describe('PrivacyPage', () => {
     expect(screen.getAllByText(/local storage/i).length).toBeGreaterThan(0)
   })
 
-  it('accurately states no third-party analytics service is currently active', () => {
+  it('accurately states analytics is currently inactive, and names Umami as the provider if a future build enables it', () => {
     render(<PrivacyPage />)
     const heading = screen.getByRole('heading', { name: 'Analytics', level: 2 })
-    expect(heading.parentElement?.textContent).toMatch(/not.*sent to any third-party analytics service/)
+    const text = heading.parentElement?.textContent ?? ''
+    expect(text).toMatch(/As of this build, analytics is inactive/)
+    expect(text).toMatch(/Umami/)
+    expect(text).toMatch(/session-replay or heatmap/)
+  })
+
+  it('never claims a transcript, microphone audio, or persistent identifier is sent for analytics', () => {
+    render(<PrivacyPage />)
+    const heading = screen.getByRole('heading', { name: 'Analytics', level: 2 })
+    const text = heading.parentElement?.textContent ?? ''
+    expect(text).toMatch(/never.*speech transcript, microphone audio, free-text/)
+  })
+
+  it('accurately states no feedback destination is currently configured, and names Tally as the destination if a future build enables it', () => {
+    render(<PrivacyPage />)
+    const heading = screen.getByRole('heading', { name: 'Feedback', level: 2 })
+    const text = heading.parentElement?.textContent ?? ''
+    expect(text).toMatch(/no feedback destination is configured/)
+    expect(text).toMatch(/Tally/)
   })
 
   it('describes speech recognition as browser/platform-handled, not server-recorded, and notes that provider\'s own terms apply', () => {

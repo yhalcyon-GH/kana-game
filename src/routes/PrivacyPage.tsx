@@ -65,20 +65,45 @@ export function PrivacyPage() {
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Analytics</h2>
         <p>
-          The app can record anonymous, aggregate usage events (for example, which activity was started or
-          completed) to help understand how the app is used. As of this release, that data is <strong>not</strong>{' '}
-          sent to any third-party analytics service — no external analytics provider is active. If that changes in
-          the future, this page will be updated to name the provider and describe what's collected before it's
-          enabled.
+          This app can record anonymous, aggregate usage events (for example, which activity was started or
+          completed, or a Word Reading speech attempt's outcome) to help understand where learners get stuck — never
+          a speech transcript, microphone audio, free-text you entered, your name/email, or a persistent identifier
+          tied to you across visits.
+        </p>
+        <p>
+          <strong>As of this build, analytics is inactive</strong> — no event is sent anywhere; this behavior is
+          controlled entirely by a build-time configuration flag, not a runtime toggle a learner sets. If a future
+          build enables this, the provider is <strong>Umami</strong> (specifically Umami Cloud), configured to send
+          only the app's own explicit event names and the low-cardinality properties listed above — Umami's
+          automatic pageview/click tracking is explicitly disabled in that configuration, and this app never enables
+          Umami's separate session-replay or heatmap features. Per Umami's own product documentation, its standard
+          tracking does not use cookies and is not designed to build a cross-site profile of you. See{' '}
+          <a href="https://umami.is/docs" target="_blank" rel="noreferrer" className="underline">
+            Umami's documentation
+          </a>{' '}
+          for their own privacy-related claims if this is ever enabled.
         </p>
       </section>
 
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Feedback</h2>
         <p>
-          A Send Feedback option may be available if a feedback destination is configured for this build. Feedback
-          you choose to submit is sent only when you actively use that feature; it is not linked to your learning
-          progress data or any identity.
+          A Send Feedback option only appears when you're looking at a build where a feedback destination has been
+          configured — it is absent otherwise. <strong>As of this build, no feedback destination is configured</strong>
+          , so this option does not appear at all.
+        </p>
+        <p>
+          If a future build enables this, the destination is a <strong>Tally</strong> form. Clicking Send Feedback
+          opens that form in a new browser tab; nothing is sent until you choose to fill it in and submit it there.
+          Along with whatever you write and a category you pick, the link carries your current in-app route, the
+          build version, and a coarse screen-size category (small/medium/large, never your exact screen dimensions)
+          as context — never your learning progress, saved items, or any identifier tied to you. This app does not
+          ask for your name or email, though Tally's own form fields are outside this app's control. Tally is the
+          processor for whatever you submit there; see{' '}
+          <a href="https://tally.so/help/privacy-policy" target="_blank" rel="noreferrer" className="underline">
+            Tally's privacy policy
+          </a>{' '}
+          for their own terms.
         </p>
       </section>
 
