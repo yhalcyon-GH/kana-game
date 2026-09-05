@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { TUTORIAL_CATALOG } from '../data/guideCatalog'
 import { buildGuideReplayHref } from '../hooks/useGuideReplay'
 import { useProgressStore } from '../store/progressStore'
@@ -132,6 +132,26 @@ export function SettingsPage() {
             <span className="text-blue-600 dark:text-blue-400">›</span>
           </button>
         ))}
+      </div>
+
+      <div className="flex w-full flex-col gap-2">
+        <h2 className="self-start text-xs font-semibold tracking-wide text-neutral-400 uppercase dark:text-neutral-500">
+          Legal
+        </h2>
+        <Link
+          to="/privacy"
+          className="flex w-full items-center justify-between rounded-xl border border-neutral-300 bg-white px-4 py-3 hover:border-blue-400 dark:border-neutral-600 dark:bg-neutral-800"
+        >
+          <span>Privacy Policy</span>
+          <span className="text-blue-600 dark:text-blue-400">›</span>
+        </Link>
+        <Link
+          to="/third-party-notices"
+          className="flex w-full items-center justify-between rounded-xl border border-neutral-300 bg-white px-4 py-3 hover:border-blue-400 dark:border-neutral-600 dark:bg-neutral-800"
+        >
+          <span>Third-Party Notices</span>
+          <span className="text-blue-600 dark:text-blue-400">›</span>
+        </Link>
       </div>
     </div>
   )

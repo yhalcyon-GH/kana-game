@@ -37,7 +37,7 @@ beforeEach(() => {
 describe('routing', () => {
   it('/ renders the home page', () => {
     renderAt('/')
-    expect(screen.getByRole('heading', { name: 'Kana Game' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Tamamizu' })).toBeInTheDocument()
   })
 
   it('/practice/hiragana/a-row renders that row\'s Practice Hub', () => {
@@ -73,7 +73,7 @@ describe('routing', () => {
 
   it('a mismatched category (a-row is hiragana, not katakana) redirects home rather than rendering', () => {
     renderAt('/practice/katakana/a-row')
-    expect(screen.getByRole('heading', { name: 'Kana Game' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Tamamizu' })).toBeInTheDocument()
   })
 
   it('/practice/katakana/katakana-a-row renders that row\'s Practice Hub', () => {
@@ -93,7 +93,7 @@ describe('routing', () => {
 
   it('an unknown row id redirects home', () => {
     renderAt('/practice/hiragana/not-a-real-row')
-    expect(screen.getByRole('heading', { name: 'Kana Game' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Tamamizu' })).toBeInTheDocument()
   })
 
   it('/practice/review shows a "nothing to review yet" message (not a silent redirect) until at least one row is taught', () => {
@@ -337,7 +337,7 @@ describe('contrast-pairs learnStyle (sokuon)', () => {
 
   it('direct navigation to the sokuon Kana Quiz route redirects home rather than rendering', () => {
     renderAt('/practice/sokuon/sokuon-row/kana-quiz')
-    expect(screen.getByRole('heading', { name: 'Kana Game' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Tamamizu' })).toBeInTheDocument()
   })
 
   it('/practice/sokuon/sokuon-row/word-builder still renders normally (contrast-pairs categories keep the other 3 games)', () => {
@@ -397,7 +397,7 @@ describe('contrast-pairs learnStyle with zero new characters (chōon)', () => {
 
   it('direct navigation to the chouon Kana Quiz route redirects home rather than rendering', () => {
     renderAt('/practice/chouon/chouon-katakana-row/kana-quiz')
-    expect(screen.getByRole('heading', { name: 'Kana Game' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Tamamizu' })).toBeInTheDocument()
   })
 
   it('/practice/chouon/chouon-katakana-row/word-builder still renders normally, drawing distractor tiles from the full hiragana+katakana pool', () => {

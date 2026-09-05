@@ -13,6 +13,7 @@ For day-to-day development, start with [`CLAUDE.md`](../CLAUDE.md) or [`AGENTS.m
 - **[curriculum-extensibility.md](./curriculum-extensibility.md)** — curriculum data-model design and implementation history. Current accepted decisions and code/tests outrank older narrative inside the document.
 - **[audio-provider-interface.md](./audio-provider-interface.md)** — implemented `SpeechProvider` architecture.
 - **[pitch-accent-provenance.md](./pitch-accent-provenance.md)** — pitch-accent data source, resolution method, and the 2026-09 commercial-release audit.
+- **[analytics-foundation.md](./analytics-foundation.md)** — provider-neutral analytics/feedback abstraction; what's instrumented, and what connecting a real provider later requires.
 - **[tamamizu-guide-scripts.md](./tamamizu-guide-scripts.md)** — approved guide copy / visual direction where still applicable.
 - **[restaurant-audio-manifest.csv](./restaurant-audio-manifest.csv)** — restaurant audio asset manifest.
 

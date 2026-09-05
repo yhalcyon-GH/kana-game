@@ -137,7 +137,7 @@ test('first launch shows the Introduction and Skip reaches Home', async ({ page 
   await expect(guide.getByRole('button', { name: 'Next' })).toBeVisible()
   await expect(guide.getByRole('button', { name: 'Back' })).toBeDisabled()
   await guide.getByRole('button', { name: 'Skip' }).click()
-  await expect(page.getByRole('heading', { name: 'Kana Game' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Tamamizu' })).toBeVisible()
 })
 
 test('Final pending Home recommendation is clear and fits at 320px', async ({ page }) => {
@@ -241,7 +241,7 @@ test('unmatched routes show recovery UI and Go Home restores Home', async ({ pag
   await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible()
   await page.getByRole('link', { name: 'Go Home' }).click()
   await expect(page).toHaveURL(/#\/$/)
-  await expect(page.getByRole('heading', { name: 'Kana Game' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Tamamizu' })).toBeVisible()
 })
 
 test('Hiragana and Katakana Tests both load at 320px without overflow', async ({ page }) => {
