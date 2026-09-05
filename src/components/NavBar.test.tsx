@@ -29,6 +29,18 @@ describe('NavBar top row', () => {
     expect(screen.getByRole('link', { name: /^Saved$/ })).toHaveAttribute('href', '/saved')
   })
 
+  // P2 fix (PR #210 final review): the icon and label used to be stacked
+  // (flex-col: icon above, label below) rather than the decided final
+  // layout of icon + label side by side on one line.
+  it('lays out icon and label side by side (not stacked vertically) for Home/Review/Saved', () => {
+    renderNav()
+    for (const name of [/^Home$/, /^Review$/, /^Saved$/]) {
+      const link = screen.getByRole('link', { name })
+      expect(link.className).toMatch(/\bitems-center\b/)
+      expect(link.className).not.toMatch(/\bflex-col\b/)
+    }
+  })
+
   it('renders Settings as a gear-only link with no visible "Settings" text', () => {
     renderNav()
     const settingsLink = screen.getByRole('link', { name: 'Settings' })
@@ -57,6 +69,26 @@ describe('NavBar Review badge', () => {
     renderNav()
     const reviewLink = screen.getByRole('link', { name: /Review\s*1/ })
     expect(reviewLink.querySelector('span.bg-red-500')).toHaveTextContent('1')
+  })
+
+  // P2 fix (PR #210 final review): the badge used to be positioned
+  // `relative` to the ENTIRE nav cell (icon + label + tap-target padding),
+  // so it could visually anchor far from the label it's meant to overlay.
+  // It must instead be scoped to a small wrapper around just the label
+  // text, so it visually sits at the corner of "Review"/"Saved" themselves.
+  it('positions the badge relative to a small label-only wrapper, not the whole nav cell', () => {
+    useProgressStore.getState().markRowTaught('a-row')
+    useProgressStore.getState().recordCharacterReviewResult('a', false)
+    renderNav()
+    const reviewLink = screen.getByRole('link', { name: /Review\s*1/ })
+    const badge = reviewLink.querySelector('span.bg-red-500')!
+    const positioningAncestor = badge.parentElement!
+    expect(positioningAncestor.className).toMatch(/\brelative\b/)
+    // The positioning ancestor should be a small inline wrapper around
+    // just the label — not equal to the NavLink itself, and not carrying
+    // the NavLink's own flex-1/tap-target sizing classes.
+    expect(positioningAncestor).not.toBe(reviewLink)
+    expect(positioningAncestor.className).not.toMatch(/\bflex-1\b/)
   })
 })
 

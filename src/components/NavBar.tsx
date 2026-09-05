@@ -6,23 +6,24 @@ import { useCurriculum } from '../hooks/useCurriculum'
 import { useSavedItemsStore } from '../store/savedItemsStore'
 import { useGuideHighlight } from './GuideHighlightContext'
 
-// Top nav: Home / Review / Saved (icon + label, one row, no wrap even at
-// 320px) plus a gear-only Settings entry with no visible "Settings" text —
-// About is reached from within Settings (see SettingsPage) rather than a
-// separate top-level nav entry, so it's intentionally absent here even
-// though the /about route itself still exists for old links/bookmarks.
+// Top nav: Home / Review / Saved (icon + label side by side, one row, no
+// wrap even at 320px) plus a gear-only Settings entry with no visible
+// "Settings" text — About is reached from within Settings (see
+// SettingsPage) rather than a separate top-level nav entry, so it's
+// intentionally absent here even though the /about route itself still
+// exists for old links/bookmarks.
 export function NavBar() {
   const { reviewCount } = useCurriculum()
   const savedCount = useSavedItemsStore((s) => s.savedCharacterIds.length + s.savedWordIds.length)
   const { reviewGuideVisible } = useGuideHighlight()
 
   const itemClass = ({ isActive }: { isActive: boolean }) =>
-    `relative flex flex-1 flex-col items-center gap-0.5 rounded-lg px-1 py-1.5 text-xs font-medium ${
+    `flex flex-1 items-center justify-center gap-1 rounded-lg px-1 py-1.5 text-xs font-medium ${
       isActive ? 'text-blue-600 dark:text-blue-400' : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
     }`
 
   const reviewItemClass = ({ isActive }: { isActive: boolean }) =>
-    `relative flex flex-1 flex-col items-center gap-0.5 rounded-lg px-1 py-1.5 text-xs font-medium ${
+    `flex flex-1 items-center justify-center gap-1 rounded-lg px-1 py-1.5 text-xs font-medium ${
       reviewGuideVisible
         ? 'text-orange-600 ring-2 ring-orange-400 ring-offset-2 dark:text-orange-400 dark:ring-orange-400'
         : isActive
@@ -40,14 +41,22 @@ export function NavBar() {
 
         <NavLink to="/review" className={reviewItemClass}>
           <span className="text-lg leading-none" aria-hidden="true">🔁</span>
-          Review
-          <NavBadge count={reviewCount} className={reviewGuideVisible ? 'bg-orange-500 ring-2 ring-orange-300' : undefined} />
+          {/* The badge overlays only this icon+label group's own corner,
+              not the whole tap target's — `relative` is scoped here, not
+              on the outer NavLink, so a bigger tap target never widens
+              where the badge visually anchors. */}
+          <span className="relative inline-flex items-center">
+            Review
+            <NavBadge count={reviewCount} className={reviewGuideVisible ? 'bg-orange-500 ring-2 ring-orange-300' : undefined} />
+          </span>
         </NavLink>
 
         <NavLink to="/saved" className={itemClass}>
           <span className="text-lg leading-none" aria-hidden="true">🔖</span>
-          Saved
-          <NavBadge count={savedCount} />
+          <span className="relative inline-flex items-center">
+            Saved
+            <NavBadge count={savedCount} />
+          </span>
         </NavLink>
 
         <NavLink to="/settings" aria-label="Settings" className={itemClass}>
