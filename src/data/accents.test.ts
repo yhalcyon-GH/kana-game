@@ -28,3 +28,9 @@ describe('accents: ra-konnichiwa / ra-konbanwa', () => {
     expect(pattern!.slice(1)).toBe('H'.repeat(pattern!.length - 1))
   })
 })
+
+describe('accents: special-katakana-she-harowin', () => {
+  it('uses the verified HLLL pattern for ハロウィン', () => {
+    expect(ACCENT_PATTERNS['special-katakana-she-harowin']).toBe('HLLL')
+  })
+})
