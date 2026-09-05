@@ -229,7 +229,7 @@ export const ACCENT_PATTERNS: Record<string, string> = {
   'special-katakana-fa-tisshu': 'HLL', // ティッシュ (tisshu)
   'special-katakana-she-chekku': 'HLL', // チェック (chekku)
   'special-katakana-she-chesu': 'HL', // チェス (chesu)
-  'special-katakana-she-harowin': 'LHLL', // ハロウィン (harowin)
+  'special-katakana-she-harowin': 'HLLL', // ハロウィン (harowin)
   'special-katakana-she-jesuchaa': 'HLLL', // ジェスチャー (jesuchā)
   'special-katakana-she-purojekuto': 'LHLLL', // プロジェクト (purojekuto)
   'special-katakana-she-shea': 'HL', // シェア (shea)
