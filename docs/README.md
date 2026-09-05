@@ -14,6 +14,8 @@ For day-to-day development, start with [`CLAUDE.md`](../CLAUDE.md) or [`AGENTS.m
 - **[audio-provider-interface.md](./audio-provider-interface.md)** — implemented `SpeechProvider` architecture.
 - **[pitch-accent-provenance.md](./pitch-accent-provenance.md)** — pitch-accent data source, resolution method, and the 2026-09 commercial-release audit.
 - **[analytics-foundation.md](./analytics-foundation.md)** — provider-neutral analytics/feedback abstraction; what's instrumented, and what connecting a real provider later requires.
+- **[feedback-analytics-provider-decision.md](./feedback-analytics-provider-decision.md)** — Tally vs. Formspree and Umami vs. PostHog/Plausible comparison, decision, and disclosed trade-offs (dated; re-verify pricing/terms if read much later).
+- **[feedback-setup.md](./feedback-setup.md)** — step-by-step Tally account/form setup and `VITE_FEEDBACK_URL` activation guide for a human operator.
 - **[tamamizu-guide-scripts.md](./tamamizu-guide-scripts.md)** — approved guide copy / visual direction where still applicable.
 - **[restaurant-audio-manifest.csv](./restaurant-audio-manifest.csv)** — restaurant audio asset manifest.
 

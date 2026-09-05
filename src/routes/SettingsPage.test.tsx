@@ -223,3 +223,29 @@ describe('SettingsPage audio control disabled states (mobile QA polish)', () => 
     expect(voiceVolumeSlider).toBeDisabled()
   })
 })
+
+// Settings and About are now one continuous scrollable page (About is
+// reached by scrolling down, not via a separate top-level nav item — see
+// NavBar). SettingsPage renders the shared <AboutContent/> after its own
+// controls rather than duplicating any of that copy.
+describe('SettingsPage contains About content below Settings', () => {
+  it('renders both the Settings heading and the About heading, Settings first', () => {
+    const { getByRole } = renderSettings()
+    const settingsHeading = getByRole('heading', { name: 'Settings', level: 1 })
+    const aboutHeading = getByRole('heading', { name: 'About', level: 1 })
+    expect(settingsHeading.compareDocumentPosition(aboutHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('links to Privacy Policy and Third-Party Notices from within the same page', () => {
+    const { getByRole } = renderSettings()
+    expect(getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/privacy')
+    expect(getByRole('link', { name: 'Third-Party Notices' })).toHaveAttribute('href', '/third-party-notices')
+  })
+
+  it('does not duplicate a separate Legal section outside of About content', () => {
+    const { getAllByText } = renderSettings()
+    // Exactly one "Legal" label should exist — About's own, not a second
+    // Settings-specific one.
+    expect(getAllByText('Legal')).toHaveLength(1)
+  })
+})

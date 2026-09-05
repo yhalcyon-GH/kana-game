@@ -25,30 +25,26 @@ describe('SendFeedback with a destination configured', () => {
     vi.restoreAllMocks()
   })
 
-  it('clicking Send Feedback actually opens the configured destination', () => {
+  it('renders a normal link (not a window.open()-driven button) pointing at the configured destination', () => {
     vi.stubEnv('VITE_FEEDBACK_URL', 'https://forms.example.com/kana-game-feedback')
-    const openSpy = vi.spyOn(window, 'open').mockReturnValue({} as Window)
-    const trackSpy = vi.spyOn(trackModule, 'track')
 
     render(
       <MemoryRouter initialEntries={['/about']}>
         <SendFeedback />
       </MemoryRouter>,
     )
-    fireEvent.click(screen.getByText('Send Feedback'))
-
-    expect(openSpy).toHaveBeenCalledTimes(1)
-    const [openedUrl, target, features] = openSpy.mock.calls[0]
-    expect(String(openedUrl)).toContain('https://forms.example.com/kana-game-feedback')
-    expect(String(openedUrl)).toContain('route=%2Fabout')
-    expect(target).toBe('_blank')
-    expect(features).toContain('noopener')
-    expect(trackSpy).toHaveBeenCalledWith('feedback_opened')
+    const link = screen.getByRole('link', { name: /Send Feedback/ })
+    expect(link.tagName).toBe('A')
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'))
+    expect(link).toHaveAttribute('rel', expect.stringContaining('noreferrer'))
+    const href = link.getAttribute('href') ?? ''
+    expect(href).toContain('https://forms.example.com/kana-game-feedback')
+    expect(href).toContain('route=%2Fabout')
   })
 
-  it('does not fire feedback_opened if window.open fails (e.g. popup blocked)', () => {
+  it('records feedback_opened on click, without depending on any window.open() return value', () => {
     vi.stubEnv('VITE_FEEDBACK_URL', 'https://forms.example.com/kana-game-feedback')
-    vi.spyOn(window, 'open').mockReturnValue(null)
     const trackSpy = vi.spyOn(trackModule, 'track')
 
     render(
@@ -56,8 +52,11 @@ describe('SendFeedback with a destination configured', () => {
         <SendFeedback />
       </MemoryRouter>,
     )
-    fireEvent.click(screen.getByText('Send Feedback'))
+    // jsdom does not actually navigate on an anchor click, so this proves
+    // the click handler itself fires the event — no window.open mock is
+    // set up at all, unlike the old popup-return-value-gated implementation.
+    fireEvent.click(screen.getByRole('link', { name: /Send Feedback/ }))
 
-    expect(trackSpy).not.toHaveBeenCalledWith('feedback_opened')
+    expect(trackSpy).toHaveBeenCalledWith('feedback_opened')
   })
 })

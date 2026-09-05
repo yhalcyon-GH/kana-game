@@ -41,4 +41,30 @@ describe('AboutPage', () => {
     expect(screen.getByText(/Microsoft Azure AI Speech/)).toBeInTheDocument()
     expect(screen.getByText(/ElevenLabs/)).toBeInTheDocument()
   })
+
+  it('shows the exact required intro sentence, verbatim', () => {
+    render(
+      <MemoryRouter>
+        <AboutPage />
+      </MemoryRouter>,
+    )
+    expect(
+      screen.getByText(
+        'Tamamizu: Hiragana & Katakana was created by a Japanese language teacher. AI was used to create the audio and illustrations. All learning content and audio were created and reviewed by a Japanese language teacher.',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('does not claim any audio is real human speech/recordings (all audio is AI-generated per the current distribution)', () => {
+    render(
+      <MemoryRouter>
+        <AboutPage />
+      </MemoryRouter>,
+    )
+    const bodyText = document.body.textContent ?? ''
+    expect(bodyText).not.toMatch(/real human speech/i)
+    expect(bodyText).not.toMatch(/real recordings?/i)
+    expect(bodyText).not.toMatch(/human recording/i)
+    expect(bodyText).not.toMatch(/recorded pronunciation/i)
+  })
 })
