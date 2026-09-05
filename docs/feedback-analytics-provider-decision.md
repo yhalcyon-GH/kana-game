@@ -58,7 +58,7 @@ confirms the task's initial hypothesis; no provider change was made.
 | Cookie-free by default | **Yes** — "no cookies, no personal data collection" is the default behavior ([docs.umami.is/docs/about](https://docs.umami.is/docs/about)) | **No** — cookie-based by default; a documented `cookieless_mode` config exists but is opt-in ([posthog.com/docs/privacy/data-collection](https://posthog.com/docs/privacy/data-collection)) | Yes — cookie-free is a core design principle |
 | Named "manual/custom-events-only" mode | **Yes — `data-auto-track="false"`**, a documented script-tag attribute that disables ALL automatic tracking (pageviews, clicks, path detection) ([docs.umami.is/docs/tracker-configuration](https://docs.umami.is/docs/tracker-configuration)) | Achievable via combining `autocapture: false` + `disable_session_recording: true` — multiple flags, no single named mode | N/A — the default script has no autocapture/replay to disable in the first place |
 | Session replay / heatmaps | Offered (recently added, v3.1/v3.2), **off by default**, requires a separate `recorder.js` script to activate ([docs.umami.is/docs/replays](https://docs.umami.is/docs/replays)) | Offered, **recording auto-starts by default** unless explicitly disabled | Not offered at all |
-| Funnel / drop-off analysis | **Not found in official docs** — likely absent | **Yes, free tier, no time limit** — a core feature | Yes, but gated to the $19/mo Business tier |
+| Funnel / drop-off analysis | **Yes** — "Umami Funnel" (available since v2.3.0), steps can be specific events (not just URLs), shows per-step counts and drop-off rate ([docs.umami.is/docs/funnel](https://docs.umami.is/docs/funnel)); reported (via secondary sources, not independently confirmed against Umami's own pricing page directly) to be included on every tier including free Hobby, gated by volume/site limits rather than feature availability | **Yes, free tier, no time limit** — a core feature | Yes, but gated to the $19/mo Business tier |
 | Custom events + properties | Yes — `umami.track(name, data)` | Yes — `posthog.capture(name, data)` | Yes — `plausible('Event', {props})`; custom properties gated to Business tier+ |
 | SPA / client-routed support | Yes, auto + documented manual tracker functions | Yes, `capture_pageview` config + manual `posthog.capture('$pageview')` | Auto for pushState routers; a separate hash-router script variant is required for `HashRouter` |
 | Data export | Yes, per Cloud FAQ ([docs.umami.is/docs/cloud/faq](https://docs.umami.is/docs/cloud/faq)) | Yes — CSV/PNG export, query API, scheduled bulk export | Tiered: Stats API (Business), full export (Enterprise) |
@@ -83,29 +83,32 @@ Sources as cited inline above; full source list and additional detail (script-si
    (`src/lib/analytics/umamiProvider.ts`) uses exactly this attribute.
 3. Umami's free Hobby tier comfortably covers a hobby-scale beta's event
    volume.
-4. This app's existing event taxonomy (start/complete pairs per activity —
-   see `src/lib/analytics/types.ts`) already captures the funnel/drop-off
-   signal this app wants (where does a learner stop between
-   `lesson_started` and `lesson_completed`, etc.) as raw exported events,
-   even without Umami providing a built-in funnel-visualization UI.
+4. Umami's **Funnel** feature (`docs.umami.is/docs/funnel`, available
+   since v2.3.0) directly supports this app's actual goal — a funnel step
+   can be a specific **event**, not just a URL, so this app's existing
+   start/complete event pairs map onto it with no new instrumentation:
+   - `lesson_started` → `lesson_completed`
+   - `practice_started` → `practice_completed`
+   - `assessment_started` → `assessment_completed`
+   - `restaurant_started` → `restaurant_completed`
+   - `cafe_started` → `cafe_completed`
+   - `intro_completed` → `lesson_started` → ... → `graduated` (a longer,
+     whole-journey funnel)
 
-**Known trade-off, disclosed rather than hidden:** Umami's own
-documentation does not appear to offer a native funnel/retention/drop-off
-analysis feature in its dashboard — PostHog does, for free, and Plausible
-does at its $19/mo Business tier. If dashboard-native funnel visualization
-(rather than computing drop-off from Umami's raw exported event data)
-becomes a hard requirement later, PostHog is the strongest alternative,
-at the cost of needing deliberate configuration (`cookieless_mode`,
-`disable_session_recording: true`, EU hosting via `eu.posthog.com`, never
-calling `identify()`) to reach a privacy posture Umami provides by default.
-This is a real gap, not a marketing claim to be taken at face value — it
-is recorded here so a future reviewer can weigh it explicitly rather than
-discovering it after activation.
+   Umami's funnel dashboard shows per-step user counts and the drop-off
+   rate from the previous step — exactly "where do beginners get stuck,"
+   this app's stated analytics goal — without needing to export raw events
+   and compute this separately. (An earlier version of this document
+   stated Umami had no such feature; that was incorrect and has been
+   corrected here after re-checking Umami's current official docs.)
 
-No provider change was made from the task's initial hypothesis; this
-document exists to make the trade-off above visible, per the review
-requirement to disclose (not silently absorb) any significant drawback
-found during research.
+**Correction note (2026-09, PR #210 final review):** an earlier version of
+this document claimed "Umami has no native funnel/drop-off UI" as a
+disclosed trade-off favoring PostHog. That claim was wrong — Umami's
+Funnel feature exists and directly supports event-based funnels as
+described above. No provider change was made or is warranted from this
+correction; if anything, it strengthens the case for Umami, since the one
+previously-disclosed gap does not actually exist.
 
 ## What activation still requires (see docs/feedback-setup.md and docs/analytics-foundation.md)
 
