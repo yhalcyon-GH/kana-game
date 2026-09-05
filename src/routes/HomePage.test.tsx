@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { CHOUON_CATEGORY_ID, DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID, ROWS, SOKUON_CATEGORY_ID } from '../data/curriculum'
 import { PRACTICE_CHECKPOINTS } from '../data/practiceCheckpoints'
 import { useProgressStore } from '../store/progressStore'
-import { useSavedItemsStore } from '../store/savedItemsStore'
 import { HomePage } from './HomePage'
 
 beforeEach(() => {
@@ -63,13 +62,13 @@ describe('HomePage Continue card (Issue #23/#27)', () => {
     expect(getByRole('link', { name: /Continue/ })).toHaveAttribute('href', '/practice/hiragana/a-row')
   })
 
-  it('renders below the section cards, not above them', () => {
+  it('renders above the section cards, not below them (compact resume shortcut ahead of the category cards)', () => {
     useProgressStore.getState().setLastStudied({ categoryId: 'hiragana', rowId: 'a-row', activity: 'learn' })
     const { getByRole } = renderHome()
     const continueLink = getByRole('link', { name: /Continue/ })
     const hiraganaLink = getByRole('link', { name: /^ひらがな/ })
-    // DOCUMENT_POSITION_FOLLOWING (4) means continueLink comes AFTER hiraganaLink.
-    expect(hiraganaLink.compareDocumentPosition(continueLink) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // DOCUMENT_POSITION_PRECEDING (2) means continueLink comes BEFORE hiraganaLink.
+    expect(hiraganaLink.compareDocumentPosition(continueLink) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy()
   })
 
   it('styles "Continue" distinctly from Recommended — no ⭐/sparkle, just blue link-colored text', () => {
@@ -194,31 +193,13 @@ describe('HomePage Recommended shows row + activity (Issue #25)', () => {
   })
 })
 
-describe('HomePage Saved entry', () => {
-  beforeEach(() => {
-    useSavedItemsStore.setState({ savedCharacterIds: [], savedWordIds: [] })
-  })
-
-  it('shows a Saved card linking to /saved with a 0-item count when nothing is saved', () => {
-    const { getByRole } = renderHome()
-    const savedLink = getByRole('link', { name: /Saved/ })
-    expect(savedLink).toHaveAttribute('href', '/saved')
-    expect(savedLink.textContent).toMatch(/0 items/)
-  })
-
-  it('shows a count equal to saved characters plus saved words', () => {
-    useSavedItemsStore.getState().toggleCharacter('a')
-    useSavedItemsStore.getState().toggleCharacter('ki')
-    useSavedItemsStore.getState().toggleWord('a-ai')
-    const { getByRole } = renderHome()
-    const savedLink = getByRole('link', { name: /Saved/ })
-    expect(savedLink.textContent).toMatch(/3 items/)
-  })
-
-  it('is not styled as Recommended or Continue (no ⭐, no "Continue" text)', () => {
-    const { getByRole } = renderHome()
-    const savedLink = getByRole('link', { name: /Saved/ })
-    expect(savedLink.textContent).not.toContain('⭐')
-    expect(savedLink.textContent).not.toContain('Continue')
+// The large standalone Saved card that used to render on Home is gone —
+// Saved is reachable from the top nav on every screen instead (see
+// NavBar.test.tsx's Saved badge coverage). Deliberate removal, not a
+// regression.
+describe('HomePage no longer renders a Saved card', () => {
+  it('does not render a Saved link on the Home page itself', () => {
+    const { queryByRole } = renderHome()
+    expect(queryByRole('link', { name: /Saved/ })).not.toBeInTheDocument()
   })
 })

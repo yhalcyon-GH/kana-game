@@ -7,8 +7,14 @@ import { useCurriculum } from '../hooks/useCurriculum'
 import { resumeRowHref } from '../lib/lastStudied'
 import { RECOMMENDED_ACTIVITY_LABELS } from '../lib/recommendedPath'
 import { useProgressStore } from '../store/progressStore'
-import { useSavedItemsStore } from '../store/savedItemsStore'
 
+// Compact single-line resume affordance — kept ahead of the category cards
+// (learning categories are the primary content on Home; Continue is a
+// secondary shortcut back into progress already in motion, not a
+// destination in its own right, so it stays visually smaller than a card).
+// The large standalone Saved card that used to sit below the categories was
+// removed (Saved is now reachable from the top nav on every screen — see
+// NavBar) rather than duplicated here.
 function ContinueCard() {
   const lastStudied = useProgressStore((s) => s.lastStudied)
   if (!lastStudied) return null
@@ -20,26 +26,13 @@ function ContinueCard() {
   return (
     <Link
       to={resumeRowHref(lastStudied)}
-      className="flex w-full max-w-md flex-col items-center gap-1 rounded-xl border border-neutral-300 bg-white p-4 text-center hover:border-blue-400 dark:border-neutral-600 dark:bg-neutral-800"
+      className="flex w-full max-w-md items-center justify-between gap-2 rounded-xl border border-neutral-300 bg-white px-4 py-2.5 hover:border-blue-400 dark:border-neutral-600 dark:bg-neutral-800"
     >
-      <span className="font-semibold">{section?.english ?? section?.label ?? row.categoryId}</span>
-      <span className="text-sm text-neutral-500 dark:text-neutral-400">{row.label}</span>
-      <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">Continue</span>
-    </Link>
-  )
-}
-
-function SavedCard() {
-  const savedCount = useSavedItemsStore((s) => s.savedCharacterIds.length + s.savedWordIds.length)
-  return (
-    <Link
-      to="/saved"
-      className="flex w-full max-w-md flex-col items-center gap-1 rounded-xl border border-neutral-300 bg-white p-4 text-center hover:border-blue-400 dark:border-neutral-600 dark:bg-neutral-800"
-    >
-      <span className="font-semibold">🔖 Saved</span>
-      <span className="text-sm text-neutral-500 dark:text-neutral-400">
-        {savedCount} item{savedCount === 1 ? '' : 's'}
+      <span className="flex min-w-0 flex-col text-left">
+        <span className="truncate text-sm font-semibold">{section?.english ?? section?.label ?? row.categoryId}</span>
+        <span className="truncate text-xs text-neutral-500 dark:text-neutral-400">{row.label}</span>
       </span>
+      <span className="shrink-0 text-sm font-semibold text-blue-600 dark:text-blue-400">Continue</span>
     </Link>
   )
 }
@@ -59,6 +52,7 @@ export function HomePage() {
     <div className="flex flex-col items-center gap-6">
       <h1 className="text-3xl font-bold">Tamamizu</h1>
       {graduated && <p className="rounded-full border border-green-300 bg-green-50 px-4 py-2 font-semibold text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-300">✓ Kana Complete — Graduated</p>}
+      <ContinueCard />
       <div className="grid w-full max-w-2xl grid-cols-2 gap-4 sm:grid-cols-4">
         {SCRIPT_ENTRY_POINTS.map((card) => {
           const isRecommended = !!recommendedCategoryId && card.categoryIds.includes(recommendedCategoryId)
@@ -96,8 +90,6 @@ export function HomePage() {
           )
         })}
       </div>
-      <ContinueCard />
-      <SavedCard />
     </div>
   )
 }
