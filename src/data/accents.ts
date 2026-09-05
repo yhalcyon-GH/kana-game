@@ -1,22 +1,29 @@
 // Pitch accent pattern per word, as a High/Low string aligned by MORA
 // (via src/lib/mora.ts's toMorae — a yōon digraph like きゃ is 1 mora, 2
 // characters), consumed by WordCard's AccentedKana, which does the same
-// mora-grouping when drawing the accent line. Rebuilt by
-// scripts/buildAccentData.mjs from accentjiten.com's aggregated
-// NHK/OJAD/Wiktionary/Wadoku/Kanjium/Kishimoto-Tsuneyo dataset — never
-// hand-guessed (see feedback_dont_guess_pitch_accent memory). Words are
-// omitted here only when the word is a single mora (no accent contrast is
-// possible); every multi-mora word has a resolved answer, either a single
-// accent on record for the correct-meaning kanji, or — for words where
-// even that kanji has more than one accent on record — the reading backed
-// by the broader majority of independent sources (see the script's
-// RESOLVED_BY_SOURCE_CONSENSUS table and console output for the specific
-// per-source breakdown behind each of those).
+// mora-grouping when drawing the accent line.
+//
+// This table is a static, user-reviewed canonical dataset — see
+// docs/pitch-accent-provenance.md for the full provenance and the 2026-09
+// commercial-release audit that verified it. It was originally built by
+// scripts/buildAccentData.mjs (now removed) from accentjiten.com's
+// aggregated NHK/OJAD/Wiktionary/Wadoku/Kanjium/Kishimoto-Tsuneyo dataset,
+// resolving ambiguous entries via a documented kanji-disambiguation +
+// source-consensus method — never hand-guessed (see
+// feedback_dont_guess_pitch_accent memory). It is no longer regenerated
+// from that or any other external source; scripts/checkAccentData.mjs
+// verifies this file's internal consistency (coverage, mora-length,
+// H/L-only values, and the approved entry count) without any network
+// access. Adding a word's accent by hand requires the same sourcing rigor
+// the original 298 entries were built with — never guessed from memory.
+//
+// Words are omitted here only when the word is a single mora (no accent
+// contrast is possible); every multi-mora word has a resolved entry.
 //
 // Intentionally coarse: this drives a small, deliberately de-emphasized
 // visual hint (see WordCard), not pronunciation-critical audio, so
-// dialect/source variation that would matter for TTS accuracy is fine to
-// resolve by majority here.
+// dialect/source variation that would matter for TTS accuracy was fine to
+// resolve by majority when this table was built.
 export const ACCENT_PATTERNS: Record<string, string> = {
   'a-ai': 'HL', // あい (ai)
   'a-ao': 'HL', // あお (ao)

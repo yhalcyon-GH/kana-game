@@ -34,3 +34,25 @@ describe('accents: special-katakana-she-harowin', () => {
     expect(ACCENT_PATTERNS['special-katakana-she-harowin']).toBe('HLLL')
   })
 })
+
+// Pinned as part of the 2026-09 commercial-release pitch-accent audit — see
+// docs/pitch-accent-provenance.md. This is the current 'ra-mizu-wo-nomu' id
+// (the word moved into the combined ra-row); the pipeline's old
+// 'wa-mizu-wo-nomu' id is asserted gone entirely by curriculum.test.ts's
+// stale-id guard.
+describe('accents: ra-mizu-wo-nomu', () => {
+  it('uses the approved LHHHL pattern for みずをのむ', () => {
+    expect(ACCENT_PATTERNS['ra-mizu-wo-nomu']).toBe('LHHHL')
+  })
+})
+
+// The full approved table's size is also checked by
+// scripts/checkAccentData.mjs (which also verifies coverage, H/L shape, and
+// mora-length match without any network access) — this is a lighter, fast
+// in-suite guard that npm test alone still catches an accidental bulk
+// change to the table.
+describe('accents: approved table size', () => {
+  it('has exactly 298 entries (the 2026-09 commercial-release audit baseline)', () => {
+    expect(Object.keys(ACCENT_PATTERNS)).toHaveLength(298)
+  })
+})

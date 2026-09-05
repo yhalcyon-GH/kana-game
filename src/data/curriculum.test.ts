@@ -266,10 +266,10 @@ describe('character-set category content (拗音/yōon)', () => {
     }
   })
 
-  it('a real yōon word\'s characterIds is shorter than its glyph count — the exact mismatch AccentedKana/buildAccentData.mjs guard against', () => {
+  it('a real yōon word\'s characterIds is shorter than its glyph count — the exact mismatch AccentedKana/checkAccentData.mjs guard against', () => {
     // きゃく (kyaku): 2 characterIds (kya, ku) but 3 glyphs (き/ゃ/く) — see
     // WordCard.test.tsx for the rendering-level proof this is handled
-    // safely, and buildAccentData.mjs's length-mismatch guard.
+    // safely, and checkAccentData.mjs's mora-length mismatch guard.
     const word = WORDS_BY_ID['youon-ka-kyaku']
     expect(word).toBeDefined()
     expect(word.characterIds).toHaveLength(2)

@@ -57,7 +57,7 @@ Avoid duplicating the same real-world meaning under two spellings within one cat
 
 Yōon ids represent two glyphs but one mora (for example きゃ). This breaks naive "one glyph = one mora" assumptions.
 
-Pitch-accent rendering and `scripts/buildAccentData.mjs` already align by mora through `src/lib/mora.ts`.
+Pitch-accent rendering and `scripts/checkAccentData.mjs` already align by mora through `src/lib/mora.ts`.
 
 Stroke data is different: yōon/Special Katakana ids have no combined-glyph `STROKE_GLYPHS` entry — they compose their base glyph + a reused small-vowel glyph at render time via `buildTracingUnit` (`src/lib/tracingUnits.ts`). **Do not generate a combined-glyph stroke entry for a multi-glyph character id.** An id with no `STROKE_GLYPHS` entry falls back to the existing empty-guide behavior.
 
