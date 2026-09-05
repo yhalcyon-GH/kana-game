@@ -61,6 +61,15 @@ const RUNTIME_NOTICES: NoticeEntry[] = [
   },
 ]
 
+// Vite-base-safe: '/licenses/...' would resolve outside this app's own
+// path when deployed under a sub-path (GitHub Pages serves this app at
+// /kana-game/, per vite.config.ts's `base`) — BASE_URL is that configured
+// base (e.g. '/kana-game/' in production, '/' in dev), always with a
+// trailing slash, so this never double- or un-slashes.
+function licenseHref(fileName: string): string {
+  return `${import.meta.env.BASE_URL}licenses/${fileName}`
+}
+
 export function ThirdPartyNoticesPage() {
   return (
     <div className="flex w-full max-w-2xl flex-col gap-6">
@@ -68,7 +77,7 @@ export function ThirdPartyNoticesPage() {
 
       <p className="text-sm text-neutral-600 dark:text-neutral-300">
         This app is built with open-source software. Full license text for each project below is linked and also
-        available under <code>/licenses/</code>.
+        available under <code>licenses/</code>.
       </p>
 
       <section className="flex flex-col gap-3">
@@ -83,7 +92,7 @@ export function ThirdPartyNoticesPage() {
             project's kana SVGs (MIT licensed).
           </p>
           <p className="mt-2">
-            <a href="/licenses/strokesvg-LICENSE.txt" target="_blank" rel="noreferrer" className="underline">
+            <a href={licenseHref('strokesvg-LICENSE.txt')} target="_blank" rel="noreferrer" className="underline">
               Full license text
             </a>
           </p>
@@ -100,7 +109,7 @@ export function ThirdPartyNoticesPage() {
             .
           </p>
           <p className="mt-2">
-            <a href="/licenses/strokesvg-LICENSE.txt" target="_blank" rel="noreferrer" className="underline">
+            <a href={licenseHref('strokesvg-LICENSE.txt')} target="_blank" rel="noreferrer" className="underline">
               Full license text (includes the OFL)
             </a>
           </p>
@@ -125,7 +134,7 @@ export function ThirdPartyNoticesPage() {
                   Project homepage
                 </a>
               )}
-              <a href={`/licenses/${entry.licenseFile}`} target="_blank" rel="noreferrer" className="underline">
+              <a href={licenseHref(entry.licenseFile)} target="_blank" rel="noreferrer" className="underline">
                 Full license text
               </a>
             </p>
