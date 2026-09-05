@@ -16,6 +16,7 @@
 // Run: node scripts/checkAccentData.mjs
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { hashAccentTable } from './accentBaselineHash.mjs'
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)))
 
@@ -77,19 +78,32 @@ for (const [id, accent] of Object.entries(accents)) {
   }
 }
 
-// 4. Approved baseline: the exact 298-entry table is pinned below (frozen
-// at the 2026-09 commercial-release pitch-accent audit — see
-// docs/pitch-accent-provenance.md). Any diff here means ACCENT_PATTERNS
-// changed since that audit and needs explicit human review before this
-// check is updated to match — this check must never be "fixed" by
-// regenerating it from the current accents.ts without that review.
+// 4. Approved baseline, WHOLE TABLE: a SHA-256 hash of every id:accent pair
+// (sorted by id — see accentBaselineHash.mjs), pinned below at the 2026-09
+// commercial-release pitch-accent audit (see docs/pitch-accent-provenance.md).
+// This catches ANY change anywhere in the table — a single H/L value
+// flipped, an id renamed, or an entry added/removed — not just the two
+// values with known regression history spot-checked below. A mismatch
+// means ACCENT_PATTERNS changed since that audit and needs explicit human
+// review before this hash is updated to match — this check must never be
+// "fixed" by recomputing the hash from the current accents.ts without that
+// review (see accentBaselineHash.mjs's own doc comment for how the hash is
+// computed, if a reviewed change ever needs a new one recorded here).
 const APPROVED_ENTRY_COUNT = 298
+const APPROVED_TABLE_HASH = '1a292b0884b39469ab381d5491a509fec86e0d615a8793e2082ad46c2e2e7dc2'
 const actualCount = Object.keys(accents).length
 if (actualCount !== APPROVED_ENTRY_COUNT) {
   errors.push(`expected ${APPROVED_ENTRY_COUNT} approved accent entries, found ${actualCount}`)
 }
+const actualHash = hashAccentTable(accents)
+if (actualHash !== APPROVED_TABLE_HASH) {
+  errors.push(`accent table hash mismatch: expected ${APPROVED_TABLE_HASH}, computed ${actualHash} — the approved 298-entry table has changed (a value, an id, or the entry count)`)
+}
 
-// 5. Spot-check pins for values with known regression history.
+// 5. Spot-check pins for values with known regression history — redundant
+// with the whole-table hash above, but kept as a second, human-readable
+// signal that names the exact two values a mismatch is most likely to be
+// about, in addition to the hash failure.
 const PINNED = {
   'special-katakana-she-harowin': 'HLLL', // ハロウィン — see PR #208
   'ra-mizu-wo-nomu': 'LHHHL', // みずをのむ (current id; the pipeline's old
@@ -108,4 +122,4 @@ if (errors.length > 0) {
   process.exit(1)
 }
 
-console.log(`accents.ts integrity check passed: ${actualCount} entries, all covering/shape/pin checks OK.`)
+console.log(`accents.ts integrity check passed: ${actualCount} entries, whole-table hash matches approved baseline, all covering/shape checks OK.`)

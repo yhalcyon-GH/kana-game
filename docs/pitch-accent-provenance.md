@@ -61,9 +61,44 @@ breakdowns behind each consensus call) is preserved in
 history — nothing about that history has been hidden or rewritten by this
 audit.
 
-### Approved values verified this audit
+### 2026-09 independent read-only audit
 
-Two entries with a known past discrepancy were specifically re-verified:
+Before this commercial release, an independent read-only audit checked all
+298 approved entries (out of 299 curriculum words) against two additional
+reference datasets, without changing any value on its own initiative:
+
+- **UniDic** (modern written Japanese, ver. 2023.02)
+- **Kanjium** (commit `8a0cdaa16d64a281a2048de2eee2ec5e3a440fa6`)
+
+Audit result, before final manual resolution:
+
+| Classification     | Count |
+| ------------------- | ----: |
+| CONFIRMED            |   269 |
+| VALID VARIANT        |    24 |
+| AMBIGUOUS            |     1 |
+| CHANGE CANDIDATE     |     0 |
+| UNVERIFIED           |     4 |
+| **Total**            | **298** |
+
+- **CONFIRMED**: the approved value matches UniDic and/or Kanjium exactly.
+- **VALID VARIANT**: the approved value differs from one or both reference
+  datasets, but is itself a documented, legitimate accent variant (dialect
+  or source disagreement is normal for Japanese pitch accent — see "How
+  ambiguous entries were resolved" above) — not an error.
+- **AMBIGUOUS**: one entry where the references disagreed with each other
+  and with the approved value, without a clear consensus either way.
+- **CHANGE CANDIDATE**: zero entries were flagged as likely wrong and
+  worth changing.
+- **UNVERIFIED**: 4 entries the audit's reference lookups could not
+  resolve either way (e.g. no matching entry in UniDic/Kanjium for that
+  exact reading).
+
+The AMBIGUOUS and UNVERIFIED cases were subsequently reviewed by hand and
+resolved **without changing any pitch value and without touching any
+audio file** — the audit's role was verification, not correction. Two
+entries with a known past discrepancy were specifically re-verified as
+part of this process:
 
 - ハロウィン (Halloween) — `HLLL` (corrected from an earlier `LHLL` by PR
   #208; re-confirmed here).
@@ -71,10 +106,12 @@ Two entries with a known past discrepancy were specifically re-verified:
 
 All other current `ACCENT_PATTERNS` values were left exactly as they stood
 going into this audit — this audit did **not** re-derive, re-score, or
-"fix" any value by comparing against UniDic, Kanjium, or any other
-reference on its own initiative, and did not accept a majority-vote
-argument to change any existing value. The full 298-entry table is treated
-as a canonical, user-reviewed baseline.
+bulk-"fix" any value by comparing against UniDic, Kanjium, or any other
+reference, and did not accept a majority-vote argument to change any
+existing value on its own. The final, user-approved 298-entry table is the
+one currently checked into `src/data/accents.ts` — it is this exact table
+that `scripts/checkAccentData.mjs`'s whole-table hash pins (see "Current
+status" below).
 
 ## Current status: static data, no active external dependency
 
@@ -93,16 +130,25 @@ without any network access:
 - no stale entries left over for words that no longer exist;
 - every value is H/L-only and matches its word's real mora count;
 - the approved entry count (298) has not silently changed;
-- two known-history spot-check pins (ハロウィン, みずをのむ) match their
-  approved values.
+- a **SHA-256 hash of the entire approved table** (every id:accent pair,
+  sorted by id — see `scripts/accentBaselineHash.mjs`) matches a hardcoded
+  baseline hash. This is the mechanism that actually pins all 298 values,
+  not just a couple of them: changing **any single H/L value, renaming an
+  id, or adding/removing an entry anywhere in the table** changes the hash
+  and fails this check. `src/data/accents.test.ts` has a matching in-suite
+  test proving this (mutating an in-memory copy only, never the real file).
+- two known-history spot-check pins (ハロウィン, みずをのむ), kept as a
+  human-readable second signal in addition to the hash.
 
 This intentionally makes it impossible for routine tooling (`npm run
 verify`, CI, or a future contributor running "the accent script") to
 silently overwrite the approved table from an external source again. Adding
 a genuinely new word's accent going forward means sourcing it with the same
 rigor as the existing entries (a real reference dataset, or the
-maintainer's own verified pronunciation) and adding it to `accents.ts` by
-hand — never guessed from memory, and never bulk-regenerated.
+maintainer's own verified pronunciation), adding it to `accents.ts` by hand
+— never guessed from memory, never bulk-regenerated — and then
+deliberately recomputing and updating the pinned baseline hash in
+`checkAccentData.mjs` as part of that same, explicitly-reviewed change.
 
 ## Relationship to audio
 

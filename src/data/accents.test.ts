@@ -2,6 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { ACCENT_PATTERNS } from './accents'
 import { WORDS_BY_ROW } from './words'
 import { toMorae } from '../lib/mora'
+import { hashAccentTable } from '../../scripts/accentBaselineHash.mjs'
+
+// The exact approved-baseline hash pinned in scripts/checkAccentData.mjs —
+// duplicated here (not imported from the script, which is a standalone
+// .mjs entrypoint, not a module meant to export its own constants) so this
+// test fails loudly if that script's pinned hash and this test's ever
+// diverge, same as the 298-count duplication below.
+const APPROVED_TABLE_HASH = '1a292b0884b39469ab381d5491a509fec86e0d615a8793e2082ad46c2e2e7dc2'
 
 // Focused check for the こんにちは/こんばんは greetings (moved from the
 // deleted wa-row into the final combined ra-row — Issue #155): both are
@@ -54,5 +62,43 @@ describe('accents: ra-mizu-wo-nomu', () => {
 describe('accents: approved table size', () => {
   it('has exactly 298 entries (the 2026-09 commercial-release audit baseline)', () => {
     expect(Object.keys(ACCENT_PATTERNS)).toHaveLength(298)
+  })
+})
+
+// Whole-table baseline hash — proves the SAME mechanism
+// scripts/checkAccentData.mjs uses would actually catch a change to ANY
+// entry, not just the two spot-checked values above. Mutates an in-memory
+// COPY of ACCENT_PATTERNS only; the real src/data/accents.ts is never
+// touched by this test.
+describe('accents: whole-table baseline hash', () => {
+  it('the current table matches the approved baseline hash', () => {
+    expect(hashAccentTable(ACCENT_PATTERNS)).toBe(APPROVED_TABLE_HASH)
+  })
+
+  it('changing a single H/L value on an ordinary (non-pinned) entry changes the hash', () => {
+    // 'a-ai' is an ordinary entry with no dedicated spot-check test of its
+    // own above — proving the hash catches a change here, not just to the
+    // two specifically-pinned ids, is the actual point of this test.
+    const mutated = { ...ACCENT_PATTERNS, 'a-ai': ACCENT_PATTERNS['a-ai'] === 'HL' ? 'LH' : 'HL' }
+    expect(hashAccentTable(mutated)).not.toBe(APPROVED_TABLE_HASH)
+  })
+
+  it('renaming an id changes the hash', () => {
+    const mutated = { ...ACCENT_PATTERNS }
+    const value = mutated['a-ai']
+    delete mutated['a-ai']
+    mutated['a-ai-renamed'] = value
+    expect(hashAccentTable(mutated)).not.toBe(APPROVED_TABLE_HASH)
+  })
+
+  it('removing an entry changes the hash', () => {
+    const mutated = { ...ACCENT_PATTERNS }
+    delete mutated['a-ai']
+    expect(hashAccentTable(mutated)).not.toBe(APPROVED_TABLE_HASH)
+  })
+
+  it('adding an entry changes the hash', () => {
+    const mutated = { ...ACCENT_PATTERNS, 'not-a-real-word-id': 'HL' }
+    expect(hashAccentTable(mutated)).not.toBe(APPROVED_TABLE_HASH)
   })
 })
