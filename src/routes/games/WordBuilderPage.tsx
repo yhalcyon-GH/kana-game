@@ -18,6 +18,7 @@ import { useDelayedAction } from '../../hooks/useDelayedAction'
 import { useEnterAdvance } from '../../hooks/useEnterAdvance'
 import { useFrozenWordPool } from '../../hooks/useFrozenWordPool'
 import { useGameSession } from '../../hooks/useGameSession'
+import { usePracticeAnalytics } from '../../hooks/usePracticeAnalytics'
 import { useTTS } from '../../hooks/useTTS'
 import { pickDistractorCharIds } from '../../lib/distractorPicker'
 import { kanaToRomaji } from '../../lib/kanaToRomaji'
@@ -99,6 +100,7 @@ export function WordBuilderPage({ rowIdOverride }: Props = {}) {
 
   const { queue, roundIndex, correctCount, setCorrectCount, finished, startMistakeReview, advance } =
     useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession, rounds, sessionKey, buildQueue })
+  usePracticeAnalytics('wordBuilder', categoryId, isReview || isSimilarLetters ? undefined : rowId, sessionKey, finished, correctCount, queue.length)
   const { schedule: scheduleAdvance, cancel: cancelAdvance } = useDelayedAction()
   const handleNext = useCallback(() => {
     cancelAdvance()

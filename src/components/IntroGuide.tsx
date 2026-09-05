@@ -3,6 +3,7 @@ import { INTRO_GUIDE_STEPS } from '../data/introGuide'
 import { DEFAULT_INTRO_GUIDE_LOCALE, INTRO_GUIDE_CONTENT } from '../data/introGuideContent'
 import { useFocusTrap } from '../hooks/useFocusTrap'
 import { useTTS } from '../hooks/useTTS'
+import { track } from '../lib/analytics/track'
 import { useProgressStore } from '../store/progressStore'
 
 // Tamamizu Guide (Issue #29/#31) — the one-time first-launch introduction.
@@ -115,6 +116,7 @@ export function IntroGuide() {
     stop()
     // Usable even while step audio is still playing — no wait/gate here.
     if (isLast) {
+      track('intro_completed')
       setCompleted(true)
       return
     }
@@ -157,7 +159,7 @@ export function IntroGuide() {
       <div className="flex w-full shrink-0 justify-end">
         <button
           type="button"
-          onClick={() => { stop(); setCompleted(true) }}
+          onClick={() => { stop(); track('intro_completed'); setCompleted(true) }}
           className="text-sm text-neutral-500 hover:text-neutral-700 dark:text-neutral-400 dark:hover:text-neutral-200"
         >
           {locale.skipLabel}

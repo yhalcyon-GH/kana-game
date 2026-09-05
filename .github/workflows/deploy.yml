@@ -27,6 +27,8 @@ jobs:
       - run: npm run lint
       - run: npm test
       - run: npm run build
+        env:
+          VITE_BUILD_SHA: ${{ github.sha }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

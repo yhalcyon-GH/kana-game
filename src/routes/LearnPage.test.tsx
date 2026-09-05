@@ -1,7 +1,9 @@
 import { fireEvent, render, screen } from '@testing-library/react'
+import { StrictMode } from 'react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHARACTERS_BY_ID } from '../data/characters'
+import * as trackModule from '../lib/analytics/track'
 import { useProgressStore } from '../store/progressStore'
 import { useSavedItemsStore } from '../store/savedItemsStore'
 import { LearnPage } from './LearnPage'
@@ -632,5 +634,35 @@ describe('LearnPage: Special Katakana Session 2 (special-katakana-she-row, 3+3 b
     fireEvent.click(screen.getByText('See the words'))
     fireEvent.click(screen.getByText('Continue'))
     expect(useProgressStore.getState().taughtRowIds).toContain('special-katakana-she-row')
+  })
+})
+
+describe('LearnPage analytics', () => {
+  it('fires lesson_started exactly once per row, even under React StrictMode double-invoke', () => {
+    const trackSpy = vi.spyOn(trackModule, 'track')
+    render(
+      <StrictMode>
+        <MemoryRouter initialEntries={['/learn/hiragana/a-row']}>
+          <Routes>
+            <Route path="/learn/:categoryId/:rowId" element={<LearnPage />} />
+          </Routes>
+        </MemoryRouter>
+      </StrictMode>,
+    )
+    const startedCalls = trackSpy.mock.calls.filter((c) => c[0] === 'lesson_started')
+    expect(startedCalls).toHaveLength(1)
+    expect(startedCalls[0][1]).toEqual({ category: 'hiragana', row: 'a-row' })
+    trackSpy.mockRestore()
+  })
+
+  it('fires lesson_completed when Continue is clicked', () => {
+    const trackSpy = vi.spyOn(trackModule, 'track')
+    renderLearn('/learn/hiragana/a-row')
+    for (let i = 0; i < 4; i++) fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText('See them all'))
+    fireEvent.click(screen.getByText('See the words'))
+    fireEvent.click(screen.getByText('Continue'))
+    expect(trackSpy).toHaveBeenCalledWith('lesson_completed', { category: 'hiragana', row: 'a-row' })
+    trackSpy.mockRestore()
   })
 })

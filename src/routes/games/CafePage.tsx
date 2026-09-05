@@ -4,6 +4,7 @@ import { AnswerFeedbackRow } from '../../components/AnswerFeedbackRow'
 import { isKatakanaOnlyDish, RESTAURANT_DISHES, type RestaurantDish } from '../../data/restaurantDishes'
 import { PRACTICE_CHECKPOINTS_BY_ID } from '../../data/practiceCheckpoints'
 import { useOrderingGame } from '../../hooks/useOrderingGame'
+import { track } from '../../lib/analytics/track'
 import { getCheckpointDishPool } from '../../lib/checkpointDishPool'
 import { getNextGlobalRealRow } from '../../lib/curriculumNavigation'
 import { useProgressStore } from '../../store/progressStore'
@@ -35,6 +36,18 @@ export function CafePage({ checkpointId }: { checkpointId: string }) {
   useEffect(() => {
     if (completed && checkpoint) markRowActivityCompleted(checkpoint.afterRowId, 'checkpoint')
   }, [completed, checkpoint, markRowActivityCompleted])
+
+  useEffect(() => {
+    if (started) track('cafe_started', { category: checkpoint?.categoryId })
+  }, [started, checkpoint])
+
+  useEffect(() => {
+    if (completed) {
+      const correctCount = sessionResults.filter((result) => result.correct).length
+      track('cafe_completed', { category: checkpoint?.categoryId, score: correctCount, attempt: sessionResults.length })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [completed])
 
   const backPath = checkpoint?.categoryId === 'katakana' ? '/katakana' : checkpoint?.categoryId === 'youon' ? '/youon' : '/other'
   const nextRow = checkpoint ? getNextGlobalRealRow(checkpoint.afterRowId) : null

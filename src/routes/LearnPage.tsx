@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { CharacterCard } from '../components/CharacterCard'
 import { CharacterGrid } from '../components/CharacterGrid'
@@ -12,6 +12,7 @@ import { getSimilarLetterExplanationImage } from '../data/similarLetterExplanati
 import { WORDS_BY_ROW } from '../data/words'
 import { useCurriculum } from '../hooks/useCurriculum'
 import { useTTS } from '../hooks/useTTS'
+import { track } from '../lib/analytics/track'
 import { useProgressStore } from '../store/progressStore'
 
 // Step A: flash through the row's new characters one at a time (no word
@@ -69,6 +70,17 @@ export function LearnPage() {
       navigate('/', { replace: true })
     }
   }, [rowId, categoryId, row, navigate])
+
+  // Fires once per row visit, not once per render/re-mount — a ref (not
+  // sessionKey-style state) is enough here since LearnPage remounts fresh
+  // per rowId via the route param, and React StrictMode's dev-only double-
+  // invoke of effects would otherwise double-fire this exact effect body.
+  const startedRowRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!rowId || !categoryId || startedRowRef.current === rowId) return
+    startedRowRef.current = rowId
+    track('lesson_started', { category: categoryId, row: rowId })
+  }, [rowId, categoryId])
 
   const characters = row ? row.characterIds.map((id) => CHARACTERS_BY_ID[id]) : []
   // A row without `learnBatches` (or a summary row's characterIds, unused
@@ -303,6 +315,7 @@ export function LearnPage() {
   // duplicated between the two.
   const completeLearn = () => {
     markRowTaught(rowId)
+    track('lesson_completed', { category: categoryId, row: rowId })
   }
   const handleFinish = () => {
     completeLearn()

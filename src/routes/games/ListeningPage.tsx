@@ -17,6 +17,7 @@ import { useDelayedAction } from '../../hooks/useDelayedAction'
 import { useEnterAdvance } from '../../hooks/useEnterAdvance'
 import { useFrozenWordPool } from '../../hooks/useFrozenWordPool'
 import { useGameSession } from '../../hooks/useGameSession'
+import { usePracticeAnalytics } from '../../hooks/usePracticeAnalytics'
 import { useTTS } from '../../hooks/useTTS'
 import { pickDistractorWords } from '../../lib/distractorPicker'
 import { isNearMissWordChoice } from '../../lib/nearMiss'
@@ -95,6 +96,7 @@ export function ListeningPage({ rowIdOverride }: Props = {}) {
 
   const { queue, roundIndex, correctCount, setCorrectCount, finished, startMistakeReview, advance } =
     useGameSession({ ids: wordIds, weight: wordWeight, onFinish, resetSession, rounds, sessionKey, buildQueue })
+  usePracticeAnalytics('listening', categoryId, isReview || isSimilarLetters ? undefined : rowId, sessionKey, finished, correctCount, queue.length)
   const { schedule: scheduleAdvance, cancel: cancelAdvance } = useDelayedAction()
   // See KanaQuizPage's identical comment: cancels the correct-answer
   // auto-advance timer before advancing, so a manual click never fires
