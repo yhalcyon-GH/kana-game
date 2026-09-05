@@ -44,7 +44,7 @@ export function CafePage({ checkpointId }: { checkpointId: string }) {
   useEffect(() => {
     if (completed) {
       const correctCount = sessionResults.filter((result) => result.correct).length
-      track('cafe_completed', { category: checkpoint?.categoryId, score: correctCount, attempt: sessionResults.length })
+      track('cafe_completed', { category: checkpoint?.categoryId, score: correctCount, questionCount: sessionResults.length })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [completed])

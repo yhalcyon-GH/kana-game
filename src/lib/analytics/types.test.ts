@@ -15,7 +15,8 @@ describe('AnalyticsProperties shape', () => {
       activity: 'kanaQuiz',
       assessment: 'hiragana',
       score: 8,
-      attempt: 10,
+      questionCount: 10,
+      attempt: 2,
       result: 'success',
       screenSize: 'medium',
     }

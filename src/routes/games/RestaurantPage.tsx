@@ -44,7 +44,7 @@ export function RestaurantPage({ checkpointId = 'na-row' }: { checkpointId?: str
   useEffect(() => {
     if (completed) {
       const correctCount = sessionResults.filter((result) => result.correct).length
-      track('restaurant_completed', { category: checkpoint?.categoryId, score: correctCount, attempt: sessionResults.length })
+      track('restaurant_completed', { category: checkpoint?.categoryId, score: correctCount, questionCount: sessionResults.length })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [completed])

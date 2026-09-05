@@ -36,7 +36,7 @@ describe('usePracticeAnalytics', () => {
     expect(trackModule.track).toHaveBeenLastCalledWith('practice_started', { activity: 'kanaQuiz', category: 'hiragana', row: 'a-row' })
   })
 
-  it('fires practice_completed once when finished flips true, with score/attempt', () => {
+  it('fires practice_completed once when finished flips true, with score/questionCount', () => {
     const { rerender } = renderHook(
       ({ finished, correct }: { finished: boolean; correct: number }) =>
         usePracticeAnalytics('wordBuilder', 'hiragana', 'a-row', 'a-row:0', finished, correct, 8),
@@ -50,7 +50,7 @@ describe('usePracticeAnalytics', () => {
       category: 'hiragana',
       row: 'a-row',
       score: 6,
-      attempt: 8,
+      questionCount: 8,
     })
 
     // Re-rendering with finished still true must not re-fire.

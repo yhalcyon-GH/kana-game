@@ -41,6 +41,14 @@ export type AnalyticsProperties = {
   activity?: string
   assessment?: string
   score?: number
+  // The total number of questions/rounds in a session — NOT how many times
+  // the learner has attempted this session/scope. Named for what it is,
+  // not what it sounds like `attempt` would mean.
+  questionCount?: number
+  // Reserved for an actual attempt/retry number (e.g. "this is the 3rd
+  // time through this assessment") — no current call site populates this,
+  // since nothing in the app tracks a per-scope attempt count yet. Do not
+  // repurpose this for a question/session total; use `questionCount`.
   attempt?: number
   result?: string
   screenSize?: ScreenSizeCategory

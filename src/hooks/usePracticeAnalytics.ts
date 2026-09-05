@@ -34,7 +34,7 @@ export function usePracticeAnalytics(
 
   useEffect(() => {
     if (!finished || !rowId || questionCount === 0) return
-    track('practice_completed', { activity, category: categoryId, row: rowId, score: correctCount, attempt: questionCount })
+    track('practice_completed', { activity, category: categoryId, row: rowId, score: correctCount, questionCount })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finished, rowId])
 }

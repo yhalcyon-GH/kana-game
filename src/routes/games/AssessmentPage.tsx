@@ -135,7 +135,7 @@ function ScriptAssessmentPage() {
       } else {
         markAssessmentCompleted(script as AssessmentScript, { correct, total: questions.length })
       }
-      track('assessment_completed', { assessment: script ?? undefined, score: correct, attempt: questions.length })
+      track('assessment_completed', { assessment: script ?? undefined, score: correct, questionCount: questions.length })
     }
   }
 

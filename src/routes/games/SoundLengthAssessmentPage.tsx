@@ -49,7 +49,7 @@ export function SoundLengthAssessmentPage() {
     }
     const correct = answers.filter((answer) => answer.correct).length
     markCompleted('sokuon-chouon', { correct, total: plan.questions.length })
-    track('assessment_completed', { assessment: 'sokuon-chouon', score: correct, attempt: plan.questions.length })
+    track('assessment_completed', { assessment: 'sokuon-chouon', score: correct, questionCount: plan.questions.length })
     setFinished(true)
   }
 
