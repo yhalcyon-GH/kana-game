@@ -29,6 +29,19 @@ jobs:
       - run: npm run build
         env:
           VITE_BUILD_SHA: ${{ github.sha }}
+          # All optional and safe to leave unset: the app falls back to its
+          # feedback-hidden / analytics-no-op behavior when these are blank.
+          # None of these are secrets — a feedback form URL and a Umami
+          # website id are public client-side values by design (see
+          # docs/feedback-setup.md and
+          # docs/feedback-analytics-provider-decision.md) — so plain
+          # repository/environment Variables (Settings → Secrets and
+          # variables → Actions → Variables) are the right place for them,
+          # not Secrets.
+          VITE_FEEDBACK_URL: ${{ vars.VITE_FEEDBACK_URL }}
+          VITE_ANALYTICS_PROVIDER: ${{ vars.VITE_ANALYTICS_PROVIDER }}
+          VITE_UMAMI_WEBSITE_ID: ${{ vars.VITE_UMAMI_WEBSITE_ID }}
+          VITE_UMAMI_HOST_URL: ${{ vars.VITE_UMAMI_HOST_URL }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
