@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PrivacyPage } from './PrivacyPage'
 
 describe('PrivacyPage', () => {
@@ -20,14 +20,6 @@ describe('PrivacyPage', () => {
     const text = heading.parentElement?.textContent ?? ''
     expect(text).toMatch(/As of this build, analytics is inactive/)
     expect(text).toMatch(/Umami/)
-    expect(text).toMatch(/session-replay or heatmap/)
-  })
-
-  it('never claims a transcript, microphone audio, or persistent identifier is sent for analytics', () => {
-    render(<PrivacyPage />)
-    const heading = screen.getByRole('heading', { name: 'Analytics', level: 2 })
-    const text = heading.parentElement?.textContent ?? ''
-    expect(text).toMatch(/never.*speech transcript, microphone audio, free-text/)
   })
 
   it('accurately states no feedback destination is currently configured, and names Tally as the destination if a future build enables it', () => {
@@ -66,5 +58,61 @@ describe('PrivacyPage', () => {
     const heading = screen.getByRole('heading', { name: 'Hosting', level: 2 })
     expect(heading.parentElement?.textContent).toMatch(/hosting provider/)
     expect(heading.parentElement?.textContent).toMatch(/provider's own privacy terms/)
+  })
+})
+
+// P1 fix (PR #210 final review): the wording used to be static regardless
+// of whether VITE_ANALYTICS_PROVIDER/VITE_UMAMI_WEBSITE_ID or
+// VITE_FEEDBACK_URL were actually set, so a rebuild with those enabled
+// would silently make the page's "inactive" claims false. It must now
+// read the same config functions the app itself uses (isUmamiConfigured,
+// isFeedbackEnabled) and switch wording accordingly.
+describe('PrivacyPage reflects actual build config', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('Analytics section switches to active wording once Umami is actually configured', () => {
+    vi.stubEnv('VITE_ANALYTICS_PROVIDER', 'umami')
+    vi.stubEnv('VITE_UMAMI_WEBSITE_ID', 'test-website-id')
+    render(<PrivacyPage />)
+    const heading = screen.getByRole('heading', { name: 'Analytics', level: 2 })
+    const text = heading.parentElement?.textContent ?? ''
+    expect(text).toMatch(/This build has Umami analytics active/)
+    expect(text).not.toMatch(/As of this build, analytics is inactive/)
+    expect(text).toMatch(/session-replay or heatmap/)
+    expect(text).toMatch(/never includes.*speech transcript, microphone audio, free-text/)
+  })
+
+  it('Analytics active wording does not overclaim what Umami itself does', () => {
+    vi.stubEnv('VITE_ANALYTICS_PROVIDER', 'umami')
+    vi.stubEnv('VITE_UMAMI_WEBSITE_ID', 'test-website-id')
+    render(<PrivacyPage />)
+    const heading = screen.getByRole('heading', { name: 'Analytics', level: 2 })
+    const text = heading.parentElement?.textContent ?? ''
+    // Must not claim Umami generates no visitor/session information at
+    // all — Umami's own servers derive approximate location/browser/OS
+    // from standard request metadata (IP, User-Agent) regardless of what
+    // this app's JS payload contains.
+    expect(text).not.toMatch(/Umami (generates|receives) (no|only)/)
+    expect(text).toMatch(/IP address and browser User-Agent/)
+    expect(text).toMatch(/independent of this app's own payload/)
+  })
+
+  it('does not activate the Analytics section on a half-configured environment (provider flag with no website id)', () => {
+    vi.stubEnv('VITE_ANALYTICS_PROVIDER', 'umami')
+    render(<PrivacyPage />)
+    const heading = screen.getByRole('heading', { name: 'Analytics', level: 2 })
+    const text = heading.parentElement?.textContent ?? ''
+    expect(text).toMatch(/As of this build, analytics is inactive/)
+  })
+
+  it('Feedback section switches to active wording once a feedback URL is actually configured', () => {
+    vi.stubEnv('VITE_FEEDBACK_URL', 'https://tally.so/r/abc123')
+    render(<PrivacyPage />)
+    const heading = screen.getByRole('heading', { name: 'Feedback', level: 2 })
+    const text = heading.parentElement?.textContent ?? ''
+    expect(text).toMatch(/This build has Tally feedback enabled/)
+    expect(text).not.toMatch(/no feedback destination is configured/)
   })
 })
