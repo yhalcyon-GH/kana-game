@@ -114,20 +114,37 @@ export function PrivacyPage() {
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Feedback</h2>
         {feedbackActive ? (
-          <p>
-            <strong>This build has Tally feedback enabled.</strong> A Send Feedback option is available. Clicking it
-            opens a Tally form in a new browser tab — opening that form itself sends your current in-app route, the
-            build version, and a coarse screen-size category (small/medium/large, never your exact screen
-            dimensions) to Tally as part of the form's web address, since that's how this app passes that context
-            along. Your written feedback and the category you pick are sent separately, only if and when you choose
-            to fill in and submit the form. Neither step sends your learning progress, saved items, or any
-            identifier tied to you. This app does not ask for your name or email, though Tally's own form fields are
-            outside this app's control. Tally is the processor for whatever it receives, at either step; see{' '}
-            <a href="https://tally.so/help/privacy-policy" target="_blank" rel="noreferrer" className="underline">
-              Tally's privacy policy
-            </a>{' '}
-            for their own terms.
-          </p>
+          <>
+            <p>
+              <strong>This build has Tally feedback enabled.</strong> A Send Feedback option is available. Clicking
+              it opens a Tally form in a new browser tab — opening that form itself sends your current in-app route,
+              the build version, and a coarse screen-size category (small/medium/large, never your exact screen
+              dimensions) to Tally as part of the form's web address, since that's how this app passes that context
+              along. Your written feedback and the category you pick are sent separately, only if and when you
+              choose to fill in and submit the form. Neither step sends your learning progress, saved items, this
+              app's own persistent user identifiers (there aren't any — see "No accounts" above), or your name or
+              email — this app does not ask for either, though Tally's own form fields are outside this app's
+              control.
+            </p>
+            <p>
+              Separately from what this app sends, Tally itself automatically assigns every form respondent a
+              "Respondent ID" — a randomly generated identifier that Tally stores in your browser's local storage.
+              Per Tally's own documentation, this identifier is not tied to a name or email by itself, but it is
+              designed to persist across every Tally form in the same Tally workspace and lets the form owner (this
+              app) tell whether the same browser has responded before. This app does not read, use, or store that
+              identifier itself, and does not add any identifier of its own on top of it — it's part of how Tally
+              operates the form, independent of this app's own code.
+            </p>
+            <p>
+              For a submitted response, this app (as the form's creator) is the party responsible for that response
+              data, and Tally acts as the service that stores and processes it on this app's behalf; per Tally's own
+              documentation, form data is stored in the EU. See{' '}
+              <a href="https://tally.so/help/privacy-policy" target="_blank" rel="noreferrer" className="underline">
+                Tally's privacy policy
+              </a>{' '}
+              for Tally's own account of what it collects and how.
+            </p>
+          </>
         ) : (
           <p>
             <strong>As of this build, no feedback destination is configured</strong>, so the Send Feedback option

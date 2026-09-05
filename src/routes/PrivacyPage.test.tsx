@@ -30,6 +30,13 @@ describe('PrivacyPage', () => {
     expect(text).toMatch(/Tally/)
   })
 
+  it('does not mention a Tally Respondent ID while feedback is inactive (no Tally form is ever loaded)', () => {
+    render(<PrivacyPage />)
+    const heading = screen.getByRole('heading', { name: 'Feedback', level: 2 })
+    const text = heading.parentElement?.textContent ?? ''
+    expect(text).not.toMatch(/Respondent ID/)
+  })
+
   it('describes speech recognition as browser/platform-handled, not server-recorded, and notes that provider\'s own terms apply', () => {
     render(<PrivacyPage />)
     expect(screen.getByText(/Web Speech API/)).toBeInTheDocument()
@@ -135,5 +142,53 @@ describe('PrivacyPage reflects actual build config', () => {
     // the route/build/screen context, which goes out the moment the form
     // opens.
     expect(text).not.toMatch(/nothing is sent until you choose to fill it in and submit/)
+  })
+
+  // Round 4 fix (PR #210 final review): the active Feedback wording used
+  // to say "Neither step sends ... any identifier tied to you," which
+  // contradicts Tally's own documented Respondent ID — a UUID v4 Tally
+  // automatically assigns to every form respondent, stores in the
+  // browser's local storage, and which persists across every Tally form
+  // in the same Tally workspace (per tally.so/help/faq and
+  // tally.so/help/prevent-duplicate-submissions). Tally selection is
+  // unchanged; only the disclosure accuracy is fixed here.
+  it('discloses Tally\'s Respondent ID accurately once feedback is active', () => {
+    vi.stubEnv('VITE_FEEDBACK_URL', 'https://tally.so/r/abc123')
+    render(<PrivacyPage />)
+    const heading = screen.getByRole('heading', { name: 'Feedback', level: 2 })
+    const text = heading.parentElement?.textContent ?? ''
+    expect(text).toMatch(/Respondent ID/)
+    expect(text).toMatch(/randomly generated identifier/)
+    expect(text).toMatch(/local storage/)
+    expect(text).toMatch(/persist across every Tally form in the same Tally workspace/)
+    expect(text).toMatch(/whether the same browser has responded before/)
+  })
+
+  it('does not falsely claim no identifier is sent/used once feedback is active (Tally\'s Respondent ID exists)', () => {
+    vi.stubEnv('VITE_FEEDBACK_URL', 'https://tally.so/r/abc123')
+    render(<PrivacyPage />)
+    const heading = screen.getByRole('heading', { name: 'Feedback', level: 2 })
+    const text = heading.parentElement?.textContent ?? ''
+    expect(text).not.toMatch(/any identifier tied to you/)
+    expect(text).not.toMatch(/no identifier (is|of any kind)/i)
+  })
+
+  it('states Tamamizu does not ask for name/email and does not add its own persistent feedback identifier', () => {
+    vi.stubEnv('VITE_FEEDBACK_URL', 'https://tally.so/r/abc123')
+    render(<PrivacyPage />)
+    const heading = screen.getByRole('heading', { name: 'Feedback', level: 2 })
+    const text = heading.parentElement?.textContent ?? ''
+    expect(text).toMatch(/does not ask for either/)
+    expect(text).toMatch(/does not add any identifier of its own/)
+  })
+
+  it('describes the form-creator/Tally data role and EU storage using only confirmed official wording', () => {
+    vi.stubEnv('VITE_FEEDBACK_URL', 'https://tally.so/r/abc123')
+    render(<PrivacyPage />)
+    const heading = screen.getByRole('heading', { name: 'Feedback', level: 2 })
+    const text = heading.parentElement?.textContent ?? ''
+    expect(text).toMatch(/this app \(as the form's creator\) is the party responsible for that response data/)
+    expect(text).toMatch(/Tally acts as the service that stores and processes it/)
+    expect(text).toMatch(/stored in the EU/)
   })
 })
