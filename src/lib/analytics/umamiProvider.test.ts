@@ -39,14 +39,49 @@ describe('createUmamiProvider', () => {
     expect(script?.getAttribute('src')).toBe('https://umami.example.com/script.js')
   })
 
-  it('forwards track() calls to window.umami.track when the global is present', () => {
+  it('forwards track() calls using the single-object payload form, not (eventName, eventData)', () => {
     const umamiTrack = vi.fn()
     window.umami = { track: umamiTrack }
     const provider = createUmamiProvider()
 
     provider.track('practice_completed', { category: 'hiragana', score: 8 })
 
-    expect(umamiTrack).toHaveBeenCalledWith('practice_completed', { category: 'hiragana', score: 8 })
+    // Umami's track(eventName, eventData) form merges in default
+    // properties (hostname/language/referrer/screen/title/url) that this
+    // project must never send — see umamiProvider.ts's P1 fix comment.
+    // The single-object form only sends exactly what's in the object, so
+    // this call must be a single argument, not two.
+    expect(umamiTrack).toHaveBeenCalledTimes(1)
+    expect(umamiTrack.mock.calls[0]).toHaveLength(1)
+    expect(umamiTrack).toHaveBeenCalledWith({
+      website: 'test-website-id',
+      name: 'practice_completed',
+      data: { category: 'hiragana', score: 8 },
+    })
+  })
+
+  it('omits the data field entirely when no properties are passed, rather than sending an empty object', () => {
+    const umamiTrack = vi.fn()
+    window.umami = { track: umamiTrack }
+    const provider = createUmamiProvider()
+
+    provider.track('lesson_started')
+
+    expect(umamiTrack).toHaveBeenCalledWith({ website: 'test-website-id', name: 'lesson_started' })
+  })
+
+  it('never includes hostname/language/referrer/screen/title/url in the outgoing payload', () => {
+    const umamiTrack = vi.fn()
+    window.umami = { track: umamiTrack }
+    const provider = createUmamiProvider()
+
+    provider.track('assessment_completed', { assessment: 'hiragana', score: 18, questionCount: 20 })
+
+    const sentPayload = umamiTrack.mock.calls[0][0]
+    for (const forbiddenField of ['hostname', 'language', 'referrer', 'screen', 'title', 'url']) {
+      expect(sentPayload).not.toHaveProperty(forbiddenField)
+    }
+    expect(Object.keys(sentPayload).sort()).toEqual(['data', 'name', 'website'])
   })
 
   it('does not throw when window.umami is not yet available (script still loading)', () => {
@@ -58,5 +93,15 @@ describe('createUmamiProvider', () => {
     vi.unstubAllEnvs()
     createUmamiProvider()
     expect(document.head.querySelector('script[data-auto-track]')).toBeNull()
+  })
+
+  it('does not send anything when no website id is configured (no crash either)', () => {
+    vi.unstubAllEnvs()
+    const umamiTrack = vi.fn()
+    window.umami = { track: umamiTrack }
+    const provider = createUmamiProvider()
+
+    expect(() => provider.track('lesson_started')).not.toThrow()
+    expect(umamiTrack).not.toHaveBeenCalled()
   })
 })

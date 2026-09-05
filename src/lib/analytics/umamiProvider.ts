@@ -2,11 +2,13 @@ import type { AnalyticsEventName, AnalyticsProperties, AnalyticsProvider } from 
 import { getUmamiHostUrl, getUmamiWebsiteId } from './umamiConfig'
 
 // Minimal shape of the global `window.umami` the Umami tracker script
-// attaches — see https://umami.is/docs/tracker-configuration and
-// https://umami.is/docs/track-events. Only the one method this app
-// actually calls is typed; the real object has more.
+// attaches — see https://docs.umami.is/docs/tracker-functions. Only the
+// one call SHAPE this app actually uses is typed here (the single-object
+// payload form — see the doc comment on toUmamiPayload below for why),
+// not every overload Umami's real object supports.
+type UmamiPayload = { website: string; name: string; data?: Record<string, unknown> }
 type UmamiGlobal = {
-  track: (eventName: string, eventData?: Record<string, unknown>) => void
+  track: (payload: UmamiPayload) => void
 }
 
 declare global {
@@ -44,25 +46,46 @@ function injectUmamiScript(): void {
   document.head.appendChild(script)
 }
 
-// Umami's track() signature accepts a string event name and an optional
-// flat properties object — this app's own low-cardinality
-// AnalyticsProperties shape (see types.ts) maps directly onto that with no
-// transformation needed.
-function toUmamiEventData(properties?: AnalyticsProperties): Record<string, unknown> | undefined {
-  if (!properties) return undefined
-  return { ...properties }
+// P1 fix (PR #210 final review): Umami's track(eventName, eventData) call
+// form MERGES eventData into a larger default payload that also includes
+// hostname, language, referrer, screen (EXACT pixel dimensions), title,
+// and url (see docs.umami.is/docs/tracker-functions: "When tracking
+// events, default properties are included in the payload"). That directly
+// violates this project's data-minimization rule (no exact screen
+// dimensions, no unnecessary referrer/title/url — see types.ts's
+// AnalyticsProperties doc comment).
+//
+// Umami's docs also document a SEPARATE single-object call form —
+// track(payload) — that sends ONLY the properties included in that object
+// ("The above will only send the properties website, url and title" —
+// same doc page, describing this exact mechanism for a pageview-shaped
+// payload). Using that form with an event-shaped payload
+// ({ website, name, data }) is the same documented mechanism, applied to
+// this app's actual use case: only the website id, the approved event
+// name, and this app's own low-cardinality AnalyticsProperties are ever
+// sent — no hostname/language/referrer/screen/title/url field is included
+// at all.
+function toUmamiPayload(websiteId: string, event: AnalyticsEventName, properties?: AnalyticsProperties): UmamiPayload {
+  const payload: UmamiPayload = { website: websiteId, name: event }
+  if (properties) payload.data = { ...properties }
+  return payload
 }
 
 export function createUmamiProvider(): AnalyticsProvider {
   injectUmamiScript()
+  const websiteId = getUmamiWebsiteId()
   return {
     track(event: AnalyticsEventName, properties?: AnalyticsProperties) {
+      // No configured website id (shouldn't happen — track.ts only
+      // constructs this provider via isUmamiConfigured(), which requires
+      // one) — drop rather than send a malformed payload.
+      if (!websiteId) return
       // window.umami may not exist yet (script still loading, or blocked
       // by an ad-blocker/privacy extension) — silently drop the event
       // rather than queueing or retrying. Analytics is observational only;
       // a missed event before the script finishes loading is an acceptable
       // trade-off for never blocking or complicating the learning flow.
-      window.umami?.track(event, toUmamiEventData(properties))
+      window.umami?.track(toUmamiPayload(websiteId, event, properties))
     },
   }
 }

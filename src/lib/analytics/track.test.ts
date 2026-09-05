@@ -57,7 +57,9 @@ describe('activeProvider selection', () => {
     const { track: freshTrack } = await import('./track')
     freshTrack('lesson_started')
 
-    expect(umamiTrack).toHaveBeenCalledWith('lesson_started', undefined)
+    // Single-object payload form (P1 fix, PR #210 final review) — see
+    // umamiProvider.test.ts for the dedicated payload-shape coverage.
+    expect(umamiTrack).toHaveBeenCalledWith({ website: 'test-id', name: 'lesson_started' })
   })
 
   it('falls back to a safe non-Umami provider with malformed/missing config, and never throws', async () => {
