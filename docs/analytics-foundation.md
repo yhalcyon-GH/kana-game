@@ -19,15 +19,24 @@ feedback service later is a small, isolated change instead of a rewrite.
   anywhere over the network today.
 - **No feedback service is connected.** The Send Feedback UI only appears
   if `VITE_FEEDBACK_URL` is set at build time; it is unset in this release,
-  so the entry point does not render at all (see `src/lib/feedback/`).
+  so the entry point does not render at all (see `src/lib/feedback/`). When
+  a URL IS configured, clicking Send Feedback opens that URL in a new tab
+  with route/build-SHA/screen-size attached as query parameters (see
+  `src/lib/feedback/config.ts`'s `buildFeedbackDestinationUrl`) — this is a
+  plain external link action, not a `FeedbackProvider`-backed in-app
+  submission; `FeedbackProvider` (below) stays for a future in-app flow if
+  one is ever built.
 - **No persistent cross-session user/analytics ID.** Nothing here
   fingerprints a device or assigns an anonymous distinct ID.
 - **No sensitive data in event properties.** See
   `src/lib/analytics/types.ts`'s `AnalyticsProperties` — a fixed, small set
-  of low-cardinality fields (category/row/activity/assessment/score/attempt/
-  result/screenSize). Speech transcripts, microphone audio, free-text
-  feedback, names, emails, and exact screen dimensions are never included
-  by type.
+  of low-cardinality fields (category/row/activity/assessment/score/
+  questionCount/attempt/result/screenSize). `questionCount` is a session's
+  total question/round count; `attempt` is reserved for an actual attempt
+  number and is not currently populated by any call site (see the field's
+  own doc comment — do not conflate the two). Speech transcripts,
+  microphone audio, free-text feedback, names, emails, and exact screen
+  dimensions are never included by type.
 
 ## Event taxonomy
 
@@ -47,11 +56,16 @@ Instrumented call sites as of this release:
 - `cafe_started` / `cafe_completed` — `CafePage`.
 - `graduated` — fired once, the moment `progressStore`'s graduation flag
   first flips to `true`.
-- `feedback_opened` / `feedback_submitted` — the Send Feedback UI. As of
-  this release `feedback_submitted` is never actually fired: with no
-  feedback provider configured, no submission can succeed (see "What this
-  deliberately is NOT" above) — firing it anyway would be a fabricated
-  event with no real submission behind it.
+- `feedback_opened` — the Send Feedback UI, fired only once
+  `window.open(destination, ...)` actually returns a window handle (a
+  popup blocker silently returning `null` does NOT fire this — see
+  `SendFeedback.tsx`). Only appears at all when `VITE_FEEDBACK_URL` is
+  configured.
+- `feedback_submitted` — never actually fired as of this release: there is
+  no in-app submission step (Send Feedback opens an external destination
+  and the app has no way to know what, if anything, the learner did
+  there) — firing it anyway would be a fabricated event with no real
+  submission behind it.
 
 ## Duplicate-event safety
 
@@ -76,6 +90,11 @@ than once due to Retry.
 4. Decide whether any anonymous distinct ID is actually needed, and if so,
    do a privacy review of that specifically — this foundation intentionally
    ships without one.
-5. For feedback: pick a destination, set `VITE_FEEDBACK_URL` in the build
-   environment, and implement `FeedbackProvider` (`src/lib/feedback/types.ts`)
-   for whatever protocol that destination expects.
+5. For feedback: the external-link mechanism (set `VITE_FEEDBACK_URL`,
+   Send Feedback opens it with route/build/screen query params attached)
+   already works today for any destination that accepts a plain link — a
+   Google Form, a GitHub issue template with prefilled query params, a
+   Typeform, etc. Implementing `FeedbackProvider`
+   (`src/lib/feedback/types.ts`) is only needed for a future in-app
+   submission flow (posting directly to an API instead of opening a link);
+   it is not required to make the current external-link mechanism work.
