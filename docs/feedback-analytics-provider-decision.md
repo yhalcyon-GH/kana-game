@@ -71,19 +71,28 @@ Sources as cited inline above; full source list and additional detail (script-si
 
 **Reasoning (project judgment, not purely from the comparison table):**
 
-1. **Privacy defaults match this project's stated principles** (see
-   `docs/analytics-foundation.md`'s "what this deliberately is NOT" list)
-   without requiring extra configuration — Umami is cookie-free and has no
-   automatic click/session tracking by default, whereas PostHog requires
-   deliberately opting into `cookieless_mode` and disabling session
-   recording to reach a comparable posture.
-2. Umami's `data-auto-track="false"` is the cleanest, most explicitly
-   documented way to guarantee "only the events this app explicitly calls
-   `track()` for are ever sent" — this app's actual implementation
-   (`src/lib/analytics/umamiProvider.ts`) uses exactly this attribute.
-3. Umami's free Hobby tier comfortably covers a hobby-scale beta's event
+1. **Umami is cookie-free, and offers an officially documented manual-only
+   configuration that Tamamizu explicitly enables**, to match this
+   project's stated privacy principles (see
+   `docs/analytics-foundation.md`'s "what this deliberately is NOT" list).
+   Correction: an earlier version of this document stated Umami has "no
+   automatic click/session tracking by default" — that was wrong. Per
+   Umami's own docs (`docs.umami.is/docs/tracker-configuration`), the
+   DEFAULT tracker behavior automatically tracks pageviews, clicks, and
+   path-change detection; `data-auto-track="false"` is the documented
+   attribute that turns all of that off, and Tamamizu's integration
+   (`src/lib/analytics/umamiProvider.ts`) sets it explicitly — this
+   privacy-minimal behavior is something this app configures, not
+   something Umami ships with by default. It remains the cleanest way to
+   guarantee "only the events this app explicitly calls `track()` for are
+   ever sent," and it's a single named attribute rather than several
+   separate flags — PostHog needs a comparable combination of
+   `cookieless_mode` plus disabling session recording to reach a similar
+   posture, so on this specific axis Umami and PostHog both require
+   explicit configuration, contrary to what the previous wording implied.
+2. Umami's free Hobby tier comfortably covers a hobby-scale beta's event
    volume.
-4. Umami's **Funnel** feature (`docs.umami.is/docs/funnel`, available
+3. Umami's **Funnel** feature (`docs.umami.is/docs/funnel`, available
    since v2.3.0) directly supports this app's actual goal — a funnel step
    can be a specific **event**, not just a URL, so this app's existing
    start/complete event pairs map onto it with no new instrumentation:
@@ -102,13 +111,26 @@ Sources as cited inline above; full source list and additional detail (script-si
    stated Umami had no such feature; that was incorrect and has been
    corrected here after re-checking Umami's current official docs.)
 
-**Correction note (2026-09, PR #210 final review):** an earlier version of
-this document claimed "Umami has no native funnel/drop-off UI" as a
-disclosed trade-off favoring PostHog. That claim was wrong — Umami's
+**Correction note (2026-09, PR #210 final review, round 2):** an earlier
+version of this document claimed "Umami has no native funnel/drop-off UI"
+as a disclosed trade-off favoring PostHog. That claim was wrong — Umami's
 Funnel feature exists and directly supports event-based funnels as
 described above. No provider change was made or is warranted from this
 correction; if anything, it strengthens the case for Umami, since the one
 previously-disclosed gap does not actually exist.
+
+**Correction note (2026-09, PR #210 final review, round 3):** an earlier
+version of this document's reasoning also stated Umami has "no automatic
+click/session tracking by default," offered as a reason Umami was chosen
+without extra configuration. That was wrong: Umami's default tracker
+automatically does pageview tracking, click tracking, and path-change
+detection, per `docs.umami.is/docs/tracker-configuration`. Tamamizu's
+privacy-minimal behavior comes specifically from setting
+`data-auto-track="false"` in `src/lib/analytics/umamiProvider.ts`, not
+from any Umami default. The Umami selection is unchanged; the comparison
+table row for this axis ("Named 'manual/custom-events-only' mode," above)
+was already accurate and did not need correction — only the reasoning
+section's summary sentence was wrong.
 
 ## What activation still requires (see docs/feedback-setup.md and docs/analytics-foundation.md)
 
