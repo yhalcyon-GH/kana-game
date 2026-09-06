@@ -1,6 +1,11 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
+  // Public client-side configuration for the development-only Sandbox PoC.
+  // Never put Paddle API secrets/API keys in these variables.
+  readonly VITE_PADDLE_ENVIRONMENT?: string
+  readonly VITE_PADDLE_CLIENT_TOKEN?: string
+  readonly VITE_PADDLE_PRICE_ID?: string
   // Injected by .github/workflows/deploy.yml from the CI commit SHA — see
   // src/lib/buildInfo.ts. Never hardcoded, and empty/undefined in local dev.
   readonly VITE_BUILD_SHA?: string

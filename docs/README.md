@@ -16,6 +16,7 @@ For day-to-day development, start with [`CLAUDE.md`](../CLAUDE.md) or [`AGENTS.m
 - **[analytics-foundation.md](./analytics-foundation.md)** — provider-neutral analytics/feedback abstraction; what's instrumented, and what connecting a real provider later requires.
 - **[feedback-analytics-provider-decision.md](./feedback-analytics-provider-decision.md)** — Tally vs. Formspree and Umami vs. PostHog/Plausible comparison, decision, and disclosed trade-offs (dated; re-verify pricing/terms if read much later).
 - **[feedback-setup.md](./feedback-setup.md)** — step-by-step Tally account/form setup and `VITE_FEEDBACK_URL` activation guide for a human operator.
+- **[paddle-sandbox-checkout.md](./paddle-sandbox-checkout.md)** — development-only Paddle Checkout PoC setup and human Sandbox payment verification.
 - **[tamamizu-guide-scripts.md](./tamamizu-guide-scripts.md)** — approved guide copy / visual direction where still applicable.
 - **[restaurant-audio-manifest.csv](./restaurant-audio-manifest.csv)** — restaurant audio asset manifest.
 

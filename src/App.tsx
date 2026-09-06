@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { Link, Route, Routes, useParams } from 'react-router-dom'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { GuideHighlightProvider } from './components/GuideHighlightProvider'
@@ -32,6 +33,10 @@ import { ReviewPage } from './routes/ReviewPage'
 import { SavedPage } from './routes/SavedPage'
 import { SettingsPage } from './routes/SettingsPage'
 import { ThirdPartyNoticesPage } from './routes/ThirdPartyNoticesPage'
+
+// Compile-time guard: the PoC page, its env values and Paddle SDK are omitted
+// from production builds. Keep this conditional import and the route guard.
+const PaddleTestPage = import.meta.env.DEV ? lazy(() => import('./routes/PaddleTestPage')) : null
 
 function RestaurantRoute() {
   const { checkpointId } = useParams()
@@ -78,6 +83,9 @@ function App() {
         <main className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-4 py-8">
           <ErrorBoundary>
             <Routes>
+              {import.meta.env.DEV && PaddleTestPage && (
+                <Route path="/paddle-test" element={<Suspense fallback={<p>Loading sandbox test page…</p>}><PaddleTestPage /></Suspense>} />
+              )}
               <Route path="/" element={<HomePage />} />
               <Route
                 path="/hiragana"
