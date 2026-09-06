@@ -46,3 +46,10 @@ public/audio/**/*.wav16k.wav
 
 # Local isolated Git worktrees used for release/debug sessions
 /.worktrees/
+
+# Paddle Sandbox entitlement PoC — server-side config with real DB
+# credentials/Paddle webhook secret. Copy server/config.example.php to
+# server/config.php on Xserver and fill in real values there; never commit
+# server/config.php. See docs/paddle-webhook-poc.md.
+/server/config.php
+/server/*.local.php
