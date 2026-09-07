@@ -1,7 +1,9 @@
 # Phase 3A design — real-user identity + secure purchase attribution foundation
 
-Status: revised per ChatGPT review (2026-09-08 rev. 2). Supersedes
-rev. 1 of this same file (revision history at the bottom). Extends
+Status: approved in direction; revised per ChatGPT review (2026-09-08
+rev. 3, three final corrections before implementation planning).
+Supersedes rev. 1 and rev. 2 of this same file (revision history at the
+bottom). Extends
 [`docs/paddle-webhook-poc.md`](../../paddle-webhook-poc.md) (Phase 2) and
 [`docs/paddle-sandbox-checkout.md`](../../paddle-sandbox-checkout.md)
 (Phase 1).
@@ -168,13 +170,49 @@ WHERE token_hash = :hash AND used_at IS NULL AND expires_at > NOW()
 ```
 
 and checks the driver-reported **affected row count**. Exactly one
-concurrent request can ever see `affected_rows = 1` for a given token;
-every other simultaneous request (retry, double-click, replay) sees `0`
-and is rejected as invalid/expired/used (same generic error, no
-distinction — see Section 2). Only the winner proceeds, within the same
-transaction, to resolve/create the `users` row and insert the `sessions`
-row, then commits. This closes the race a plain
-"check `used_at`, then separately `UPDATE`" pattern would allow.
+concurrent request can ever see `affected_rows = 1` for a given **token**;
+every other simultaneous request for that same token (retry,
+double-click, replay) sees `0` and is rejected as invalid/expired/used
+(same generic error, no distinction — see Section 2). Only the winner
+for a given token proceeds, within the same transaction, to
+resolve/create the `users` row and insert the `sessions` row, then
+commits. This closes the race a plain "check `used_at`, then separately
+`UPDATE`" pattern would allow.
+
+**Two distinct, simultaneously-valid tokens for the same email (point 3
+of the second review round)**: the token-consume UPDATE above is keyed
+on `token_hash`, so it does not by itself prevent two *different* valid
+tokens for the same `email_normalized` (e.g. two magic-link requests
+sent minutes apart, both still unexpired) from being verified
+concurrently — each wins its own token-consume independently, and both
+then attempt "resolve-or-create the `users` row for this email" at
+essentially the same moment. A naive `SELECT ... WHERE email_normalized
+= ?` followed by an unprotected `INSERT` here would let both requests
+observe "no such user" and both attempt to insert, and the loser would
+crash on the `UNIQUE(email_normalized)` constraint with an unhandled
+duplicate-key error instead of resolving to the winner's user. **This
+is disallowed** — the find-or-create step uses one of:
+
+```sql
+INSERT INTO users (id, email_normalized, created_at, updated_at)
+VALUES (:new_uuid, :email, NOW(), NOW())
+ON DUPLICATE KEY UPDATE id = id
+```
+
+(a MariaDB-safe no-op-on-conflict upsert — the `ON DUPLICATE KEY UPDATE
+id = id` clause makes this succeed either way without ever changing an
+existing row's `id`), immediately followed by
+`SELECT id FROM users WHERE email_normalized = :email` in the same
+transaction to read back the authoritative row — which is `:new_uuid`
+if this request's insert won, or the other concurrent request's `id` if
+it won instead. Equivalently, an implementation may do a plain `INSERT`
+and explicitly catch the `UNIQUE(email_normalized)` violation, then
+re-`SELECT` the winning row — but a bare `SELECT`-then-unprotected-
+`INSERT` with no conflict handling is not acceptable. Either way, both
+concurrent verifications resolve to the **same** `users.id`, each then
+inserts its own `sessions` row (sessions are per-verification, not
+per-user-singleton, so both succeed independently), and neither request
+surfaces a 500. See Section 6 for the dedicated test.
 
 ### `sessions`
 
@@ -306,7 +344,7 @@ transaction's grant for the same user/product.
 | `user_id` | `CHAR(36)` | FK → `users.id` — resolved once, at first-seen time, from the intent |
 | `product_key` | `VARCHAR(64)` | |
 | `purchase_intent_id` | `BIGINT UNSIGNED` | FK → `purchase_intents.id`. **`UNIQUE`** (point 4) — a second transaction can never attach to an intent already claimed by another transaction; combined with the intent's own atomic consume above, this is belt-and-suspenders against any double-grant from one intent. |
-| `status` | `VARCHAR(24)` | `active` \| `refund_pending` \| `refunded` \| `chargeback_pending` \| `chargeback` — see Section 4's lifecycle. Starts `active` on creation. |
+| `status` | `VARCHAR(24)` | `active` \| `refund_pending` \| `refunded` \| `chargeback_pending` \| `chargeback` — see Section 4's lifecycle. Starts `active` on creation. **Entitlement-bearing set is `{'active', 'refund_pending'}`** — `refund_pending` still counts as entitled (Section 4); only `refunded`/`chargeback` remove it. |
 | `granted_at` | `DATETIME` | the `occurred_at` of the granting `transaction.completed` event (not wall-clock processing time) |
 | `status_changed_at` | `DATETIME` | the `occurred_at` of the event that most recently changed `status`, used for out-of-order comparison (point 1) |
 | `created_at` | `DATETIME` | |
@@ -314,12 +352,16 @@ transaction's grant for the same user/product.
 
 A user/product's current entitlement is **derived**: active if and only
 if at least one `transaction_grants` row for that `(user_id,
-product_key)` has `status = 'active'`. This directly satisfies point 2 —
-refunding old transaction A never touches transaction B's row, so a
-repurchase after a refund (a new transaction, a new grant row, status
-`active`) keeps the user entitled regardless of what happens to A's
-row, and an out-of-order arrival of A's refund after B's purchase still
-only ever updates A's row.
+product_key)` has a status in the **entitlement-bearing set**
+`{'active', 'refund_pending'}` — **not** `status = 'active'` alone. A
+`pending_approval` refund does not yet revoke access (Section 4), so a
+grant sitting in `refund_pending` must still count as entitled;
+`refunded` is the only status in the currently-defined set that does
+not. This directly satisfies point 2 — refunding old transaction A never
+touches transaction B's row, so a repurchase after a refund (a new
+transaction, a new grant row, status `active`) keeps the user entitled
+regardless of what happens to A's row, and an out-of-order arrival of
+A's refund after B's purchase still only ever updates A's row.
 
 ### `pending_adjustments` (PR B, new — point 1)
 
@@ -339,6 +381,7 @@ transaction becomes known, instead of being permanently no-op'd.
 | `paddle_event_id` | `VARCHAR(64)` | UNIQUE — the specific `adjustment.*` event, for idempotent reconciliation |
 | `action` | `VARCHAR(24)` | `refund` (only handled value; others recorded, not reconciled — see Section 4) |
 | `adjustment_status` | `VARCHAR(24)` | Paddle's own `data.status` on the adjustment (see Section 4) |
+| `adjustment_type` | `VARCHAR(16)` | Paddle's own `data.type` — `full` \| `partial`. Read and stored so reconciliation can apply the same full-vs-partial rule as the immediate (non-pending) path in Section 4. |
 | `occurred_at` | `DATETIME` | Paddle's `occurred_at` for this event — used for ordering at reconciliation time |
 | `reconciled_at` | `DATETIME NULL` | set once a matching `transaction_grants` row appears and this adjustment has been applied to it |
 | `created_at` | `DATETIME` | |
@@ -372,7 +415,10 @@ Endpoints (mirroring the existing `server/*.php` flat-file convention):
   caller.
 - `POST /api/auth/verify.php` `{token}` → atomic conditional consume
   (see above), resolve-or-create the `users` row from the token's
-  `email_normalized`, create a session row, return
+  `email_normalized` using the MariaDB-safe upsert-then-read pattern
+  (Section 1 — never a bare SELECT-then-unprotected-INSERT, since two
+  distinct valid tokens for the same email can be verified
+  concurrently), create a session row, return
   `{"session_token": "<raw>", "user": {...}}` once, all inside one DB
   transaction. Invalid/expired/already-used token (affected-row-count
   0) → generic 400, no distinction between the three reasons in the
@@ -504,11 +550,12 @@ Point 3 requires modeling Paddle's actual adjustment status lifecycle
 instead of treating every `action=refund` event as an immediate,
 irreversible revoke:
 
-1. Extract `data.transaction_id`, `data.action`, `data.status` (Paddle's
-   adjustment status — confirmed values from the docs re-read for this
-   revision: `pending_approval`, `approved`, `rejected` are the
-   documented lifecycle states on an adjustment; see "Explicitly
-   unconfirmed" below for what remains unverified).
+1. Extract `data.transaction_id`, `data.action`, `data.status`, and
+   `data.type` (Paddle's adjustment status and type — confirmed values
+   from the docs re-read for this revision: `pending_approval`,
+   `approved`, `rejected` are the documented lifecycle states on an
+   adjustment, and `full`/`partial` are the documented `type` values;
+   see "Explicitly unconfirmed" below for what remains unverified).
 2. If `action` is not `refund`: same as Phase 2 — chargeback-family
    actions are recognized but not acted on (safely ignored, event
    recorded, no entitlement effect). **Not changed by this revision** —
@@ -518,23 +565,36 @@ irreversible revoke:
    - **Not found** (transaction unknown — could be a not-yet-arrived
      `transaction.completed`, a Phase 2 PoC-path transaction, or an
      unrelated product): insert into `pending_adjustments`
-     (unreconciled) rather than permanently dropping it — this is
-     exactly point 1's requirement. Return HTTP 200 (safely queued, not
-     an error Paddle should retry for).
-   - **Found**: apply the status transition:
+     (unreconciled), storing `data.type` in `adjustment_type`, rather
+     than permanently dropping it — this is exactly point 1's
+     requirement. Return HTTP 200 (safely queued, not an error Paddle
+     should retry for).
+   - **Found**: apply the status transition, gated on `data.type`:
      - `data.status == 'pending_approval'` → set
-       `transaction_grants.status = 'refund_pending'`. **Entitlement is
-       not revoked yet** — a pending refund is not a confirmed refund
-       (point 3's explicit requirement not to treat every `action=
-       refund` event as an irreversible final revoke). Recompute
-       `entitlements` anyway (a no-op here, since `refund_pending` is
-       not `active` in isolation — see below).
-     - `data.status == 'approved'` → set
-       `transaction_grants.status = 'refunded'`. Recompute
-       `entitlements`.
+       `transaction_grants.status = 'refund_pending'` **regardless of
+       `type`**. **Entitlement is not revoked** — `refund_pending` is
+       in the entitlement-bearing status set (see below), because a
+       pending refund is not a confirmed refund (point 3's explicit
+       requirement not to treat every `action=refund` event as an
+       irreversible final revoke). Recompute `entitlements` (a no-op
+       here, since the set membership doesn't change).
+     - `data.status == 'approved'` **and** `data.type == 'full'` → set
+       `transaction_grants.status = 'refunded'` (leaves the
+       entitlement-bearing set — see below). Recompute `entitlements`.
+     - `data.status == 'approved'` **and** `data.type == 'partial'` →
+       **do not change `transaction_grants.status`** (point 2 of this
+       review round: a partial refund must not fully revoke). The
+       event is still recorded in `payment_events` for idempotency and
+       the adjustment's own fields (`action`, `status`, `type`,
+       `transaction_id`) are logged for audit, but the grant's status
+       — and therefore entitlement — is untouched. **Partial-refund
+       entitlement policy (e.g. any future proportional/partial access)
+       remains an explicit, deferred product decision**, not
+       implemented here.
      - `data.status == 'rejected'` → set `transaction_grants.status`
        back to `'active'` (the refund attempt did not succeed; the
-       original grant stands). Recompute `entitlements`.
+       original grant stands), **regardless of `type`**. Recompute
+       `entitlements`.
    - Every transition only ever updates **that one transaction's** row,
      compares the incoming event's `occurred_at` against the row's
      `status_changed_at` and **discards (safely ignores, still records
@@ -543,31 +603,51 @@ irreversible revoke:
      applied to updates, not just to the pending case, so a
      late-arriving stale status transition can't undo a newer one.
 
-**Entitlement recomputation**: after any `transaction_grants` write,
-recompute `entitlements.active` for that `(user_id, product_key)` as
-`EXISTS(SELECT 1 FROM transaction_grants WHERE user_id = :u AND
-product_key = :p AND status = 'active')` and UPSERT the cached
-`entitlements` row to that result (point 2's explicit requirement:
-recompute from valid non-revoked purchases, not "trust the last event"). Because
-this recomputation only ever reads the full current set of grant rows
-for that user/product, a refund on old transaction A can never revoke a
-later transaction B's grant — B's row is untouched, so the `EXISTS`
-check still finds it.
+**Entitlement-bearing statuses and recomputation**: `transaction_grants
+.status` can be `active`, `refund_pending`, `refunded`,
+`chargeback_pending`, or `chargeback` (chargeback values reserved,
+unused — see "Explicitly unconfirmed"/Phase 2 deferral). The
+**entitlement-bearing set** is `{'active', 'refund_pending'}` — a grant
+in either of those statuses counts toward entitlement; `refunded` (and,
+when eventually implemented, `chargeback`) does not. After any
+`transaction_grants` write, recompute `entitlements.active` for that
+`(user_id, product_key)` as:
 
-**Partial refunds (point 3, explicit deferral)**: Paddle's
-`data.type` on an adjustment (`full` vs `partial`) is read and recorded,
-but Phase 3A's status model above treats `approved` the same way
-regardless of `type` — a partial refund still moves that transaction's
-grant to `refunded` (all-or-nothing per transaction, matching Phase 2's
-existing simplification). **This is an explicit, documented
-simplification, not partial-refund support** — proportional/partial
-entitlement is out of scope for a binary "owns Full Tamamizu or not"
-product and is not needed unless a future product introduces partial-
-value tiers. **Live rollout must not reuse Phase 2's even-simpler
-"any refund event = instant final revoke, no status check at all"
-behavior** — Phase 3A's `pending_approval`/`approved`/`rejected`
-handling above is required before any Live Paddle rollout, per your
-explicit instruction.
+```sql
+EXISTS(
+  SELECT 1 FROM transaction_grants
+  WHERE user_id = :u AND product_key = :p
+    AND status IN ('active', 'refund_pending')
+)
+```
+
+and UPSERT the cached `entitlements` row to that result (point 2's
+explicit requirement: recompute from valid non-revoked purchases, not
+"trust the last event"). Because this recomputation only ever reads the
+full current set of grant rows for that user/product, a refund on old
+transaction A can never revoke a later transaction B's grant — B's row
+is untouched, so the `EXISTS` check still finds it. And because a
+`pending_approval` refund moves a grant to `refund_pending` rather than
+out of the entitlement-bearing set, a merely-requested-but-not-yet-
+approved refund on a user's *only* transaction does not prematurely lock
+them out (this is exactly the contradiction point 1 of this review round
+identified and required fixing).
+
+**Partial refunds (point 2 of this review round)**: an **approved**
+`full` refund moves that transaction's grant to `refunded` (leaves
+the set) — full revoke, as before. An **approved** `partial` refund
+does **not** change the grant's status at all — the transaction stays
+wherever it was (normally `active`), so entitlement is unaffected. This
+replaces rev. 2's incorrect statement that partial refunds were
+"deferred" while the code actually fully revoked them; the deferral now
+means "no partial/proportional entitlement policy exists yet," not "no
+special-casing exists," and rev. 3's rule is the actual behavior: a
+partial refund is recorded and idempotently processed but never
+triggers a revoke by itself. **Live rollout must not reuse Phase 2's
+even-simpler "any refund event = instant final revoke, no status or
+type check at all" behavior** — rev. 3's `pending_approval`/`approved`
+(gated on `type`)/`rejected` handling above is required before any Live
+Paddle rollout, per your explicit instruction.
 
 **Explicitly unconfirmed** (carried forward and extended from Phase 2's
 own docs, not newly guessed for this revision): whether
@@ -633,11 +713,21 @@ surface a generated link for manual testing:
 In addition to the tests listed in Section 7, the atomic-consume designs
 above require:
 
-- **Magic link**: two simulated concurrent `verify.php` calls for the
-  same raw token — exactly one succeeds (creates exactly one session,
-  exactly one `users` row even on first-ever verification for that
-  email), the other is rejected with the generic invalid/expired/used
-  response.
+- **Magic link, same token**: two simulated concurrent `verify.php`
+  calls for the same raw token — exactly one succeeds (creates exactly
+  one session, exactly one `users` row even on first-ever verification
+  for that email), the other is rejected with the generic
+  invalid/expired/used response.
+- **Magic link, two distinct valid tokens, same email (explicitly
+  requested, point 3 of the second review round)**: two separate
+  magic-link requests are issued for the same normalized email,
+  producing two distinct, both-still-valid tokens (Link A, Link B).
+  Both are verified concurrently (simulated race on the find-or-create
+  step). Assert: exactly one `users` row exists for that email
+  afterward; both verifications succeed (HTTP 200, each returning a
+  valid session token); both returned sessions resolve (via `me.php`)
+  to the same `user_id`; no duplicate-key/500 error occurs on either
+  request.
 - **Purchase intent / webhook race (explicitly requested)**: two
   different simulated `transaction.completed` events (distinct
   `paddle_transaction_id`s, distinct `event_id`s) both racing on the
@@ -664,12 +754,32 @@ above require:
   2)**: user completes transaction A (grant A, `active`). Later, user
   repurchases and completes transaction B for the same product (grant B,
   `active`) — `entitlements.active` stays true throughout, keyed by
-  `EXISTS(any active grant)`, not by "the most recent transaction." A
-  refund for **A** then arrives (`adjustment.created`, `approved`) —
-  grant A moves to `refunded`; grant B is untouched;
-  `entitlements.active` recomputes to **still true** because B is still
-  `active`. This is the exact scenario point 2 names and must not
-  regress.
+  `EXISTS` over the entitlement-bearing status set, not by "the most
+  recent transaction." A refund for **A** then arrives
+  (`adjustment.created`, `type=full`, `approved`) — grant A moves to
+  `refunded`; grant B is untouched; `entitlements.active` recomputes to
+  **still true** because B is still `active`. This is the exact scenario
+  point 2 (first review round) names and must not regress.
+- **Full vs. partial refund (explicitly requested, point 2 of the
+  second review round)**: an approved **full** refund
+  (`adjustment.created`, `type=full`, `status=approved`) on a user's
+  only transaction moves that transaction's grant to `refunded` and
+  `entitlements.active` recomputes to **false**. An approved **partial**
+  refund (`type=partial`, `status=approved`) on a *different* user's
+  only transaction leaves that grant's `status` unchanged (still
+  `active`) and `entitlements.active` recomputes to **still true** — the
+  event is recorded in `payment_events` but produces no status
+  transition. A third case confirms a partial refund on transaction A
+  cannot affect a separate transaction B for the same or a different
+  user: B's grant and B's user's `entitlements` row are asserted
+  unchanged after processing A's partial-refund event.
+- **`pending_approval` does not lock out a single-transaction user
+  (explicitly requested, point 1 of the second review round)**: a user
+  with exactly one grant (`active`) receives a `pending_approval` refund
+  event for that transaction — the grant moves to `refund_pending`, and
+  `entitlements.active` recomputes to **still true** (regression test
+  for the entitlement-bearing-set fix; asserts the query is
+  `status IN ('active', 'refund_pending')`, not `status = 'active'`).
 
 ## 7. Dev-only integration harness (PR C)
 
@@ -712,9 +822,15 @@ test file/pattern rather than inventing a new one.
   by a single event handler — a refund can only ever change its own
   transaction's row.
 - Adjustment status lifecycle (`pending_approval`/`approved`/`rejected`)
-  is modeled explicitly; a pending refund does not revoke; only
-  `approved` does. Out-of-order adjustments are queued and reconciled,
-  never permanently dropped.
+  is modeled explicitly; entitlement is derived from the
+  **entitlement-bearing status set** `{'active', 'refund_pending'}`, so
+  a `pending_approval` refund does not revoke; only an **approved full**
+  refund moves a grant to `refunded` (out of the set). An approved
+  **partial** refund is recorded but does not change the grant's status
+  or revoke entitlement (explicit, deferred product decision for any
+  future partial-entitlement policy). Out-of-order adjustments are
+  queued in `pending_adjustments` (with their `type` preserved) and
+  reconciled, never permanently dropped.
 - Rate limiting: HMAC-keyed identifiers for both email and IP buckets,
   raw values never persisted; `X-Forwarded-For` is not trusted without
   an explicit trusted-proxy configuration (not present in this phase);
@@ -733,10 +849,13 @@ test file/pattern rather than inventing a new one.
 ## 9. Tests (both PHP `server/tests/` and Vitest, extending existing patterns)
 
 **PR A** — users (create-on-verify only, lookup, email normalization,
-duplicate rejection, no user created by request-link alone), magic-link
-(secure generation, hash storage, expiry, atomic single-use with the
-concurrent-verify race test from Section 6, invalid-token generic
-response, enumeration-safe request-link response), sessions (create,
+duplicate rejection, no user created by request-link alone,
+**concurrent verification of two distinct valid tokens for the same
+email resolves to one user with no duplicate-key error** — Section 6),
+magic-link (secure generation, hash storage, expiry, atomic single-use
+with the same-token concurrent-verify race test from Section 6,
+invalid-token generic response, enumeration-safe request-link
+response), sessions (create,
 expire, revoke/logout, invalid-token rejection, `me.php` exposes only
 `user_id`+`email_normalized`), rate limiter (per-email limit, per-IP
 limit, one-IP-cycling-many-emails still blocked, one-email-across-many-
@@ -755,12 +874,15 @@ rejected, another user cannot claim someone else's intent, **raw
 event → idempotent; `transaction_grants` row created with
 `UNIQUE(purchase_intent_id)` enforced; **adjustment-before-transaction
 reconciliation** (Section 6); **repurchase-survives-old-refund**
-(Section 6); `pending_approval` does not revoke; `approved` revokes only
-that transaction's grant; `rejected` restores `active`; stale
-out-of-order status update is discarded by `occurred_at` comparison;
-refund cannot revoke a different user's or a different transaction's
-grant; unknown `transaction_id` on refund with no eventual match is
-safely queued, never errors).
+(Section 6); **`pending_approval` keeps entitlement active via the
+entitlement-bearing status set** (Section 6 — regression test for the
+`status IN ('active','refund_pending')` fix); **approved full refund
+revokes, approved partial refund does not, and a partial refund on one
+transaction cannot affect another** (Section 6); `rejected` restores
+`active`; stale out-of-order status update is discarded by `occurred_at`
+comparison; refund cannot revoke a different user's or a different
+transaction's grant; unknown `transaction_id` on refund with no
+eventual match is safely queued, never errors).
 
 **PR C** — dev-only route excluded from production build (extends
 `App.paddle.test.tsx`); dev-only harness link-retrieval endpoint
@@ -795,9 +917,12 @@ of the three PRs — all verification is local/CI.
   incorrectly called this "a safe additive change").
 - Chargeback/dispute action handling beyond Phase 2's existing
   safely-ignored behavior (unchanged scope from Phase 2/rev. 1).
-- Proportional/partial-value entitlement for partial refunds (Phase 3A
-  treats any approved refund on a transaction as fully revoking that
-  transaction's grant, regardless of `data.type`).
+- Proportional/partial-value entitlement policy for partial refunds.
+  Phase 3A (rev. 3) records and idempotently processes an approved
+  partial refund but does **not** revoke or otherwise change the
+  affected transaction's grant status — deciding what, if anything, a
+  partial refund should do to entitlement (e.g. a future tiered
+  product) is left to an explicit, later, reviewed product decision.
 
 ## Revision history
 
@@ -823,3 +948,29 @@ of the three PRs — all verification is local/CI.
   resolution to `REMOTE_ADDR` only, absent an explicit trusted-proxy
   config; revised the ADR to frame the session token as a full account
   credential, not merely an entitlement flag.
+- **rev. 3** (2026-09-08): three final corrections per ChatGPT review,
+  approved in direction. (1) Fixed a contradiction where a
+  `pending_approval` refund set `transaction_grants.status =
+  'refund_pending'` but entitlement recomputation checked only
+  `status = 'active'`, which would have revoked entitlement on a merely
+  *requested* refund — defined the entitlement-bearing status set as
+  `{'active', 'refund_pending'}` and updated the recomputation query,
+  security checklist, and tests accordingly. (2) Fixed rev. 2 actually
+  fully revoking on an approved *partial* refund despite claiming
+  partial refunds were "deferred" — added `adjustment_type` to
+  `pending_adjustments`, and specified that only an approved **full**
+  refund moves a grant to `refunded`; an approved **partial** refund is
+  recorded/processed idempotently but leaves the grant's status (and
+  therefore entitlement) unchanged, with proportional/partial
+  entitlement policy explicitly left to a later reviewed product
+  decision; added tests for full-revokes / partial-does-not /
+  partial-on-A-cannot-affect-B. (3) Specified a MariaDB-safe
+  find-or-create for the `users` row at verify time
+  (`INSERT ... ON DUPLICATE KEY UPDATE id = id` then re-`SELECT`, or an
+  equivalent explicit-conflict-catch-and-reread pattern) to handle two
+  distinct, simultaneously-valid magic-link tokens for the same email
+  being verified concurrently — explicitly disallowed a bare
+  SELECT-then-unprotected-INSERT, which would let the losing concurrent
+  request crash on the `UNIQUE(email_normalized)` constraint instead of
+  resolving to the winner's user; added the corresponding concurrency
+  test.
