@@ -16,6 +16,7 @@ require_once __DIR__ . '/../src/PaddleSignature.php';
 require_once __DIR__ . '/../src/PaymentEventRepository.php';
 require_once __DIR__ . '/../src/EntitlementRepository.php';
 require_once __DIR__ . '/../src/SandboxUser.php';
+require_once __DIR__ . '/../src/ProductMatcher.php';
 require_once __DIR__ . '/../src/WebhookHandler.php';
 
 const TEST_SECRET = 'test-secret-key';

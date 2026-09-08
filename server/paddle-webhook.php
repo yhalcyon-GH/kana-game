@@ -30,6 +30,7 @@ require __DIR__ . '/src/PaddleSignature.php';
 require __DIR__ . '/src/PaymentEventRepository.php';
 require __DIR__ . '/src/EntitlementRepository.php';
 require __DIR__ . '/src/SandboxUser.php';
+require __DIR__ . '/src/ProductMatcher.php';
 require __DIR__ . '/src/WebhookHandler.php';
 
 use KanaGame\Paddle\Config;

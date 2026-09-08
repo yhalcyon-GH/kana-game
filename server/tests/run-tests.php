@@ -19,6 +19,7 @@ use KanaGame\Paddle\Tests\TestFailure;
 
 $testFiles = [
     __DIR__ . '/PaddleSignatureTest.php' => 'KanaGame\\Paddle\\Tests\\paddleSignatureTests',
+    __DIR__ . '/ProductMatcherTest.php' => 'KanaGame\\Paddle\\Tests\\productMatcherTests',
     __DIR__ . '/WebhookHandlerTest.php' => 'KanaGame\\Paddle\\Tests\\webhookHandlerTests',
     __DIR__ . '/EntitlementRepositoryTest.php' => 'KanaGame\\Paddle\\Tests\\entitlementRepositoryTests',
     __DIR__ . '/CorsTest.php' => 'KanaGame\\Paddle\\Tests\\corsTests',

@@ -194,33 +194,16 @@ final class WebhookHandler
      * Verifies the transaction's line items include the configured Full
      * Tamamizu price AND product id — never activate entitlement for an
      * unrecognized price/product (see docs/paddle-webhook-poc.md, "Full
-     * Tamamizu の対象検証").
+     * Tamamizu の対象検証"). Delegates to ProductMatcher (extracted,
+     * behavior-preserving refactor — see that class's own doc comment)
+     * so this exact logic is shared with Phase 3A's
+     * PurchaseWebhookHandler instead of existing as two copies.
      *
      * @param array<mixed> $data
      */
     private function matchesFullTamamizu(array $data): bool
     {
-        $items = $data['items'] ?? null;
-        if (!is_array($items)) {
-            return false;
-        }
-
-        foreach ($items as $item) {
-            if (!is_array($item)) {
-                continue;
-            }
-            $price = $item['price'] ?? null;
-            if (!is_array($price)) {
-                continue;
-            }
-            $priceId = $price['id'] ?? null;
-            $productId = $price['product_id'] ?? null;
-            if ($priceId === $this->expectedPriceId && $productId === $this->expectedProductId) {
-                return true;
-            }
-        }
-
-        return false;
+        return ProductMatcher::matches($data, $this->expectedPriceId, $this->expectedProductId);
     }
 
     /**
