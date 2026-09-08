@@ -16,11 +16,24 @@ namespace KanaGame\Paddle;
  */
 final class Cors
 {
+    /** @var callable(string): void */
+    private $sendHeader;
+
     /**
      * @param list<string> $allowedOrigins
+     * @param (callable(string): void)|null $sendHeader Defaults to PHP's
+     *   real header() function. Overridable only for tests — PHP's CLI
+     *   SAPI (used by server/tests/run-tests.php) does not record
+     *   header() calls via headers_list() the way a real web server
+     *   does, so server/tests/CorsTest.php injects a recording closure
+     *   here to observe what would have been sent. Production code
+     *   never passes this argument.
      */
-    public function __construct(private readonly array $allowedOrigins)
+    public function __construct(private readonly array $allowedOrigins, ?callable $sendHeader = null)
     {
+        $this->sendHeader = $sendHeader ?? static function (string $header): void {
+            header($header);
+        };
     }
 
     /**
@@ -49,7 +62,31 @@ final class Cors
         if (!$this->isOriginAllowed($requestOrigin)) {
             return;
         }
-        header('Access-Control-Allow-Origin: ' . $requestOrigin);
-        header('Vary: Origin');
+        ($this->sendHeader)('Access-Control-Allow-Origin: ' . $requestOrigin);
+        ($this->sendHeader)('Vary: Origin');
+    }
+
+    /**
+     * Applies CORS headers for a preflight (OPTIONS) request from an
+     * allowed origin — the new auth endpoints (server/auth/*.php) use
+     * POST with a JSON body and/or an Authorization header, both of
+     * which trigger a browser preflight. Emits the origin/Vary headers
+     * (same as applyHeaders()) plus the specific method/header policy
+     * those endpoints need. Never emits Access-Control-Allow-Credentials
+     * — a production cookie transport is still deferred (see
+     * docs/adr/0001-cross-site-auth-transport.md), and emitting that
+     * header now would be a premature commitment this class does not
+     * make. Does nothing for a disallowed origin, same as
+     * applyHeaders().
+     */
+    public function applyPreflightHeaders(?string $requestOrigin): void
+    {
+        if (!$this->isOriginAllowed($requestOrigin)) {
+            return;
+        }
+        ($this->sendHeader)('Access-Control-Allow-Origin: ' . $requestOrigin);
+        ($this->sendHeader)('Vary: Origin');
+        ($this->sendHeader)('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+        ($this->sendHeader)('Access-Control-Allow-Headers: Content-Type, Authorization');
     }
 }

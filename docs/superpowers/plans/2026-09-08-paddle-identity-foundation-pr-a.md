@@ -2108,27 +2108,47 @@ explicitly allow those methods/headers or the browser blocks the actual
 request before it's ever sent.
 
 This extension is **strictly additive** to the existing `Cors` class —
-`isOriginAllowed()` and `applyHeaders()` keep their exact current
-signatures and behavior (Phase 2's `entitlement.php` calls
-`applyHeaders()` exactly as it does today, unmodified, and keeps
-working identically). A new `applyPreflightHeaders()` method is added
-alongside them for the auth entrypoints (Task 12) to call only on an
-`OPTIONS` request.
+`isOriginAllowed()` keeps its exact current signature and behavior, and
+Phase 2's `entitlement.php` call site (`new Cors($config->allowedOrigins())`)
+needs zero modification. A new `applyPreflightHeaders()` method is added
+alongside `applyHeaders()` for the auth entrypoints (Task 13) to call
+only on an `OPTIONS` request.
+
+**Correction made during implementation — testability seam.** PHP's CLI
+SAPI (used by `server/tests/run-tests.php`) does not record `header()`
+calls via `headers_list()` the way a real web server does —
+`headers_list()` always returns an empty array under CLI, discovered
+when the tests below were first run and failed even against a correct
+implementation. Testing actual header output therefore requires a small
+seam: `Cors`'s constructor gains an **optional** second parameter, a
+`callable(string): void` that receives each header string that would
+have been sent. It defaults to a closure that calls PHP's real
+`header()`, so **every existing call site (`entitlement.php`) needs zero
+changes** and production behavior is identical to calling `header()`
+directly. Only `server/tests/CorsTest.php` ever passes a non-default
+value (a closure that appends to an array for the test to inspect).
+Both `applyHeaders()` and `applyPreflightHeaders()` route through this
+one injected callable instead of calling `header()` inline.
 
 **Files:**
 - Modify: `server/src/Cors.php`
 - Modify: `server/tests/CorsTest.php`
 
 **Interfaces:**
-- Produces: `Cors::applyPreflightHeaders(?string $requestOrigin): void`
-  — if the origin is allowed, emits
-  `Access-Control-Allow-Origin: <origin>`, `Vary: Origin`,
-  `Access-Control-Allow-Methods: GET, POST, OPTIONS`,
-  `Access-Control-Allow-Headers: Content-Type, Authorization`. **Never**
-  emits `Access-Control-Allow-Credentials` (production cookie transport
-  remains deferred — see the ADR, Task 13). If the origin is not
-  allowed, emits nothing (same "silently do nothing" behavior as the
-  existing `applyHeaders()` for a disallowed origin).
+- Produces:
+  - `Cors::__construct(array $allowedOrigins, ?callable $sendHeader = null)`
+    — `$sendHeader`, when omitted, defaults to PHP's real `header()`;
+    production code (`entitlement.php`, and the new `server/auth/*.php`
+    entrypoints in Task 13) never passes this argument.
+  - `Cors::applyPreflightHeaders(?string $requestOrigin): void` — if the
+    origin is allowed, emits (via `$sendHeader`)
+    `Access-Control-Allow-Origin: <origin>`, `Vary: Origin`,
+    `Access-Control-Allow-Methods: GET, POST, OPTIONS`,
+    `Access-Control-Allow-Headers: Content-Type, Authorization`.
+    **Never** emits `Access-Control-Allow-Credentials` and never echoes
+    the origin back as a literal wildcard (production cookie transport
+    remains deferred — see the ADR, Task 15). If the origin is not
+    allowed, emits nothing.
 
 - [ ] **Step 1: Write the failing test (added to the existing `CorsTest.php`, not a new file)**
 
@@ -2139,111 +2159,171 @@ entry):
 
 ```php
         'applyPreflightHeaders() emits the required method/header policy for an allowed origin' => function () {
-            $cors = new Cors(['https://yhalcyon-gh.github.io']);
+            $sent = [];
+            $cors = new Cors(['https://yhalcyon-gh.github.io'], function (string $header) use (&$sent) {
+                $sent[] = $header;
+            });
 
-            ob_start();
             $cors->applyPreflightHeaders('https://yhalcyon-gh.github.io');
-            ob_end_clean();
 
-            $headers = headers_list();
-            $joined = implode("\n", $headers);
-
+            $joined = implode("\n", $sent);
             assertTrue(
                 str_contains($joined, 'Access-Control-Allow-Origin: https://yhalcyon-gh.github.io'),
                 'allowed origin should be echoed back',
             );
+            assertTrue(str_contains($joined, 'Vary: Origin'), 'Vary: Origin should be present');
             assertTrue(
-                str_contains($joined, 'Access-Control-Allow-Methods:') && str_contains($joined, 'GET')
-                    && str_contains($joined, 'POST') && str_contains($joined, 'OPTIONS'),
+                str_contains($joined, 'Access-Control-Allow-Methods: GET, POST, OPTIONS'),
                 'GET, POST, and OPTIONS must all be in Access-Control-Allow-Methods',
             );
             assertTrue(
-                str_contains($joined, 'Access-Control-Allow-Headers:') && str_contains($joined, 'Content-Type')
-                    && str_contains($joined, 'Authorization'),
+                str_contains($joined, 'Access-Control-Allow-Headers: Content-Type, Authorization'),
                 'Content-Type and Authorization must both be in Access-Control-Allow-Headers',
             );
         },
 
         'applyPreflightHeaders() emits nothing for a disallowed origin' => function () {
-            $cors = new Cors(['https://yhalcyon-gh.github.io']);
+            $sent = [];
+            $cors = new Cors(['https://yhalcyon-gh.github.io'], function (string $header) use (&$sent) {
+                $sent[] = $header;
+            });
 
-            ob_start();
             $cors->applyPreflightHeaders('https://evil.example.com');
-            ob_end_clean();
 
-            $joined = implode("\n", headers_list());
-            assertFalse(
-                str_contains($joined, 'Access-Control-Allow-Origin'),
-                'a disallowed origin must get no Access-Control-Allow-Origin header at all',
-            );
+            assertSame([], $sent, 'a disallowed origin must get no headers at all, including no preflight authorization headers');
         },
 
-        'applyPreflightHeaders() never emits Access-Control-Allow-Credentials' => function () {
-            $cors = new Cors(['https://yhalcyon-gh.github.io']);
+        'applyPreflightHeaders() never emits Access-Control-Allow-Credentials or a wildcard origin' => function () {
+            $sent = [];
+            $cors = new Cors(['https://yhalcyon-gh.github.io'], function (string $header) use (&$sent) {
+                $sent[] = $header;
+            });
 
-            ob_start();
             $cors->applyPreflightHeaders('https://yhalcyon-gh.github.io');
-            ob_end_clean();
 
-            $joined = implode("\n", headers_list());
+            $joined = implode("\n", $sent);
             assertFalse(
                 str_contains($joined, 'Access-Control-Allow-Credentials'),
                 'production cookie transport is deferred -- this header must never be emitted yet',
             );
+            assertFalse(
+                str_contains($joined, 'Access-Control-Allow-Origin: *'),
+                'the origin must never be echoed back as a wildcard',
+            );
         },
 
-        'applyHeaders() (non-preflight) still behaves exactly as before this change' => function () {
+        'applyHeaders() (non-preflight) emits exactly Access-Control-Allow-Origin and Vary for an allowed origin, nothing more' => function () {
             // Regression guard: Phase 2's entitlement.php calls
             // applyHeaders(), not applyPreflightHeaders() -- this test
             // pins that the original method's output is unchanged by
             // this extension.
-            $cors = new Cors(['https://yhalcyon-gh.github.io']);
+            $sent = [];
+            $cors = new Cors(['https://yhalcyon-gh.github.io'], function (string $header) use (&$sent) {
+                $sent[] = $header;
+            });
 
-            ob_start();
             $cors->applyHeaders('https://yhalcyon-gh.github.io');
-            ob_end_clean();
 
-            $joined = implode("\n", headers_list());
-            assertTrue(str_contains($joined, 'Access-Control-Allow-Origin: https://yhalcyon-gh.github.io'), 'origin header unchanged');
-            assertFalse(str_contains($joined, 'Access-Control-Allow-Methods'), 'applyHeaders() must NOT emit preflight method policy');
-            assertFalse(str_contains($joined, 'Access-Control-Allow-Headers'), 'applyHeaders() must NOT emit preflight header policy');
+            assertSame(
+                ['Access-Control-Allow-Origin: https://yhalcyon-gh.github.io', 'Vary: Origin'],
+                $sent,
+                'applyHeaders() must emit exactly these two headers, no preflight method/header policy',
+            );
+        },
+
+        'applyHeaders() emits nothing for a disallowed origin' => function () {
+            $sent = [];
+            $cors = new Cors(['https://yhalcyon-gh.github.io'], function (string $header) use (&$sent) {
+                $sent[] = $header;
+            });
+
+            $cors->applyHeaders('https://evil.example.com');
+
+            assertSame([], $sent, 'a disallowed origin must get no Access-Control-Allow-Origin header at all');
+        },
+
+        'the default constructor (no injected callable) still calls PHP\'s real header() function' => function () {
+            // Confirms existing Phase 2 call sites (entitlement.php),
+            // which construct `new Cors($config->allowedOrigins())` with
+            // no second argument, are unaffected by this extension.
+            $cors = new Cors(['https://yhalcyon-gh.github.io']);
+            $cors->applyHeaders('https://yhalcyon-gh.github.io');
+            assertTrue(true, 'constructing and calling with no injected callable must not throw');
         },
 ```
 
-**Note on the test technique**: this repo's existing `CorsTest.php`
-tests only `isOriginAllowed()` (pure logic, no headers). Testing
-`applyHeaders()`/`applyPreflightHeaders()` directly means calling real
-`header()` functions, which the dependency-free test runner (a plain
-PHP CLI script, not a web server) can still observe via PHP's built-in
-`headers_list()` — this works in CLI SAPI without a real HTTP response
-cycle. Wrapping in `ob_start()`/`ob_end_clean()` avoids any stray output
-interfering with the test runner's own console output.
+**Note on the test technique (corrected during implementation)**: an
+earlier draft of this task tested `applyHeaders()`/
+`applyPreflightHeaders()` by wrapping calls in `ob_start()`/
+`ob_end_clean()` and reading `headers_list()`. This does not work: PHP's
+CLI SAPI (used by this repo's dependency-free test runner) does not
+record `header()` calls via `headers_list()` the way a real web server
+does — `headers_list()` always returns an empty array under CLI,
+confirmed by direct reproduction during implementation. The fix is the
+constructor seam described above (an optional injected `$sendHeader`
+callable, defaulting to real `header()`), which every test above uses
+instead of `headers_list()`.
 
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `php server/tests/run-tests.php`
-Expected: the 4 new CORS tests fail with "Call to undefined method
+Expected: the new CORS tests fail with "Call to undefined method
 Cors::applyPreflightHeaders()" (wrapped as an unexpected `Error` by the
 test runner's catch-all).
 
 - [ ] **Step 3: Extend `Cors.php`**
 
-Modify `server/src/Cors.php` — add this method after the existing
-`applyHeaders()` method (do not modify `isOriginAllowed()` or
-`applyHeaders()` themselves):
+Modify `server/src/Cors.php` — add the optional injected `$sendHeader`
+parameter to the constructor, route both existing and new header-
+emitting methods through it, and add `applyPreflightHeaders()`:
 
 ```php
+final class Cors
+{
+    /** @var callable(string): void */
+    private $sendHeader;
+
+    /**
+     * @param list<string> $allowedOrigins
+     * @param (callable(string): void)|null $sendHeader Defaults to PHP's
+     *   real header() function. Overridable only for tests -- PHP's CLI
+     *   SAPI (used by server/tests/run-tests.php) does not record
+     *   header() calls via headers_list() the way a real web server
+     *   does, so server/tests/CorsTest.php injects a recording closure
+     *   here to observe what would have been sent. Production code
+     *   never passes this argument.
+     */
+    public function __construct(private readonly array $allowedOrigins, ?callable $sendHeader = null)
+    {
+        $this->sendHeader = $sendHeader ?? static function (string $header): void {
+            header($header);
+        };
+    }
+
+    public function isOriginAllowed(?string $requestOrigin): bool
+    {
+        if ($requestOrigin === null || $requestOrigin === '') {
+            return false;
+        }
+        return in_array($requestOrigin, $this->allowedOrigins, true);
+    }
+
+    public function applyHeaders(?string $requestOrigin): void
+    {
+        if (!$this->isOriginAllowed($requestOrigin)) {
+            return;
+        }
+        ($this->sendHeader)('Access-Control-Allow-Origin: ' . $requestOrigin);
+        ($this->sendHeader)('Vary: Origin');
+    }
+
     /**
      * Applies CORS headers for a preflight (OPTIONS) request from an
      * allowed origin -- the new auth endpoints (server/auth/*.php) use
      * POST with a JSON body and/or an Authorization header, both of
-     * which trigger a browser preflight. Emits the origin/Vary headers
-     * (same as applyHeaders()) plus the specific method/header policy
-     * those endpoints need. Never emits Access-Control-Allow-Credentials
-     * -- a production cookie transport is still deferred (see
-     * docs/adr/0001-cross-site-auth-transport.md), and emitting that
-     * header now would be a premature commitment this class does not
-     * make. Does nothing for a disallowed origin, same as
+     * which trigger a browser preflight. Never emits
+     * Access-Control-Allow-Credentials -- a production cookie transport
+     * is still deferred. Does nothing for a disallowed origin, same as
      * applyHeaders().
      */
     public function applyPreflightHeaders(?string $requestOrigin): void
@@ -2251,29 +2331,42 @@ Modify `server/src/Cors.php` — add this method after the existing
         if (!$this->isOriginAllowed($requestOrigin)) {
             return;
         }
-        header('Access-Control-Allow-Origin: ' . $requestOrigin);
-        header('Vary: Origin');
-        header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-        header('Access-Control-Allow-Headers: Content-Type, Authorization');
+        ($this->sendHeader)('Access-Control-Allow-Origin: ' . $requestOrigin);
+        ($this->sendHeader)('Vary: Origin');
+        ($this->sendHeader)('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+        ($this->sendHeader)('Access-Control-Allow-Headers: Content-Type, Authorization');
     }
+}
 ```
 
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `php server/tests/run-tests.php`
-Expected: `80 passed, 0 failed` (76 from Task 8, plus 4 new CORS tests;
-`CorsTest.php` was already registered in `run-tests.php` since Phase 2,
-so no registration change is needed here).
+Expected: all tests pass, including the new CORS tests (`CorsTest.php`
+was already registered in `run-tests.php` since Phase 2, so no
+registration change is needed here).
 
-- [ ] **Step 5: Confirm Phase 2's own CORS test still passes unmodified**
+- [ ] **Step 5: Confirm Phase 2's own CORS behavior and call site are unaffected**
 
 Run:
+
+```bash
+grep -n "new Cors(" server/entitlement.php
+php -l server/entitlement.php
+```
+
+Expected: the existing single-argument `new Cors($config->allowedOrigins())`
+call site, unmodified, still parses and (per the test suite) behaves
+identically.
 
 ```bash
 grep -c "=>" server/tests/CorsTest.php
 ```
 
-Expected: `9` (Phase 2's original 5 plus this task's 4 new entries) —
+Expected: `11` (Phase 2's original 5 plus this task's 6 new entries --
+more than the 4 originally planned, since the corrected testing
+approach needed extra coverage: a disallowed-origin case for
+`applyHeaders()` itself, and a default-constructor smoke test) —
 confirms no existing entry was accidentally removed while appending.
 
 - [ ] **Step 6: Commit**
