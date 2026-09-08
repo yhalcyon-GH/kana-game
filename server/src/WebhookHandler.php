@@ -4,50 +4,7 @@ declare(strict_types=1);
 
 namespace KanaGame\Paddle;
 
-/**
- * Result of handling one webhook delivery — the HTTP entrypoint
- * (server/paddle-webhook.php) turns this into a status code + body. Kept
- * separate from the entrypoint so this logic is testable without a real
- * HTTP server (see server/tests/WebhookHandlerTest.php).
- */
-final class WebhookResult
-{
-    private function __construct(
-        public readonly int $statusCode,
-        public readonly string $message,
-    ) {
-    }
-
-    public static function invalidSignature(): self
-    {
-        return new self(401, 'invalid signature');
-    }
-
-    public static function malformedPayload(): self
-    {
-        return new self(400, 'malformed payload');
-    }
-
-    public static function duplicateEvent(): self
-    {
-        return new self(200, 'duplicate event, already processed');
-    }
-
-    public static function ignoredEvent(string $eventType): self
-    {
-        return new self(200, "event ignored: {$eventType}");
-    }
-
-    public static function processed(string $eventType): self
-    {
-        return new self(200, "event processed: {$eventType}");
-    }
-
-    public static function serverError(): self
-    {
-        return new self(500, 'temporary server error');
-    }
-}
+require_once __DIR__ . '/WebhookResult.php';
 
 /**
  * Core webhook business logic: verify signature, parse the envelope,
