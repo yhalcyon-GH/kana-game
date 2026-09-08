@@ -2583,6 +2583,8 @@ declare(strict_types=1);
 
 namespace KanaGame\Paddle\Auth;
 
+require_once __DIR__ . '/../../src/Auth/Mailer.php';
+
 /**
  * TEST-ONLY. Lives under server/tests/Auth/, not server/src/Auth/ --
  * it has no reason to be part of the production deployment (see
@@ -2601,7 +2603,13 @@ namespace KanaGame\Paddle\Auth;
  * project with no autoloader (this repo has none; every file is
  * require_once'd explicitly), and keeping the namespace consistent with
  * Mailer's own namespace is clearer than inventing a separate
- * KanaGame\Paddle\Tests\Auth namespace solely for this one class.
+ * KanaGame\Paddle\Tests\Auth namespace solely for this one class. Note
+ * (added during implementation): this file must `require_once` its own
+ * `Mailer.php` since it implements that interface directly -- this repo
+ * has no autoloader, so every direct dependency needs its own explicit
+ * require regardless of namespace; omitting this line surfaced as a
+ * "Interface not found" fatal error the first time
+ * MagicLinkAuthServiceTest.php exercised this class.
  */
 final class FakeMailer implements Mailer
 {

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace KanaGame\Paddle\Auth;
 
+require_once __DIR__ . '/../../src/Auth/Mailer.php';
+
 /**
  * TEST-ONLY. Lives under server/tests/Auth/, not server/src/Auth/ — it
  * has no reason to be part of the production deployment. Its in-memory
