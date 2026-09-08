@@ -6,22 +6,31 @@
 minimal, secure users/Magic-Link/sessions/rate-limiting foundation —
 `users`, `magic_link_tokens`, `sessions`, `rate_limits` tables;
 `request-link.php`/`verify.php`/`me.php`/`logout.php` endpoints; a
-`Mailer` interface with a test-only `FakeMailer`; and the cross-site
-auth transport ADR — while leaving Phase 2's `payment_events`/
-`entitlements`/`SandboxUser` PoC path completely untouched.
+`Mailer` interface (test-only `FakeMailer`); a `CurrentUserService` that
+lets session-only consumers (like PR B's future `purchase-intent.php`)
+resolve a user without depending on Magic Link/mail/rate-limit
+infrastructure; CORS preflight support for the new endpoints; and the
+cross-site auth transport ADR — while leaving Phase 2's
+`payment_events`/`entitlements`/`SandboxUser` PoC path completely
+untouched.
 
 **Architecture:** New `KanaGame\Paddle\Auth` namespace under
 `server/src/Auth/` holds repositories (`UserRepository`,
-`MagicLinkTokenRepository`, `SessionRepository`, `RateLimiter`) and
-services (`AuthService` orchestrating request-link/verify/logout),
-following the existing flat-file-entrypoint + `src/`-class pattern from
-`server/entitlement.php` / `server/src/EntitlementRepository.php`. Four
-new `server/*.php` entrypoints mirror `server/entitlement.php`'s
-shape (Config → Cors → dispatch → JSON). One additive SQL migration
-adds four new tables; nothing existing is altered. All single-use
-consume operations (magic-link token, and the user find-or-create they
-trigger) use atomic conditional UPDATE / upsert-then-read patterns
-inside explicit PDO transactions — never SELECT-then-unprotected-write.
+`MagicLinkTokenRepository`, `SessionRepository`, `RateLimiter`) and two
+separate services: `CurrentUserService` (session token to user; the only
+thing `me.php`/`logout.php`/PR B's future `purchase-intent.php` need)
+and `MagicLinkAuthService` (request-link/verify orchestration, which
+depends on `CurrentUserService` for the session-creation half of
+`verify()` but is not itself a dependency of session-only consumers).
+Four new `server/auth/*.php` entrypoints follow the existing
+`entitlement.php`-style shape (Config, Cors, dispatch, JSON), extended
+with real preflight handling in `Cors`. One additive SQL migration adds
+four new tables; nothing existing is altered. All single-use consume
+operations (magic-link token, and the user find-or-create they trigger)
+use atomic conditional UPDATE / upsert-then-read patterns inside
+explicit PDO transactions. The rate limiter uses a single atomic
+`INSERT ... ON DUPLICATE KEY UPDATE`-based increment (MariaDB) with a
+SQLite-safe equivalent — never SELECT-then-UPDATE.
 
 **Tech Stack:** PHP 8+ (no Composer/PHPUnit — this repo's existing
 dependency-free convention), PDO (MySQL/MariaDB in production, SQLite
@@ -38,24 +47,42 @@ abstraction + ADR). PR B/C sections (4 onward) are out of scope for this
 plan except where Section 1's schema/interfaces must already
 accommodate them (noted per-task below).
 
+**Revision note (rev. 2 of this plan, 2026-09-08):** revised per
+ChatGPT's review of the original plan (approved at
+`08ae596f6796bd4a95ef2612625c56531c5c0751`). Eight required corrections
+plus three smaller fixes are folded into the tasks below; see each
+task's own note for what changed, and the "Revision summary" section at
+the end of this document.
+
 ## Global Constraints
 
 - **No PR B/C implementation.** Do not create `purchase_intents`,
   `transaction_grants`, `pending_adjustments`, any purchase/webhook
-  code, or the `/account-test` frontend route in this plan. Where PR A
-  must expose an extension point for PR B (e.g. `AuthService`'s current-
-  user resolution, which PR B's `purchase-intent.php` will reuse), build
-  only the interface PR A itself needs and note the extension point in
-  that task — do not pre-build PR B's consumers.
+  code, or the `/account-test` frontend route in this plan. PR A's one
+  deliberate extension point for PR B is `CurrentUserService` (a
+  session-only current-user resolver with no Magic Link/mail/rate-limit
+  dependency) — build only what PR A itself needs to consume it
+  (`me.php`, `logout.php`), not PR B's future consumer.
 - **Additive migration only.** The new migration must not `ALTER`,
   `DROP`, or rename `payment_events` or `entitlements`, and must not
   touch `server/src/SandboxUser.php` or any Phase 2 PoC code path.
   Phase 2's existing 32 PHP tests must still pass unmodified after this
-  plan's changes.
+  plan's changes. `magic_link_tokens.user_id` and `sessions.user_id` are
+  declared with `FOREIGN KEY` references to `users.id` (new in this
+  revision — see Task 2 and Task 7's correction below) — additive,
+  since these are brand-new tables, not a change to any existing one.
 - **Raw secrets never stored or logged.** Magic-link tokens, session
-  tokens: `SHA-256` hash only in DB, `hash_equals()` for final
-  comparison, never appear in an `error_log()` call or exception
-  message anywhere in this plan's code.
+  tokens: SHA-256 hash only in DB. The **final equality comparison**
+  for a fetched hash against a freshly computed one uses `hash_equals()`
+  — not just an indexed SQL equality match — per the spec's explicit
+  requirement (see Task 4/5's correction below for exactly where this
+  applies). Never appears in an `error_log()` call or exception message
+  anywhere in this plan's code — and as of this revision, **no
+  exception message from any DB/mailer/internal failure is logged
+  verbatim** in the four auth entrypoints at all, only a generic
+  operational log line (endpoint name + exception class), since a
+  future DB/mailer exception could itself contain a normalized email, a
+  Magic Link URL, or a raw token value (Task 10/11's correction).
 - **Atomic single-use.** Magic-link consume uses a conditional
   `UPDATE ... WHERE used_at IS NULL AND expires_at > NOW()` and checks
   affected-row-count — never SELECT-then-UPDATE (spec Section 1).
@@ -63,32 +90,80 @@ accommodate them (noted per-task below).
   UPDATE id = id` followed by a re-`SELECT` in the same transaction —
   never a bare SELECT-then-unprotected-INSERT (spec Section 1, "Two
   distinct, simultaneously-valid tokens for the same email").
-- **Rate limiting is HMAC-keyed for both email and IP.** Never persist
-  a raw email or raw IP in `rate_limits.identifier`. Client IP is read
-  only from `$_SERVER['REMOTE_ADDR']` — `X-Forwarded-For` is never
-  trusted (spec Section 1, "Client IP resolution").
+- **Rate limiting is HMAC-keyed for both email and IP, and is itself
+  concurrency-safe.** Never persist a raw email or raw IP in
+  `rate_limits.identifier`. Client IP is read only from
+  `$_SERVER['REMOTE_ADDR']` — `X-Forwarded-For` is never trusted (spec
+  Section 1, "Client IP resolution"). **As of this revision**, the
+  counter increment itself is a single atomic
+  `INSERT ... ON DUPLICATE KEY UPDATE`-based statement (MariaDB) with an
+  equivalent SQLite path for tests — the original plan's
+  SELECT-count-then-UPDATE pattern is replaced (Task 6's correction;
+  that pattern could let concurrent requests both read a stale count and
+  both proceed, exceeding the configured limit). Malformed email input
+  still records against the IP bucket before returning (Task 8's
+  correction) — a malformed-email request is no longer a free pass that
+  skips IP-based throttling.
 - **Enumeration-safe responses.** `request-link.php` always returns the
   same generic `200 {"status":"ok"}` body regardless of whether the
-  email exists, is rate-limited, or is malformed post-normalization.
-  `verify.php` always returns the same generic `400` body for
-  invalid/expired/already-used tokens — no distinguishable reason.
-- **Magic-link token expiry: 15 minutes.** Session expiry: 30 days
-  (a concrete choice this plan makes, since the spec left the number
-  unspecified beyond "expiry defined explicitly" — see Task 4's
-  rationale). Both are read through `Config`, not hardcoded, following
-  the existing `RATE_LIMIT_EMAIL_PER_HOUR`-style convention.
+  email exists, is rate-limited, is malformed, or fails normalized-email
+  validation. `verify.php` always returns the same generic `400` body
+  for invalid/expired/already-used tokens — no distinguishable reason.
+- **Magic-link token expiry: 15 minutes. Session expiry: 24 hours**
+  (changed in this revision from a 30-day default — see Task 5's
+  correction; `SESSION_EXPIRY_HOURS`, not `SESSION_EXPIRY_DAYS`. This
+  value is explicitly provisional for Phase 3A: the current transport is
+  in-memory-only and already loses the session on reload, so a long
+  server-side session buys no UX benefit today, while there is no
+  refresh/rotation system yet to reduce the risk of a longer-lived
+  bearer credential. Must be reconsidered once a production browser
+  transport is chosen — see the ADR, Task 13). Both are read through
+  `Config`, not hardcoded.
 - **No production browser transport decision.** `InMemorySessionTransport`
   and the `SessionTransport` interface are the only frontend pieces this
   plan builds; no cookie code, no `localStorage`/`sessionStorage` code
   for tokens.
+- **CORS must support real preflight for the new endpoints** (Task 3's
+  correction, new in this revision) — `OPTIONS` requests need
+  `Access-Control-Allow-Methods` (GET, POST, OPTIONS) and
+  `Access-Control-Allow-Headers` (Content-Type, Authorization) for an
+  allowed origin, with **no** `Access-Control-Allow-Credentials` (a
+  production cookie transport is still deferred). Phase 2's existing
+  `entitlement.php` CORS behavior (simple
+  `Access-Control-Allow-Origin`/`Vary` on non-preflight requests) must
+  keep working unmodified.
+- **Fragment-based magic-link transport is safe by construction, not by
+  config convention** (Task 9's correction, new in this revision) — the
+  code, not a config value, is responsible for placing the raw token
+  after the fragment delimiter in the generated link. `MAGIC_LINK_BASE_URL`
+  (the original plan's config key) is replaced by
+  `MAGIC_LINK_FRONTEND_BASE_URL` (just the frontend origin/path prefix,
+  with no verify route baked in), and a single, tested
+  `MagicLinkUrlBuilder` class appends the fragment route and urlencoded
+  token — so a config mistake cannot silently turn the raw token into a
+  server-visible query parameter.
+- **`FakeMailer` is test-only code, not production-adjacent code**
+  (Mailer placement correction, new in this revision) — it lives under
+  `server/tests/Auth/`, not `server/src/Auth/`. Only the `Mailer`
+  interface itself lives in `server/src/Auth/`.
+- **Race-scenario tests are explicitly named as such** (Task 8's
+  correction on terminology, new in this revision) — this plan's
+  concurrency tests run sequentially against a single SQLite connection
+  and prove atomicity/idempotency of the SQL patterns used (an atomic
+  conditional UPDATE cannot be won twice; an atomic upsert cannot double
+  insert), not true simultaneous multi-connection MariaDB execution.
+  Every such test in this plan is labeled "race-scenario test" or
+  "atomicity/idempotency semantic test," and a documented follow-up
+  requirement (Task 14) records the real-MariaDB verification that must
+  happen before Live rollout, which this PR does not perform.
 - **Follow existing repo conventions exactly**: no PHPUnit/Composer;
   `declare(strict_types=1)`; `namespace KanaGame\Paddle\...`; repository
   classes take a `PDO` constructor argument (never call `Db::connect`
   themselves) so tests can inject SQLite; entrypoints follow
-  `entitlement.php`'s Config → Cors → method-check → dispatch shape;
-  tests are `array<string, callable(): void>`-returning functions
-  registered in `server/tests/run-tests.php`, using `assertTrue`/
-  `assertFalse`/`assertSame` from `TestCase.php`.
+  `entitlement.php`'s Config/Cors/method-check/dispatch shape; tests are
+  `array<string, callable(): void>`-returning functions registered in
+  `server/tests/run-tests.php`, using `assertTrue`/`assertFalse`/
+  `assertSame` from `TestCase.php`.
 
 ---
 
@@ -98,62 +173,91 @@ accommodate them (noted per-task below).
 server/
   sql/
     migrations/
-      0001_users_auth_foundation.sql      (NEW — additive only)
+      0001_users_auth_foundation.sql      (NEW - additive only)
   src/
-    Uuid.php                              (NEW — UUIDv4 generator, no deps)
+    Uuid.php                              (NEW - UUIDv4 generator, no deps)
+    Cors.php                              (MODIFY - add preflight method/header policy)
     Auth/
-      Mailer.php                          (NEW — interface)
-      FakeMailer.php                      (NEW — test-only, in server/src/ so
-                                            server/dev-only/ later can reuse
-                                            the interface; this file itself
-                                            is fine to ship, it just does
-                                            nothing dangerous — see Task 7)
+      Mailer.php                          (NEW - interface only)
+      EmailNormalizer.php                 (NEW)
+      EmailValidator.php                  (NEW - syntax + length validation)
+      MagicLinkUrlBuilder.php             (NEW - safe-by-construction fragment URL)
       UserRepository.php                  (NEW)
       MagicLinkTokenRepository.php        (NEW)
       SessionRepository.php               (NEW)
-      RateLimiter.php                     (NEW)
-      AuthService.php                     (NEW — orchestrates request-link/
-                                            verify/logout/me across the
-                                            repositories above)
+      RateLimiter.php                     (NEW - atomic upsert-based counter)
+      CurrentUserService.php              (NEW - session -> user; logout; the
+                                            lightweight PR-B-reusable service)
+      MagicLinkAuthService.php            (NEW - request-link/verify
+                                            orchestration; depends on
+                                            CurrentUserService for the
+                                            session-creation half of verify())
   auth/
-    request-link.php                      (NEW — entrypoint)
-    verify.php                            (NEW — entrypoint)
-    me.php                                (NEW — entrypoint)
-    logout.php                            (NEW — entrypoint)
-  config.example.php                      (MODIFY — add new config keys)
+    request-link.php                      (NEW - entrypoint)
+    verify.php                            (NEW - entrypoint)
+    me.php                                (NEW - entrypoint)
+    logout.php                            (NEW - entrypoint)
+  config.example.php                      (MODIFY - add new config keys)
   tests/
     UuidTest.php                          (NEW)
+    CorsTest.php                          (MODIFY - add preflight tests)
     Auth/
+      FakeMailer.php                      (NEW - TEST-ONLY, not under server/src/)
+      EmailNormalizerTest.php             (NEW)
+      EmailValidatorTest.php              (NEW)
+      MagicLinkUrlBuilderTest.php         (NEW)
       UserRepositoryTest.php              (NEW)
       MagicLinkTokenRepositoryTest.php    (NEW)
       SessionRepositoryTest.php           (NEW)
       RateLimiterTest.php                 (NEW)
-      AuthServiceTest.php                 (NEW — concurrency/integration-style
-                                            tests against SQLite)
-    run-tests.php                         (MODIFY — register new test files)
+      CurrentUserServiceTest.php          (NEW)
+      MagicLinkAuthServiceTest.php        (NEW - race-scenario/integration-
+                                            style tests against SQLite)
+    run-tests.php                         (MODIFY - register new test files)
 src/
   lib/
     auth/
-      sessionTransport.ts                 (NEW — frontend interface + in-memory impl)
-    auth/sessionTransport.test.ts          (NEW)
+      sessionTransport.ts                 (NEW - frontend interface + in-memory impl)
+      sessionTransport.test.ts            (NEW)
 docs/
   adr/
     0001-cross-site-auth-transport.md     (NEW)
-  paddle-auth-phase3a-pr-a.md             (NEW — PR A-specific docs, deployment notes)
+  paddle-auth-phase3a-pr-a.md             (NEW - PR A-specific docs, deployment notes)
 ```
 
-Rationale for `server/auth/` (not `server/*.php` flat like Phase 2): four
-new entrypoints under one flat `server/` directory alongside
-`paddle-webhook.php`/`entitlement.php` would clutter the existing
-directory and blur "Paddle payment PoC" vs. "auth foundation" at a
-glance. A `server/auth/` subdirectory keeps the existing two Phase 2
-entrypoints exactly where they are (no path changes, no risk to Phase 2
-deployment docs) while giving PR A's four endpoints one clear home. This
-mirrors `server/src/Auth/` already being planned as a subnamespace.
+Rationale for `server/auth/` (approved as-is by ChatGPT's review, no
+change from the original plan): four new entrypoints under one flat
+`server/` directory alongside `paddle-webhook.php`/`entitlement.php`
+would clutter the existing directory and blur "Paddle payment PoC" vs.
+"auth foundation" at a glance. A `server/auth/` subdirectory keeps the
+existing two Phase 2 entrypoints exactly where they are while giving PR
+A's four endpoints one clear home, mirroring `server/src/Auth/` as a
+subnamespace.
+
+**Why `CurrentUserService` and `MagicLinkAuthService` are two classes,
+not one `AuthService`** (Task 7's correction, replacing the original
+plan's single `AuthService`): the original plan's `AuthService`
+constructor took `MagicLinkTokenRepository`, `UserRepository`,
+`SessionRepository`, `RateLimiter`, and `Mailer` — meaning `me.php` and
+`logout.php`, which only ever need "resolve a session to a user" or
+"revoke a session," would have had to construct a `RateLimiter` (with a
+pepper) and a `Mailer` just to satisfy that one constructor, and PR B's
+future `purchase-intent.php` (which only needs "who is the current
+user?") would face the same problem. `CurrentUserService` depends on
+only `UserRepository` + `SessionRepository` — nothing else — and is the
+one class `me.php`, `logout.php`, and (in PR B) `purchase-intent.php`
+actually need. `MagicLinkAuthService` depends on
+`MagicLinkTokenRepository` + `UserRepository` + `RateLimiter` + `Mailer`
++ `CurrentUserService` (composed, not duplicated — `verify()` calls into
+`CurrentUserService`'s session-creation to avoid two classes both
+knowing how to mint a session) and is used only by `request-link.php`
+and `verify.php`.
 
 ---
 
 ## Task 1: UUIDv4 generator (no dependency)
+
+**Unchanged from the original plan (approved as-is).**
 
 **Files:**
 - Create: `server/src/Uuid.php`
@@ -162,8 +266,7 @@ mirrors `server/src/Auth/` already being planned as a subnamespace.
 
 **Interfaces:**
 - Produces: `KanaGame\Paddle\Uuid::v4(): string` — returns a
-  lowercase, hyphenated UUIDv4 string (e.g.
-  `"f47ac10b-58cc-4372-a567-0e02b2c3d479"`). Used by `UserRepository`
+  lowercase, hyphenated UUIDv4 string. Used by `UserRepository`
   (Task 3) to generate `users.id`.
 
 - [ ] **Step 1: Write the failing test**
@@ -218,11 +321,7 @@ function uuidTests(): array
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `php server/tests/run-tests.php`
-Expected: fails to run / errors, because `server/src/Uuid.php` does not
-exist yet and `run-tests.php` does not yet reference `UuidTest.php` (you
-will wire that up in Step 5, but first confirm requiring the class
-directly fails). A quick standalone check:
+Run:
 
 ```bash
 php -r "require 'server/tests/TestCase.php'; require 'server/tests/UuidTest.php';"
@@ -241,10 +340,9 @@ namespace KanaGame\Paddle;
 
 /**
  * Dependency-free UUIDv4 generator (RFC 4122) — this repo has no
- * Composer/PHP dependency manager (see docs/paddle-webhook-poc.md), so
- * this uses only random_bytes(), the same primitive already used for
- * magic-link/session/purchase-ref token generation elsewhere in this
- * codebase.
+ * Composer/PHP dependency manager, so this uses only random_bytes(),
+ * the same primitive already used for magic-link/session/purchase-ref
+ * token generation elsewhere in this codebase.
  */
 final class Uuid
 {
@@ -252,9 +350,7 @@ final class Uuid
     {
         $bytes = random_bytes(16);
 
-        // Set version to 0100 (UUIDv4) — byte 6, high nibble.
         $bytes[6] = chr((ord($bytes[6]) & 0x0f) | 0x40);
-        // Set variant to 10xx (RFC 4122) — byte 8, high two bits.
         $bytes[8] = chr((ord($bytes[8]) & 0x3f) | 0x80);
 
         $hex = bin2hex($bytes);
@@ -277,9 +373,7 @@ final class Uuid
 
 - [ ] **Step 4: Register the test file in the runner**
 
-Modify `server/tests/run-tests.php` — add to the `$testFiles` array
-(keep alphabetical-ish grouping consistent with the existing four
-entries):
+Modify `server/tests/run-tests.php` — add to the `$testFiles` array:
 
 ```php
 $testFiles = [
@@ -294,8 +388,7 @@ $testFiles = [
 - [ ] **Step 5: Run test to verify it passes**
 
 Run: `php server/tests/run-tests.php`
-Expected: all previous 32 tests still pass, plus 4 new `UuidTest.php`
-tests pass — `36 passed, 0 failed`.
+Expected: all previous 32 tests still pass, plus 4 new tests — `36 passed, 0 failed`.
 
 - [ ] **Step 6: Commit**
 
@@ -306,46 +399,48 @@ git commit -m "feat: add dependency-free UUIDv4 generator for user ids"
 
 ---
 
-## Task 2: Additive migration for the four new tables
+## Task 2: Additive migration for the four new tables (plus FK references)
+
+**Revised in this rev.**: adds `FOREIGN KEY` constraints from
+`magic_link_tokens.user_id` to `users.id` and `sessions.user_id` to
+`users.id` (Task 7's correction — "schema consistency / referential
+integrity"). `magic_link_tokens.user_id` was present in the original
+migration but never meaningfully set anywhere in the original plan's
+code; this revision both adds the FK and (in Task 11) makes `verify()`
+actually populate it, inside the same transaction as the token consume
+and user resolution.
 
 **Files:**
 - Create: `server/sql/migrations/0001_users_auth_foundation.sql`
 
 **Interfaces:**
 - Produces: the `users`, `magic_link_tokens`, `sessions`, `rate_limits`
-  tables that Tasks 3–6's repositories read/write. Column names/types
-  here are the single source of truth those repositories must match
-  exactly.
+  tables that Tasks 3–6's repositories read/write.
 
 This task has no PHP to test directly (schema-only), but its DDL is
 exercised indirectly by every later repository test, which creates the
-equivalent schema in SQLite (see Task 3 onward) — the two must stay in
-sync by hand, exactly as `EntitlementRepositoryTest.php`'s
-`makeEntitlementsTestDb()` already mirrors `schema.sql`'s `entitlements`
-table today.
+equivalent schema in SQLite. **SQLite's foreign-key pragma is off by
+default and this plan does not turn it on for tests** (matching the
+rest of this codebase's test doubles) — the FK constraints below are a
+MariaDB-level referential-integrity guarantee, proven by the migration's
+DDL and by code-level tests asserting "no session can resolve to a
+nonexistent user through normal code" (Task 7's required test, added in
+Task 11).
 
 - [ ] **Step 1: Write the migration file**
 
 ```sql
--- Phase 3A, PR A — additive migration. Adds real-user identity and
+-- Phase 3A, PR A -- additive migration. Adds real-user identity and
 -- Magic Link auth foundation tables. Does NOT alter, drop, or rename
--- payment_events or entitlements (see server/sql/schema.sql) — Phase 2's
+-- payment_events or entitlements (see server/sql/schema.sql) -- Phase 2's
 -- sandbox-test-user PoC path is completely untouched by this migration.
 --
 -- Run this once, after server/sql/schema.sql, against the same MariaDB
--- 10.5+ database used by Phase 2 (see docs/paddle-webhook-poc.md's
--- deployment section — this migration is NOT deployed to Xserver as
--- part of this PR; see the PR's own docs for exactly what "additive,
--- not yet deployed" means here).
+-- 10.5+ database used by Phase 2. This migration is NOT deployed to
+-- Xserver as part of this PR.
 
 CREATE TABLE IF NOT EXISTS users (
-  -- UUIDv4, generated by server/src/Uuid.php. Public-facing identifier —
-  -- never a sequential integer (see docs/superpowers/specs/2026-09-08-
-  -- paddle-auth-entitlement-phase3-design.md, section "users").
   id CHAR(36) NOT NULL,
-  -- Lowercase + trim only. No Gmail dot/plus-alias folding — see the
-  -- design spec's explicit note that any future alias-merging requires
-  -- its own reviewed migration, not an automatic normalization change.
   email_normalized VARCHAR(255) NOT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -355,33 +450,33 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE TABLE IF NOT EXISTS magic_link_tokens (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  -- The pending identity a request-link call was issued for. NOT a FK
-  -- to users at insert time — request-link.php never creates or looks
-  -- up a users row (see design spec, "durable user creation timing").
   email_normalized VARCHAR(255) NOT NULL,
-  -- Only ever set by verify.php's own reconciliation step, informational —
-  -- verify.php resolves the user from email_normalized directly, not from
-  -- this column. Kept nullable and unused by application logic at write
-  -- time to avoid implying request-link.php touches user identity.
+  -- Bound to the resolved user INSIDE the same transaction as the
+  -- atomic token-consume + user find-or-create in
+  -- MagicLinkAuthService::verify() -- set only on successful
+  -- verification, never at issue() time. ON DELETE SET NULL: if a user
+  -- row were ever deleted (not implemented in this PR), the historical
+  -- token record survives with its user link cleared.
   user_id CHAR(36) NULL,
-  -- SHA-256 hex digest of the raw token. Raw token is NEVER stored.
   token_hash CHAR(64) NOT NULL,
   expires_at DATETIME NOT NULL,
-  -- Set by the atomic conditional UPDATE in AuthService::verify() —
-  -- enforces single-use. NULL means still valid/unused.
   used_at DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uniq_token_hash (token_hash),
-  KEY idx_email_normalized (email_normalized)
+  KEY idx_email_normalized (email_normalized),
+  KEY idx_user_id (user_id),
+  CONSTRAINT fk_magic_link_tokens_user
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS sessions (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  -- SHA-256 hex digest of the raw session token. Raw token is NEVER
-  -- stored. This is a real account credential (see the design spec's
-  -- ADR revision) — treated with the same care as the magic-link token.
   token_hash CHAR(64) NOT NULL,
+  -- A session must always belong to a real user -- NOT NULL, and
+  -- ON DELETE CASCADE: if a user row were ever deleted, that user's
+  -- sessions are deleted with it rather than becoming orphaned rows
+  -- that could otherwise resolve to a nonexistent user.
   user_id CHAR(36) NOT NULL,
   expires_at DATETIME NOT NULL,
   revoked_at DATETIME NULL,
@@ -389,16 +484,16 @@ CREATE TABLE IF NOT EXISTS sessions (
   last_seen_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   UNIQUE KEY uniq_token_hash (token_hash),
-  KEY idx_user_id (user_id)
+  KEY idx_user_id (user_id),
+  CONSTRAINT fk_sessions_user
+    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS rate_limits (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  -- 'magic_link_email' | 'magic_link_ip' — see server/src/Auth/RateLimiter.php.
   bucket VARCHAR(32) NOT NULL,
-  -- HMAC-SHA256(value, RATE_LIMIT_PEPPER) hex digest. NEVER the raw
-  -- normalized email or raw IP address — see the design spec's
-  -- "Client IP resolution" and "HMAC for both buckets" sections.
+  -- HMAC-SHA256(bucket:value, RATE_LIMIT_PEPPER) hex digest. NEVER the
+  -- raw normalized email or raw IP address.
   identifier VARCHAR(128) NOT NULL,
   window_start DATETIME NOT NULL,
   count INT UNSIGNED NOT NULL DEFAULT 0,
@@ -407,27 +502,15 @@ CREATE TABLE IF NOT EXISTS rate_limits (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ```
 
-- [ ] **Step 2: Verify the SQL is syntactically valid (no MariaDB server needed for this check)**
+- [ ] **Step 2: Confirm the migration is additive-only**
 
 Run:
-
-```bash
-php -l server/sql/migrations/0001_users_auth_foundation.sql 2>&1 || true
-```
-
-(This will report "No syntax errors" is meaningless for `.sql` via
-`php -l`, since that lints PHP — instead, sanity-check by eye against
-`server/sql/schema.sql`'s existing style, and rely on Task 3–6's SQLite
-`CREATE TABLE` mirrors actually executing successfully as the real
-validation that the column set/types are usable. Confirm no
-`ALTER`/`DROP` statements exist in the file:)
 
 ```bash
 grep -in "ALTER\|DROP" server/sql/migrations/0001_users_auth_foundation.sql
 ```
 
-Expected: no output (empty grep match) — confirms this migration is
-additive-only.
+Expected: no output.
 
 - [ ] **Step 3: Commit**
 
@@ -440,6 +523,8 @@ git commit -m "feat: add additive migration for users/magic-link/sessions/rate-l
 
 ## Task 3: `UserRepository` — atomic find-or-create
 
+**Unchanged from the original plan (approved as-is).**
+
 **Files:**
 - Create: `server/src/Auth/UserRepository.php`
 - Test: `server/tests/Auth/UserRepositoryTest.php`
@@ -450,10 +535,9 @@ git commit -m "feat: add additive migration for users/magic-link/sessions/rate-l
 - Produces:
   - `KanaGame\Paddle\Auth\UserRepository::__construct(PDO $pdo)`
   - `findOrCreateByEmail(string $emailNormalized): array{id: string, email_normalized: string}`
-    — the MariaDB-safe upsert-then-read find-or-create. Used by
-    `AuthService::verify()` (Task 8).
+    — used by `MagicLinkAuthService::verify()` (Task 11).
   - `findById(string $id): ?array{id: string, email_normalized: string}`
-    — used by `me.php` (Task 11) and tests.
+    — used by `CurrentUserService` (Task 8) and tests.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -560,22 +644,19 @@ use KanaGame\Paddle\Uuid;
 use PDO;
 
 /**
- * Reads/writes the users table (server/sql/migrations/0001_users_auth_
- * foundation.sql). A users row is created ONLY via findOrCreateByEmail(),
- * which is called exclusively from AuthService::verify() — there is no
- * code path that creates a durable user from an unauthenticated
- * request-link call (see the design spec's "durable user creation
- * timing").
+ * Reads/writes the users table. A users row is created ONLY via
+ * findOrCreateByEmail(), which is called exclusively from
+ * MagicLinkAuthService::verify() -- there is no code path that creates
+ * a durable user from an unauthenticated request-link call.
  *
  * findOrCreateByEmail() is MariaDB-safe against two distinct,
  * simultaneously-valid magic-link tokens for the same email being
- * verified concurrently: it uses INSERT ... ON DUPLICATE KEY UPDATE
- * (a no-op on conflict) followed by a re-SELECT, rather than a bare
- * SELECT-then-unprotected-INSERT — see the design spec's dedicated
- * section on this race. The SQLite dialect used by tests has no
- * `ON DUPLICATE KEY UPDATE`, so this repository detects the driver and
- * uses SQLite's equivalent (`INSERT OR IGNORE`) when running under
- * tests — both paths converge on the same re-SELECT.
+ * verified concurrently: it uses INSERT ... ON DUPLICATE KEY UPDATE (a
+ * no-op on conflict) followed by a re-SELECT, rather than a bare
+ * SELECT-then-unprotected-INSERT. The SQLite dialect used by tests has
+ * no ON DUPLICATE KEY UPDATE, so this repository detects the driver and
+ * uses SQLite's equivalent (INSERT OR IGNORE) when running under tests
+ * -- both paths converge on the same re-SELECT.
  */
 final class UserRepository
 {
@@ -612,10 +693,6 @@ final class UserRepository
         /** @var array{id: string, email_normalized: string}|false $row */
         $row = $select->fetch();
 
-        // The row must exist at this point — either this call's own
-        // insert won, or a concurrent call's insert won and this
-        // SELECT reads it back. See the design spec's concurrency
-        // section for why this is safe under a real race.
         return $row;
     }
 
@@ -641,14 +718,7 @@ final class UserRepository
 Modify `server/tests/run-tests.php`:
 
 ```php
-$testFiles = [
-    __DIR__ . '/PaddleSignatureTest.php' => 'KanaGame\\Paddle\\Tests\\paddleSignatureTests',
-    __DIR__ . '/WebhookHandlerTest.php' => 'KanaGame\\Paddle\\Tests\\webhookHandlerTests',
-    __DIR__ . '/EntitlementRepositoryTest.php' => 'KanaGame\\Paddle\\Tests\\entitlementRepositoryTests',
-    __DIR__ . '/CorsTest.php' => 'KanaGame\\Paddle\\Tests\\corsTests',
-    __DIR__ . '/UuidTest.php' => 'KanaGame\\Paddle\\Tests\\uuidTests',
     __DIR__ . '/Auth/UserRepositoryTest.php' => 'KanaGame\\Paddle\\Tests\\userRepositoryTests',
-];
 ```
 
 - [ ] **Step 5: Run test to verify it passes**
@@ -665,7 +735,14 @@ git commit -m "feat: add UserRepository with MariaDB-safe find-or-create"
 
 ---
 
-## Task 4: `MagicLinkTokenRepository` — atomic single-use consume
+## Task 4: `MagicLinkTokenRepository` — atomic single-use consume + hash_equals()
+
+**Revised in this rev.**: adds the `hash_equals()` final-comparison step
+(the "hash_equals consistency" correction) and a `bindUser()` method
+(Task 7's referential-integrity correction — called by
+`MagicLinkAuthService::verify()`, Task 11, to populate
+`magic_link_tokens.user_id` after the user is resolved, inside the same
+transaction as the consume).
 
 **Files:**
 - Create: `server/src/Auth/MagicLinkTokenRepository.php`
@@ -676,20 +753,29 @@ git commit -m "feat: add UserRepository with MariaDB-safe find-or-create"
 - Produces:
   - `KanaGame\Paddle\Auth\MagicLinkTokenRepository::__construct(PDO $pdo)`
   - `issue(string $emailNormalized, string $rawToken, \DateTimeImmutable $expiresAt): void`
-    — hashes `$rawToken` internally (SHA-256), inserts a row.
-  - `consume(string $rawToken): bool` — hashes `$rawToken`, runs the
-    atomic conditional `UPDATE ... WHERE used_at IS NULL AND
-    expires_at > NOW()`, returns `true` iff exactly one row was
-    affected. Does **not** resolve/create the user itself — that is
-    `AuthService::verify()`'s job (Task 8), which calls `consume()`
-    first and only proceeds to `UserRepository::findOrCreateByEmail()`
-    if it returns `true`. This split keeps this repository's
-    responsibility to "the token," matching the single-responsibility
-    boundary the spec draws between token-consume and user-creation.
-  - `findEmailForRawToken(string $rawToken): ?string` — used by
-    `AuthService::verify()` to know *which* email to resolve, called
-    only after `consume()` returns `true` (see Task 8 for exactly how
-    these are sequenced inside one transaction).
+  - `consume(string $rawToken): bool` — atomic conditional UPDATE, returns
+    true iff exactly one row was affected.
+  - `findEmailForRawToken(string $rawToken): ?string` — re-hashes the
+    raw token, fetches the stored hash for a matching row, and calls
+    `hash_equals()` between the freshly computed hash and the fetched
+    one before trusting the row's email — see the note below for why
+    this isn't redundant with the SQL lookup.
+  - `bindUser(string $rawToken, string $userId): void` — sets
+    `magic_link_tokens.user_id` for the matching row. Called only from
+    `MagicLinkAuthService::verify()`, after `consume()` returns true and
+    the user has been resolved, inside the same transaction.
+
+**Why `hash_equals()` here, given the lookup is already an indexed SQL
+equality match**: the spec (rev. 3) states the final comparison uses
+`hash_equals()` "to avoid any timing signal beyond what the indexed
+lookup itself leaks." This plan implements the explicit `hash_equals()`
+step rather than only documenting why the indexed lookup suffices,
+because: (1) it is cheap and adds no meaningful latency, (2) the SQLite
+path used in every test does not have the same guaranteed
+indexed-comparison characteristics as MariaDB's engine internals, so
+relying on "the DB engine won't leak timing" is a weaker, less portable
+guarantee than doing the comparison explicitly in PHP, and (3) it keeps
+plan/spec/code consistent, which ChatGPT's review explicitly asked for.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -777,6 +863,18 @@ function magicLinkTokenRepositoryTests(): array
             $repo = new MagicLinkTokenRepository(makeMagicLinkTestDb());
             assertSame(null, $repo->findEmailForRawToken('nonexistent'), 'unknown token should return null');
         },
+
+        'bindUser() associates a consumed token with the resolved user' => function () {
+            $pdo = makeMagicLinkTestDb();
+            $repo = new MagicLinkTokenRepository($pdo);
+            $repo->issue('bind-me@example.com', 'bind-token', new \DateTimeImmutable('+15 minutes'));
+            $repo->consume('bind-token');
+
+            $repo->bindUser('bind-token', 'user-uuid-123');
+
+            $userId = $pdo->query("SELECT user_id FROM magic_link_tokens WHERE email_normalized = 'bind-me@example.com'")->fetchColumn();
+            assertSame('user-uuid-123', $userId, 'user_id should be bound after bindUser()');
+        },
     ];
 }
 ```
@@ -798,10 +896,11 @@ namespace KanaGame\Paddle\Auth;
 use PDO;
 
 /**
- * Reads/writes magic_link_tokens. The raw token is never stored — only
- * SHA-256(raw) — and consume() enforces single-use via an atomic
- * conditional UPDATE + affected-row-count check (never SELECT-then-
- * UPDATE), per the design spec's concurrency requirements.
+ * Reads/writes magic_link_tokens. The raw token is never stored -- only
+ * SHA-256(raw) -- and consume() enforces single-use via an atomic
+ * conditional UPDATE + affected-row-count check. The final hash
+ * comparison in findEmailForRawToken() uses hash_equals() per the
+ * spec's explicit requirement.
  */
 final class MagicLinkTokenRepository
 {
@@ -822,20 +921,10 @@ final class MagicLinkTokenRepository
         ]);
     }
 
-    /**
-     * Atomic single-use consume. Returns true iff exactly one
-     * not-yet-used, not-yet-expired token matching this hash was
-     * marked used by this call — false for unknown/expired/already-used
-     * tokens, with no distinction between those three reasons exposed
-     * to the caller (that distinction is deliberately erased here, not
-     * just at the HTTP layer, so no call site can accidentally leak it).
-     */
     public function consume(string $rawToken): bool
     {
         $tokenHash = hash('sha256', $rawToken);
-        $nowExpression = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite'
-            ? "datetime('now')"
-            : 'NOW()';
+        $nowExpression = $this->nowExpression();
 
         $statement = $this->pdo->prepare(
             "UPDATE magic_link_tokens
@@ -849,29 +938,47 @@ final class MagicLinkTokenRepository
 
     public function findEmailForRawToken(string $rawToken): ?string
     {
-        $statement = $this->pdo->prepare(
-            'SELECT email_normalized FROM magic_link_tokens WHERE token_hash = :token_hash LIMIT 1',
-        );
-        $statement->execute(['token_hash' => hash('sha256', $rawToken)]);
-        $email = $statement->fetchColumn();
+        $expectedHash = hash('sha256', $rawToken);
 
-        return $email === false ? null : $email;
+        $statement = $this->pdo->prepare(
+            'SELECT email_normalized, token_hash FROM magic_link_tokens WHERE token_hash = :token_hash LIMIT 1',
+        );
+        $statement->execute(['token_hash' => $expectedHash]);
+        /** @var array{email_normalized: string, token_hash: string}|false $row */
+        $row = $statement->fetch();
+
+        if ($row === false) {
+            return null;
+        }
+
+        if (!hash_equals($expectedHash, $row['token_hash'])) {
+            return null;
+        }
+
+        return $row['email_normalized'];
+    }
+
+    public function bindUser(string $rawToken, string $userId): void
+    {
+        $statement = $this->pdo->prepare(
+            'UPDATE magic_link_tokens SET user_id = :user_id WHERE token_hash = :token_hash',
+        );
+        $statement->execute([
+            'user_id' => $userId,
+            'token_hash' => hash('sha256', $rawToken),
+        ]);
+    }
+
+    private function nowExpression(): string
+    {
+        return $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite'
+            ? "datetime('now')"
+            : 'NOW()';
     }
 }
 ```
 
-**Note on the `NOW()`/`datetime('now')` split**: `EntitlementRepository`
-(Phase 2) avoids this by never comparing against wall-clock time in SQL.
-This repository must compare against wall-clock time (expiry), and
-SQLite/MariaDB spell "current timestamp" differently — this driver
-check is the minimal portable way to keep one code path working
-against both, consistent with `MagicLinkTokenRepository::consume()`'s
-sibling `UserRepository::findOrCreateByEmail()` already needing an
-analogous driver check (Task 3).
-
 - [ ] **Step 4: Register the test file in the runner**
-
-Modify `server/tests/run-tests.php`, adding after the `UserRepositoryTest.php` line:
 
 ```php
     __DIR__ . '/Auth/MagicLinkTokenRepositoryTest.php' => 'KanaGame\\Paddle\\Tests\\magicLinkTokenRepositoryTests',
@@ -880,18 +987,23 @@ Modify `server/tests/run-tests.php`, adding after the `UserRepositoryTest.php` l
 - [ ] **Step 5: Run test to verify it passes**
 
 Run: `php server/tests/run-tests.php`
-Expected: `48 passed, 0 failed`.
+Expected: `49 passed, 0 failed` (7 tests this time — one more than the
+original plan's 6, for `bindUser()`).
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add server/src/Auth/MagicLinkTokenRepository.php server/tests/Auth/MagicLinkTokenRepositoryTest.php server/tests/run-tests.php
-git commit -m "feat: add MagicLinkTokenRepository with atomic single-use consume"
+git commit -m "feat: add MagicLinkTokenRepository with atomic consume, hash_equals, and user binding"
 ```
 
 ---
 
-## Task 5: `SessionRepository`
+## Task 5: `SessionRepository` — hash_equals(), 24-hour default expiry
+
+**Revised in this rev.**: adds `hash_equals()` (same rationale as Task
+4). Session expiry changed from 30 days to 24 hours per ChatGPT's
+explicit decision.
 
 **Files:**
 - Create: `server/src/Auth/SessionRepository.php`
@@ -902,22 +1014,17 @@ git commit -m "feat: add MagicLinkTokenRepository with atomic single-use consume
 - Produces:
   - `KanaGame\Paddle\Auth\SessionRepository::__construct(PDO $pdo)`
   - `create(string $userId, string $rawToken, \DateTimeImmutable $expiresAt): void`
-  - `findActiveUserIdForRawToken(string $rawToken): ?string` — returns
-    the `user_id` iff the token's hash matches a row with
-    `revoked_at IS NULL AND expires_at > NOW()`, else `null`. Updates
-    `last_seen_at` as a side effect on a successful lookup.
-  - `revoke(string $rawToken): void` — sets `revoked_at` for the
-    matching row; a no-op (no error) if the token doesn't match any row.
+  - `findActiveUserIdForRawToken(string $rawToken): ?string` — hash_equals-verified,
+    updates `last_seen_at` as a side effect on success.
+  - `revoke(string $rawToken): void` — safe no-op if unknown.
 
-**Session expiry rationale (Global Constraints already states the
-number; here is the "why" an implementer needs)**: the design spec says
-"expiry defined explicitly" without picking a number. 30 days matches a
-typical "stay signed in" web session lifetime, is long enough that the
-in-memory-only transport (Section 3 of the spec) doesn't force
-re-verification every page load during active testing, and is short
-enough to bound the blast radius of a leaked token per the ADR's own
-"this is a real account credential" framing. This is a config default
-(`SESSION_EXPIRY_DAYS`), not a hardcoded magic number — see Task 9.
+**Session expiry: 24 hours, not 30 days** (`SESSION_EXPIRY_HOURS`): the
+current transport (`InMemorySessionTransport`, Task 15) is already lost
+on every page reload, so a long server-side session provides no UX
+benefit today, while the token is a real account credential with no
+refresh/rotation system yet. This is explicitly provisional — the ADR
+(Task 13) notes it must be reconsidered once a production browser
+transport is chosen. See Task 9 for the config key.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -960,7 +1067,7 @@ function sessionRepositoryTests(): array
     return [
         'create() then findActiveUserIdForRawToken() resolves the correct user' => function () {
             $repo = new SessionRepository(makeSessionsTestDb());
-            $repo->create('user-123', 'session-raw-token', new \DateTimeImmutable('+30 days'));
+            $repo->create('user-123', 'session-raw-token', new \DateTimeImmutable('+24 hours'));
 
             assertSame('user-123', $repo->findActiveUserIdForRawToken('session-raw-token'), 'should resolve to the created user');
         },
@@ -979,7 +1086,7 @@ function sessionRepositoryTests(): array
 
         'revoke() invalidates a session (logout)' => function () {
             $repo = new SessionRepository(makeSessionsTestDb());
-            $repo->create('user-789', 'to-be-revoked', new \DateTimeImmutable('+30 days'));
+            $repo->create('user-789', 'to-be-revoked', new \DateTimeImmutable('+24 hours'));
             $repo->revoke('to-be-revoked');
 
             assertSame(null, $repo->findActiveUserIdForRawToken('to-be-revoked'), 'a revoked session must not resolve');
@@ -994,7 +1101,7 @@ function sessionRepositoryTests(): array
         'the raw session token is never stored in the database' => function () {
             $pdo = makeSessionsTestDb();
             $repo = new SessionRepository($pdo);
-            $repo->create('user-abc', 'super-secret-session-value', new \DateTimeImmutable('+30 days'));
+            $repo->create('user-abc', 'super-secret-session-value', new \DateTimeImmutable('+24 hours'));
 
             $rows = $pdo->query('SELECT token_hash FROM sessions')->fetchAll();
             foreach ($rows as $row) {
@@ -1025,11 +1132,11 @@ namespace KanaGame\Paddle\Auth;
 use PDO;
 
 /**
- * Reads/writes sessions. Raw session token is never stored — only
- * SHA-256(raw). A session is a real account credential (see the design
- * spec's ADR revision), not merely an entitlement flag — it can resolve
- * to a user id that later authorizes reading that account's own email
- * and creating purchase intents (PR B).
+ * Reads/writes sessions. Raw session token is never stored -- only
+ * SHA-256(raw). A session is a real account credential, not merely an
+ * entitlement flag. The final hash comparison in
+ * findActiveUserIdForRawToken() uses hash_equals(), same pattern as
+ * MagicLinkTokenRepository.
  */
 final class SessionRepository
 {
@@ -1052,36 +1159,37 @@ final class SessionRepository
 
     public function findActiveUserIdForRawToken(string $rawToken): ?string
     {
-        $tokenHash = hash('sha256', $rawToken);
-        $nowExpression = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite'
-            ? "datetime('now')"
-            : 'NOW()';
+        $expectedHash = hash('sha256', $rawToken);
+        $nowExpression = $this->nowExpression();
 
         $select = $this->pdo->prepare(
-            "SELECT user_id FROM sessions
+            "SELECT user_id, token_hash FROM sessions
              WHERE token_hash = :token_hash AND revoked_at IS NULL AND expires_at > {$nowExpression}
              LIMIT 1",
         );
-        $select->execute(['token_hash' => $tokenHash]);
-        $userId = $select->fetchColumn();
+        $select->execute(['token_hash' => $expectedHash]);
+        /** @var array{user_id: string, token_hash: string}|false $row */
+        $row = $select->fetch();
 
-        if ($userId === false) {
+        if ($row === false) {
+            return null;
+        }
+
+        if (!hash_equals($expectedHash, $row['token_hash'])) {
             return null;
         }
 
         $touch = $this->pdo->prepare(
             "UPDATE sessions SET last_seen_at = {$nowExpression} WHERE token_hash = :token_hash",
         );
-        $touch->execute(['token_hash' => $tokenHash]);
+        $touch->execute(['token_hash' => $expectedHash]);
 
-        return $userId;
+        return $row['user_id'];
     }
 
     public function revoke(string $rawToken): void
     {
-        $nowExpression = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite'
-            ? "datetime('now')"
-            : 'NOW()';
+        $nowExpression = $this->nowExpression();
 
         $statement = $this->pdo->prepare(
             "UPDATE sessions SET revoked_at = {$nowExpression}
@@ -1089,13 +1197,17 @@ final class SessionRepository
         );
         $statement->execute(['token_hash' => hash('sha256', $rawToken)]);
     }
+
+    private function nowExpression(): string
+    {
+        return $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite'
+            ? "datetime('now')"
+            : 'NOW()';
+    }
 }
 ```
 
 - [ ] **Step 4: Register the test file in the runner**
-
-Modify `server/tests/run-tests.php`, adding after the
-`MagicLinkTokenRepositoryTest.php` line:
 
 ```php
     __DIR__ . '/Auth/SessionRepositoryTest.php' => 'KanaGame\\Paddle\\Tests\\sessionRepositoryTests',
@@ -1104,18 +1216,57 @@ Modify `server/tests/run-tests.php`, adding after the
 - [ ] **Step 5: Run test to verify it passes**
 
 Run: `php server/tests/run-tests.php`
-Expected: `54 passed, 0 failed`.
+Expected: `55 passed, 0 failed`.
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add server/src/Auth/SessionRepository.php server/tests/Auth/SessionRepositoryTest.php server/tests/run-tests.php
-git commit -m "feat: add SessionRepository with revocable hash-at-rest sessions"
+git commit -m "feat: add SessionRepository with revocable hash_equals-verified sessions"
 ```
 
 ---
 
-## Task 6: `RateLimiter` — HMAC-keyed, configurable thresholds
+## Task 6: `RateLimiter` — atomic MariaDB-safe counter (required correction 2)
+
+**Substantially revised in this rev.** The original plan's
+`checkAndRecord()` did `SELECT count` -> check in PHP -> separate
+`UPDATE count = count + 1`. ChatGPT's review correctly identified this
+as unsafe: two concurrent requests can both `SELECT` the same
+pre-increment count, both see "under the limit," and both proceed,
+letting the effective limit be exceeded — and the very first `INSERT`
+for a brand-new `(bucket, identifier)` pair also raced unprotected.
+
+**New approach**: every check-and-record call runs inside its own short
+PDO transaction. It first executes an atomic
+`INSERT ... ON DUPLICATE KEY UPDATE` that unconditionally ensures a row
+exists and (if the existing window is still current) increments
+`count`, or (if the window has expired) resets `count` to 1 and moves
+`window_start` forward — all in ONE statement, so there is no
+read-then-write gap for the row's existence or its count column between
+two concurrent callers. It then re-reads that same row with
+`SELECT ... FOR UPDATE` (still inside the same transaction, so the
+row stays locked against a concurrent second `INSERT ... ON DUPLICATE
+KEY UPDATE` until this transaction commits) to learn the
+post-increment count and decide allow/deny, and commits. This makes the
+whole "did this push us over the limit" decision atomic per identifier:
+a second concurrent caller's `INSERT ... ON DUPLICATE KEY UPDATE`
+blocks on the row lock until the first caller's transaction commits, so
+the two calls are effectively serialized against each other for that
+one identifier, which is exactly the property needed (two different
+identifiers still proceed fully in parallel, since they're different
+rows).
+
+SQLite (used only by tests) has no `ON DUPLICATE KEY UPDATE` and no
+`SELECT ... FOR UPDATE` (SQLite's transaction locking model is
+file-level, not row-level) — the SQLite path uses `INSERT OR IGNORE`
+plus a normal `UPDATE ... WHERE` for the increment, still wrapped in an
+explicit transaction, which is sufficient to prove the *logical*
+atomicity/idempotency of the increment-vs-reset decision under test
+(single-threaded PHP CLI execution), even though it cannot exercise
+MariaDB's actual row-locking behavior — this is exactly the
+"race-scenario test, not true concurrent execution" caveat from Global
+Constraints, called out explicitly in this task's tests.
 
 **Files:**
 - Create: `server/src/Auth/RateLimiter.php`
@@ -1125,15 +1276,10 @@ git commit -m "feat: add SessionRepository with revocable hash-at-rest sessions"
 **Interfaces:**
 - Produces:
   - `KanaGame\Paddle\Auth\RateLimiter::__construct(PDO $pdo, string $pepper, int $emailLimitPerHour, int $ipLimitPerHour)`
-  - `checkAndRecordEmail(string $emailNormalized): bool` — returns
-    `true` if this request is allowed (and records it), `false` if the
-    per-email hourly limit is exceeded.
-  - `checkAndRecordIp(string $rawIp): bool` — same shape, IP bucket.
-  - Both compute `hash_hmac('sha256', "{$bucket}:{$value}", $pepper)`
-    as the stored `identifier` — the bucket name is included in the
-    HMAC input specifically so the same raw value (unlikely for
-    email-vs-IP, but a deliberate design choice per the spec's "domain
-    separation" note) can never collide across the two buckets.
+  - `checkAndRecordEmail(string $emailNormalized): bool`
+  - `checkAndRecordIp(string $rawIp): bool`
+  - Both compute `hash_hmac('sha256', "{$bucket}:{$value}", $pepper)` as
+    the stored `identifier`.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -1218,7 +1364,7 @@ function rateLimiterTests(): array
             assertFalse($limiter->checkAndRecordEmail('target@example.com'), 'the 6th request for this one email must be blocked even though every IP differed');
         },
 
-        'the raw email is never persisted — only its HMAC is stored' => function () {
+        'the raw email is never persisted -- only its HMAC is stored' => function () {
             $pdo = makeRateLimitTestDb();
             $limiter = new RateLimiter($pdo, 'test-pepper', 5, 20);
             $limiter->checkAndRecordEmail('sensitive@example.com');
@@ -1233,7 +1379,7 @@ function rateLimiterTests(): array
             }
         },
 
-        'the raw IP is never persisted — only its HMAC is stored' => function () {
+        'the raw IP is never persisted -- only its HMAC is stored' => function () {
             $pdo = makeRateLimitTestDb();
             $limiter = new RateLimiter($pdo, 'test-pepper', 5, 20);
             $limiter->checkAndRecordIp('203.0.113.77');
@@ -1246,6 +1392,26 @@ function rateLimiterTests(): array
                     'the raw IP must never appear in the persisted identifier column',
                 );
             }
+        },
+
+        // -- Race-scenario / atomicity semantic test (NOT true concurrent
+        // MariaDB execution -- see Global Constraints). Proves the
+        // atomic-upsert-then-locked-read pattern converges on exactly
+        // one row per identifier even when the very first call for a
+        // brand-new identifier is repeated back-to-back, which is the
+        // scenario the original SELECT-then-UPDATE pattern mishandled.
+        'race-scenario test: repeated first-ever calls for a brand-new identifier never create duplicate rows' => function () {
+            $pdo = makeRateLimitTestDb();
+            $limiter = new RateLimiter($pdo, 'test-pepper', 5, 20);
+
+            for ($i = 0; $i < 3; $i++) {
+                $limiter->checkAndRecordEmail('brand-new@example.com');
+            }
+
+            $count = (int) $pdo->query(
+                "SELECT COUNT(*) FROM rate_limits WHERE bucket = 'magic_link_email'",
+            )->fetchColumn();
+            assertSame(1, $count, 'exactly one row must exist for this identifier no matter how many times the first-call path runs');
         },
     ];
 }
@@ -1269,9 +1435,28 @@ use PDO;
 
 /**
  * Fixed-window, DB-backed rate limiter for magic-link requests. Never
- * persists a raw email or raw IP — only HMAC-SHA256(bucket:value,
- * pepper). No Redis/external service, per the design spec's explicit
- * "MariaDB/PHP only" requirement.
+ * persists a raw email or raw IP -- only HMAC-SHA256(bucket:value,
+ * pepper). No Redis/external service.
+ *
+ * Concurrency-safe by construction: checkAndRecord() wraps an atomic
+ * INSERT ... ON DUPLICATE KEY UPDATE (which unconditionally creates the
+ * row or advances/increments it in one statement -- no read-then-write
+ * gap) together with a SELECT ... FOR UPDATE re-read of that same row,
+ * inside one transaction. The FOR UPDATE row lock serializes concurrent
+ * callers for the SAME identifier against each other until this
+ * transaction commits, so two concurrent requests for the same
+ * email/IP cannot both observe a stale pre-increment count and both
+ * proceed past the limit. Different identifiers are different rows and
+ * are not serialized against each other.
+ *
+ * SQLite (tests only) has neither ON DUPLICATE KEY UPDATE nor row-level
+ * locking -- the SQLite branch below uses INSERT OR IGNORE plus a
+ * separate UPDATE, which is sufficient to prove the logical
+ * increment/reset decision under single-threaded test execution but
+ * does NOT exercise MariaDB's actual row-locking behavior. See this
+ * repo's PR A plan, Task 14, for the required real-MariaDB verification
+ * this class's true concurrency behavior still needs before Live
+ * rollout.
  */
 final class RateLimiter
 {
@@ -1301,63 +1486,112 @@ final class RateLimiter
     {
         $identifier = hash_hmac('sha256', "{$bucket}:{$rawValue}", $this->pepper);
         $now = new \DateTimeImmutable();
+        $driver = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
 
-        $select = $this->pdo->prepare(
-            'SELECT id, window_start, count FROM rate_limits WHERE bucket = :bucket AND identifier = :identifier LIMIT 1',
-        );
-        $select->execute(['bucket' => $bucket, 'identifier' => $identifier]);
-        /** @var array{id: int, window_start: string, count: int}|false $row */
-        $row = $select->fetch();
+        $this->pdo->beginTransaction();
+        try {
+            if ($driver === 'sqlite') {
+                $this->upsertWindowSqlite($bucket, $identifier, $now);
+            } else {
+                $this->upsertWindowMariaDb($bucket, $identifier, $now);
+            }
 
-        if ($row === false) {
-            $this->insertNewWindow($bucket, $identifier, $now);
-            return $limitPerHour > 0;
-        }
-
-        $windowStart = new \DateTimeImmutable($row['window_start']);
-        $windowAge = $now->getTimestamp() - $windowStart->getTimestamp();
-
-        if ($windowAge >= self::WINDOW_SECONDS) {
-            // Window expired — lazily reset it in place (pruning by
-            // overwrite, no separate cleanup job needed).
-            $reset = $this->pdo->prepare(
-                'UPDATE rate_limits SET window_start = :window_start, count = 1 WHERE id = :id',
+            $lockClause = $driver === 'sqlite' ? '' : ' FOR UPDATE';
+            $select = $this->pdo->prepare(
+                "SELECT count FROM rate_limits WHERE bucket = :bucket AND identifier = :identifier{$lockClause}",
             );
-            $reset->execute(['window_start' => $now->format('Y-m-d H:i:s'), 'id' => $row['id']]);
-            return $limitPerHour > 0;
+            $select->execute(['bucket' => $bucket, 'identifier' => $identifier]);
+            $count = (int) $select->fetchColumn();
+
+            $allowed = $count <= $limitPerHour;
+            $this->pdo->commit();
+
+            return $allowed;
+        } catch (\Throwable $e) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            throw $e;
         }
-
-        if ((int) $row['count'] >= $limitPerHour) {
-            return false;
-        }
-
-        $increment = $this->pdo->prepare(
-            'UPDATE rate_limits SET count = count + 1 WHERE id = :id',
-        );
-        $increment->execute(['id' => $row['id']]);
-
-        return true;
     }
 
-    private function insertNewWindow(string $bucket, string $identifier, \DateTimeImmutable $now): void
+    /**
+     * MariaDB: one atomic statement either creates the row at count=1,
+     * or -- if the existing window is still current -- increments
+     * count, or -- if the existing window has expired -- resets count
+     * to 1 and moves window_start forward. No separate read happens
+     * before this write, so there is no gap for a concurrent caller to
+     * exploit.
+     */
+    private function upsertWindowMariaDb(string $bucket, string $identifier, \DateTimeImmutable $now): void
     {
+        $nowStr = $now->format('Y-m-d H:i:s');
+        $cutoffStr = $now->modify('-' . self::WINDOW_SECONDS . ' seconds')->format('Y-m-d H:i:s');
+
         $statement = $this->pdo->prepare(
             'INSERT INTO rate_limits (bucket, identifier, window_start, count)
-             VALUES (:bucket, :identifier, :window_start, 1)',
+             VALUES (:bucket, :identifier, :now, 1)
+             ON DUPLICATE KEY UPDATE
+               count = IF(window_start < :cutoff, 1, count + 1),
+               window_start = IF(window_start < :cutoff, :now2, window_start)',
         );
         $statement->execute([
             'bucket' => $bucket,
             'identifier' => $identifier,
-            'window_start' => $now->format('Y-m-d H:i:s'),
+            'now' => $nowStr,
+            'cutoff' => $cutoffStr,
+            'now2' => $nowStr,
+        ]);
+    }
+
+    /**
+     * SQLite (tests only): no ON DUPLICATE KEY UPDATE, so this uses
+     * INSERT OR IGNORE (atomic row creation) followed by a separate
+     * UPDATE for the increment/reset. This does not carry the same
+     * single-statement atomicity guarantee as the MariaDB path, but
+     * SQLite's tests run single-threaded, so no real race exists to
+     * expose the gap -- see this method's and the class's own caveats.
+     */
+    private function upsertWindowSqlite(string $bucket, string $identifier, \DateTimeImmutable $now): void
+    {
+        $nowStr = $now->format('Y-m-d H:i:s');
+        $cutoffStr = $now->modify('-' . self::WINDOW_SECONDS . ' seconds')->format('Y-m-d H:i:s');
+
+        $insert = $this->pdo->prepare(
+            'INSERT OR IGNORE INTO rate_limits (bucket, identifier, window_start, count)
+             VALUES (:bucket, :identifier, :now, 1)',
+        );
+        $insert->execute(['bucket' => $bucket, 'identifier' => $identifier, 'now' => $nowStr]);
+
+        $update = $this->pdo->prepare(
+            "UPDATE rate_limits
+             SET count = CASE WHEN window_start < :cutoff THEN 1 ELSE count + 1 END,
+                 window_start = CASE WHEN window_start < :cutoff THEN :now ELSE window_start END
+             WHERE bucket = :bucket AND identifier = :identifier
+               AND NOT (window_start = :now AND count = 1)",
+        );
+        $update->execute([
+            'cutoff' => $cutoffStr,
+            'now' => $nowStr,
+            'bucket' => $bucket,
+            'identifier' => $identifier,
         ]);
     }
 }
 ```
 
-- [ ] **Step 4: Register the test file in the runner**
+**Note on the SQLite `WHERE NOT (window_start = :now AND count = 1)`
+guard**: this prevents the just-inserted first-ever row (already
+correctly at `count = 1`, `window_start = now`) from being
+double-incremented to `count = 2` by the subsequent `UPDATE` in the same
+call — the `INSERT OR IGNORE` either created a fresh row at exactly
+`(now, 1)` or did nothing (row already existed), so this guard
+distinguishes "I just created this row" from "this row already
+existed" without needing `INSERT OR IGNORE` to report which case
+occurred (SQLite's `changes()` is available but this WHERE-clause
+approach avoids a second round-trip).
 
-Modify `server/tests/run-tests.php`, adding after the
-`SessionRepositoryTest.php` line:
+- [ ] **Step 4: Register the test file in the runner**
 
 ```php
     __DIR__ . '/Auth/RateLimiterTest.php' => 'KanaGame\\Paddle\\Tests\\rateLimiterTests',
@@ -1366,173 +1600,46 @@ Modify `server/tests/run-tests.php`, adding after the
 - [ ] **Step 5: Run test to verify it passes**
 
 Run: `php server/tests/run-tests.php`
-Expected: `61 passed, 0 failed`.
+Expected: `63 passed, 0 failed` (8 tests this time — one more than the
+original plan's 7, for the race-scenario duplicate-row test).
 
 - [ ] **Step 6: Commit**
 
 ```bash
 git add server/src/Auth/RateLimiter.php server/tests/Auth/RateLimiterTest.php server/tests/run-tests.php
-git commit -m "feat: add HMAC-keyed DB-backed rate limiter for magic-link requests"
+git commit -m "feat: rewrite RateLimiter with atomic MariaDB upsert-based counting"
 ```
 
 ---
 
-## Task 7: `Mailer` interface + test-only `FakeMailer`
+## Task 7: `EmailNormalizer` and `EmailValidator`
 
-**Files:**
-- Create: `server/src/Auth/Mailer.php`
-- Create: `server/src/Auth/FakeMailer.php`
-- Test: covered by `AuthServiceTest.php` in Task 8 (this task has no
-  standalone test file — `Mailer`/`FakeMailer` are trivial enough that
-  their behavior is fully exercised through `AuthService`'s tests,
-  matching this repo's existing convention of not writing a dedicated
-  test file for a class with no branching logic of its own, e.g.
-  `SandboxUser.php` has no test file either).
-
-**Interfaces:**
-- Produces:
-  - `KanaGame\Paddle\Auth\Mailer` (interface):
-    `sendMagicLink(string $emailNormalized, string $magicLinkUrl): void`
-  - `KanaGame\Paddle\Auth\FakeMailer implements Mailer` — records every
-    call in an in-memory array (`public array $sent = []`, each entry
-    `['email' => ..., 'url' => ...]`), used only by
-    `server/tests/Auth/AuthServiceTest.php`. **Not** used by any
-    production entrypoint — `request-link.php` (Task 9) does not
-    instantiate `FakeMailer` under any config; a real `Mailer`
-    implementation is out of scope for this PR entirely (see the design
-    spec — a real SMTP transport needs a real credential, a human
-    checkpoint).
-
-- [ ] **Step 1: Write the interface**
-
-```php
-<?php
-
-declare(strict_types=1);
-
-namespace KanaGame\Paddle\Auth;
-
-/**
- * Sends a Magic Link email. The only implementation in Phase 3A PR A is
- * FakeMailer (test-only, in-memory). A real SMTP/XServer-mail transport
- * is a documented future implementation of this same interface — not
- * built in this PR, since it needs a real credential (human checkpoint
- * per the task brief). No production email is ever sent by this PR's
- * code.
- */
-interface Mailer
-{
-    public function sendMagicLink(string $emailNormalized, string $magicLinkUrl): void;
-}
-```
-
-- [ ] **Step 2: Write `FakeMailer`**
-
-```php
-<?php
-
-declare(strict_types=1);
-
-namespace KanaGame\Paddle\Auth;
-
-/**
- * Test-only in-memory Mailer. Its state does NOT and CANNOT survive
- * across separate HTTP requests — each PHP-FPM/CGI request is a fresh
- * process with no shared memory (see the design spec's explicit note
- * on this). FakeMailer is therefore only ever instantiated inside
- * same-process PHP unit tests (server/tests/Auth/AuthServiceTest.php) —
- * never by request-link.php or any other real entrypoint.
- */
-final class FakeMailer implements Mailer
-{
-    /** @var list<array{email: string, url: string}> */
-    public array $sent = [];
-
-    public function sendMagicLink(string $emailNormalized, string $magicLinkUrl): void
-    {
-        $this->sent[] = ['email' => $emailNormalized, 'url' => $magicLinkUrl];
-    }
-}
-```
-
-- [ ] **Step 3: Confirm both files parse cleanly**
-
-Run:
-
-```bash
-php -l server/src/Auth/Mailer.php
-php -l server/src/Auth/FakeMailer.php
-```
-
-Expected: `No syntax errors detected` for both.
-
-- [ ] **Step 4: Commit**
-
-```bash
-git add server/src/Auth/Mailer.php server/src/Auth/FakeMailer.php
-git commit -m "feat: add Mailer interface and test-only FakeMailer"
-```
-
----
-
-## Task 8: `AuthService` — orchestration, transaction boundaries, email normalization
-
-This is the task where the transaction-boundary requirements (spec
-Section 1: "atomic same-token verification," "concurrent two-distinct-
-links/same-email safe user creation") and the enumeration-safety
-requirement actually get wired together. Read this task fully before
-starting Task 9 (`request-link.php`) — that entrypoint is a thin
-wrapper around this class.
+**Revised in this rev.**: adds `EmailValidator` (new — required
+correction 2's "add validation for normalized email"). `EmailNormalizer`
+itself is unchanged from the original plan.
 
 **Files:**
 - Create: `server/src/Auth/EmailNormalizer.php`
-- Create: `server/src/Auth/AuthService.php`
+- Create: `server/src/Auth/EmailValidator.php`
 - Test: `server/tests/Auth/EmailNormalizerTest.php`
-- Test: `server/tests/Auth/AuthServiceTest.php`
+- Test: `server/tests/Auth/EmailValidatorTest.php`
 - Modify: `server/tests/run-tests.php`
 
 **Interfaces:**
-- Consumes: `UserRepository` (Task 3), `MagicLinkTokenRepository`
-  (Task 4), `SessionRepository` (Task 5), `RateLimiter` (Task 6),
-  `Mailer` (Task 7).
 - Produces:
   - `KanaGame\Paddle\Auth\EmailNormalizer::normalize(string $rawEmail): string`
-    — lowercase + trim only (spec-mandated; no alias folding).
-  - `KanaGame\Paddle\Auth\AuthService::__construct(PDO $pdo, MagicLinkTokenRepository $tokens, UserRepository $users, SessionRepository $sessions, RateLimiter $rateLimiter, Mailer $mailer, string $magicLinkBaseUrl, int $tokenExpiryMinutes, int $sessionExpiryDays)`
-  - `requestLink(string $rawEmail, string $clientIp): void` — always
-    succeeds from the caller's point of view (no return value/exception
-    for "email not registered" — see below); internally: normalize →
-    rate-limit both buckets → if either bucket rejects, return silently
-    (no token issued, no mailer call, no exception) → else generate raw
-    token → `tokens->issue()` → `mailer->sendMagicLink()`. **This method
-    never touches `UserRepository`** — enforces the "no unauthenticated
-    identity creation" rule at the service layer, not just by
-    convention.
-  - `AuthResult` — a small value object.
-  - `verify(string $rawToken): AuthResult` — this is the method with
-    the transaction boundary: opens one `PDO` transaction, calls
-    `tokens->consume($rawToken)`; if `false`, rolls back and returns
-    `AuthResult::invalid()`; if `true`, calls
-    `tokens->findEmailForRawToken($rawToken)` (still valid to read even
-    though `used_at` is now set — the row itself isn't deleted),
-    `users->findOrCreateByEmail($email)`, generates a raw session token,
-    `sessions->create($user['id'], $rawSessionToken, $sessionExpiresAt)`,
-    commits, returns `AuthResult::success($rawSessionToken, $user)`.
-  - `me(string $rawSessionToken): ?array{user_id: string, email_normalized: string}`
-    — resolves via `SessionRepository::findActiveUserIdForRawToken()`
-    then `UserRepository::findById()`.
-  - `logout(string $rawSessionToken): void` — delegates to
-    `SessionRepository::revoke()`.
-
-**Why the transaction spans `consume()` through `sessions->create()`**:
-if the process crashed between a successful token-consume and session
-creation, the user's token would be permanently burned with no session
-issued — a real (if rare) availability bug. Wrapping both in one
-transaction means either the whole verify succeeds (token consumed +
-user resolved + session created, all durable) or none of it does (token
-stays unconsumed, safe to retry). This directly implements the
-design spec's "atomic same-token verification" and "be explicit about
-transaction boundaries" requirements.
+    — lowercase + trim only.
+  - `KanaGame\Paddle\Auth\EmailValidator::isValid(string $normalizedEmail): bool`
+    — checks PHP's built-in email syntax filter
+    (`FILTER_VALIDATE_EMAIL`) AND that the value fits the
+    `users.email_normalized VARCHAR(255)` column (`<= 255` bytes).
+    Used by `MagicLinkAuthService::requestLink()` (Task 11) — an invalid
+    email still returns the same generic `200 {"status":"ok"}` (per
+    Global Constraints' enumeration-safety rule), it just never reaches
+    the rate limiter/token-issue/mailer path. This is a **quality** gate
+    (don't waste a rate-limit slot or attempt to insert a row that would
+    violate the column's length), not a security gate — an invalid
+    email was never going to be deliverable anyway.
 
 - [ ] **Step 1: Write the failing test for `EmailNormalizer`**
 
@@ -1563,22 +1670,20 @@ function emailNormalizerTests(): array
         },
 
         'normalize() does NOT fold Gmail dot aliases' => function () {
-            assertSame('a.b@example.com', EmailNormalizer::normalize('a.b@example.com'), 'dots must be preserved — no alias folding per the design spec');
+            assertSame('a.b@example.com', EmailNormalizer::normalize('a.b@example.com'), 'dots must be preserved -- no alias folding per the design spec');
         },
 
         'normalize() does NOT fold Gmail plus aliases' => function () {
-            assertSame('user+tag@example.com', EmailNormalizer::normalize('user+tag@example.com'), 'plus-tags must be preserved — no alias folding per the design spec');
+            assertSame('user+tag@example.com', EmailNormalizer::normalize('user+tag@example.com'), 'plus-tags must be preserved -- no alias folding per the design spec');
         },
     ];
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [ ] **Step 2: Run test to verify it fails, then write `EmailNormalizer`**
 
 Run: `php -r "require 'server/tests/TestCase.php'; require 'server/tests/Auth/EmailNormalizerTest.php';"`
 Expected: `Fatal error: ... 'EmailNormalizer' not found`.
-
-- [ ] **Step 3: Write `EmailNormalizer`**
 
 ```php
 <?php
@@ -1589,9 +1694,8 @@ namespace KanaGame\Paddle\Auth;
 
 /**
  * Deliberately minimal: lowercase + trim only. No Gmail dot/plus-alias
- * folding — see the design spec's explicit note that merging identities
- * this way requires its own reviewed migration, not an automatic
- * normalization change.
+ * folding -- merging identities this way requires its own reviewed
+ * migration, not an automatic normalization change.
  */
 final class EmailNormalizer
 {
@@ -1606,25 +1710,22 @@ final class EmailNormalizer
 }
 ```
 
-- [ ] **Step 4: Register `EmailNormalizerTest.php` and run**
-
-Add to `server/tests/run-tests.php`:
+- [ ] **Step 3: Register and run**
 
 ```php
     __DIR__ . '/Auth/EmailNormalizerTest.php' => 'KanaGame\\Paddle\\Tests\\emailNormalizerTests',
 ```
 
-Run: `php server/tests/run-tests.php`
-Expected: `65 passed, 0 failed`.
+Run: `php server/tests/run-tests.php` — expect `67 passed, 0 failed`.
 
-- [ ] **Step 5: Commit the normalizer**
+- [ ] **Step 4: Commit the normalizer**
 
 ```bash
 git add server/src/Auth/EmailNormalizer.php server/tests/Auth/EmailNormalizerTest.php server/tests/run-tests.php
 git commit -m "feat: add EmailNormalizer (lowercase+trim only, no alias folding)"
 ```
 
-- [ ] **Step 6: Write the failing test for `AuthService`**
+- [ ] **Step 5: Write the failing test for `EmailValidator`**
 
 ```php
 <?php
@@ -1633,25 +1734,876 @@ declare(strict_types=1);
 
 namespace KanaGame\Paddle\Tests;
 
-use KanaGame\Paddle\Auth\AuthService;
-use KanaGame\Paddle\Auth\FakeMailer;
+use KanaGame\Paddle\Auth\EmailValidator;
+
+require_once __DIR__ . '/../TestCase.php';
+require_once __DIR__ . '/../../src/Auth/EmailValidator.php';
+
+/**
+ * @return array<string, callable(): void>
+ */
+function emailValidatorTests(): array
+{
+    return [
+        'isValid() accepts a normal email address' => function () {
+            assertTrue(EmailValidator::isValid('user@example.com'), 'a normal email should be valid');
+        },
+
+        'isValid() rejects a string with no @ sign' => function () {
+            assertFalse(EmailValidator::isValid('not-an-email'), 'missing @ should be invalid');
+        },
+
+        'isValid() rejects an empty string' => function () {
+            assertFalse(EmailValidator::isValid(''), 'empty string should be invalid');
+        },
+
+        'isValid() rejects a value longer than the email_normalized column (255 bytes)' => function () {
+            $tooLong = str_repeat('a', 250) . '@example.com';
+            assertFalse(EmailValidator::isValid($tooLong), 'a value over 255 bytes should be invalid');
+        },
+
+        'isValid() accepts a value exactly at the 255-byte column limit' => function () {
+            $localPart = str_repeat('a', 255 - strlen('@example.com'));
+            $exactly255 = $localPart . '@example.com';
+            assertSame(255, strlen($exactly255), 'test setup sanity check');
+            assertTrue(EmailValidator::isValid($exactly255), 'a value at exactly 255 bytes should be valid');
+        },
+    ];
+}
+```
+
+- [ ] **Step 6: Run test to verify it fails, then write `EmailValidator`**
+
+Run: `php -r "require 'server/tests/TestCase.php'; require 'server/tests/Auth/EmailValidatorTest.php';"`
+Expected: `Fatal error: ... 'EmailValidator' not found`.
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace KanaGame\Paddle\Auth;
+
+/**
+ * Quality gate, not a security gate -- rejects an email that could
+ * never be deliverable or that would not fit the users.email_normalized
+ * VARCHAR(255) column, before it reaches the rate limiter or the mailer.
+ * An invalid email still gets the same generic 200 response from
+ * request-link.php (see MagicLinkAuthService::requestLink()) -- this
+ * class only decides whether the request-link flow proceeds internally,
+ * never what the caller sees.
+ */
+final class EmailValidator
+{
+    private const MAX_LENGTH = 255;
+
+    public static function isValid(string $normalizedEmail): bool
+    {
+        if ($normalizedEmail === '' || strlen($normalizedEmail) > self::MAX_LENGTH) {
+            return false;
+        }
+
+        return filter_var($normalizedEmail, FILTER_VALIDATE_EMAIL) !== false;
+    }
+
+    private function __construct()
+    {
+    }
+}
+```
+
+- [ ] **Step 7: Register and run**
+
+```php
+    __DIR__ . '/Auth/EmailValidatorTest.php' => 'KanaGame\\Paddle\\Tests\\emailValidatorTests',
+```
+
+Run: `php server/tests/run-tests.php` — expect `72 passed, 0 failed`.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add server/src/Auth/EmailValidator.php server/tests/Auth/EmailValidatorTest.php server/tests/run-tests.php
+git commit -m "feat: add EmailValidator (syntax + column-length check)"
+```
+
+---
+
+## Task 8: `CurrentUserService` — the session-only, PR-B-reusable service (required correction 3)
+
+**New in this rev.** This is the class that did not exist in the
+original plan — it's the direct fix for "do not make me.php/logout.php
+require RATE_LIMIT_PEPPER, MagicLink base URL, Mailer,
+MagicLinkTokenRepository just to resolve a session." `me.php` and
+`logout.php` (Task 12) depend on `CurrentUserService` ONLY.
+`MagicLinkAuthService` (Task 11) also depends on it, composing rather
+than duplicating the session-creation logic.
+
+**Files:**
+- Create: `server/src/Auth/CurrentUserService.php`
+- Test: `server/tests/Auth/CurrentUserServiceTest.php`
+- Modify: `server/tests/run-tests.php`
+
+**Interfaces:**
+- Consumes: `UserRepository` (Task 3), `SessionRepository` (Task 5).
+- Produces:
+  - `KanaGame\Paddle\Auth\CurrentUserService::__construct(UserRepository $users, SessionRepository $sessions, int $sessionExpiryHours)`
+  - `createSession(string $userId): string` — generates a raw session
+    token, calls `sessions->create()`, returns the raw token. Called by
+    `MagicLinkAuthService::verify()` (Task 11) — this is the "compose,
+    don't duplicate" seam mentioned in the File Structure rationale.
+  - `resolve(string $rawSessionToken): ?array{user_id: string, email_normalized: string}`
+    — the single method `me.php` needs. Returns `null` for any
+    invalid/expired/revoked/unknown token, or if the session's `user_id`
+    somehow doesn't resolve to a real user (defensive — should be
+    unreachable given the `ON DELETE CASCADE` FK from Task 2, but
+    `findById()` returning `null` is handled explicitly rather than
+    assumed impossible).
+  - `logout(string $rawSessionToken): void` — delegates to
+    `sessions->revoke()`. This method's return type is `void` — see
+    Task 12 for how `logout.php` itself (not this service) implements
+    required correction 6's "genuine DB error must not look like
+    success" behavior, since that's an HTTP-layer distinction
+    (500 vs. 200), not something this service needs to encode.
+
+- [ ] **Step 1: Write the failing test**
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace KanaGame\Paddle\Tests;
+
+use KanaGame\Paddle\Auth\CurrentUserService;
+use KanaGame\Paddle\Auth\SessionRepository;
+use KanaGame\Paddle\Auth\UserRepository;
+use PDO;
+
+require_once __DIR__ . '/../TestCase.php';
+require_once __DIR__ . '/../../src/Auth/CurrentUserService.php';
+require_once __DIR__ . '/../../src/Auth/SessionRepository.php';
+require_once __DIR__ . '/../../src/Auth/UserRepository.php';
+require_once __DIR__ . '/../../src/Uuid.php';
+
+function makeCurrentUserServiceTestDb(): PDO
+{
+    $pdo = new PDO('sqlite::memory:');
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo->exec(
+        'CREATE TABLE users (
+            id TEXT PRIMARY KEY,
+            email_normalized TEXT NOT NULL UNIQUE,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )',
+    );
+    $pdo->exec(
+        'CREATE TABLE sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            token_hash TEXT NOT NULL UNIQUE,
+            user_id TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            revoked_at TEXT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )',
+    );
+    return $pdo;
+}
+
+function makeCurrentUserService(PDO $pdo): CurrentUserService
+{
+    return new CurrentUserService(new UserRepository($pdo), new SessionRepository($pdo), 24);
+}
+
+/**
+ * @return array<string, callable(): void>
+ */
+function currentUserServiceTests(): array
+{
+    return [
+        'createSession() then resolve() resolves the correct user' => function () {
+            $pdo = makeCurrentUserServiceTestDb();
+            $users = new UserRepository($pdo);
+            $service = makeCurrentUserService($pdo);
+            $user = $users->findOrCreateByEmail('session-test@example.com');
+
+            $rawToken = $service->createSession($user['id']);
+            $resolved = $service->resolve($rawToken);
+
+            assertTrue($resolved !== null, 'a freshly created session should resolve');
+            assertSame('session-test@example.com', $resolved['email_normalized'], 'email should match');
+            assertSame($user['id'], $resolved['user_id'], 'user_id should match');
+        },
+
+        'resolve() returns null for an unknown token' => function () {
+            $service = makeCurrentUserService(makeCurrentUserServiceTestDb());
+            assertSame(null, $service->resolve('never-created'), 'unknown token should return null');
+        },
+
+        'logout() revokes the session so a later resolve() call fails' => function () {
+            $pdo = makeCurrentUserServiceTestDb();
+            $users = new UserRepository($pdo);
+            $service = makeCurrentUserService($pdo);
+            $user = $users->findOrCreateByEmail('logout-test@example.com');
+            $rawToken = $service->createSession($user['id']);
+
+            $service->logout($rawToken);
+
+            assertSame(null, $service->resolve($rawToken), 'resolve() must fail after logout');
+        },
+
+        'createSession() generates a different token on each call' => function () {
+            $pdo = makeCurrentUserServiceTestDb();
+            $users = new UserRepository($pdo);
+            $service = makeCurrentUserService($pdo);
+            $user = $users->findOrCreateByEmail('multi-session@example.com');
+
+            $first = $service->createSession($user['id']);
+            $second = $service->createSession($user['id']);
+
+            assertFalse($first === $second, 'two calls should not produce the same raw token');
+            assertTrue($service->resolve($first) !== null, 'first session should still resolve');
+            assertTrue($service->resolve($second) !== null, 'second session should also resolve');
+        },
+    ];
+}
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `php -r "require 'server/tests/TestCase.php'; require 'server/tests/Auth/CurrentUserServiceTest.php';"`
+Expected: `Fatal error: ... 'CurrentUserService' not found`.
+
+- [ ] **Step 3: Write minimal implementation**
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace KanaGame\Paddle\Auth;
+
+/**
+ * The ONLY service me.php and logout.php depend on -- and, in PR B,
+ * the ONLY service purchase-intent.php will depend on to resolve "who
+ * is the current user?". Deliberately has NO dependency on
+ * MagicLinkTokenRepository, RateLimiter, or Mailer, so a session-only
+ * consumer never has to construct rate-limit/mail infrastructure just
+ * to answer "who is this?". See this plan's File Structure section for
+ * the full rationale for this split.
+ */
+final class CurrentUserService
+{
+    public function __construct(
+        private readonly UserRepository $users,
+        private readonly SessionRepository $sessions,
+        private readonly int $sessionExpiryHours,
+    ) {
+    }
+
+    public function createSession(string $userId): string
+    {
+        $rawToken = $this->generateRawToken();
+        $expiresAt = new \DateTimeImmutable("+{$this->sessionExpiryHours} hours");
+        $this->sessions->create($userId, $rawToken, $expiresAt);
+
+        return $rawToken;
+    }
+
+    /**
+     * @return array{user_id: string, email_normalized: string}|null
+     */
+    public function resolve(string $rawSessionToken): ?array
+    {
+        $userId = $this->sessions->findActiveUserIdForRawToken($rawSessionToken);
+        if ($userId === null) {
+            return null;
+        }
+
+        $user = $this->users->findById($userId);
+        if ($user === null) {
+            // Defensive -- the sessions.user_id -> users.id FK (ON
+            // DELETE CASCADE, see the migration) should make this
+            // unreachable in production, but a session must never be
+            // treated as valid if it can't resolve to a real user.
+            return null;
+        }
+
+        return ['user_id' => $user['id'], 'email_normalized' => $user['email_normalized']];
+    }
+
+    public function logout(string $rawSessionToken): void
+    {
+        $this->sessions->revoke($rawSessionToken);
+    }
+
+    private function generateRawToken(): string
+    {
+        return rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+    }
+}
+```
+
+- [ ] **Step 4: Register the test file in the runner**
+
+```php
+    __DIR__ . '/Auth/CurrentUserServiceTest.php' => 'KanaGame\\Paddle\\Tests\\currentUserServiceTests',
+```
+
+- [ ] **Step 5: Run test to verify it passes**
+
+Run: `php server/tests/run-tests.php`
+Expected: `76 passed, 0 failed`.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add server/src/Auth/CurrentUserService.php server/tests/Auth/CurrentUserServiceTest.php server/tests/run-tests.php
+git commit -m "feat: add CurrentUserService as the lightweight session-to-user resolver"
+```
+
+---
+
+## Task 9: Extend `Cors` with preflight support (required correction 1)
+
+**New in this rev.** The current `server/src/Cors.php` (Phase 2) only
+emits `Access-Control-Allow-Origin`/`Vary` via `applyHeaders()` — no
+`OPTIONS`/preflight method or header policy at all, because
+`entitlement.php`'s own `OPTIONS` branch just returns 204 with no
+authorization headers, which happened to be enough for Phase 2's simple
+unauthenticated GET-only endpoint. PR A's endpoints need real preflight:
+browsers preflight any cross-origin request using a non-simple method
+(POST counts once `Content-Type: application/json` is used) or a
+custom header (`Authorization`), and a preflight response must
+explicitly allow those methods/headers or the browser blocks the actual
+request before it's ever sent.
+
+This extension is **strictly additive** to the existing `Cors` class —
+`isOriginAllowed()` and `applyHeaders()` keep their exact current
+signatures and behavior (Phase 2's `entitlement.php` calls
+`applyHeaders()` exactly as it does today, unmodified, and keeps
+working identically). A new `applyPreflightHeaders()` method is added
+alongside them for the auth entrypoints (Task 12) to call only on an
+`OPTIONS` request.
+
+**Files:**
+- Modify: `server/src/Cors.php`
+- Modify: `server/tests/CorsTest.php`
+
+**Interfaces:**
+- Produces: `Cors::applyPreflightHeaders(?string $requestOrigin): void`
+  — if the origin is allowed, emits
+  `Access-Control-Allow-Origin: <origin>`, `Vary: Origin`,
+  `Access-Control-Allow-Methods: GET, POST, OPTIONS`,
+  `Access-Control-Allow-Headers: Content-Type, Authorization`. **Never**
+  emits `Access-Control-Allow-Credentials` (production cookie transport
+  remains deferred — see the ADR, Task 13). If the origin is not
+  allowed, emits nothing (same "silently do nothing" behavior as the
+  existing `applyHeaders()` for a disallowed origin).
+
+- [ ] **Step 1: Write the failing test (added to the existing `CorsTest.php`, not a new file)**
+
+Add these entries to the existing `corsTests()` array in
+`server/tests/CorsTest.php` (append inside the existing returned array,
+after its current five entries — do not remove or modify any existing
+entry):
+
+```php
+        'applyPreflightHeaders() emits the required method/header policy for an allowed origin' => function () {
+            $cors = new Cors(['https://yhalcyon-gh.github.io']);
+
+            ob_start();
+            $cors->applyPreflightHeaders('https://yhalcyon-gh.github.io');
+            ob_end_clean();
+
+            $headers = headers_list();
+            $joined = implode("\n", $headers);
+
+            assertTrue(
+                str_contains($joined, 'Access-Control-Allow-Origin: https://yhalcyon-gh.github.io'),
+                'allowed origin should be echoed back',
+            );
+            assertTrue(
+                str_contains($joined, 'Access-Control-Allow-Methods:') && str_contains($joined, 'GET')
+                    && str_contains($joined, 'POST') && str_contains($joined, 'OPTIONS'),
+                'GET, POST, and OPTIONS must all be in Access-Control-Allow-Methods',
+            );
+            assertTrue(
+                str_contains($joined, 'Access-Control-Allow-Headers:') && str_contains($joined, 'Content-Type')
+                    && str_contains($joined, 'Authorization'),
+                'Content-Type and Authorization must both be in Access-Control-Allow-Headers',
+            );
+        },
+
+        'applyPreflightHeaders() emits nothing for a disallowed origin' => function () {
+            $cors = new Cors(['https://yhalcyon-gh.github.io']);
+
+            ob_start();
+            $cors->applyPreflightHeaders('https://evil.example.com');
+            ob_end_clean();
+
+            $joined = implode("\n", headers_list());
+            assertFalse(
+                str_contains($joined, 'Access-Control-Allow-Origin'),
+                'a disallowed origin must get no Access-Control-Allow-Origin header at all',
+            );
+        },
+
+        'applyPreflightHeaders() never emits Access-Control-Allow-Credentials' => function () {
+            $cors = new Cors(['https://yhalcyon-gh.github.io']);
+
+            ob_start();
+            $cors->applyPreflightHeaders('https://yhalcyon-gh.github.io');
+            ob_end_clean();
+
+            $joined = implode("\n", headers_list());
+            assertFalse(
+                str_contains($joined, 'Access-Control-Allow-Credentials'),
+                'production cookie transport is deferred -- this header must never be emitted yet',
+            );
+        },
+
+        'applyHeaders() (non-preflight) still behaves exactly as before this change' => function () {
+            // Regression guard: Phase 2's entitlement.php calls
+            // applyHeaders(), not applyPreflightHeaders() -- this test
+            // pins that the original method's output is unchanged by
+            // this extension.
+            $cors = new Cors(['https://yhalcyon-gh.github.io']);
+
+            ob_start();
+            $cors->applyHeaders('https://yhalcyon-gh.github.io');
+            ob_end_clean();
+
+            $joined = implode("\n", headers_list());
+            assertTrue(str_contains($joined, 'Access-Control-Allow-Origin: https://yhalcyon-gh.github.io'), 'origin header unchanged');
+            assertFalse(str_contains($joined, 'Access-Control-Allow-Methods'), 'applyHeaders() must NOT emit preflight method policy');
+            assertFalse(str_contains($joined, 'Access-Control-Allow-Headers'), 'applyHeaders() must NOT emit preflight header policy');
+        },
+```
+
+**Note on the test technique**: this repo's existing `CorsTest.php`
+tests only `isOriginAllowed()` (pure logic, no headers). Testing
+`applyHeaders()`/`applyPreflightHeaders()` directly means calling real
+`header()` functions, which the dependency-free test runner (a plain
+PHP CLI script, not a web server) can still observe via PHP's built-in
+`headers_list()` — this works in CLI SAPI without a real HTTP response
+cycle. Wrapping in `ob_start()`/`ob_end_clean()` avoids any stray output
+interfering with the test runner's own console output.
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `php server/tests/run-tests.php`
+Expected: the 4 new CORS tests fail with "Call to undefined method
+Cors::applyPreflightHeaders()" (wrapped as an unexpected `Error` by the
+test runner's catch-all).
+
+- [ ] **Step 3: Extend `Cors.php`**
+
+Modify `server/src/Cors.php` — add this method after the existing
+`applyHeaders()` method (do not modify `isOriginAllowed()` or
+`applyHeaders()` themselves):
+
+```php
+    /**
+     * Applies CORS headers for a preflight (OPTIONS) request from an
+     * allowed origin -- the new auth endpoints (server/auth/*.php) use
+     * POST with a JSON body and/or an Authorization header, both of
+     * which trigger a browser preflight. Emits the origin/Vary headers
+     * (same as applyHeaders()) plus the specific method/header policy
+     * those endpoints need. Never emits Access-Control-Allow-Credentials
+     * -- a production cookie transport is still deferred (see
+     * docs/adr/0001-cross-site-auth-transport.md), and emitting that
+     * header now would be a premature commitment this class does not
+     * make. Does nothing for a disallowed origin, same as
+     * applyHeaders().
+     */
+    public function applyPreflightHeaders(?string $requestOrigin): void
+    {
+        if (!$this->isOriginAllowed($requestOrigin)) {
+            return;
+        }
+        header('Access-Control-Allow-Origin: ' . $requestOrigin);
+        header('Vary: Origin');
+        header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+        header('Access-Control-Allow-Headers: Content-Type, Authorization');
+    }
+```
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `php server/tests/run-tests.php`
+Expected: `80 passed, 0 failed` (76 from Task 8, plus 4 new CORS tests;
+`CorsTest.php` was already registered in `run-tests.php` since Phase 2,
+so no registration change is needed here).
+
+- [ ] **Step 5: Confirm Phase 2's own CORS test still passes unmodified**
+
+Run:
+
+```bash
+grep -c "=>" server/tests/CorsTest.php
+```
+
+Expected: `9` (Phase 2's original 5 plus this task's 4 new entries) —
+confirms no existing entry was accidentally removed while appending.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add server/src/Cors.php server/tests/CorsTest.php
+git commit -m "feat: add CORS preflight support for the new auth endpoints"
+```
+
+---
+
+## Task 10: `MagicLinkUrlBuilder` (required correction 4) + `Mailer` interface + test-only `FakeMailer`
+
+**New/relocated in this rev.** `MagicLinkUrlBuilder` is entirely new
+(required correction 4 — "make fragment transport safe by
+construction"). `Mailer` is unchanged in shape from the original plan
+but `FakeMailer` moves from `server/src/Auth/` to `server/tests/Auth/`
+(the Mailer-placement correction) since it is test-only code with no
+reason to ship as part of the deployable `server/src/` tree.
+
+**Files:**
+- Create: `server/src/Auth/MagicLinkUrlBuilder.php`
+- Create: `server/src/Auth/Mailer.php`
+- Create: `server/tests/Auth/FakeMailer.php` (note: under `tests/`, not `src/`)
+- Test: `server/tests/Auth/MagicLinkUrlBuilderTest.php`
+- Modify: `server/tests/run-tests.php`
+
+**Interfaces:**
+- Produces:
+  - `KanaGame\Paddle\Auth\MagicLinkUrlBuilder::__construct(string $frontendBaseUrl)`
+  - `build(string $rawToken): string` — returns
+    `<frontendBaseUrl-with-exactly-one-trailing-slash>#/verify?token=<urlencoded-rawToken>`.
+    The `#/verify` route segment is a **compile-time string literal
+    inside this class**, never taken from config — a config value only
+    ever supplies the origin/path prefix before the fragment delimiter,
+    so a config mistake (missing/malformed `#/verify`) cannot cause the
+    raw token to end up in the server-visible portion of the URL. This
+    is what "safe by construction, not by config convention" means
+    concretely: the fragment delimiter is written directly in this
+    class's own source code, not read from any config key.
+  - `KanaGame\Paddle\Auth\Mailer` (interface):
+    `sendMagicLink(string $emailNormalized, string $magicLinkUrl): void`.
+  - `KanaGame\Paddle\Auth\FakeMailer implements Mailer` (test-only,
+    under `server/tests/Auth/`) — records every call in
+    `public array $sent = []`.
+
+- [ ] **Step 1: Write the failing test for `MagicLinkUrlBuilder`**
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace KanaGame\Paddle\Tests;
+
+use KanaGame\Paddle\Auth\MagicLinkUrlBuilder;
+
+require_once __DIR__ . '/../TestCase.php';
+require_once __DIR__ . '/../../src/Auth/MagicLinkUrlBuilder.php';
+
+/**
+ * @return array<string, callable(): void>
+ */
+function magicLinkUrlBuilderTests(): array
+{
+    return [
+        'build() produces a URL containing the fragment verify route with the token' => function () {
+            $builder = new MagicLinkUrlBuilder('https://yhalcyon-gh.github.io/kana-game/');
+            $url = $builder->build('raw-token-value');
+
+            assertTrue(str_contains($url, '#/verify?token=raw-token-value'), "expected fragment route with token, got: {$url}");
+        },
+
+        'build() places the raw token strictly AFTER the fragment delimiter' => function () {
+            $builder = new MagicLinkUrlBuilder('https://yhalcyon-gh.github.io/kana-game/');
+            $url = $builder->build('secret-abc-123');
+
+            $fragmentPosition = strpos($url, '#');
+            $tokenPosition = strpos($url, 'secret-abc-123');
+
+            assertTrue($fragmentPosition !== false, 'the URL must contain a fragment delimiter');
+            assertTrue($tokenPosition !== false, 'the URL must contain the token');
+            assertTrue($tokenPosition > $fragmentPosition, 'the raw token must appear strictly after the # delimiter');
+        },
+
+        'build() never places the raw token in the server-visible portion of the URL (before #)' => function () {
+            $builder = new MagicLinkUrlBuilder('https://yhalcyon-gh.github.io/kana-game/');
+            $url = $builder->build('never-server-visible-token');
+
+            $serverVisiblePortion = strtok($url, '#');
+            assertFalse(
+                str_contains($serverVisiblePortion, 'never-server-visible-token'),
+                'the raw token must never appear in the portion of the URL a browser would send to a server',
+            );
+        },
+
+        'build() URL-encodes the token' => function () {
+            $builder = new MagicLinkUrlBuilder('https://yhalcyon-gh.github.io/kana-game/');
+            $url = $builder->build('token/with+special=chars');
+
+            assertTrue(str_contains($url, urlencode('token/with+special=chars')), 'the token must be urlencoded in the query portion after the fragment');
+        },
+
+        'build() normalizes a base URL missing a trailing slash' => function () {
+            $builder = new MagicLinkUrlBuilder('https://yhalcyon-gh.github.io/kana-game');
+            $url = $builder->build('tok');
+
+            assertTrue(str_contains($url, '/kana-game/#/verify?token=tok'), "expected a single slash before the fragment, got: {$url}");
+        },
+
+        'build() does not duplicate a trailing slash already present in the base URL' => function () {
+            $builder = new MagicLinkUrlBuilder('https://yhalcyon-gh.github.io/kana-game/');
+            $url = $builder->build('tok');
+
+            assertFalse(str_contains($url, '//#'), "must not produce a doubled slash before the fragment, got: {$url}");
+        },
+    ];
+}
+```
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `php -r "require 'server/tests/TestCase.php'; require 'server/tests/Auth/MagicLinkUrlBuilderTest.php';"`
+Expected: `Fatal error: ... 'MagicLinkUrlBuilder' not found`.
+
+- [ ] **Step 3: Write minimal implementation**
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace KanaGame\Paddle\Auth;
+
+/**
+ * Builds the Magic Link URL sent to a user. SAFE BY CONSTRUCTION: the
+ * "#/verify" fragment route is a literal string in THIS FILE, never
+ * read from config -- config only ever supplies the origin/path prefix
+ * that comes BEFORE the fragment delimiter. This means a config mistake
+ * (e.g. an operator omitting "#/verify" from a config value, or a typo
+ * that turns "#/verify" into a literal "/verify" query path) CANNOT
+ * cause the raw token to end up in the server-visible portion of the
+ * URL -- the fragment delimiter is not something a config file gets to
+ * decide. See docs/superpowers/specs/2026-09-08-paddle-auth-
+ * entitlement-phase3-design.md, section 5, for why the token must live
+ * in a URL fragment (never sent to any HTTP server by the browser).
+ */
+final class MagicLinkUrlBuilder
+{
+    private const FRAGMENT_ROUTE = '#/verify';
+
+    private readonly string $baseUrl;
+
+    public function __construct(string $frontendBaseUrl)
+    {
+        $this->baseUrl = rtrim($frontendBaseUrl, '/') . '/';
+    }
+
+    public function build(string $rawToken): string
+    {
+        return $this->baseUrl . self::FRAGMENT_ROUTE . '?token=' . urlencode($rawToken);
+    }
+}
+```
+
+- [ ] **Step 4: Register the test file in the runner**
+
+```php
+    __DIR__ . '/Auth/MagicLinkUrlBuilderTest.php' => 'KanaGame\\Paddle\\Tests\\magicLinkUrlBuilderTests',
+```
+
+- [ ] **Step 5: Run test to verify it passes**
+
+Run: `php server/tests/run-tests.php`
+Expected: `86 passed, 0 failed`.
+
+- [ ] **Step 6: Commit `MagicLinkUrlBuilder`**
+
+```bash
+git add server/src/Auth/MagicLinkUrlBuilder.php server/tests/Auth/MagicLinkUrlBuilderTest.php server/tests/run-tests.php
+git commit -m "feat: add MagicLinkUrlBuilder (fragment-safe by construction)"
+```
+
+- [ ] **Step 7: Write the `Mailer` interface**
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace KanaGame\Paddle\Auth;
+
+/**
+ * Sends a Magic Link email. NO production implementation exists in
+ * this PR -- the only implementation anywhere in this codebase is
+ * FakeMailer, under server/tests/Auth/ (test-only, not part of the
+ * deployable server/src/ tree -- see that file's own doc comment for
+ * why). A real SMTP/XServer-mail transport is future work requiring a
+ * real credential (human checkpoint per the task brief, Section 21).
+ * No production email is ever sent by this PR's code.
+ */
+interface Mailer
+{
+    public function sendMagicLink(string $emailNormalized, string $magicLinkUrl): void;
+}
+```
+
+- [ ] **Step 8: Write the test-only `FakeMailer` UNDER `server/tests/Auth/`**
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace KanaGame\Paddle\Auth;
+
+/**
+ * TEST-ONLY. Lives under server/tests/Auth/, not server/src/Auth/ --
+ * it has no reason to be part of the production deployment (see
+ * docs/paddle-auth-phase3a-pr-a.md's deployment-manifest notes). Its
+ * in-memory state does NOT and CANNOT survive across separate HTTP
+ * requests -- each PHP-FPM/CGI request is a fresh process with no
+ * shared memory. FakeMailer is therefore only ever instantiated inside
+ * same-process PHP unit tests (server/tests/Auth/MagicLinkAuthServiceTest.php)
+ * -- never by any real entrypoint. request-link.php (Task 12) uses its
+ * own inline no-op Mailer implementation, not this class, for exactly
+ * that reason.
+ *
+ * Despite being namespaced KanaGame\Paddle\Auth (matching the interface
+ * it implements), this file is intentionally NOT under server/src/ --
+ * PHP namespaces don't have to match directory structure 1:1 in a
+ * project with no autoloader (this repo has none; every file is
+ * require_once'd explicitly), and keeping the namespace consistent with
+ * Mailer's own namespace is clearer than inventing a separate
+ * KanaGame\Paddle\Tests\Auth namespace solely for this one class.
+ */
+final class FakeMailer implements Mailer
+{
+    /** @var list<array{email: string, url: string}> */
+    public array $sent = [];
+
+    public function sendMagicLink(string $emailNormalized, string $magicLinkUrl): void
+    {
+        $this->sent[] = ['email' => $emailNormalized, 'url' => $magicLinkUrl];
+    }
+}
+```
+
+- [ ] **Step 9: Confirm both files parse cleanly**
+
+```bash
+php -l server/src/Auth/Mailer.php
+php -l server/tests/Auth/FakeMailer.php
+```
+
+Expected: `No syntax errors detected` for both.
+
+- [ ] **Step 10: Commit**
+
+```bash
+git add server/src/Auth/Mailer.php server/tests/Auth/FakeMailer.php
+git commit -m "feat: add Mailer interface and test-only FakeMailer (under tests/, not src/)"
+```
+
+---
+
+## Task 11: `MagicLinkAuthService` — request-link/verify orchestration
+
+**Substantially revised in this rev.**, replacing the original plan's
+`AuthService`. Changes:
+
+- Depends on `CurrentUserService` (Task 8) for session creation, instead
+  of talking to `SessionRepository` directly — `verify()` composes
+  `CurrentUserService::createSession()` rather than duplicating that
+  logic.
+- Uses `EmailValidator` (Task 7) — an invalid email now short-circuits
+  before either rate-limit bucket is touched, but see the next point for
+  the specific exception.
+- **`requestLink()` now records against the IP bucket even for a
+  malformed email** (required correction 2's "rate-limit the source IP
+  for malformed email requests rather than returning before any IP
+  limit is recorded"). The original plan's `requestLink()` returned
+  immediately on a malformed email, before touching the rate limiter at
+  all — meaning an attacker could send unlimited malformed-email
+  requests from one IP with no rate-limit signal ever recorded against
+  that IP. The corrected order is: normalize -> **always record against
+  the IP bucket first** -> if the IP bucket itself is already exhausted,
+  stop -> validate the email -> if invalid, stop (having already
+  recorded the IP hit) -> record against the email bucket -> if
+  exhausted, stop -> issue token + send mail.
+- Uses `MagicLinkUrlBuilder` (Task 10) instead of raw string
+  concatenation for the magic-link URL.
+- `verify()` now calls `MagicLinkTokenRepository::bindUser()` (Task 4)
+  inside the same transaction, after the user is resolved (required
+  correction 7).
+- Its concurrency tests are explicitly labeled "race-scenario test" per
+  the terminology correction (required correction 8).
+
+**Files:**
+- Create: `server/src/Auth/MagicLinkAuthService.php`
+- Test: `server/tests/Auth/MagicLinkAuthServiceTest.php`
+- Modify: `server/tests/run-tests.php`
+
+**Interfaces:**
+- Consumes: `MagicLinkTokenRepository` (Task 4), `UserRepository`
+  (Task 3), `RateLimiter` (Task 6), `Mailer` (Task 10),
+  `EmailValidator` (Task 7), `MagicLinkUrlBuilder` (Task 10),
+  `CurrentUserService` (Task 8).
+- Produces:
+  - `KanaGame\Paddle\Auth\MagicLinkAuthService::__construct(\PDO $pdo, MagicLinkTokenRepository $tokens, UserRepository $users, RateLimiter $rateLimiter, Mailer $mailer, MagicLinkUrlBuilder $urlBuilder, CurrentUserService $currentUser, int $tokenExpiryMinutes)`
+    — note this constructor is now 8 arguments instead of the original
+    plan's 9, and drops `SessionRepository`/base-URL-string/
+    `sessionExpiryDays` entirely (those live in `CurrentUserService`
+    now, constructed once and passed in).
+  - `MagicLinkAuthResult` — value object, same shape as the original
+    plan's `AuthResult` (`success`, `sessionToken`, `user`).
+  - `requestLink(string $rawEmail, string $clientIp): void` — see the
+    corrected ordering above. Never touches `UserRepository`.
+  - `verify(string $rawToken): MagicLinkAuthResult` — one PDO
+    transaction: `tokens->consume()` -> if false, rollback, return
+    invalid; else `tokens->findEmailForRawToken()` ->
+    `users->findOrCreateByEmail()` -> `tokens->bindUser($rawToken,
+    $user['id'])` -> `currentUser->createSession($user['id'])` -> commit
+    -> return success.
+
+- [ ] **Step 1: Write the failing test**
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace KanaGame\Paddle\Tests;
+
+use KanaGame\Paddle\Auth\CurrentUserService;
+use KanaGame\Paddle\Auth\MagicLinkAuthService;
 use KanaGame\Paddle\Auth\MagicLinkTokenRepository;
+use KanaGame\Paddle\Auth\MagicLinkUrlBuilder;
 use KanaGame\Paddle\Auth\RateLimiter;
 use KanaGame\Paddle\Auth\SessionRepository;
 use KanaGame\Paddle\Auth\UserRepository;
 use PDO;
 
 require_once __DIR__ . '/../TestCase.php';
-require_once __DIR__ . '/../../src/Auth/AuthService.php';
+require_once __DIR__ . '/../../src/Auth/CurrentUserService.php';
 require_once __DIR__ . '/../../src/Auth/EmailNormalizer.php';
-require_once __DIR__ . '/../../src/Auth/FakeMailer.php';
+require_once __DIR__ . '/../../src/Auth/EmailValidator.php';
+require_once __DIR__ . '/../../src/Auth/MagicLinkAuthService.php';
 require_once __DIR__ . '/../../src/Auth/MagicLinkTokenRepository.php';
+require_once __DIR__ . '/../../src/Auth/MagicLinkUrlBuilder.php';
 require_once __DIR__ . '/../../src/Auth/RateLimiter.php';
 require_once __DIR__ . '/../../src/Auth/SessionRepository.php';
 require_once __DIR__ . '/../../src/Auth/UserRepository.php';
+require_once __DIR__ . '/FakeMailer.php';
 require_once __DIR__ . '/../../src/Uuid.php';
 
-function makeAuthServiceTestDb(): PDO
+function makeMagicLinkAuthServiceTestDb(): PDO
 {
     $pdo = new PDO('sqlite::memory:');
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -1698,66 +2650,94 @@ function makeAuthServiceTestDb(): PDO
     return $pdo;
 }
 
-function makeAuthService(PDO $pdo, ?FakeMailer $mailer = null): AuthService
+/**
+ * @return array{service: MagicLinkAuthService, mailer: \KanaGame\Paddle\Auth\FakeMailer, pdo: PDO}
+ */
+function makeMagicLinkAuthServiceHarness(?PDO $pdo = null, int $emailLimit = 5, int $ipLimit = 20): array
 {
-    return new AuthService(
+    $pdo ??= makeMagicLinkAuthServiceTestDb();
+    $mailer = new \KanaGame\Paddle\Auth\FakeMailer();
+    $currentUser = new CurrentUserService(new UserRepository($pdo), new SessionRepository($pdo), 24);
+    $service = new MagicLinkAuthService(
         $pdo,
         new MagicLinkTokenRepository($pdo),
         new UserRepository($pdo),
-        new SessionRepository($pdo),
-        new RateLimiter($pdo, 'test-pepper', 5, 20),
-        $mailer ?? new FakeMailer(),
-        'https://example.com/kana-game/#/verify',
+        new RateLimiter($pdo, 'test-pepper', $emailLimit, $ipLimit),
+        $mailer,
+        new MagicLinkUrlBuilder('https://example.com/kana-game/'),
+        $currentUser,
         15,
-        30,
     );
+
+    return ['service' => $service, 'mailer' => $mailer, 'pdo' => $pdo];
+}
+
+function extractTokenFromUrl(string $url): string
+{
+    $query = parse_url($url, PHP_URL_FRAGMENT);
+    parse_str(substr((string) $query, strpos((string) $query, '?') + 1), $params);
+    return $params['token'];
 }
 
 /**
  * @return array<string, callable(): void>
  */
-function authServiceTests(): array
+function magicLinkAuthServiceTests(): array
 {
     return [
         'requestLink() sends a magic link email for a valid request' => function () {
-            $mailer = new FakeMailer();
-            $service = makeAuthService(makeAuthServiceTestDb(), $mailer);
-            $service->requestLink('User@Example.com', '203.0.113.1');
+            $h = makeMagicLinkAuthServiceHarness();
+            $h['service']->requestLink('User@Example.com', '203.0.113.1');
 
-            assertSame(1, count($mailer->sent), 'exactly one email should have been sent');
-            assertSame('user@example.com', $mailer->sent[0]['email'], 'the recorded email should be normalized');
+            assertSame(1, count($h['mailer']->sent), 'exactly one email should have been sent');
+            assertSame('user@example.com', $h['mailer']->sent[0]['email'], 'the recorded email should be normalized');
         },
 
         'requestLink() does not create a users row' => function () {
-            $pdo = makeAuthServiceTestDb();
-            $service = makeAuthService($pdo);
-            $service->requestLink('nouser@example.com', '203.0.113.1');
+            $h = makeMagicLinkAuthServiceHarness();
+            $h['service']->requestLink('nouser@example.com', '203.0.113.1');
 
-            $count = (int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
+            $count = (int) $h['pdo']->query('SELECT COUNT(*) FROM users')->fetchColumn();
             assertSame(0, $count, 'request-link must never create a durable user row');
         },
 
-        'requestLink() silently drops the email send when the per-email rate limit is exceeded' => function () {
-            $mailer = new FakeMailer();
-            $pdo = makeAuthServiceTestDb();
-            $service = makeAuthService($pdo, $mailer);
-            for ($i = 0; $i < 5; $i++) {
-                $service->requestLink('spammed@example.com', "203.0.113.{$i}");
-            }
-            $service->requestLink('spammed@example.com', '203.0.113.99');
+        'requestLink() with a malformed email sends no mail but STILL records against the IP bucket' => function () {
+            $h = makeMagicLinkAuthServiceHarness();
+            $h['service']->requestLink('not-an-email', '203.0.113.50');
 
-            assertSame(5, count($mailer->sent), 'the 6th request in the window must not trigger a mailer call');
+            assertSame(0, count($h['mailer']->sent), 'a malformed email must never trigger a mailer call');
+
+            $row = $h['pdo']->query("SELECT count FROM rate_limits WHERE bucket = 'magic_link_ip'")->fetch();
+            assertTrue($row !== false, 'the IP bucket must have recorded this attempt even though the email was malformed');
+            assertSame(1, (int) $row['count'], 'the IP bucket count should be 1 after one malformed-email attempt');
+        },
+
+        'requestLink() silently drops the email send when the per-email rate limit is exceeded' => function () {
+            $h = makeMagicLinkAuthServiceHarness();
+            for ($i = 0; $i < 5; $i++) {
+                $h['service']->requestLink('spammed@example.com', "203.0.113.{$i}");
+            }
+            $h['service']->requestLink('spammed@example.com', '203.0.113.99');
+
+            assertSame(5, count($h['mailer']->sent), 'the 6th request in the window must not trigger a mailer call');
+        },
+
+        'requestLink() silently drops the email send when the per-IP rate limit is exceeded, even for a brand-new email' => function () {
+            $h = makeMagicLinkAuthServiceHarness();
+            for ($i = 0; $i < 20; $i++) {
+                $h['service']->requestLink("victim{$i}@example.com", '203.0.113.9');
+            }
+            $h['service']->requestLink('final-victim@example.com', '203.0.113.9');
+
+            assertSame(20, count($h['mailer']->sent), 'the 21st request from this one IP must not trigger a mailer call, even for a never-before-seen email');
         },
 
         'verify() with a freshly issued token succeeds and creates a session' => function () {
-            $mailer = new FakeMailer();
-            $service = makeAuthService(makeAuthServiceTestDb(), $mailer);
-            $service->requestLink('verify-me@example.com', '203.0.113.1');
+            $h = makeMagicLinkAuthServiceHarness();
+            $h['service']->requestLink('verify-me@example.com', '203.0.113.1');
+            $rawToken = extractTokenFromUrl($h['mailer']->sent[0]['url']);
 
-            $sentUrl = $mailer->sent[0]['url'];
-            $rawToken = substr($sentUrl, strrpos($sentUrl, '=') + 1);
-
-            $result = $service->verify($rawToken);
+            $result = $h['service']->verify($rawToken);
 
             assertTrue($result->success, 'verification should succeed');
             assertTrue($result->sessionToken !== null, 'a session token should be returned');
@@ -1765,109 +2745,78 @@ function authServiceTests(): array
         },
 
         'verify() creates exactly one user on first-ever verification' => function () {
-            $pdo = makeAuthServiceTestDb();
-            $mailer = new FakeMailer();
-            $service = makeAuthService($pdo, $mailer);
-            $service->requestLink('firsttime@example.com', '203.0.113.1');
-            $sentUrl = $mailer->sent[0]['url'];
-            $rawToken = substr($sentUrl, strrpos($sentUrl, '=') + 1);
+            $h = makeMagicLinkAuthServiceHarness();
+            $h['service']->requestLink('firsttime@example.com', '203.0.113.1');
+            $rawToken = extractTokenFromUrl($h['mailer']->sent[0]['url']);
 
-            $service->verify($rawToken);
+            $h['service']->verify($rawToken);
 
-            $count = (int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
+            $count = (int) $h['pdo']->query('SELECT COUNT(*) FROM users')->fetchColumn();
             assertSame(1, $count, 'exactly one user row should exist after first verification');
         },
 
-        'verify() with the same token twice succeeds once and fails the second time (single-use)' => function () {
-            $mailer = new FakeMailer();
-            $service = makeAuthService(makeAuthServiceTestDb(), $mailer);
-            $service->requestLink('reuse@example.com', '203.0.113.1');
-            $sentUrl = $mailer->sent[0]['url'];
-            $rawToken = substr($sentUrl, strrpos($sentUrl, '=') + 1);
+        'verify() binds the consumed token to the resolved user (referential integrity)' => function () {
+            $h = makeMagicLinkAuthServiceHarness();
+            $h['service']->requestLink('bind-check@example.com', '203.0.113.1');
+            $rawToken = extractTokenFromUrl($h['mailer']->sent[0]['url']);
 
-            $first = $service->verify($rawToken);
-            $second = $service->verify($rawToken);
+            $result = $h['service']->verify($rawToken);
+
+            $boundUserId = $h['pdo']->query(
+                "SELECT user_id FROM magic_link_tokens WHERE email_normalized = 'bind-check@example.com'",
+            )->fetchColumn();
+            assertSame($result->user['id'], $boundUserId, 'the consumed token row must be bound to the resolved user');
+        },
+
+        'verify() with the same token twice succeeds once and fails the second time (single-use)' => function () {
+            $h = makeMagicLinkAuthServiceHarness();
+            $h['service']->requestLink('reuse@example.com', '203.0.113.1');
+            $rawToken = extractTokenFromUrl($h['mailer']->sent[0]['url']);
+
+            $first = $h['service']->verify($rawToken);
+            $second = $h['service']->verify($rawToken);
 
             assertTrue($first->success, 'first verify should succeed');
             assertFalse($second->success, 'second verify of the same token must fail');
         },
 
         'verify() with an unknown token fails with the same generic result shape as an expired/used token' => function () {
-            $service = makeAuthService(makeAuthServiceTestDb());
-            $result = $service->verify('never-issued-token');
+            $h = makeMagicLinkAuthServiceHarness();
+            $result = $h['service']->verify('never-issued-token');
 
             assertFalse($result->success, 'unknown token must fail');
             assertSame(null, $result->sessionToken, 'no session token should be returned on failure');
         },
 
-        'me() resolves the correct user for a valid session token' => function () {
-            $mailer = new FakeMailer();
-            $service = makeAuthService(makeAuthServiceTestDb(), $mailer);
-            $service->requestLink('me-test@example.com', '203.0.113.1');
-            $sentUrl = $mailer->sent[0]['url'];
-            $rawToken = substr($sentUrl, strrpos($sentUrl, '=') + 1);
-            $verifyResult = $service->verify($rawToken);
+        // -- Race-scenario tests (NOT true concurrent MariaDB execution
+        // -- see this plan's Global Constraints). These run
+        // sequentially against one SQLite connection and prove the
+        // ATOMICITY/IDEMPOTENCY of the SQL patterns used, not real
+        // simultaneous multi-connection behavior. See Task 14 for the
+        // documented real-MariaDB pre-Live verification requirement.
 
-            $me = $service->me($verifyResult->sessionToken);
+        'race-scenario test: two concurrent verify() calls for the SAME token -- exactly one succeeds' => function () {
+            $h = makeMagicLinkAuthServiceHarness();
+            $h['service']->requestLink('race-same-token@example.com', '203.0.113.1');
+            $rawToken = extractTokenFromUrl($h['mailer']->sent[0]['url']);
 
-            assertTrue($me !== null, 'me() should resolve for a valid session');
-            assertSame('me-test@example.com', $me['email_normalized'], 'email should match');
-        },
-
-        'me() returns null for an invalid session token' => function () {
-            $service = makeAuthService(makeAuthServiceTestDb());
-            assertSame(null, $service->me('bogus-session-token'), 'an invalid token must not resolve');
-        },
-
-        'logout() revokes the session so a later me() call fails' => function () {
-            $mailer = new FakeMailer();
-            $service = makeAuthService(makeAuthServiceTestDb(), $mailer);
-            $service->requestLink('logout-test@example.com', '203.0.113.1');
-            $sentUrl = $mailer->sent[0]['url'];
-            $rawToken = substr($sentUrl, strrpos($sentUrl, '=') + 1);
-            $verifyResult = $service->verify($rawToken);
-
-            $service->logout($verifyResult->sessionToken);
-
-            assertSame(null, $service->me($verifyResult->sessionToken), 'me() must fail after logout');
-        },
-
-        // --- Concurrency tests required by the design spec (Section 6) ---
-
-        'two concurrent verify() calls for the SAME token: exactly one succeeds' => function () {
-            $mailer = new FakeMailer();
-            $service = makeAuthService(makeAuthServiceTestDb(), $mailer);
-            $service->requestLink('race-same-token@example.com', '203.0.113.1');
-            $sentUrl = $mailer->sent[0]['url'];
-            $rawToken = substr($sentUrl, strrpos($sentUrl, '=') + 1);
-
-            // Simulated concurrency: sequential calls against the same
-            // underlying DB state model the race, since PHP CLI test
-            // execution is single-threaded — what matters is that the
-            // SECOND call sees the already-used token and is rejected,
-            // proving the atomic consume (not true OS-level threading)
-            // is what's under test here.
-            $first = $service->verify($rawToken);
-            $second = $service->verify($rawToken);
+            $first = $h['service']->verify($rawToken);
+            $second = $h['service']->verify($rawToken);
 
             $successCount = ($first->success ? 1 : 0) + ($second->success ? 1 : 0);
             assertSame(1, $successCount, 'exactly one of the two concurrent verifications must succeed');
         },
 
-        'two DISTINCT valid tokens for the SAME email: both succeed, resolve to one user, no duplicate-key error' => function () {
-            $pdo = makeAuthServiceTestDb();
-            $mailer = new FakeMailer();
-            $service = makeAuthService($pdo, $mailer);
+        'race-scenario test: two DISTINCT valid tokens for the SAME email -- both succeed, resolve to one user, no duplicate-key error' => function () {
+            $h = makeMagicLinkAuthServiceHarness();
 
-            // Two separate magic-link requests for the same email produce
-            // two distinct, both-still-valid tokens (Link A, Link B).
-            $service->requestLink('two-links@example.com', '203.0.113.1');
-            $service->requestLink('two-links@example.com', '203.0.113.2');
-            $rawTokenA = substr($mailer->sent[0]['url'], strrpos($mailer->sent[0]['url'], '=') + 1);
-            $rawTokenB = substr($mailer->sent[1]['url'], strrpos($mailer->sent[1]['url'], '=') + 1);
+            $h['service']->requestLink('two-links@example.com', '203.0.113.1');
+            $h['service']->requestLink('two-links@example.com', '203.0.113.2');
+            $rawTokenA = extractTokenFromUrl($h['mailer']->sent[0]['url']);
+            $rawTokenB = extractTokenFromUrl($h['mailer']->sent[1]['url']);
 
-            $resultA = $service->verify($rawTokenA);
-            $resultB = $service->verify($rawTokenB);
+            $resultA = $h['service']->verify($rawTokenA);
+            $resultB = $h['service']->verify($rawTokenB);
 
             assertTrue($resultA->success, 'verifying link A must succeed');
             assertTrue($resultB->success, 'verifying link B must succeed');
@@ -1877,23 +2826,19 @@ function authServiceTests(): array
                 'both links for the same email must resolve to the same user id',
             );
 
-            $userCount = (int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
-            assertSame(1, $userCount, 'exactly one user row must exist — no duplicate-key error, no duplicate user');
-
-            $meA = $service->me($resultA->sessionToken);
-            $meB = $service->me($resultB->sessionToken);
-            assertTrue($meA !== null && $meB !== null, 'both sessions must independently resolve');
+            $userCount = (int) $h['pdo']->query('SELECT COUNT(*) FROM users')->fetchColumn();
+            assertSame(1, $userCount, 'exactly one user row must exist -- no duplicate-key error, no duplicate user');
         },
     ];
 }
 ```
 
-- [ ] **Step 7: Run test to verify it fails**
+- [ ] **Step 2: Run test to verify it fails**
 
-Run: `php -r "require 'server/tests/TestCase.php'; require 'server/tests/Auth/AuthServiceTest.php';"`
-Expected: `Fatal error: ... 'AuthService' not found`.
+Run: `php -r "require 'server/tests/TestCase.php'; require 'server/tests/Auth/MagicLinkAuthServiceTest.php';"`
+Expected: `Fatal error: ... 'MagicLinkAuthService' not found`.
 
-- [ ] **Step 8: Write `AuthService`**
+- [ ] **Step 3: Write minimal implementation**
 
 ```php
 <?php
@@ -1905,12 +2850,10 @@ namespace KanaGame\Paddle\Auth;
 use PDO;
 
 /**
- * Value object returned by AuthService::verify(). success=false never
- * distinguishes WHY (unknown/expired/already-used token) — see the
- * design spec's requirement that verify.php's response not help an
- * attacker fingerprint token state.
+ * Value object returned by MagicLinkAuthService::verify(). success=false
+ * never distinguishes WHY (unknown/expired/already-used token).
  */
-final class AuthResult
+final class MagicLinkAuthResult
 {
     /**
      * @param array{id: string, email_normalized: string}|null $user
@@ -1937,51 +2880,50 @@ final class AuthResult
 }
 
 /**
- * Orchestrates the Magic Link auth flow across the Auth repositories.
- * Two transaction-boundary guarantees this class is responsible for
- * (see the design spec, "Be explicit about transaction boundaries"):
- *
- * 1. requestLink() NEVER touches UserRepository — a users row is only
- *    ever created inside verify(), never by an unauthenticated request.
- * 2. verify() wraps token-consume, user find-or-create, and session
- *    creation in ONE PDO transaction — a mid-sequence failure leaves no
- *    partial state (a burned token with no session issued).
+ * Orchestrates the Magic Link request/verify flow. Depends on
+ * CurrentUserService (not SessionRepository directly) to create the
+ * session at the end of verify() -- composing, not duplicating,
+ * session-creation logic. Has NO consumer outside request-link.php and
+ * verify.php; me.php/logout.php/PR B's future purchase-intent.php use
+ * CurrentUserService directly and never construct this class.
  */
-final class AuthService
+final class MagicLinkAuthService
 {
     public function __construct(
         private readonly PDO $pdo,
         private readonly MagicLinkTokenRepository $tokens,
         private readonly UserRepository $users,
-        private readonly SessionRepository $sessions,
         private readonly RateLimiter $rateLimiter,
         private readonly Mailer $mailer,
-        private readonly string $magicLinkBaseUrl,
+        private readonly MagicLinkUrlBuilder $urlBuilder,
+        private readonly CurrentUserService $currentUser,
         private readonly int $tokenExpiryMinutes,
-        private readonly int $sessionExpiryDays,
     ) {
     }
 
     /**
-     * Always "succeeds" from the caller's perspective — no exception, no
-     * distinguishable return value for "already registered" vs. "new"
-     * vs. "rate-limited" vs. "malformed." See request-link.php (Task 9)
-     * for how this maps to the HTTP response.
+     * Always "succeeds" from the caller's perspective -- no exception,
+     * no distinguishable return value for "already registered" vs.
+     * "new" vs. "rate-limited" vs. "malformed."
+     *
+     * Ordering (required correction 2): the IP bucket is recorded FIRST,
+     * before email validation -- a malformed email must not be a free
+     * pass that skips IP-based throttling. Only after the IP bucket
+     * allows this request do we validate/normalize-check the email and
+     * then check the EMAIL bucket.
      */
     public function requestLink(string $rawEmail, string $clientIp): void
     {
-        $email = EmailNormalizer::normalize($rawEmail);
-
-        if ($email === '' || !str_contains($email, '@')) {
-            // Malformed input is treated exactly like "silently drop" —
-            // no exception, no distinguishable behavior from a
-            // rate-limited or already-registered request.
+        if (!$this->rateLimiter->checkAndRecordIp($clientIp)) {
             return;
         }
 
-        $emailAllowed = $this->rateLimiter->checkAndRecordEmail($email);
-        $ipAllowed = $this->rateLimiter->checkAndRecordIp($clientIp);
-        if (!$emailAllowed || !$ipAllowed) {
+        $email = EmailNormalizer::normalize($rawEmail);
+        if (!EmailValidator::isValid($email)) {
+            return;
+        }
+
+        if (!$this->rateLimiter->checkAndRecordEmail($email)) {
             return;
         }
 
@@ -1989,67 +2931,40 @@ final class AuthService
         $expiresAt = new \DateTimeImmutable("+{$this->tokenExpiryMinutes} minutes");
         $this->tokens->issue($email, $rawToken, $expiresAt);
 
-        $magicLinkUrl = $this->magicLinkBaseUrl . '?token=' . $rawToken;
+        $magicLinkUrl = $this->urlBuilder->build($rawToken);
         $this->mailer->sendMagicLink($email, $magicLinkUrl);
     }
 
-    public function verify(string $rawToken): AuthResult
+    public function verify(string $rawToken): MagicLinkAuthResult
     {
         $this->pdo->beginTransaction();
 
         try {
             if (!$this->tokens->consume($rawToken)) {
                 $this->pdo->rollBack();
-                return AuthResult::invalid();
+                return MagicLinkAuthResult::invalid();
             }
 
             $email = $this->tokens->findEmailForRawToken($rawToken);
             if ($email === null) {
-                // Defensive — consume() having returned true means a row
-                // with this hash existed a moment ago, so this should be
-                // unreachable, but never leave a transaction open.
                 $this->pdo->rollBack();
-                return AuthResult::invalid();
+                return MagicLinkAuthResult::invalid();
             }
 
             $user = $this->users->findOrCreateByEmail($email);
+            $this->tokens->bindUser($rawToken, $user['id']);
 
-            $rawSessionToken = $this->generateRawToken();
-            $sessionExpiresAt = new \DateTimeImmutable("+{$this->sessionExpiryDays} days");
-            $this->sessions->create($user['id'], $rawSessionToken, $sessionExpiresAt);
+            $rawSessionToken = $this->currentUser->createSession($user['id']);
 
             $this->pdo->commit();
 
-            return AuthResult::success($rawSessionToken, $user);
+            return MagicLinkAuthResult::success($rawSessionToken, $user);
         } catch (\Throwable $e) {
             if ($this->pdo->inTransaction()) {
                 $this->pdo->rollBack();
             }
             throw $e;
         }
-    }
-
-    /**
-     * @return array{user_id: string, email_normalized: string}|null
-     */
-    public function me(string $rawSessionToken): ?array
-    {
-        $userId = $this->sessions->findActiveUserIdForRawToken($rawSessionToken);
-        if ($userId === null) {
-            return null;
-        }
-
-        $user = $this->users->findById($userId);
-        if ($user === null) {
-            return null;
-        }
-
-        return ['user_id' => $user['id'], 'email_normalized' => $user['email_normalized']];
-    }
-
-    public function logout(string $rawSessionToken): void
-    {
-        $this->sessions->revoke($rawSessionToken);
     }
 
     private function generateRawToken(): string
@@ -2059,50 +2974,45 @@ final class AuthService
 }
 ```
 
-**Note on `me()`'s return shape vs. `AuthResult->user`**: `verify()`
-returns the internal repository shape (`id`, `email_normalized`) inside
-`AuthResult`, while `me()` returns an already-HTTP-shaped
-`user_id`/`email_normalized` array. This mirrors the actual JSON
-contracts the two entrypoints (Tasks 10 and 11) need to emit — `verify.
-php`'s response nests `user: {...}` with `user_id` (per the spec's
-Section 2 endpoint description), so Task 10 does its own field mapping
-from `AuthResult->user['id']`; `me()` is deliberately pre-shaped since
-`me.php`'s job is only to pass it straight through.
-
-- [ ] **Step 9: Register `AuthServiceTest.php` and run**
-
-Add to `server/tests/run-tests.php`:
+- [ ] **Step 4: Register the test file in the runner**
 
 ```php
-    __DIR__ . '/Auth/AuthServiceTest.php' => 'KanaGame\\Paddle\\Tests\\authServiceTests',
+    __DIR__ . '/Auth/MagicLinkAuthServiceTest.php' => 'KanaGame\\Paddle\\Tests\\magicLinkAuthServiceTests',
 ```
 
-Run: `php server/tests/run-tests.php`
-Expected: `78 passed, 0 failed`.
+- [ ] **Step 5: Run test to verify it passes**
 
-- [ ] **Step 10: Commit**
+Run: `php server/tests/run-tests.php`
+Expected: `98 passed, 0 failed` (86 from Task 10, plus 12 new tests here).
+
+- [ ] **Step 6: Commit**
 
 ```bash
-git add server/src/Auth/AuthService.php server/tests/Auth/AuthServiceTest.php server/tests/run-tests.php
-git commit -m "feat: add AuthService orchestrating request-link/verify/me/logout"
+git add server/src/Auth/MagicLinkAuthService.php server/tests/Auth/MagicLinkAuthServiceTest.php server/tests/run-tests.php
+git commit -m "feat: add MagicLinkAuthService with IP-first rate limiting and token-user binding"
 ```
 
 ---
 
-## Task 9: Config additions for the new auth settings
+## Task 12: Config additions for the new auth settings
+
+**Revised in this rev.**: `SESSION_EXPIRY_DAYS` -> `SESSION_EXPIRY_HOURS`
+(default 24, not 30 days). `MAGIC_LINK_BASE_URL` ->
+`MAGIC_LINK_FRONTEND_BASE_URL` (required correction 4 — this key now
+holds only the frontend origin/path prefix, with the `#/verify` route
+never appearing in config at all, only inside
+`MagicLinkUrlBuilder`'s own source).
 
 **Files:**
 - Modify: `server/src/Config.php`
 - Modify: `server/config.example.php`
 
 **Interfaces:**
-- Consumes: none new.
 - Produces: `Config::get()`/`Config::require()` now recognize 6 new
-  keys, consumed by Tasks 10–13's entrypoints:
-  `RATE_LIMIT_PEPPER`, `RATE_LIMIT_EMAIL_PER_HOUR` (default 5),
-  `RATE_LIMIT_IP_PER_HOUR` (default 20), `MAGIC_LINK_TOKEN_EXPIRY_MINUTES`
-  (default 15), `SESSION_EXPIRY_DAYS` (default 30),
-  `MAGIC_LINK_BASE_URL`.
+  keys: `RATE_LIMIT_PEPPER`, `RATE_LIMIT_EMAIL_PER_HOUR` (default 5),
+  `RATE_LIMIT_IP_PER_HOUR` (default 20),
+  `MAGIC_LINK_TOKEN_EXPIRY_MINUTES` (default 15),
+  `SESSION_EXPIRY_HOURS` (default 24), `MAGIC_LINK_FRONTEND_BASE_URL`.
 
 - [ ] **Step 1: Modify `Config::load()`'s key list**
 
@@ -2122,8 +3032,8 @@ In `server/src/Config.php`, extend the `$keys` array inside `load()`:
             'RATE_LIMIT_EMAIL_PER_HOUR',
             'RATE_LIMIT_IP_PER_HOUR',
             'MAGIC_LINK_TOKEN_EXPIRY_MINUTES',
-            'SESSION_EXPIRY_DAYS',
-            'MAGIC_LINK_BASE_URL',
+            'SESSION_EXPIRY_HOURS',
+            'MAGIC_LINK_FRONTEND_BASE_URL',
         ];
 ```
 
@@ -2145,11 +3055,8 @@ Add this method to the `Config` class, after `allowedOrigins()`:
 - [ ] **Step 3: Run existing tests to confirm no regression**
 
 Run: `php server/tests/run-tests.php`
-Expected: `78 passed, 0 failed` — `Config` has no dedicated test file
-today (confirmed by its absence from `run-tests.php`'s existing list),
-so this is a non-regression check via the tests that indirectly
-exercise `Config` (none currently do directly; this step just confirms
-the syntax is valid and nothing else broke).
+Expected: `98 passed, 0 failed` (unchanged from Task 11 — `Config` has
+no dedicated test file, so this run just confirms nothing else broke).
 
 Run: `php -l server/src/Config.php`
 Expected: `No syntax errors detected`.
@@ -2166,26 +3073,32 @@ Modify `server/config.example.php`, adding after the existing
 
     // HMAC pepper for rate-limit identifiers (server/src/Auth/RateLimiter.php).
     // Required in real deployment config. Never committed. Rotating this
-    // only resets everyone's rate-limit window — it does not invalidate
+    // only resets everyone's rate-limit window -- it does not invalidate
     // any stored identity, magic-link token, or session.
     'RATE_LIMIT_PEPPER' => '',
 
-    // Optional — defaults to 5/hour and 20/hour respectively if unset or
+    // Optional -- defaults to 5/hour and 20/hour respectively if unset or
     // non-numeric (see Config::intWithDefault()).
     'RATE_LIMIT_EMAIL_PER_HOUR' => '',
     'RATE_LIMIT_IP_PER_HOUR' => '',
 
-    // Optional — defaults to 15 minutes (magic-link token) and 30 days
-    // (session) if unset or non-numeric.
+    // Optional -- defaults to 15 minutes (magic-link token) and 24 hours
+    // (session) if unset or non-numeric. The 24-hour session default is
+    // explicitly provisional for Phase 3A (in-memory-only browser
+    // transport, no refresh/rotation system yet) -- see
+    // docs/adr/0001-cross-site-auth-transport.md.
     'MAGIC_LINK_TOKEN_EXPIRY_MINUTES' => '',
-    'SESSION_EXPIRY_DAYS' => '',
+    'SESSION_EXPIRY_HOURS' => '',
 
-    // The frontend URL prefix a magic-link token is appended to, e.g.
-    // 'https://yhalcyon-gh.github.io/kana-game/#/verify' (see
+    // The frontend origin/path prefix a magic-link token is appended to
+    // -- e.g. 'https://yhalcyon-gh.github.io/kana-game/'. Do NOT include
+    // a "#/verify" route here: server/src/Auth/MagicLinkUrlBuilder.php
+    // appends that fragment route and the urlencoded token itself, in
+    // code, specifically so a config mistake here cannot turn the raw
+    // token into a server-visible query parameter. See
     // docs/superpowers/specs/2026-09-08-paddle-auth-entitlement-phase3-
-    // design.md, section 5, for why this is a URL FRAGMENT route, not a
-    // query-string route on the API's own domain).
-    'MAGIC_LINK_BASE_URL' => '',
+    // design.md, section 5.
+    'MAGIC_LINK_FRONTEND_BASE_URL' => '',
 ```
 
 - [ ] **Step 5: Verify the example config still parses**
@@ -2197,24 +3110,43 @@ Expected: `No syntax errors detected`.
 
 ```bash
 git add server/src/Config.php server/config.example.php
-git commit -m "feat: add auth-related config keys with sane defaults"
+git commit -m "feat: add auth config keys (SESSION_EXPIRY_HOURS, MAGIC_LINK_FRONTEND_BASE_URL)"
 ```
 
 ---
 
-## Task 10: `request-link.php` entrypoint
+## Task 13: The four auth entrypoints (required corrections 1, 5, 6)
+
+**Substantially revised in this rev.** All four entrypoints:
+
+- call `Cors::applyPreflightHeaders()` on `OPTIONS` (required correction 1);
+- **never log `$e->getMessage()`** — only a generic operational line
+  naming the endpoint and the exception's class (required correction
+  5), since a real DB/mailer exception message could itself contain a
+  normalized email, a magic-link URL, or a raw token;
+- `me.php`/`logout.php` construct only `CurrentUserService` — NOT
+  `MagicLinkTokenRepository`, `RateLimiter`, or `Mailer` (required
+  correction 3 — this is the concrete entrypoint-level payoff of Task
+  8's split);
+- `logout.php` returns a genuine `500` (not a silent `200`) when a real
+  DB error prevents the revoke from happening (required correction 6) —
+  it still returns `200` for the idempotent "no token / unknown token /
+  already-revoked" cases, since those are not errors.
 
 **Files:**
 - Create: `server/auth/request-link.php`
+- Create: `server/auth/verify.php`
+- Create: `server/auth/me.php`
+- Create: `server/auth/logout.php`
 
 **Interfaces:**
-- Consumes: `Config`, `Db`, `Cors` (existing), `AuthService` (Task 8)
-  and its full dependency chain.
-- Produces: `POST /api/auth/request-link.php` — the first real HTTP
-  surface for this feature. No new interfaces produced for later tasks
-  (this is a leaf entrypoint).
+- Consumes: `MagicLinkAuthService` (Task 11, request-link.php/verify.php
+  only), `CurrentUserService` (Task 8, all four — request-link.php and
+  verify.php need it transitively via `MagicLinkAuthService`'s own
+  constructor; me.php/logout.php construct it directly and nothing
+  else).
 
-- [ ] **Step 1: Write the entrypoint**
+- [ ] **Step 1: Write `request-link.php`**
 
 ```php
 <?php
@@ -2225,34 +3157,34 @@ declare(strict_types=1);
  * Request a Magic Link sign-in email.
  *
  * POST /api/auth/request-link.php {"email": "user@example.com"}
- * -> 200 {"status": "ok"}  (ALWAYS this exact response — see below)
+ * -> 200 {"status": "ok"}  (ALWAYS this exact response)
  *
- * Enumeration-safe by construction: this endpoint returns the identical
- * 200/{"status":"ok"} response whether the email is malformed,
- * already registered, brand new, or currently rate-limited. See
- * docs/superpowers/specs/2026-09-08-paddle-auth-entitlement-phase3-
- * design.md, section 2, and AuthService::requestLink()'s own doc
- * comment for the mechanism (silent no-op internally, never an
- * exception or a differently-shaped response).
- *
- * This entrypoint never creates a users row — see AuthService::
- * requestLink()'s guarantee.
+ * Enumeration-safe by construction: identical 200/{"status":"ok"}
+ * response whether the email is malformed, already registered, brand
+ * new, or currently rate-limited. See MagicLinkAuthService::
+ * requestLink()'s own doc comment for the mechanism. Never creates a
+ * users row.
  */
 
 require __DIR__ . '/../src/Config.php';
 require __DIR__ . '/../src/Db.php';
 require __DIR__ . '/../src/Cors.php';
+require __DIR__ . '/../src/Auth/CurrentUserService.php';
 require __DIR__ . '/../src/Auth/EmailNormalizer.php';
+require __DIR__ . '/../src/Auth/EmailValidator.php';
+require __DIR__ . '/../src/Auth/MagicLinkAuthService.php';
 require __DIR__ . '/../src/Auth/MagicLinkTokenRepository.php';
-require __DIR__ . '/../src/Auth/UserRepository.php';
-require __DIR__ . '/../src/Auth/SessionRepository.php';
-require __DIR__ . '/../src/Auth/RateLimiter.php';
+require __DIR__ . '/../src/Auth/MagicLinkUrlBuilder.php';
 require __DIR__ . '/../src/Auth/Mailer.php';
-require __DIR__ . '/../src/Auth/AuthService.php';
+require __DIR__ . '/../src/Auth/RateLimiter.php';
+require __DIR__ . '/../src/Auth/SessionRepository.php';
+require __DIR__ . '/../src/Auth/UserRepository.php';
 require __DIR__ . '/../src/Uuid.php';
 
-use KanaGame\Paddle\Auth\AuthService;
+use KanaGame\Paddle\Auth\CurrentUserService;
+use KanaGame\Paddle\Auth\MagicLinkAuthService;
 use KanaGame\Paddle\Auth\MagicLinkTokenRepository;
+use KanaGame\Paddle\Auth\MagicLinkUrlBuilder;
 use KanaGame\Paddle\Auth\Mailer;
 use KanaGame\Paddle\Auth\RateLimiter;
 use KanaGame\Paddle\Auth\SessionRepository;
@@ -2263,14 +3195,15 @@ use KanaGame\Paddle\Db;
 
 $config = Config::load();
 $cors = new Cors($config->allowedOrigins());
-$cors->applyHeaders($_SERVER['HTTP_ORIGIN'] ?? null);
-
-header('Content-Type: application/json');
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
+    $cors->applyPreflightHeaders($_SERVER['HTTP_ORIGIN'] ?? null);
     http_response_code(204);
     exit;
 }
+
+$cors->applyHeaders($_SERVER['HTTP_ORIGIN'] ?? null);
+header('Content-Type: application/json');
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     http_response_code(405);
@@ -2282,37 +3215,37 @@ $body = json_decode(file_get_contents('php://input') ?: '', true);
 $rawEmail = is_array($body) ? ($body['email'] ?? null) : null;
 
 if (!is_string($rawEmail)) {
-    // Still the generic response — a missing/malformed field is not
-    // distinguishable from any other "no email sent" outcome.
     echo json_encode(['status' => 'ok']);
     exit;
 }
 
 // server/src/Auth/RateLimiter.php's IP bucket deliberately reads ONLY
-// REMOTE_ADDR — X-Forwarded-For is never trusted absent an explicit
-// trusted-proxy configuration (not present in this phase). See the
-// design spec's "Client IP resolution" section.
+// REMOTE_ADDR -- X-Forwarded-For is never trusted absent an explicit
+// trusted-proxy configuration (not present in this phase).
 $clientIp = $_SERVER['REMOTE_ADDR'] ?? '';
 
-// A real Mailer implementation does not exist yet in this PR — see
-// server/src/Auth/Mailer.php's doc comment. This is intentionally a
-// no-op implementation for now so request-link.php is fully wired and
-// testable end-to-end at the HTTP layer without sending real email; a
-// later PR/human-checkpoint step swaps this for a real SMTP transport.
+// No real Mailer implementation exists in this PR -- see
+// server/src/Auth/Mailer.php's doc comment. This inline no-op keeps
+// "no real mailer exists yet" visible at the one call site that
+// matters, and makes this endpoint fully deployable (if email-less)
+// without a real SMTP credential.
 $noopMailer = new class implements Mailer {
     public function sendMagicLink(string $emailNormalized, string $magicLinkUrl): void
     {
-        // Intentionally empty. See the class-level comment above.
     }
 };
 
 try {
     $pdo = Db::connect($config);
-    $service = new AuthService(
+    $currentUser = new CurrentUserService(
+        new UserRepository($pdo),
+        new SessionRepository($pdo),
+        $config->intWithDefault('SESSION_EXPIRY_HOURS', 24),
+    );
+    $service = new MagicLinkAuthService(
         $pdo,
         new MagicLinkTokenRepository($pdo),
         new UserRepository($pdo),
-        new SessionRepository($pdo),
         new RateLimiter(
             $pdo,
             $config->require('RATE_LIMIT_PEPPER'),
@@ -2320,77 +3253,24 @@ try {
             $config->intWithDefault('RATE_LIMIT_IP_PER_HOUR', 20),
         ),
         $noopMailer,
-        $config->require('MAGIC_LINK_BASE_URL'),
+        new MagicLinkUrlBuilder($config->require('MAGIC_LINK_FRONTEND_BASE_URL')),
+        $currentUser,
         $config->intWithDefault('MAGIC_LINK_TOKEN_EXPIRY_MINUTES', 15),
-        $config->intWithDefault('SESSION_EXPIRY_DAYS', 30),
     );
     $service->requestLink($rawEmail, $clientIp);
 } catch (\Throwable $e) {
-    // Never log the raw email/IP here — only the exception message,
-    // matching the existing entrypoints' error_log() convention.
-    error_log('request-link.php: failure: ' . $e->getMessage());
-    // Still return the generic response — an internal failure must not
-    // be distinguishable from "email was fine, link was sent."
-    // (A persistent outage is visible via error_log, not via this
-    // response shape.)
+    // NEVER log $e->getMessage() here -- a DB/mailer exception could
+    // itself contain a normalized email, a magic-link URL, or a raw
+    // token. Log only the endpoint name and the exception's class.
+    error_log('request-link.php: ' . get_class($e));
+    // Still return the generic response -- an internal failure must
+    // not be distinguishable from "email was fine, link was sent."
 }
 
 echo json_encode(['status' => 'ok']);
 ```
 
-**Why a `noopMailer` here instead of leaving Mailer unimplemented**:
-Task 8 deliberately keeps `Mailer` an interface with zero production
-implementations in `server/src/Auth/`. This entrypoint still needs
-*something* to pass to `AuthService`'s constructor to be a working,
-deployable (if email-less) endpoint — an anonymous no-op class defined
-inline, right where it's used, keeps that "no real Mailer exists yet"
-fact visible at the one call site that matters, rather than adding a
-named `NoopMailer` class to `server/src/Auth/` that could be mistaken
-for something more permanent.
-
-- [ ] **Step 2: Verify the file parses**
-
-Run: `php -l server/auth/request-link.php`
-Expected: `No syntax errors detected`.
-
-- [ ] **Step 3: Manual smoke test against SQLite is not possible here** —
-this entrypoint calls `Db::connect()`, which requires real MySQL/MariaDB
-config (`server/config.php`, gitignored, not present in this repo
-checkout). This is expected and matches Phase 2's own entrypoints
-(`entitlement.php`, `paddle-webhook.php`) — they are validated by
-`php -l` plus their underlying classes' SQLite-backed unit tests
-(already covering 100% of `AuthService`'s logic in Task 8), not by
-directly invoking the entrypoint file itself. No live MariaDB
-verification happens in this PR — see the plan's Verification section.
-
-- [ ] **Step 4: Commit**
-
-```bash
-git add server/auth/request-link.php
-git commit -m "feat: add POST /api/auth/request-link.php entrypoint"
-```
-
----
-
-## Task 11: `verify.php`, `me.php`, `logout.php` entrypoints
-
-**Files:**
-- Create: `server/auth/verify.php`
-- Create: `server/auth/me.php`
-- Create: `server/auth/logout.php`
-
-**Interfaces:**
-- Consumes: `AuthService` (Task 8), same dependency chain as Task 10.
-- Produces: the three remaining HTTP surfaces. `me.php`'s
-  `Authorization: Bearer` parsing pattern is reused verbatim by
-  `logout.php` — written once in both files identically (small enough
-  that a shared helper would be over-abstraction for two call sites,
-  consistent with the codebase's existing preference for inline clarity
-  over premature extraction, e.g. `entitlement.php`/`paddle-webhook.php`
-  each do their own `Config`/`Cors`/dispatch inline rather than sharing
-  a base entrypoint class).
-
-- [ ] **Step 1: Write `verify.php`**
+- [ ] **Step 2: Write `verify.php`**
 
 ```php
 <?php
@@ -2402,36 +3282,33 @@ declare(strict_types=1);
  *
  * POST /api/auth/verify.php {"token": "<raw-token-from-the-URL-fragment>"}
  * -> 200 {"session_token": "<raw>", "user": {"user_id": "...", "email_normalized": "..."}}
- * -> 400 {"error": "invalid or expired token"}  (same body for
- *    unknown/expired/already-used — see AuthResult's doc comment)
+ * -> 400 {"error": "invalid or expired token"}
  *
- * The token is read from the REQUEST BODY here, never a query string —
+ * The token is read from the REQUEST BODY here, never a query string --
  * see docs/superpowers/specs/2026-09-08-paddle-auth-entitlement-phase3-
- * design.md, section 5: the frontend reads the raw token from the URL
- * FRAGMENT (which browsers never send to any server), strips it from
- * browser history, then POSTs it here in the body. This endpoint itself
- * has no way to enforce that the caller behaved this way — the fragment/
- * history-strip discipline lives entirely in the frontend (PR C's
- * eventual /account-test harness and any future production UI); this
- * entrypoint's own contract is simply "accept the token in the POST
- * body," which is the necessary (not sufficient on its own) half of
- * that guarantee.
+ * design.md, section 5. The frontend reads the raw token from the URL
+ * fragment and strips it from history before POSTing it here.
  */
 
 require __DIR__ . '/../src/Config.php';
 require __DIR__ . '/../src/Db.php';
 require __DIR__ . '/../src/Cors.php';
+require __DIR__ . '/../src/Auth/CurrentUserService.php';
 require __DIR__ . '/../src/Auth/EmailNormalizer.php';
+require __DIR__ . '/../src/Auth/EmailValidator.php';
+require __DIR__ . '/../src/Auth/MagicLinkAuthService.php';
 require __DIR__ . '/../src/Auth/MagicLinkTokenRepository.php';
-require __DIR__ . '/../src/Auth/UserRepository.php';
-require __DIR__ . '/../src/Auth/SessionRepository.php';
-require __DIR__ . '/../src/Auth/RateLimiter.php';
+require __DIR__ . '/../src/Auth/MagicLinkUrlBuilder.php';
 require __DIR__ . '/../src/Auth/Mailer.php';
-require __DIR__ . '/../src/Auth/AuthService.php';
+require __DIR__ . '/../src/Auth/RateLimiter.php';
+require __DIR__ . '/../src/Auth/SessionRepository.php';
+require __DIR__ . '/../src/Auth/UserRepository.php';
 require __DIR__ . '/../src/Uuid.php';
 
-use KanaGame\Paddle\Auth\AuthService;
+use KanaGame\Paddle\Auth\CurrentUserService;
+use KanaGame\Paddle\Auth\MagicLinkAuthService;
 use KanaGame\Paddle\Auth\MagicLinkTokenRepository;
+use KanaGame\Paddle\Auth\MagicLinkUrlBuilder;
 use KanaGame\Paddle\Auth\Mailer;
 use KanaGame\Paddle\Auth\RateLimiter;
 use KanaGame\Paddle\Auth\SessionRepository;
@@ -2442,14 +3319,15 @@ use KanaGame\Paddle\Db;
 
 $config = Config::load();
 $cors = new Cors($config->allowedOrigins());
-$cors->applyHeaders($_SERVER['HTTP_ORIGIN'] ?? null);
-
-header('Content-Type: application/json');
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
+    $cors->applyPreflightHeaders($_SERVER['HTTP_ORIGIN'] ?? null);
     http_response_code(204);
     exit;
 }
+
+$cors->applyHeaders($_SERVER['HTTP_ORIGIN'] ?? null);
+header('Content-Type: application/json');
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     http_response_code(405);
@@ -2474,11 +3352,15 @@ $noopMailer = new class implements Mailer {
 
 try {
     $pdo = Db::connect($config);
-    $service = new AuthService(
+    $currentUser = new CurrentUserService(
+        new UserRepository($pdo),
+        new SessionRepository($pdo),
+        $config->intWithDefault('SESSION_EXPIRY_HOURS', 24),
+    );
+    $service = new MagicLinkAuthService(
         $pdo,
         new MagicLinkTokenRepository($pdo),
         new UserRepository($pdo),
-        new SessionRepository($pdo),
         new RateLimiter(
             $pdo,
             $config->require('RATE_LIMIT_PEPPER'),
@@ -2486,13 +3368,13 @@ try {
             $config->intWithDefault('RATE_LIMIT_IP_PER_HOUR', 20),
         ),
         $noopMailer,
-        $config->require('MAGIC_LINK_BASE_URL'),
+        new MagicLinkUrlBuilder($config->require('MAGIC_LINK_FRONTEND_BASE_URL')),
+        $currentUser,
         $config->intWithDefault('MAGIC_LINK_TOKEN_EXPIRY_MINUTES', 15),
-        $config->intWithDefault('SESSION_EXPIRY_DAYS', 30),
     );
     $result = $service->verify($rawToken);
 } catch (\Throwable $e) {
-    error_log('verify.php: failure: ' . $e->getMessage());
+    error_log('verify.php: ' . get_class($e));
     http_response_code(500);
     echo json_encode(['error' => 'temporary server error']);
     exit;
@@ -2513,7 +3395,8 @@ echo json_encode([
 ]);
 ```
 
-- [ ] **Step 2: Write `me.php`**
+- [ ] **Step 3: Write `me.php`** (constructs `CurrentUserService` ONLY —
+  no `RateLimiter`, no `Mailer`, no `MagicLinkTokenRepository`)
 
 ```php
 <?php
@@ -2527,24 +3410,21 @@ declare(strict_types=1);
  * Header: Authorization: Bearer <raw-session-token>
  * -> 200 {"user_id": "...", "email_normalized": "..."}
  * -> 401 {"error": "unauthorized"}
+ *
+ * Depends ONLY on CurrentUserService -- no Magic Link/rate-limit/mail
+ * infrastructure is constructed here, since none of it is needed to
+ * resolve a session (required correction 3).
  */
 
 require __DIR__ . '/../src/Config.php';
 require __DIR__ . '/../src/Db.php';
 require __DIR__ . '/../src/Cors.php';
-require __DIR__ . '/../src/Auth/EmailNormalizer.php';
-require __DIR__ . '/../src/Auth/MagicLinkTokenRepository.php';
-require __DIR__ . '/../src/Auth/UserRepository.php';
+require __DIR__ . '/../src/Auth/CurrentUserService.php';
 require __DIR__ . '/../src/Auth/SessionRepository.php';
-require __DIR__ . '/../src/Auth/RateLimiter.php';
-require __DIR__ . '/../src/Auth/Mailer.php';
-require __DIR__ . '/../src/Auth/AuthService.php';
+require __DIR__ . '/../src/Auth/UserRepository.php';
 require __DIR__ . '/../src/Uuid.php';
 
-use KanaGame\Paddle\Auth\AuthService;
-use KanaGame\Paddle\Auth\MagicLinkTokenRepository;
-use KanaGame\Paddle\Auth\Mailer;
-use KanaGame\Paddle\Auth\RateLimiter;
+use KanaGame\Paddle\Auth\CurrentUserService;
 use KanaGame\Paddle\Auth\SessionRepository;
 use KanaGame\Paddle\Auth\UserRepository;
 use KanaGame\Paddle\Config;
@@ -2553,14 +3433,15 @@ use KanaGame\Paddle\Db;
 
 $config = Config::load();
 $cors = new Cors($config->allowedOrigins());
-$cors->applyHeaders($_SERVER['HTTP_ORIGIN'] ?? null);
-
-header('Content-Type: application/json');
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
+    $cors->applyPreflightHeaders($_SERVER['HTTP_ORIGIN'] ?? null);
     http_response_code(204);
     exit;
 }
+
+$cors->applyHeaders($_SERVER['HTTP_ORIGIN'] ?? null);
+header('Content-Type: application/json');
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
     http_response_code(405);
@@ -2576,33 +3457,16 @@ if (!str_starts_with($authHeader, 'Bearer ')) {
 }
 $rawSessionToken = substr($authHeader, strlen('Bearer '));
 
-$noopMailer = new class implements Mailer {
-    public function sendMagicLink(string $emailNormalized, string $magicLinkUrl): void
-    {
-    }
-};
-
 try {
     $pdo = Db::connect($config);
-    $service = new AuthService(
-        $pdo,
-        new MagicLinkTokenRepository($pdo),
+    $currentUser = new CurrentUserService(
         new UserRepository($pdo),
         new SessionRepository($pdo),
-        new RateLimiter(
-            $pdo,
-            $config->require('RATE_LIMIT_PEPPER'),
-            $config->intWithDefault('RATE_LIMIT_EMAIL_PER_HOUR', 5),
-            $config->intWithDefault('RATE_LIMIT_IP_PER_HOUR', 20),
-        ),
-        $noopMailer,
-        $config->require('MAGIC_LINK_BASE_URL'),
-        $config->intWithDefault('MAGIC_LINK_TOKEN_EXPIRY_MINUTES', 15),
-        $config->intWithDefault('SESSION_EXPIRY_DAYS', 30),
+        $config->intWithDefault('SESSION_EXPIRY_HOURS', 24),
     );
-    $me = $service->me($rawSessionToken);
+    $me = $currentUser->resolve($rawSessionToken);
 } catch (\Throwable $e) {
-    error_log('me.php: failure: ' . $e->getMessage());
+    error_log('me.php: ' . get_class($e));
     http_response_code(500);
     echo json_encode(['error' => 'temporary server error']);
     exit;
@@ -2617,7 +3481,9 @@ if ($me === null) {
 echo json_encode($me);
 ```
 
-- [ ] **Step 3: Write `logout.php`**
+- [ ] **Step 4: Write `logout.php`** (also `CurrentUserService`-only;
+  returns 500 on a genuine failure rather than a silent 200 —
+  required correction 6)
 
 ```php
 <?php
@@ -2629,28 +3495,26 @@ declare(strict_types=1);
  *
  * POST /api/auth/logout.php
  * Header: Authorization: Bearer <raw-session-token>
- * -> 200 {"status": "ok"}  (always — revoking an already-invalid/unknown
- *    token is a safe no-op, matching SessionRepository::revoke()'s own
- *    contract, so this endpoint never needs to distinguish "was valid"
- *    from "wasn't")
+ * -> 200 {"status": "ok"}  -- for a MISSING token, an UNKNOWN token, or
+ *    an ALREADY-REVOKED token: these are idempotent no-ops by design
+ *    (SessionRepository::revoke()'s own contract), not errors.
+ * -> 500 {"error": "temporary server error"} -- ONLY if an actual
+ *    DB/server exception prevents the revoke attempt from completing.
+ *    Required correction 6: a genuine failure to revoke must never be
+ *    reported as 200, since that would let a caller believe a session
+ *    was revoked when the server never actually attempted (or failed)
+ *    the revoke.
  */
 
 require __DIR__ . '/../src/Config.php';
 require __DIR__ . '/../src/Db.php';
 require __DIR__ . '/../src/Cors.php';
-require __DIR__ . '/../src/Auth/EmailNormalizer.php';
-require __DIR__ . '/../src/Auth/MagicLinkTokenRepository.php';
-require __DIR__ . '/../src/Auth/UserRepository.php';
+require __DIR__ . '/../src/Auth/CurrentUserService.php';
 require __DIR__ . '/../src/Auth/SessionRepository.php';
-require __DIR__ . '/../src/Auth/RateLimiter.php';
-require __DIR__ . '/../src/Auth/Mailer.php';
-require __DIR__ . '/../src/Auth/AuthService.php';
+require __DIR__ . '/../src/Auth/UserRepository.php';
 require __DIR__ . '/../src/Uuid.php';
 
-use KanaGame\Paddle\Auth\AuthService;
-use KanaGame\Paddle\Auth\MagicLinkTokenRepository;
-use KanaGame\Paddle\Auth\Mailer;
-use KanaGame\Paddle\Auth\RateLimiter;
+use KanaGame\Paddle\Auth\CurrentUserService;
 use KanaGame\Paddle\Auth\SessionRepository;
 use KanaGame\Paddle\Auth\UserRepository;
 use KanaGame\Paddle\Config;
@@ -2659,14 +3523,15 @@ use KanaGame\Paddle\Db;
 
 $config = Config::load();
 $cors = new Cors($config->allowedOrigins());
-$cors->applyHeaders($_SERVER['HTTP_ORIGIN'] ?? null);
-
-header('Content-Type: application/json');
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
+    $cors->applyPreflightHeaders($_SERVER['HTTP_ORIGIN'] ?? null);
     http_response_code(204);
     exit;
 }
+
+$cors->applyHeaders($_SERVER['HTTP_ORIGIN'] ?? null);
+header('Content-Type: application/json');
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     http_response_code(405);
@@ -2679,75 +3544,80 @@ $rawSessionToken = str_starts_with($authHeader, 'Bearer ')
     ? substr($authHeader, strlen('Bearer '))
     : null;
 
-$noopMailer = new class implements Mailer {
-    public function sendMagicLink(string $emailNormalized, string $magicLinkUrl): void
-    {
-    }
-};
+if ($rawSessionToken === null) {
+    // No token supplied at all -- nothing to revoke, not an error.
+    echo json_encode(['status' => 'ok']);
+    exit;
+}
 
-if ($rawSessionToken !== null) {
-    try {
-        $pdo = Db::connect($config);
-        $service = new AuthService(
-            $pdo,
-            new MagicLinkTokenRepository($pdo),
-            new UserRepository($pdo),
-            new SessionRepository($pdo),
-            new RateLimiter(
-                $pdo,
-                $config->require('RATE_LIMIT_PEPPER'),
-                $config->intWithDefault('RATE_LIMIT_EMAIL_PER_HOUR', 5),
-                $config->intWithDefault('RATE_LIMIT_IP_PER_HOUR', 20),
-            ),
-            $noopMailer,
-            $config->require('MAGIC_LINK_BASE_URL'),
-            $config->intWithDefault('MAGIC_LINK_TOKEN_EXPIRY_MINUTES', 15),
-            $config->intWithDefault('SESSION_EXPIRY_DAYS', 30),
-        );
-        $service->logout($rawSessionToken);
-    } catch (\Throwable $e) {
-        error_log('logout.php: failure: ' . $e->getMessage());
-        // Still return 200 — see the doc comment above.
-    }
+try {
+    $pdo = Db::connect($config);
+    $currentUser = new CurrentUserService(
+        new UserRepository($pdo),
+        new SessionRepository($pdo),
+        $config->intWithDefault('SESSION_EXPIRY_HOURS', 24),
+    );
+    // SessionRepository::revoke() is itself a safe no-op for an
+    // unknown/already-revoked token (see its own doc comment) -- if
+    // this call returns normally, the revoke attempt (or no-op) is
+    // considered genuinely complete, whether or not a matching row
+    // existed. Only a THROWN exception here (a real DB failure)
+    // reaches the catch block below and produces a 500.
+    $currentUser->logout($rawSessionToken);
+} catch (\Throwable $e) {
+    error_log('logout.php: ' . get_class($e));
+    http_response_code(500);
+    echo json_encode(['error' => 'temporary server error']);
+    exit;
 }
 
 echo json_encode(['status' => 'ok']);
 ```
 
-- [ ] **Step 4: Verify all three files parse**
-
-Run:
+- [ ] **Step 5: Verify all four files parse**
 
 ```bash
+php -l server/auth/request-link.php
 php -l server/auth/verify.php
 php -l server/auth/me.php
 php -l server/auth/logout.php
 ```
 
-Expected: `No syntax errors detected` for all three.
+Expected: `No syntax errors detected` for all four.
 
-- [ ] **Step 5: Grep self-check — no raw token/email ever logged**
-
-Run:
+- [ ] **Step 6: Grep self-check — no raw token/email/exception-message ever logged**
 
 ```bash
 grep -n "error_log" server/auth/*.php
 ```
 
-Expected output: four lines (one per file, `request-link.php` included),
-each logging only `$e->getMessage()` — manually confirm none references
-`$rawToken`, `$rawEmail`, `$rawSessionToken`, or `$result->sessionToken`.
+Expected: four lines, each of the exact shape
+`error_log('<endpoint>.php: ' . get_class($e));` — manually confirm
+**none** references `$e->getMessage()`, `$rawToken`, `$rawEmail`,
+`$rawSessionToken`, or `$result->sessionToken`.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Grep self-check — `me.php`/`logout.php` do not construct rate-limit/mail infrastructure**
 
 ```bash
-git add server/auth/verify.php server/auth/me.php server/auth/logout.php
-git commit -m "feat: add verify/me/logout auth entrypoints"
+grep -l "RateLimiter\|MagicLinkAuthService\|Mailer" server/auth/me.php server/auth/logout.php
+```
+
+Expected: no output (neither file matches) — confirms required
+correction 3's separation actually holds at the entrypoint level, not
+just in the service layer.
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add server/auth/request-link.php server/auth/verify.php server/auth/me.php server/auth/logout.php
+git commit -m "feat: add auth entrypoints with preflight CORS, safe logging, and session-only me/logout"
 ```
 
 ---
 
-## Task 12: Frontend `SessionTransport` interface (in-memory only)
+## Task 14: Frontend `SessionTransport` interface (in-memory only)
+
+**Unchanged from the original plan (approved as-is).**
 
 **Files:**
 - Create: `src/lib/auth/sessionTransport.ts`
@@ -2757,18 +3627,13 @@ git commit -m "feat: add verify/me/logout auth entrypoints"
 - Produces:
   - `interface SessionTransport { getToken(): string | null; setToken(token: string): void; clear(): void }`
   - `export const inMemorySessionTransport: SessionTransport` — a
-    singleton backed by a module-scoped variable. **Never**
-    `localStorage`/`sessionStorage` (spec Section 3 — deferred
-    production transport decision; this is a placeholder for PR C's
-    dev-only harness to build against, not a production choice).
+    singleton backed by a module-scoped variable. Never
+    `localStorage`/`sessionStorage`.
 
 - [ ] **Step 1: Write the failing test**
 
-Check the existing test-runner convention first — this repo uses Vitest
-(confirmed by `npm test` in `CLAUDE.md` and existing `*.test.tsx` files).
-
 ```typescript
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { inMemorySessionTransport } from './sessionTransport';
 
 describe('inMemorySessionTransport', () => {
@@ -2807,29 +3672,26 @@ describe('inMemorySessionTransport', () => {
 });
 ```
 
-Add the missing `vi` import: `import { describe, it, expect, beforeEach, vi } from 'vitest';`
-
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `npm test -- src/lib/auth/sessionTransport.test.ts`
-Expected: fails — `Cannot find module './sessionTransport'`.
+Expected: fails — cannot find module './sessionTransport'.
 
 - [ ] **Step 3: Write the implementation**
 
 ```typescript
 /**
  * Session token storage for the auth foundation (Phase 3A). The
- * PRODUCTION browser transport decision (bearer-with-refresh vs.
- * SameSite=None cookie vs. same-site hosting migration) is deferred —
- * see docs/adr/0001-cross-site-auth-transport.md. This interface exists
- * so that decision, whenever it's made, can be implemented as a new
+ * PRODUCTION browser transport decision is deferred -- see
+ * docs/adr/0001-cross-site-auth-transport.md. This interface exists so
+ * that decision, whenever it's made, can be implemented as a new
  * SessionTransport without touching any auth/purchase call site.
  *
- * The ONLY implementation built in this phase is in-memory — cleared on
- * page reload, never localStorage/sessionStorage. It exists purely so
- * PR C's dev-only /account-test harness can hold a bearer token across
- * calls within a single page session while exercising the backend auth
- * flow end-to-end.
+ * The ONLY implementation built in this phase is in-memory -- cleared
+ * on page reload, never localStorage/sessionStorage. It exists purely
+ * so PR C's dev-only /account-test harness can hold a bearer token
+ * across calls within a single page session while exercising the
+ * backend auth flow end-to-end.
  */
 export interface SessionTransport {
   getToken(): string | null;
@@ -2870,14 +3732,15 @@ git commit -m "feat: add in-memory-only SessionTransport interface for the front
 
 ---
 
-## Task 13: Cross-site auth transport ADR
+## Task 15: Cross-site auth transport ADR
+
+**Revised in this rev.**: notes the 24-hour provisional session expiry
+and its reconsideration requirement.
 
 **Files:**
 - Create: `docs/adr/0001-cross-site-auth-transport.md`
 
-No test — this is a documentation-only deliverable (matches
-`docs/definition-of-done.md`'s explicit allowance for docs-only changes
-to state that focused tests have no signal here).
+No test — documentation-only deliverable.
 
 - [ ] **Step 1: Write the ADR**
 
@@ -2885,150 +3748,94 @@ to state that focused tests have no signal here).
 # ADR 0001: Cross-site auth transport for Tamamizu's frontend/API split
 
 **Status:** Decision deferred (human checkpoint). This ADR frames the
-options; it does not choose one. See "What is NOT decided here" below.
+options; it does not choose one.
 
 ## Context
 
-Tamamizu's frontend is deployed to GitHub Pages
-(`https://yhalcyon-gh.github.io/kana-game/`) and its API (Phase 2's
-Paddle webhook/entitlement endpoints, and Phase 3A's new auth endpoints)
-is deployed to Xserver (`https://tamamizu.giganihongo.com`). These are
-different origins — this is a genuinely cross-site setup, not merely a
-different subdomain of the same registrable domain.
+Tamamizu's frontend is deployed to GitHub Pages and its API (Phase 2's
+Paddle webhook/entitlement endpoints, and Phase 3A's new auth
+endpoints) is deployed to Xserver. These are different origins -- a
+genuinely cross-site setup.
 
-A Phase 3A session token is a **real account authentication
-credential**, not merely a flag saying "entitlement active/inactive." A
-valid session can:
+A Phase 3A session token is a real account authentication credential,
+not merely a flag saying "entitlement active/inactive." A valid session
+can read the account's own email (GET /api/auth/me.php) and, in PR B,
+authorize creation of a new Paddle purchase intent bound to that
+account. Theft of this token via XSS is account takeover for a
+low-PII account, not merely "someone finds out an entitlement flag."
 
-- read the account's own email (`GET /api/auth/me.php`);
-- (in PR B) authorize creation of a new Paddle purchase intent bound to
-  that account.
-
-The transport decision must be evaluated with the rigor appropriate to
-any account-session transport — theft of this token via XSS is account
-takeover for a low-PII account, not merely "someone finds out an
-entitlement flag." It is not low-stakes just because the account holds
-no payment/address data itself.
-
-Relevant platform constraints:
-
-- **SameSite cookie restrictions**: a cross-site cookie needs
-  `SameSite=None; Secure`, which many browsers now restrict or phase
-  out for third-party contexts.
-- **Safari/iOS Intelligent Tracking Prevention (ITP)**: aggressively
-  partitions or expires cross-site storage/cookies, with behavior that
-  has changed across iOS versions.
-- **PWA storage partitioning**: this app is a PWA candidate; installed
-  PWA contexts can have different storage/cookie behavior than a normal
-  browser tab on some platforms.
-- **Chrome's third-party cookie changes**: an industry-wide direction
-  making cross-site cookies progressively less reliable over time, not
-  a one-time constraint.
+Relevant platform constraints: SameSite cookie restrictions, Safari/iOS
+Intelligent Tracking Prevention, PWA storage partitioning, and Chrome's
+ongoing third-party cookie changes.
 
 ## Options considered
 
-### Option A — Bearer token, browser-held
+### Option A -- Bearer token, browser-held
 
-No cookies at all. The session token travels as
-`Authorization: Bearer <token>` on each API call. Avoids every
-SameSite/ITP/third-party-cookie restriction entirely, since there is no
-cookie.
+No cookies. Works identically across Safari/iOS/Chrome/PWA, since none
+of the cross-site cookie restrictions apply to a bearer header. Open
+sub-question: where a production bearer token should live across
+reloads (in-memory with a refresh-token dance, or an XSS-hardened
+storage strategy) is separate from "bearer vs. cookie" and is also not
+decided here.
 
-- **Pro**: works identically across Safari/iOS/Chrome/PWA, because none
-  of those restrictions apply to a bearer header.
-- **Con**: the browser must hold the token somewhere across page loads
-  for a persistent session. `localStorage`/`sessionStorage` are
-  readable by any script on the page — an XSS vulnerability anywhere in
-  the app becomes token theft (account takeover, per the framing
-  above). An in-memory-only token (this PR's `InMemorySessionTransport`)
-  avoids that persistence risk entirely but loses the session on every
-  reload, which is a real UX cost for a "stay signed in" product
-  expectation.
-- **Open sub-question this option does not resolve**: *where* a
-  production bearer token should live across reloads (in-memory with a
-  refresh-token dance, an XSS-hardened storage strategy, etc.) is a
-  separate decision from "bearer vs. cookie" and is also not made here.
+### Option B -- `SameSite=None; Secure` cookie
 
-### Option B — `SameSite=None; Secure` cookie
+Familiar browser-managed model, `HttpOnly` would make it XSS-immune,
+but is exactly the pattern most exposed to Safari ITP and the general
+industry direction against third-party cookies for a cross-site
+PWA-capable app.
 
-Keeps the familiar browser-managed cookie model — the browser attaches
-the session cookie automatically, no manual header wiring on every
-`fetch`.
+### Option C -- Migrate the frontend to a same-site (sub)domain
 
-- **Pro**: standard, well-understood pattern; `HttpOnly` would also
-  make it immune to XSS-driven theft (unlike a bearer token in JS-
-  accessible storage).
-- **Con**: is exactly the pattern most exposed to the platform
-  constraints listed above — Safari ITP and the general industry
-  direction against third-party cookies make this an increasingly
-  fragile bet specifically *for a cross-site PWA-capable app*, which is
-  what Tamamizu is.
+Eliminates the cross-site problem entirely, but is a hosting/deployment
+decision, not an auth-code decision, and is out of this phase's scope
+and budget.
 
-### Option C — Migrate the frontend to `tamamizu.giganihongo.com`
+## Recommendation (non-binding)
 
-Serve the frontend from a same-site (sub)domain relative to the API,
-eliminating the cross-site problem entirely — a same-site
-`SameSite=Lax` (or even stricter) cookie works everywhere without any
-of Option B's caveats.
-
-- **Pro**: makes the entire problem class disappear; the "right" answer
-  if hosting were being chosen from scratch today.
-- **Con**: this is a hosting/deployment decision (GitHub Pages → Xserver
-  or a proxy in front of both), not an auth-code decision — it has
-  deployment cost, changes the app's public URL (with SEO/bookmark/PWA-
-  installation-identity implications), and is explicitly out of this
-  phase's scope and budget per the task brief (Sections 0, 28, 33).
-
-## Recommendation (non-binding — see "What is NOT decided here")
-
-Option A (bearer token) is the more robust choice for reliability across
-Safari/iOS/PWA specifically, given Tamamizu's actual constraints (no
-appetite right now for a hosting migration, and a strong need for the
-auth experience to keep working on iOS Safari and inside an installed
-PWA). This recommendation does **not** by itself answer where a
-production bearer token should be held across reloads — that remains
-open even if Option A is chosen.
+Option A is the more robust choice for reliability across
+Safari/iOS/PWA specifically. This does not by itself answer where a
+production bearer token should be held across reloads.
 
 ## What is NOT decided here
 
-Per the task brief's explicit instruction (Section 11: "If a clear
-secure choice does not emerge, do not migrate hosting on your own"; and
-Section 33(A): GitHub Pages cross-site session transport is a named
-human checkpoint), **this ADR does not select a production transport.**
-Phase 3A PR A builds only:
+This ADR does not select a production transport. Phase 3A PR A builds
+only the backend session model (hash-at-rest tokens, revocable,
+explicit expiry -- transport-agnostic) and `SessionTransport`, a
+frontend interface with exactly one implementation
+(`InMemorySessionTransport`), used only by PR C's dev-only test
+harness.
 
-- the backend session model (hash-at-rest tokens, revocable, explicit
-  expiry) — transport-agnostic, usable under any of the three options
-  above without changes to `server/src/Auth/*`;
-- `SessionTransport`, a frontend interface with exactly one
-  implementation (`InMemorySessionTransport`), used only by PR C's
-  dev-only test harness to exercise the backend flow — not a production
-  transport choice.
+## Provisional session expiry: 24 hours
 
-A human decision-maker chooses among Options A/B/C (or a fourth option
-not yet identified) before any production session transport is wired
-up. That decision, once made, is implemented as a new `SessionTransport`
-behind the existing interface.
+PR A's `SESSION_EXPIRY_HOURS` defaults to 24 hours, down from an
+earlier 30-day draft. This value is explicitly provisional: the current
+transport is in-memory-only and already loses the session on every page
+reload, so a long server-side session buys no UX benefit today, while
+there is no refresh/rotation system yet to bound the risk of a
+longer-lived bearer credential. **This value must be reconsidered once
+a production browser transport is chosen** -- a persistent transport
+(Option A with durable storage, or Option B/C) will need its own
+explicit session-lifetime decision, informed by that transport's actual
+theft/exposure risk profile, not simply inherited from this provisional
+default.
 
 ## Consequences of deferring
 
-- PR C's `/account-test` harness holds its bearer token in memory only,
-  meaning the harness "logs out" on every page reload — acceptable for
-  a manual test harness, not indicative of the eventual production
-  behavior.
-- No production login flow exists yet; this ADR's resolution is a
-  prerequisite for building one.
+PR C's `/account-test` harness holds its bearer token in memory only,
+meaning the harness "logs out" on every page reload. No production
+login flow exists yet; this ADR's resolution is a prerequisite for
+building one.
 ```
 
-- [ ] **Step 2: Confirm the file renders as valid Markdown (no unclosed code fences)**
-
-Run:
+- [ ] **Step 2: Confirm the file renders as valid Markdown**
 
 ```bash
 grep -c '```' docs/adr/0001-cross-site-auth-transport.md
 ```
 
-Expected: an even number (each fence opened is closed).
+Expected: an even number.
 
 - [ ] **Step 3: Commit**
 
@@ -3039,13 +3846,17 @@ git commit -m "docs: add ADR for cross-site auth transport (decision deferred)"
 
 ---
 
-## Task 14: PR A-specific documentation
+## Task 16: PR A-specific documentation, including the real-MariaDB pre-Live requirement (required correction 8)
+
+**Revised in this rev.**: adds an explicit "Known remaining
+verification" section documenting the real-MariaDB concurrency checks
+that must happen before Live rollout, since this PR's own tests are
+race-scenario/atomicity semantic tests against SQLite, not true
+concurrent MariaDB execution.
 
 **Files:**
 - Create: `docs/paddle-auth-phase3a-pr-a.md`
-- Modify: `docs/README.md` (add an index entry, following its existing
-  pattern — read the file first to match its exact list format before
-  editing)
+- Modify: `docs/README.md` (add an index entry, matching its existing format)
 
 - [ ] **Step 1: Read `docs/README.md`'s current structure**
 
@@ -3053,124 +3864,150 @@ git commit -m "docs: add ADR for cross-site auth transport (decision deferred)"
 cat docs/README.md
 ```
 
-(No fixed expected output — this step exists so the next step's edit
-matches the file's real current format instead of guessing it.)
-
 - [ ] **Step 2: Write `docs/paddle-auth-phase3a-pr-a.md`**
 
 ```markdown
-# Phase 3A PR A — real-user identity + Magic Link auth foundation
+# Phase 3A PR A -- real-user identity + Magic Link auth foundation
 
-Implements the `users`/`magic_link_tokens`/`sessions`/`rate_limits`
-portion of
-[`docs/superpowers/specs/2026-09-08-paddle-auth-entitlement-phase3-design.md`](superpowers/specs/2026-09-08-paddle-auth-entitlement-phase3-design.md)
-(rev. 3). Builds on Phase 2
-([`docs/paddle-webhook-poc.md`](paddle-webhook-poc.md)) without altering
-its `payment_events`/`entitlements` tables or `sandbox-test-user` PoC
-path in any way.
+Implements the users/magic_link_tokens/sessions/rate_limits portion of
+docs/superpowers/specs/2026-09-08-paddle-auth-entitlement-phase3-design.md
+(rev. 3). Builds on Phase 2 (docs/paddle-webhook-poc.md) without
+altering its payment_events/entitlements tables or sandbox-test-user
+PoC path in any way.
 
 ## Scope
 
-**In this PR:** users, Magic Link request/verify, sessions, DB-backed
-HMAC-keyed rate limiting, the cross-site auth transport ADR
-([`docs/adr/0001-cross-site-auth-transport.md`](adr/0001-cross-site-auth-transport.md)).
+In this PR: users, Magic Link request/verify, sessions, DB-backed
+HMAC-keyed concurrency-safe rate limiting, CORS preflight support, the
+cross-site auth transport ADR.
 
-**Explicitly NOT in this PR** (see the design spec's PR structure):
-`purchase_intents`, `transaction_grants`, `pending_adjustments`, any
-Paddle webhook/purchase-attribution changes, the `/account-test`
-frontend harness, real SMTP, XServer deployment, production session
-transport, curriculum locking.
+Explicitly NOT in this PR: purchase_intents, transaction_grants,
+pending_adjustments, any Paddle webhook/purchase-attribution changes,
+the /account-test frontend harness, real SMTP, XServer deployment,
+production session transport, curriculum locking.
 
 ## New endpoints
 
 | Endpoint | Method | Auth | Purpose |
 |---|---|---|---|
-| `/api/auth/request-link.php` | POST | none | Request a Magic Link email. Always returns `200 {"status":"ok"}` — enumeration-safe. |
-| `/api/auth/verify.php` | POST | none (token in body) | Consume a Magic Link token, create/resolve the user, issue a session. |
-| `/api/auth/me.php` | GET | `Authorization: Bearer` | Resolve the current user from a session token. |
-| `/api/auth/logout.php` | POST | `Authorization: Bearer` | Revoke the current session. |
+| /api/auth/request-link.php | POST | none | Request a Magic Link email. Always 200 {"status":"ok"}. |
+| /api/auth/verify.php | POST | none (token in body) | Consume a token, create/resolve the user, issue a session. |
+| /api/auth/me.php | GET | Authorization: Bearer | Resolve the current user. Depends only on CurrentUserService. |
+| /api/auth/logout.php | POST | Authorization: Bearer | Revoke the current session. 500 on genuine failure, not a silent 200. |
 
 ## New tables
 
-See [`server/sql/migrations/0001_users_auth_foundation.sql`](../server/sql/migrations/0001_users_auth_foundation.sql)
-for full DDL: `users`, `magic_link_tokens`, `sessions`, `rate_limits`.
-Additive only — no existing table is altered.
+See server/sql/migrations/0001_users_auth_foundation.sql: users,
+magic_link_tokens, sessions, rate_limits. Additive only -- no existing
+table is altered. magic_link_tokens.user_id and sessions.user_id carry
+real FOREIGN KEY constraints to users.id.
 
 ## New config keys
 
-See `server/config.example.php` for the full list added by this PR:
-`RATE_LIMIT_PEPPER` (required in real deployment), `RATE_LIMIT_EMAIL_PER_HOUR`
-(default 5), `RATE_LIMIT_IP_PER_HOUR` (default 20),
-`MAGIC_LINK_TOKEN_EXPIRY_MINUTES` (default 15), `SESSION_EXPIRY_DAYS`
-(default 30), `MAGIC_LINK_BASE_URL` (required in real deployment).
+RATE_LIMIT_PEPPER (required), RATE_LIMIT_EMAIL_PER_HOUR (default 5),
+RATE_LIMIT_IP_PER_HOUR (default 20), MAGIC_LINK_TOKEN_EXPIRY_MINUTES
+(default 15), SESSION_EXPIRY_HOURS (default 24, explicitly provisional
+-- see the ADR), MAGIC_LINK_FRONTEND_BASE_URL (required -- frontend
+origin/path prefix only, never a "#/verify" route; the fragment route
+is built in code by MagicLinkUrlBuilder, not read from config).
 
 ## Magic-link token transport
 
-The raw magic-link token is designed to travel as a URL **fragment**
-(`.../#/verify?token=...`), which browsers never send to any HTTP
-server, then be POSTed in a request body to `verify.php` — never a
-query string. **This PR implements the backend half of that contract**
-(`verify.php` accepts the token only in the POST body); the frontend
-half (reading the fragment, stripping it from history before the POST)
-is PR C's responsibility, since no frontend route consumes these
-endpoints yet in PR A. See the design spec's Section 5 for the full
-rationale.
+Fragment-based: `.../#/verify?token=...`, never sent to any HTTP
+server by the browser, then POSTed in a request body to verify.php.
+`MagicLinkUrlBuilder` guarantees this by construction -- the fragment
+route is a literal in that class's source, not a config value.
 
 ## Mailer
 
-`server/src/Auth/Mailer.php` is an interface with exactly one
-implementation in this PR — `FakeMailer`, used only by
-`server/tests/Auth/AuthServiceTest.php`. **No real email is sent by any
-code in this PR.** The three HTTP entrypoints
-(`request-link.php`/`verify.php`/`me.php`/`logout.php`, where
-applicable) use an inline anonymous no-op `Mailer` implementation so the
-endpoints are fully deployable without a real SMTP credential — see
-each entrypoint's own comment. A real SMTP transport is future work
-requiring a human-supplied credential (task brief Section 21).
+server/src/Auth/Mailer.php is an interface. Its only implementation
+anywhere in this codebase is FakeMailer, under server/tests/Auth/
+(test-only -- not part of the production deployment). No real email is
+sent by any code in this PR; the four entrypoints use an inline
+anonymous no-op Mailer where one is structurally required.
+
+## CORS / preflight
+
+server/src/Cors.php gained applyPreflightHeaders() (additive -- the
+existing applyHeaders() used by Phase 2's entitlement.php is
+unchanged). Preflight responses for an allowed origin include
+Access-Control-Allow-Methods (GET, POST, OPTIONS) and
+Access-Control-Allow-Headers (Content-Type, Authorization). No
+Access-Control-Allow-Credentials is ever emitted -- a production cookie
+transport remains deferred.
+
+## Rate limiting
+
+Atomic MariaDB upsert-based counting (INSERT ... ON DUPLICATE KEY
+UPDATE plus a SELECT ... FOR UPDATE re-read inside one transaction),
+replacing an earlier SELECT-then-UPDATE draft that could let concurrent
+requests both read a stale count and both exceed the limit. Both the
+email and IP buckets are HMAC-keyed; raw values are never persisted.
+The IP bucket is recorded even for a malformed email request.
 
 ## Deployment status
 
-**Not deployed.** This PR contains code, migrations, and tests only. No
+Not deployed. This PR contains code, migrations, and tests only. No
 XServer deployment, no schema execution against the real
-`giganihongo_tmzp` database, and no Paddle Sandbox interaction happen in
-this PR. See the design spec's "Deferred to later phases" section.
+giganihongo_tmzp database, and no Paddle Sandbox interaction happen in
+this PR.
+
+## Known remaining verification: real-MariaDB concurrency (required before Live)
+
+This PR's concurrency tests (see
+server/tests/Auth/MagicLinkAuthServiceTest.php and
+server/tests/Auth/RateLimiterTest.php) are **race-scenario tests /
+atomicity-idempotency semantic tests** -- they run sequentially against
+a single in-process SQLite connection and prove that the SQL patterns
+used (atomic conditional UPDATE, atomic upsert) cannot be won twice or
+double-inserted under repeated/simulated-sequential invocation. They do
+**not** prove true simultaneous multi-connection MariaDB execution.
+
+Before any Live Paddle rollout, a human must additionally verify, against
+a real deployed MariaDB instance (not covered by this PR):
+
+1. **Simultaneous consume of one magic-link token** from two real,
+   concurrent HTTP requests (e.g. two curl processes launched at once)
+   -- expected: exactly one succeeds and creates exactly one session;
+   the other receives the generic invalid/expired/used response.
+2. **Simultaneous verification of two different valid links for one
+   email** from two real, concurrent HTTP requests -- expected: one
+   user row, two valid sessions, no HTTP 500 from either request.
+
+Neither check is performed in PR A. This is an explicit, documented gap
+-- not silently assumed to be covered by the SQLite-backed unit tests
+above.
 
 ## Tests
 
-Run `php server/tests/run-tests.php` — all Phase 2 tests (32) plus this
-PR's new tests must pass together. See the plan document
-([`docs/superpowers/plans/2026-09-08-paddle-identity-foundation-pr-a.md`](superpowers/plans/2026-09-08-paddle-identity-foundation-pr-a.md))
-for the exact per-task test list.
-
-## Known limitations carried into PR B
-
-- No real user-facing email delivery yet (see "Mailer" above).
-- No frontend route exercises any of these endpoints yet — that is PR
-  C's `/account-test` harness.
-- The production browser session transport is undecided (see the ADR).
+Run `php server/tests/run-tests.php` -- all Phase 2 tests (32) plus
+this PR's new tests must pass together.
 ```
 
 - [ ] **Step 3: Add the index entry to `docs/README.md`**
 
-(Exact insertion point depends on the file's real current structure —
-read it in Step 1 above and add one line matching its existing list
-style, e.g. alongside the other `docs/paddle-*.md` entries if the file
-groups related docs together. Do not guess the format; match what
-Step 1 actually showed.)
+(Match the file's real current structure, as read in Step 1 — add one
+line in whatever list format it already uses for related docs.)
 
 - [ ] **Step 4: Commit**
 
 ```bash
 git add docs/paddle-auth-phase3a-pr-a.md docs/README.md
-git commit -m "docs: add PR A documentation for the auth foundation"
+git commit -m "docs: add PR A documentation, including the real-MariaDB pre-Live verification gap"
 ```
 
 ---
 
-## Task 15: Full verification pass
+## Task 17: Full verification pass
 
-**Files:** none new — this task runs the required verification commands
-across everything Tasks 1–14 added.
+**Revised in this rev.**: the secret/logging self-review now also
+checks for `getMessage()` in the auth entrypoints specifically (required
+correction 5), and adds a check that `me.php`/`logout.php` never
+reference `RateLimiter`/`MagicLinkAuthService`/`Mailer` (required
+correction 3).
+
+**Files:** none new — this task runs verification across everything
+Tasks 1–16 added.
 
 - [ ] **Step 1: Run the full PHP test suite**
 
@@ -3178,12 +4015,10 @@ across everything Tasks 1–14 added.
 php server/tests/run-tests.php
 ```
 
-Expected: every test passes — Phase 2's original 32 plus this plan's
-additions (4 Uuid + 6 UserRepository + 6 MagicLinkTokenRepository + 6
-SessionRepository + 7 RateLimiter + 4 EmailNormalizer + 13 AuthService =
-46 new tests). Record the exact final count in the PR description
-(do not hardcode an expected number here beyond this arithmetic check —
-count what actually runs).
+Expected: every test passes. Record the exact final count in the PR
+description — count what actually runs rather than trusting any number
+written in this plan, since manual arithmetic across 17 tasks is
+error-prone.
 
 - [ ] **Step 2: Run the frontend test suite and full verify**
 
@@ -3191,8 +4026,7 @@ count what actually runs).
 npm run verify
 ```
 
-Expected: clean pass (test + lint + build + `git diff --check`) per
-`docs/definition-of-done.md`.
+Expected: clean pass (test + lint + build + `git diff --check`).
 
 - [ ] **Step 3: Explicit `git diff --check`**
 
@@ -3200,34 +4034,54 @@ Expected: clean pass (test + lint + build + `git diff --check`) per
 git diff --check origin/codex/paddle-webhook-entitlement-poc..HEAD
 ```
 
-Expected: no output (no trailing-whitespace/conflict-marker issues
-across this PR's full diff against its base).
+Expected: no output.
 
-- [ ] **Step 4: Secret/logging self-review (manual, not a single command)**
-
-Run each of the following and manually confirm the results match the
-stated expectation — this is the design spec's Section 8 checklist
-applied concretely to this PR's actual files:
+- [ ] **Step 4: Secret/logging self-review**
 
 ```bash
-grep -rn "error_log" server/auth/ server/src/Auth/
+grep -rn "getMessage()" server/auth/ server/src/Auth/
 ```
-Expected: only the four `error_log('*.php: failure: ' . $e->getMessage())`
-calls from Task 10/11's entrypoints — confirm by eye that none
-interpolates `$rawToken`, `$rawEmail`, `$rawSessionToken`, or any
-`session_token`/`token_hash` value.
+
+Expected: **no output** — required correction 5 explicitly disallows
+`$e->getMessage()` anywhere in the auth entrypoints or Auth classes
+(the only exception in the whole codebase remains Phase 2's existing
+`entitlement.php`/`paddle-webhook.php`, which this task does not touch
+and which are out of scope for this grep).
+
+```bash
+grep -n "error_log" server/auth/*.php
+```
+
+Expected: exactly four lines, one per entrypoint, each of the shape
+`error_log('<name>.php: ' . get_class($e));` — confirm by eye that none
+interpolates a token/email/session value.
+
+```bash
+grep -l "RateLimiter\|MagicLinkAuthService\|Mailer" server/auth/me.php server/auth/logout.php
+```
+
+Expected: no output (required correction 3's separation holds).
 
 ```bash
 grep -rn "RATE_LIMIT_PEPPER\s*=>\s*'[^']" server/config.example.php
 ```
+
 Expected: no match (the example config's value stays an empty string).
 
 ```bash
 git log --all -p -- server/config.php
 ```
-Expected: no output — confirms `server/config.php` (the real, gitignored
-config) was never accidentally committed at any point in this PR's
-history.
+
+Expected: no output — `server/config.php` (the real, gitignored config)
+was never committed.
+
+```bash
+grep -rn "localStorage\|sessionStorage" src/lib/auth/
+```
+
+Expected: no output in `sessionTransport.ts` itself (only appears in
+the corresponding `.test.ts` file, where it's the thing being asserted
+*against*, not used).
 
 - [ ] **Step 5: Confirm Phase 2 behavior is untouched**
 
@@ -3236,64 +4090,93 @@ git diff origin/codex/paddle-webhook-entitlement-poc..HEAD -- server/sql/schema.
 ```
 
 Expected: no output — none of Phase 2's core files were modified by
-this plan (only `server/src/Config.php` and `server/config.example.php`
-were modified, and only additively, per Task 9).
+this plan (`server/src/Cors.php`, `server/src/Config.php`, and
+`server/config.example.php` were modified, and only additively).
 
-- [ ] **Step 6: Final commit if any verification step required a fix**
-
-If Steps 1–5 all passed cleanly with no fixes needed, there is nothing
-to commit here. If any step required a fix, commit it with a message
-describing exactly what verification step caught it, e.g.:
+- [ ] **Step 6: Confirm production build contains no test-only material**
 
 ```bash
-git add -A
-git commit -m "fix: address git diff --check trailing whitespace in <file>"
+npm run build
+grep -rl "FakeMailer\|super-secret\|test-pepper" dist/ 2>/dev/null || echo "clean"
 ```
+
+Expected: `clean` (or no matches) — `server/tests/` is never part of
+the frontend build in the first place (it's PHP, not bundled by Vite),
+but this is a defensive check against any accidental frontend reference
+to test-only naming.
+
+- [ ] **Step 7: Final commit if any verification step required a fix**
+
+If Steps 1–6 all passed cleanly, there is nothing to commit here. If
+any step required a fix, commit it with a message describing exactly
+what verification step caught it.
 
 ---
 
 ## Self-review notes (writing-plans skill requirement)
 
 **Spec coverage check** — every PR A-scoped item from the design spec
-(rev. 3) and from ChatGPT's PR A scope list maps to a task:
+(rev. 3) and from ChatGPT's two rounds of review maps to a task:
 
 - `users`, `magic_link_tokens`, `sessions`, `rate_limits`, additive
-  migration → Task 2.
-- Auth repositories/services → Tasks 3, 4, 5, 6, 8.
-- `request-link.php`/`verify.php`/`me.php`/`logout.php` → Tasks 10, 11.
-- Mailer interface + FakeMailer (test-only) → Task 7.
-- Rate-limit HMAC design → Task 6.
-- UUIDv4 user ids → Task 1, consumed by Task 3.
-- Atomic same-token verification → Task 4 (`consume()`) + Task 8
-  (transaction boundary) + its concurrency test.
-- Concurrent two-distinct-links/same-email safe user creation → Task 3
-  (`findOrCreateByEmail()`) + Task 8's dedicated concurrency test.
-- Session token hash-at-rest → Task 5.
-- Cross-site auth transport ADR → Task 13.
-- Backend/PHP tests → embedded in Tasks 1–8 (TDD steps) plus Task 15's
-  full-suite run.
-- Docs needed specifically for PR A → Tasks 13, 14.
-- No PR B implementation → confirmed no task creates `purchase_intents`,
-  `transaction_grants`, `pending_adjustments`, webhook/refund code, or
-  the `/account-test` route; Task 12's `SessionTransport` is the one
-  deliberate extension point PR B/C will reuse, built no further than
-  PR A itself needs (a single in-memory implementation).
+  migration, FK references → Task 2.
+- Auth repositories → Tasks 3, 4, 5, 6.
+- `EmailNormalizer`/`EmailValidator` → Task 7.
+- `CurrentUserService` (session-only, PR-B-reusable) → Task 8.
+- CORS preflight → Task 9.
+- `MagicLinkUrlBuilder`, `Mailer` interface, test-only `FakeMailer` →
+  Task 10.
+- `MagicLinkAuthService` (IP-first rate limiting, token-user binding) →
+  Task 11.
+- Config (`SESSION_EXPIRY_HOURS`, `MAGIC_LINK_FRONTEND_BASE_URL`) →
+  Task 12.
+- `request-link.php`/`verify.php`/`me.php`/`logout.php` (preflight, safe
+  logging, session-only me/logout, logout 500-on-failure) → Task 13.
+- `SessionTransport` → Task 14.
+- ADR (with provisional-expiry note) → Task 15.
+- Docs, including the real-MariaDB pre-Live verification gap → Task 16.
+- Full verification, including the corrected security grep → Task 17.
+- All 8 required corrections from ChatGPT's second review are each
+  addressed in a specifically-named task (cited by "required correction
+  N" throughout) — CORS/preflight (1, Task 9), atomic rate limiting (2,
+  Task 6) plus IP-first ordering and email validation (2, Task 7/11),
+  `CurrentUserService` split (3, Task 8), fragment-safe URL construction
+  (4, Task 10), safe logging (5, Task 13), logout failure semantics (6,
+  Task 13), schema FK + `bindUser()` (7, Tasks 2/4/11), and
+  race-scenario terminology plus the documented real-MariaDB
+  requirement (8, Global Constraints + Tasks 6/11/16).
+- The three smaller corrections (endpoint layout kept as-is, session
+  expiry to 24 hours, `Mailer`/`FakeMailer` placement, `hash_equals()`
+  consistency) are folded into Tasks 5, 10, and 4/5 respectively.
+- No PR B/C implementation — confirmed no task creates
+  `purchase_intents`, `transaction_grants`, `pending_adjustments`,
+  webhook/refund code, or the `/account-test` route; `CurrentUserService`
+  (Task 8) is the one deliberate extension point PR B will reuse, built
+  no further than PR A itself needs (`me.php`/`logout.php` are its only
+  consumers in this plan).
 
-**Placeholder scan** — no "TBD"/"TODO"/"implement later"/"add
-appropriate error handling" phrases appear in any task; every code step
-has a complete, runnable code block; every test has concrete assertions.
+**Placeholder scan** — no "TBD"/"TODO"/"implement later" phrases appear
+in any task; every code step has a complete, runnable code block; every
+test has concrete assertions.
 
-**Type consistency check** — `AuthService`'s constructor signature is
-defined once (Task 8) and every entrypoint (Tasks 10, 11) instantiates
-it with exactly that same 9-argument order and types.
-`MagicLinkTokenRepository::consume(): bool` (Task 4) is the exact method
-`AuthService::verify()` (Task 8) calls. `SessionRepository::
-findActiveUserIdForRawToken(): ?string` (Task 5) is the exact method
-`AuthService::me()` (Task 8) calls. `UserRepository::
-findOrCreateByEmail(): array{id: string, email_normalized: string}`
-(Task 3) matches the shape `AuthService::verify()` (Task 8) destructures
-(`$user['id']`, `$user['email_normalized']`) and the shape
-`verify.php` (Task 11) reads (`$result->user['id']`).
+**Type consistency check** — `MagicLinkAuthService`'s constructor
+(8 arguments: `PDO`, `MagicLinkTokenRepository`, `UserRepository`,
+`RateLimiter`, `Mailer`, `MagicLinkUrlBuilder`, `CurrentUserService`,
+`int $tokenExpiryMinutes`) is defined once (Task 11) and instantiated
+identically in both `request-link.php` and `verify.php` (Task 13).
+`CurrentUserService`'s constructor (`UserRepository`, `SessionRepository`,
+`int $sessionExpiryHours`) is defined once (Task 8) and instantiated
+identically in all four entrypoints (Task 13) — `me.php`/`logout.php`
+construct nothing else. `MagicLinkTokenRepository::consume(): bool`
+(Task 4) is the exact method `MagicLinkAuthService::verify()` (Task 11)
+calls; `bindUser(string, string): void` (Task 4) is called with
+`($rawToken, $user['id'])` exactly matching `UserRepository::
+findOrCreateByEmail()`'s return shape (Task 3). `CurrentUserService::
+resolve(): ?array{user_id: string, email_normalized: string}` (Task 8)
+is exactly what `me.php` (Task 13) echoes verbatim as its JSON response.
+`Cors::applyPreflightHeaders(?string): void` (Task 9) is called with
+`$_SERVER['HTTP_ORIGIN'] ?? null` identically in all four entrypoints
+(Task 13), matching `applyHeaders()`'s existing call convention.
 
 ---
 
@@ -3303,39 +4186,65 @@ findOrCreateByEmail(): array{id: string, email_normalized: string}`
 - `npm run verify` — full frontend verification (test + lint + build +
   `git diff --check`).
 - `git diff --check` — explicit check against the PR's base branch.
-- Manual secret/logging self-review — Task 15, Step 4.
-- Phase 2 non-regression check — Task 15, Step 5.
+- Manual secret/logging self-review — Task 17, Step 4 (now includes the
+  `getMessage()` ban and the `me.php`/`logout.php` dependency-isolation
+  check).
+- Phase 2 non-regression check — Task 17, Step 5.
+- Production-build test-material check — Task 17, Step 6.
 
 **Not run in this PR**: any live MariaDB execution of the new
 migration, any real HTTP request against a deployed entrypoint, any
-real email send. These require XServer deployment / real config, which
-is out of scope per the task brief's human-checkpoint list.
+real email send, and — per required correction 8 — no true concurrent
+multi-connection MariaDB verification of the atomic patterns used here.
+Task 16 documents the exact real-MariaDB checks a human must run before
+Live rollout.
 
-## Unresolved implementation-level questions for human/ChatGPT review
+## Revision summary (rev. 2 of this plan)
 
-1. **`server/auth/` as a new subdirectory vs. flat `server/*.php`
-   naming** (e.g. `server/auth-request-link.php`) — this plan chose a
-   subdirectory (File Structure section's rationale) to avoid cluttering
-   the existing flat `server/` directory, but this changes the URL path
-   shape from Phase 2's `/api/paddle-webhook.php` convention to
-   `/api/auth/request-link.php`. If ChatGPT/the deployment convention
-   prefers keeping every entrypoint flat under one `server/`→`public_html/api/`
-   mapping (simpler `.htaccess`/deployment-manifest reasoning, matching
-   Phase 2's own deployment doc), this is a mechanical rename with no
-   logic impact — flagging before implementation rather than after.
-2. **Session expiry = 30 days** is this plan's own concrete choice
-   (Global Constraints section explains the reasoning) since the spec
-   left the exact number unspecified beyond "defined explicitly." Worth
-   a explicit sign-off, since changing it later is cheap (one config
-   default) but is a real product/security tradeoff (30 days is a long
-   window for a leaked bearer token, per the ADR's own "this is a real
-   credential" framing) that a builder shouldn't silently finalize.
-3. **The inline anonymous no-op `Mailer` in each entrypoint** (Tasks 10,
-   11) — an alternative would be a named `NullMailer` class in
-   `server/src/Auth/`. This plan chose inline specifically to keep "no
-   real mailer exists" visually obvious at each call site rather than
-   implying a more permanent-looking named class; flagging this
-   stylistic choice in case the reviewer prefers the named-class
-   convention instead (e.g. for reuse across all three entrypoints
-   without repeating the anonymous-class literal three times — a minor
-   DRY tradeoff either way).
+Applied against ChatGPT's review of the original plan (approved at
+`08ae596f6796bd4a95ef2612625c56531c5c0751`):
+
+1. **Endpoint layout** — kept as originally proposed (`server/auth/`
+   subdirectory), per explicit approval. No change.
+2. **Session expiry** — changed from a 30-day default to
+   `SESSION_EXPIRY_HOURS` defaulting to 24 hours (Task 5, Task 12, ADR).
+3. **CORS/preflight (required correction 1)** — `Cors::
+   applyPreflightHeaders()` added, additive to the existing
+   `applyHeaders()`; all four entrypoints call it on `OPTIONS` (Task 9,
+   Task 13).
+4. **Concurrency-safe `RateLimiter` (required correction 2)** — rewritten
+   from SELECT-then-UPDATE to an atomic `INSERT ... ON DUPLICATE KEY
+   UPDATE` plus `SELECT ... FOR UPDATE` inside one transaction; IP
+   bucket now recorded even for a malformed email; `EmailValidator`
+   added for syntax/length checking (Task 6, Task 7, Task 11).
+5. **`CurrentUserService` split (required correction 3)** — new class
+   depending only on `UserRepository`/`SessionRepository`;
+   `me.php`/`logout.php` construct nothing else (Task 8, Task 13).
+6. **Fragment-safe `MagicLinkUrlBuilder` (required correction 4)** — the
+   `#/verify` route is a literal in code, never read from config; config
+   key renamed `MAGIC_LINK_FRONTEND_BASE_URL` to make this explicit
+   (Task 10, Task 12).
+7. **Safe logging (required correction 5)** — all four entrypoints log
+   only `get_class($e)`, never `$e->getMessage()` (Task 13).
+8. **Logout failure semantics (required correction 6)** — `logout.php`
+   returns 500 on a genuine thrown exception, 200 only for the
+   idempotent no-token/unknown-token/already-revoked cases (Task 13).
+9. **Schema/referential integrity (required correction 7)** — added
+   `FOREIGN KEY` constraints on `magic_link_tokens.user_id` and
+   `sessions.user_id`; `MagicLinkTokenRepository::bindUser()` added and
+   wired into `MagicLinkAuthService::verify()`'s transaction (Task 2,
+   Task 4, Task 11).
+10. **Race-scenario terminology + documented real-MariaDB requirement
+    (required correction 8)** — every concurrency test explicitly
+    labeled "race-scenario test"/"atomicity-idempotency semantic test";
+    a "Known remaining verification" section added to the PR docs
+    listing the exact real-MariaDB checks still required before Live
+    rollout (Global Constraints, Task 6, Task 11, Task 16).
+11. **`Mailer` placement** — `FakeMailer` moved from `server/src/Auth/`
+    to `server/tests/Auth/`; only the `Mailer` interface remains under
+    `server/src/Auth/` (Task 10).
+12. **`hash_equals()` consistency** — `MagicLinkTokenRepository::
+    findEmailForRawToken()` and `SessionRepository::
+    findActiveUserIdForRawToken()` both perform an explicit
+    `hash_equals()` comparison against the fetched hash before trusting
+    the row (Task 4, Task 5).
