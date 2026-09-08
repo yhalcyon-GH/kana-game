@@ -1775,11 +1775,25 @@ function emailValidatorTests(): array
             assertFalse(EmailValidator::isValid($tooLong), 'a value over 255 bytes should be invalid');
         },
 
-        'isValid() accepts a value exactly at the 255-byte column limit' => function () {
-            $localPart = str_repeat('a', 255 - strlen('@example.com'));
-            $exactly255 = $localPart . '@example.com';
-            assertSame(255, strlen($exactly255), 'test setup sanity check');
-            assertTrue(EmailValidator::isValid($exactly255), 'a value at exactly 255 bytes should be valid');
+        'isValid() accepts the longest syntactically valid email PHP\'s own filter allows (254 bytes, under the 255-byte column limit)' => function () {
+            // PHP's FILTER_VALIDATE_EMAIL enforces RFC 5321's 64-char
+            // local-part limit and an overall ~254-byte practical cap,
+            // so this class's own 255-byte column-length check can
+            // never actually reject anything FILTER_VALIDATE_EMAIL
+            // itself accepts -- this test proves the two checks compose
+            // without the column-length check spuriously rejecting a
+            // value the syntax filter already allows. (Corrected during
+            // implementation -- an earlier draft of this test assumed a
+            // 255-byte email built from one long local part would be
+            // syntactically valid; PHP's filter rejects any local part
+            // over 64 chars, so that assumption was wrong. A multi-label
+            // domain reaches the real 254-byte ceiling instead.)
+            $label = str_repeat('a', 60);
+            $domain = implode('.', array_fill(0, 4, $label)) . '.com';
+            $localPart = str_repeat('u', 6);
+            $longestValidEmail = $localPart . '@' . $domain;
+            assertSame(254, strlen($longestValidEmail), 'test setup sanity check');
+            assertTrue(EmailValidator::isValid($longestValidEmail), 'a syntactically valid 254-byte email should be valid');
         },
     ];
 }
