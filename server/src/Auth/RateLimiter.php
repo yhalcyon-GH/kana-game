@@ -99,18 +99,26 @@ final class RateLimiter
         $nowStr = $now->format('Y-m-d H:i:s');
         $cutoffStr = $now->modify('-' . self::WINDOW_SECONDS . ' seconds')->format('Y-m-d H:i:s');
 
+        // PDO::ATTR_EMULATE_PREPARES is false (see server/src/Db.php), so
+        // this goes through MySQL native prepared statements, which do
+        // NOT support binding a single named parameter to more than one
+        // placeholder occurrence in the same statement (each occurrence
+        // is its own positional slot) — hence :cutoff1/:cutoff2 rather
+        // than reusing :cutoff twice, even though both are bound to the
+        // same $cutoffStr value.
         $statement = $this->pdo->prepare(
             'INSERT INTO rate_limits (bucket, identifier, window_start, count)
              VALUES (:bucket, :identifier, :now, 1)
              ON DUPLICATE KEY UPDATE
-               count = IF(window_start < :cutoff, 1, count + 1),
-               window_start = IF(window_start < :cutoff, :now2, window_start)',
+               count = IF(window_start < :cutoff1, 1, count + 1),
+               window_start = IF(window_start < :cutoff2, :now2, window_start)',
         );
         $statement->execute([
             'bucket' => $bucket,
             'identifier' => $identifier,
             'now' => $nowStr,
-            'cutoff' => $cutoffStr,
+            'cutoff1' => $cutoffStr,
+            'cutoff2' => $cutoffStr,
             'now2' => $nowStr,
         ]);
     }
