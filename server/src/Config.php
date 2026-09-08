@@ -53,6 +53,12 @@ final class Config
             'PADDLE_FULL_TAMAMIZU_PRICE_ID',
             'PADDLE_FULL_TAMAMIZU_PRODUCT_ID',
             'ALLOWED_ORIGINS',
+            'RATE_LIMIT_PEPPER',
+            'RATE_LIMIT_EMAIL_PER_HOUR',
+            'RATE_LIMIT_IP_PER_HOUR',
+            'MAGIC_LINK_TOKEN_EXPIRY_MINUTES',
+            'SESSION_EXPIRY_HOURS',
+            'MAGIC_LINK_FRONTEND_BASE_URL',
         ];
 
         $values = [];
@@ -103,5 +109,14 @@ final class Config
         $raw = $this->get('ALLOWED_ORIGINS') ?? '';
         $origins = array_map('trim', explode(',', $raw));
         return array_values(array_filter($origins, static fn (string $origin): bool => $origin !== ''));
+    }
+
+    public function intWithDefault(string $key, int $default): int
+    {
+        $value = $this->get($key);
+        if ($value === null || $value === '' || !ctype_digit($value)) {
+            return $default;
+        }
+        return (int) $value;
     }
 }
