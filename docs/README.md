@@ -18,6 +18,7 @@ For day-to-day development, start with [`CLAUDE.md`](../CLAUDE.md) or [`AGENTS.m
 - **[feedback-setup.md](./feedback-setup.md)** — step-by-step Tally account/form setup and `VITE_FEEDBACK_URL` activation guide for a human operator.
 - **[paddle-sandbox-checkout.md](./paddle-sandbox-checkout.md)** — development-only Paddle Checkout PoC setup and human Sandbox payment verification.
 - **[paddle-webhook-poc.md](./paddle-webhook-poc.md)** — Phase 2 PoC: PHP/MySQL server-side webhook signature verification and entitlement storage, Xserver deployment, Paddle Sandbox webhook setup, and human end-to-end verification.
+- **[paddle-auth-phase3a-pr-a.md](./paddle-auth-phase3a-pr-a.md)** — Phase 3A PR A: real-user identity + Magic Link auth foundation (users, sessions, rate limiting, CORS preflight); not yet deployed.
 - **[tamamizu-guide-scripts.md](./tamamizu-guide-scripts.md)** — approved guide copy / visual direction where still applicable.
 - **[restaurant-audio-manifest.csv](./restaurant-audio-manifest.csv)** — restaurant audio asset manifest.
 
