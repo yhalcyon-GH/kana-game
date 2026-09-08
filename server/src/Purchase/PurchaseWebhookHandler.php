@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace KanaGame\Paddle\Purchase;
 
+require_once __DIR__ . '/../WebhookResult.php';
+
 use KanaGame\Paddle\EntitlementRepository;
 use KanaGame\Paddle\PaddleSignature;
 use KanaGame\Paddle\PaymentEventRepository;

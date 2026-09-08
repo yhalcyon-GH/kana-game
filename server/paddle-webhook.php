@@ -35,6 +35,7 @@ declare(strict_types=1);
 
 require __DIR__ . '/src/Config.php';
 require __DIR__ . '/src/Db.php';
+require __DIR__ . '/src/WebhookResult.php';
 require __DIR__ . '/src/PaddleSignature.php';
 require __DIR__ . '/src/PaymentEventRepository.php';
 require __DIR__ . '/src/EntitlementRepository.php';
