@@ -575,5 +575,44 @@ function purchaseWebhookHandlerTests(): array
             assertFalse(str_contains($source, 'use KanaGame\\Paddle\\SandboxUser'), 'must not import SandboxUser');
             assertFalse(str_contains($source, 'SandboxUser::'), 'must not statically reference SandboxUser');
         },
+
+        // -- Regression test (explicitly requested): the real deployed
+        // webhook entrypoint must construct and invoke
+        // PurchaseWebhookHandler ONLY -- it must never construct the
+        // legacy Phase 2 WebhookHandler, never branch on any config
+        // flag between the two, and never branch on webhook payload
+        // contents to decide which handler runs. This is a
+        // source-inspection test (this repo's dependency-free test
+        // runner has no way to drive a real HTTP request against
+        // server/paddle-webhook.php) -- it proves the ENTRYPOINT WIRING
+        // itself has no fallback path, complementing the handler-level
+        // 'browser-supplied internal_user_id is ignored' test above,
+        // which proves the HANDLER'S OWN LOGIC has no fallback either.
+        'server/paddle-webhook.php constructs PurchaseWebhookHandler only, never legacy WebhookHandler, with no config-driven or payload-driven handler switch' => function () {
+            $entrypointPath = __DIR__ . '/../../paddle-webhook.php';
+            $source = file_get_contents($entrypointPath);
+            assertTrue($source !== false, 'server/paddle-webhook.php should be readable');
+
+            assertTrue(
+                str_contains($source, 'new PurchaseWebhookHandler('),
+                'the entrypoint must construct PurchaseWebhookHandler',
+            );
+            assertFalse(
+                str_contains($source, 'new WebhookHandler('),
+                'the entrypoint must never construct the legacy Phase 2 WebhookHandler',
+            );
+            assertFalse(
+                str_contains($source, 'use KanaGame\\Paddle\\WebhookHandler;'),
+                'the entrypoint must not even import the legacy WebhookHandler class',
+            );
+            assertFalse(
+                str_contains($source, 'PADDLE_HANDLER_MODE'),
+                'no config flag may switch between the Phase 2 and Phase 3 handlers at this entrypoint',
+            );
+            assertFalse(
+                str_contains($source, "\$payload['") && str_contains($source, 'WebhookHandler'),
+                'the choice of handler must never be derived from webhook payload contents',
+            );
+        },
     ];
 }
