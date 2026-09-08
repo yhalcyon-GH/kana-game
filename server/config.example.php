@@ -76,4 +76,17 @@ return [
     // docs/superpowers/specs/2026-09-08-paddle-auth-entitlement-phase3-
     // design.md, section 5.
     'MAGIC_LINK_FRONTEND_BASE_URL' => '',
+
+    // --- Phase 3A PR C: dev-only /account-test harness ---
+
+    // Must be the EXACT string 'true' to enable. Any other value
+    // (including empty/absent, which is the default) leaves the
+    // dev-only harness fully disabled: request-link.php falls back to
+    // its normal inline no-op Mailer, and server/dev-only/
+    // last-magic-link.php refuses every request with 403. NEVER set
+    // this to 'true' in a real production deployment config — see
+    // docs/paddle-auth-phase3a-pr-c.md. This flag is the second,
+    // independent layer of protection alongside excluding
+    // server/dev-only/ from the production deployment manifest.
+    'DEV_HARNESS_ENABLED' => '',
 ];

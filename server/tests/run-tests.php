@@ -18,6 +18,7 @@ require_once __DIR__ . '/TestCase.php';
 use KanaGame\Paddle\Tests\TestFailure;
 
 $testFiles = [
+    __DIR__ . '/ConfigTest.php' => 'KanaGame\\Paddle\\Tests\\configTests',
     __DIR__ . '/PaddleSignatureTest.php' => 'KanaGame\\Paddle\\Tests\\paddleSignatureTests',
     __DIR__ . '/ProductMatcherTest.php' => 'KanaGame\\Paddle\\Tests\\productMatcherTests',
     __DIR__ . '/WebhookHandlerTest.php' => 'KanaGame\\Paddle\\Tests\\webhookHandlerTests',
