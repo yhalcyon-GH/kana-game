@@ -1547,7 +1547,11 @@ final class RateLimiter
     /**
      * SQLite (tests only): no ON DUPLICATE KEY UPDATE, so this uses
      * INSERT OR IGNORE (atomic row creation) followed by a separate
-     * UPDATE for the increment/reset. This does not carry the same
+     * UPDATE for the increment/reset -- skipped entirely when the
+     * INSERT OR IGNORE just created the row (checked via rowCount(),
+     * not a timestamp comparison, since two calls within the same
+     * wall-clock second would otherwise be indistinguishable by
+     * window_start alone). This does not carry the same
      * single-statement atomicity guarantee as the MariaDB path, but
      * SQLite's tests run single-threaded, so no real race exists to
      * expose the gap -- see this method's and the class's own caveats.
@@ -1563,12 +1567,18 @@ final class RateLimiter
         );
         $insert->execute(['bucket' => $bucket, 'identifier' => $identifier, 'now' => $nowStr]);
 
+        if ($insert->rowCount() === 1) {
+            // This call's own INSERT OR IGNORE just created the row at
+            // (now, 1) -- the row is already correct, skip the UPDATE
+            // entirely so it isn't double-incremented to 2.
+            return;
+        }
+
         $update = $this->pdo->prepare(
-            "UPDATE rate_limits
+            'UPDATE rate_limits
              SET count = CASE WHEN window_start < :cutoff THEN 1 ELSE count + 1 END,
                  window_start = CASE WHEN window_start < :cutoff THEN :now ELSE window_start END
-             WHERE bucket = :bucket AND identifier = :identifier
-               AND NOT (window_start = :now AND count = 1)",
+             WHERE bucket = :bucket AND identifier = :identifier',
         );
         $update->execute([
             'cutoff' => $cutoffStr,
@@ -1580,16 +1590,19 @@ final class RateLimiter
 }
 ```
 
-**Note on the SQLite `WHERE NOT (window_start = :now AND count = 1)`
-guard**: this prevents the just-inserted first-ever row (already
-correctly at `count = 1`, `window_start = now`) from being
-double-incremented to `count = 2` by the subsequent `UPDATE` in the same
-call — the `INSERT OR IGNORE` either created a fresh row at exactly
-`(now, 1)` or did nothing (row already existed), so this guard
-distinguishes "I just created this row" from "this row already
-existed" without needing `INSERT OR IGNORE` to report which case
-occurred (SQLite's `changes()` is available but this WHERE-clause
-approach avoids a second round-trip).
+**Note on the `rowCount()` guard (corrected during implementation)**:
+an earlier draft of this method used a `WHERE NOT (window_start = :now
+AND count = 1)` clause to skip the `UPDATE` for a just-created row, but
+that comparison is unreliable — two separate calls landing within the
+same wall-clock second produce an identical `:now` value, so the guard
+could not actually distinguish "I just created this row" from "this row
+already existed and happens to still show the same second," causing the
+`UPDATE` to be skipped for legitimate subsequent calls too (verified by
+a manual reproduction during implementation: 6 calls in a tight loop all
+read back `count = 1`). Checking `$insert->rowCount() === 1` directly
+reports whether *this specific* `INSERT OR IGNORE` inserted a row,
+which is unambiguous regardless of timestamp collisions, and is what
+the shipped implementation uses.
 
 - [ ] **Step 4: Register the test file in the runner**
 
