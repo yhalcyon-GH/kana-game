@@ -38,6 +38,7 @@ $testFiles = [
     __DIR__ . '/Purchase/PendingAdjustmentRepositoryTest.php' => 'KanaGame\\Paddle\\Tests\\pendingAdjustmentRepositoryTests',
     __DIR__ . '/Purchase/PurchaseIntentServiceTest.php' => 'KanaGame\\Paddle\\Tests\\purchaseIntentServiceTests',
     __DIR__ . '/Purchase/PurchaseWebhookHandlerTest.php' => 'KanaGame\\Paddle\\Tests\\purchaseWebhookHandlerTests',
+    __DIR__ . '/Purchase/CurrentUserEntitlementServiceTest.php' => 'KanaGame\\Paddle\\Tests\\currentUserEntitlementServiceTests',
 ];
 
 $totalPassed = 0;
