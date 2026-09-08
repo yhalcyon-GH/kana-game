@@ -81,7 +81,7 @@ describe('fetchCurrentUser', () => {
     const [url, init] = vi.mocked(fetch).mock.calls[0]
     expect(url).toBe(`${API_BASE}/auth/me.php`)
     expect(url).not.toContain('my-session-token')
-    expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer my-session-token')
+    expect((init!.headers as Record<string, string>).Authorization).toBe('Bearer my-session-token')
     expect(result).toEqual({ userId: 'u1', emailNormalized: 'a@example.com' })
   })
 
@@ -101,7 +101,7 @@ describe('createPurchaseIntent', () => {
 
     const [url, init] = vi.mocked(fetch).mock.calls[0]
     expect(url).toBe(`${API_BASE}/purchase-intent.php`)
-    expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer session-abc')
+    expect((init!.headers as Record<string, string>).Authorization).toBe('Bearer session-abc')
     expect(result).toBe('raw-ref-value')
   })
 
