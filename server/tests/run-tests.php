@@ -40,6 +40,7 @@ $testFiles = [
     __DIR__ . '/Purchase/PurchaseWebhookHandlerTest.php' => 'KanaGame\\Paddle\\Tests\\purchaseWebhookHandlerTests',
     __DIR__ . '/Purchase/CurrentUserEntitlementServiceTest.php' => 'KanaGame\\Paddle\\Tests\\currentUserEntitlementServiceTests',
     __DIR__ . '/DevOnly/DevHarnessMagicLinkStoreTest.php' => 'KanaGame\\Paddle\\Tests\\devHarnessMagicLinkStoreTests',
+    __DIR__ . '/DevOnly/DevHarnessMailerTest.php' => 'KanaGame\\Paddle\\Tests\\devHarnessMailerTests',
 ];
 
 $totalPassed = 0;
