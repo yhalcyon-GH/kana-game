@@ -34,6 +34,7 @@ $testFiles = [
     __DIR__ . '/Auth/MagicLinkUrlBuilderTest.php' => 'KanaGame\\Paddle\\Tests\\magicLinkUrlBuilderTests',
     __DIR__ . '/Auth/MagicLinkAuthServiceTest.php' => 'KanaGame\\Paddle\\Tests\\magicLinkAuthServiceTests',
     __DIR__ . '/Purchase/PurchaseIntentRepositoryTest.php' => 'KanaGame\\Paddle\\Tests\\purchaseIntentRepositoryTests',
+    __DIR__ . '/Purchase/TransactionGrantRepositoryTest.php' => 'KanaGame\\Paddle\\Tests\\transactionGrantRepositoryTests',
 ];
 
 $totalPassed = 0;
