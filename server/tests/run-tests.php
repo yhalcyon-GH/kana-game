@@ -23,6 +23,7 @@ $testFiles = [
     __DIR__ . '/EntitlementRepositoryTest.php' => 'KanaGame\\Paddle\\Tests\\entitlementRepositoryTests',
     __DIR__ . '/CorsTest.php' => 'KanaGame\\Paddle\\Tests\\corsTests',
     __DIR__ . '/UuidTest.php' => 'KanaGame\\Paddle\\Tests\\uuidTests',
+    __DIR__ . '/Auth/UserRepositoryTest.php' => 'KanaGame\\Paddle\\Tests\\userRepositoryTests',
 ];
 
 $totalPassed = 0;
