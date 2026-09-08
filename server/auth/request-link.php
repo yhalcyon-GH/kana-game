@@ -61,12 +61,16 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
 }
 
 $body = json_decode(file_get_contents('php://input') ?: '', true);
-$rawEmail = is_array($body) ? ($body['email'] ?? null) : null;
+$rawEmailField = is_array($body) ? ($body['email'] ?? null) : null;
 
-if (!is_string($rawEmail)) {
-    echo json_encode(['status' => 'ok']);
-    exit;
-}
+// A missing/non-string email is coerced to an empty string rather than
+// short-circuiting here — every POST to this endpoint must still reach
+// MagicLinkAuthService::requestLink() so the IP bucket is recorded
+// first, even for malformed/missing-email requests. EmailValidator
+// rejects an empty string just like any other malformed input, and the
+// response stays the same generic 200 either way — see
+// MagicLinkAuthService::requestLink()'s own doc comment.
+$rawEmail = is_string($rawEmailField) ? $rawEmailField : '';
 
 // server/src/Auth/RateLimiter.php's IP bucket deliberately reads ONLY
 // REMOTE_ADDR — X-Forwarded-For is never trusted absent an explicit

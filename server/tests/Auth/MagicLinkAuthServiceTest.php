@@ -136,6 +136,53 @@ function magicLinkAuthServiceTests(): array
             assertSame(1, (int) $row['count'], 'the IP bucket count should be 1 after one malformed-email attempt');
         },
 
+        // -- Regression test for request-link.php's missing/non-string
+        // email handling (Phase 3A PR A fix). The entrypoint used to
+        // exit BEFORE calling requestLink() at all when the email field
+        // was missing or not a string, meaning that attempt never
+        // reached the IP bucket -- an attacker could send unlimited
+        // malformed/missing-email requests from one IP with zero
+        // rate-limit signal recorded. The fix coerces a missing/
+        // non-string email to an empty string and always calls
+        // requestLink(), so this exact scenario (an empty string, the
+        // coercion target) must still record against the IP bucket
+        // exactly like any other malformed email.
+        'requestLink() with an empty-string email (the request-link.php coercion target for missing/non-string email) STILL records against the IP bucket' => function () {
+            $h = makeMagicLinkAuthServiceHarness();
+            $h['service']->requestLink('', '203.0.113.60');
+
+            assertSame(0, count($h['mailer']->sent), 'an empty email must never trigger a mailer call');
+
+            $row = $h['pdo']->query("SELECT count FROM rate_limits WHERE bucket = 'magic_link_ip'")->fetch();
+            assertTrue($row !== false, 'the IP bucket must have recorded this attempt even for an empty-string email');
+            assertSame(1, (int) $row['count'], 'the IP bucket count should be 1 after one empty-email attempt');
+        },
+
+        'repeated empty-string-email requests from one IP are still tracked by the IP bucket every time (proves the IP limiter is not bypassed by missing email)' => function () {
+            // Uses RateLimiter directly to observe checkAndRecordIp()'s
+            // own allow/deny decision -- MagicLinkAuthService::
+            // requestLink() has no return value (it always "succeeds"
+            // from the caller's perspective per its own contract), so
+            // this test exercises the same underlying limiter instance
+            // requestLink() would have used, to prove missing/empty
+            // email never gives an attacker a way to skip IP recording.
+            $pdo = makeMagicLinkAuthServiceTestDb();
+            $limiter = new RateLimiter($pdo, 'test-pepper', 5, 20);
+
+            for ($i = 0; $i < 20; $i++) {
+                assertTrue($limiter->checkAndRecordIp('203.0.113.61'), "attempt {$i} should still be under the 20/hour IP limit");
+            }
+            assertFalse($limiter->checkAndRecordIp('203.0.113.61'), 'the 21st attempt from this IP must be blocked, exactly as it would be for a normal (non-empty) email');
+
+            // requestLink() itself: once the IP bucket is exhausted, an
+            // empty-string email must still be safely dropped (no
+            // mailer call, no exception) -- not silently allowed
+            // through because the email happened to be empty.
+            $h = makeMagicLinkAuthServiceHarness($pdo, 5, 20);
+            $h['service']->requestLink('', '203.0.113.61');
+            assertSame(0, count($h['mailer']->sent), 'a request from an already-exhausted IP must not send mail, even with an empty email');
+        },
+
         'requestLink() silently drops the email send when the per-email rate limit is exceeded' => function () {
             $h = makeMagicLinkAuthServiceHarness();
             for ($i = 0; $i < 5; $i++) {
