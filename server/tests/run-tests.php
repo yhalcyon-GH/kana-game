@@ -24,6 +24,7 @@ $testFiles = [
     __DIR__ . '/CorsTest.php' => 'KanaGame\\Paddle\\Tests\\corsTests',
     __DIR__ . '/UuidTest.php' => 'KanaGame\\Paddle\\Tests\\uuidTests',
     __DIR__ . '/Auth/UserRepositoryTest.php' => 'KanaGame\\Paddle\\Tests\\userRepositoryTests',
+    __DIR__ . '/Auth/MagicLinkTokenRepositoryTest.php' => 'KanaGame\\Paddle\\Tests\\magicLinkTokenRepositoryTests',
 ];
 
 $totalPassed = 0;
