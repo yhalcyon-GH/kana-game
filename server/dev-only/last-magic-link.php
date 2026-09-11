@@ -30,20 +30,37 @@ declare(strict_types=1);
  * the success response returns a one-time-use raw magic-link URL, which
  * must never be cache-eligible even briefly. Set unconditionally before
  * any branching, so no response path can be added later that forgets it.
+ *
+ * Applies the same allowlist-based Cors::applyHeaders() as every other
+ * browser-facing endpoint (server/auth/*.php, purchase-intent.php,
+ * entitlement-me.php) — this is a plain GET with no custom headers/
+ * Authorization, so it's a CORS "simple request" and never triggers a
+ * preflight; applyHeaders() alone is sufficient, no OPTIONS handling
+ * needed (contrast server/auth/me.php, which needs Cors::
+ * applyPreflightHeaders() because its Authorization header does trigger
+ * one). Without this, the browser still lets the GET reach the server
+ * (a simple request isn't blocked pre-flight) and DevHarnessMagicLinkStore
+ * ::consume() still runs and deletes the row, but the browser refuses to
+ * let JS read the response body — indistinguishable from "no pending
+ * link" at the /account-test UI, while silently consuming the link.
  */
 
 require __DIR__ . '/../src/Config.php';
 require __DIR__ . '/../src/Db.php';
+require __DIR__ . '/../src/Cors.php';
 require __DIR__ . '/../src/DevOnly/DevHarnessMagicLinkStore.php';
 
 use KanaGame\Paddle\Config;
+use KanaGame\Paddle\Cors;
 use KanaGame\Paddle\Db;
 use KanaGame\Paddle\DevOnly\DevHarnessMagicLinkStore;
 
+$config = Config::load();
+$cors = new Cors($config->allowedOrigins());
+$cors->applyHeaders($_SERVER['HTTP_ORIGIN'] ?? null);
+
 header('Content-Type: application/json');
 header('Cache-Control: no-store');
-
-$config = Config::load();
 
 if ($config->get('DEV_HARNESS_ENABLED') !== 'true') {
     http_response_code(403);
