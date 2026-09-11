@@ -25,6 +25,11 @@ declare(strict_types=1);
  * exclusion is ever missed.
  *
  * The raw magic_link_url returned here is NEVER logged by this file.
+ *
+ * Every response (every status code) carries Cache-Control: no-store —
+ * the success response returns a one-time-use raw magic-link URL, which
+ * must never be cache-eligible even briefly. Set unconditionally before
+ * any branching, so no response path can be added later that forgets it.
  */
 
 require __DIR__ . '/../src/Config.php';
@@ -36,6 +41,7 @@ use KanaGame\Paddle\Db;
 use KanaGame\Paddle\DevOnly\DevHarnessMagicLinkStore;
 
 header('Content-Type: application/json');
+header('Cache-Control: no-store');
 
 $config = Config::load();
 
