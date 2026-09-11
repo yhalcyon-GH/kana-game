@@ -12,8 +12,14 @@ and PR A ([`docs/paddle-auth-phase3a-pr-a.md`](paddle-auth-phase3a-pr-a.md)).
 **In this PR:** `/account-test` and `/verify` frontend routes
 (development-only), the dev-only Magic Link retrieval mechanism
 (`dev_harness_magic_links` table, `DevHarnessMailer`,
-`server/dev-only/last-magic-link.php`), production-build exclusion
-tests.
+`server/dev-only/last-magic-link.php`), `/account-test`'s own Phase 3
+Paddle Sandbox Checkout section, production-build exclusion tests.
+
+`/account-test` opens its own Sandbox Checkout directly — it does not
+hand `purchase_ref` off to `/paddle-test` (see "`/account-test` flow"
+below). `/paddle-test` remains a separate, unmodified Phase 2 PoC (fixed
+`internal_user_id`, no `purchase_ref` concept) — see
+[`docs/paddle-webhook-poc.md`](paddle-webhook-poc.md).
 
 **This is not a production decision.** The production browser session
 transport remains deferred — see
@@ -94,15 +100,24 @@ independent layer of protection in case that exclusion is ever missed.
 4. Shows the authenticated user (`GET /api/auth/me.php`).
 5. Create a purchase intent (`POST /api/purchase-intent.php`) — the
    returned `purchase_ref` is the only identifier meant to reach Paddle
-   customData for the real-user path.
-6. Complete the existing Paddle Sandbox checkout on `/paddle-test`
-   using that `purchase_ref` (manual step — the two dev routes are not
-   wired together automatically in this PR).
+   customData for the real-user path. Kept only in this page's React
+   state (never a URL, never `localStorage`/`sessionStorage`).
+6. A "Paddle Sandbox Checkout" section appears once `purchase_ref`
+   exists (never before) and opens Paddle Sandbox Checkout directly from
+   `/account-test`, with `customData: { purchase_ref: purchaseRef }` —
+   this exact shape, never `internal_user_id` or any other field. Reuses
+   the same `VITE_PADDLE_ENVIRONMENT` / `VITE_PADDLE_CLIENT_TOKEN` /
+   `VITE_PADDLE_PRICE_ID` sandbox config as `/paddle-test`
+   (`src/lib/paddle/sandboxConfig.ts`), and shows the same
+   configuration-missing/invalid errors when any is absent or malformed.
 7. Check entitlement (`GET /api/entitlement-me.php`) — always the
    server-verified state; a client-side `checkout.completed` event is
    never treated as entitlement, matching Phase 1/2's existing
-   diagnostic-only framing.
-8. Log out; confirm authenticated actions are no longer available.
+   diagnostic-only framing (the Phase 3 checkout section shows a
+   diagnostic-only status on `checkout.completed`, same as
+   `/paddle-test`).
+8. Log out; confirm authenticated actions — including the Phase 3
+   checkout section itself — are no longer available.
 
 ## Production-exclusion proof
 
@@ -114,11 +129,14 @@ independent layer of protection in case that exclusion is ever missed.
   (`server/tests/ConfigTest.php`).
 - No `localStorage`/`sessionStorage` writes anywhere in the harness
   (`VerifyPage.test.tsx`, `sessionTransport.test.ts`).
-- No raw session token or `purchase_ref` ever placed in a URL.
-- Paddle `customData` carries `purchase_ref` only — no
-  `internal_user_id` field anywhere in the harness UI or its tests.
+- No raw session token or `purchase_ref` ever placed in a URL or
+  browser storage (`AccountTestPage.test.tsx`).
+- The Phase 3 Sandbox Checkout section is absent until a `purchase_ref`
+  exists, and its Paddle `customData` carries `purchase_ref` only — no
+  `internal_user_id` field, ever (`AccountTestPage.test.tsx`).
 - Entitlement is read only from `entitlement-me.php`; never inferred
-  from a client-side Paddle event.
+  from a client-side Paddle event, including the Phase 3 checkout's own
+  `checkout.completed` handler.
 
 ## Tests
 

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
+import { initializePaddle, type Paddle, type PaddleEventData } from '@paddle/paddle-js'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   createPurchaseIntent,
   fetchCurrentEntitlement,
@@ -9,6 +10,7 @@ import {
   type CurrentUser,
 } from '../lib/auth/authClient'
 import { readAuthApiBase } from '../lib/auth/authApiBase'
+import { readSandboxConfig } from '../lib/paddle/sandboxConfig'
 
 type LinkRetrievalState =
   | { kind: 'idle' }
@@ -40,6 +42,7 @@ type EntitlementCheckState =
  */
 export default function AccountTestPage() {
   const apiBase = readAuthApiBase()
+  const sandboxConfig = readSandboxConfig('Phase 3 Sandbox Checkout is available only in development.')
 
   const [email, setEmail] = useState('')
   const [requestedEmail, setRequestedEmail] = useState<string | null>(null)
@@ -48,6 +51,20 @@ export default function AccountTestPage() {
   const [purchaseRef, setPurchaseRef] = useState<string | null>(null)
   const [entitlementCheck, setEntitlementCheck] = useState<EntitlementCheckState>({ kind: 'idle' })
   const [loadingUser, setLoadingUser] = useState(true)
+  const [checkoutLoading, setCheckoutLoading] = useState(false)
+  const [checkoutError, setCheckoutError] = useState('')
+  const [checkoutStatus, setCheckoutStatus] = useState('')
+  const mountedCheckout = useRef(false)
+  const openingCheckout = useRef(false)
+  const checkoutInstance = useRef<Paddle | undefined>(undefined)
+
+  useEffect(() => {
+    mountedCheckout.current = true
+    return () => {
+      mountedCheckout.current = false
+      checkoutInstance.current?.Checkout.close()
+    }
+  }, [])
 
   const refreshCurrentUser = useCallback(async () => {
     if (!apiBase) {
@@ -81,8 +98,66 @@ export default function AccountTestPage() {
   async function handleCreatePurchaseIntent() {
     if (!apiBase) return
     setPurchaseRef(null)
+    setCheckoutError('')
+    setCheckoutStatus('')
     const ref = await createPurchaseIntent(apiBase)
     setPurchaseRef(ref)
+  }
+
+  // Opens Paddle Sandbox Checkout for the Phase 3 real-user path. Only
+  // ever callable once purchaseRef exists (see the disabled/guard below
+  // and the JSX gating this whole section on `purchaseRef`) -- there is
+  // no code path here that can open a checkout without one. customData
+  // is exactly { purchase_ref: purchaseRef }: never internal_user_id,
+  // never any other field, matching PurchaseWebhookHandler's contract
+  // that only custom_data.purchase_ref is ever read on this path (see
+  // server/src/Purchase/PurchaseWebhookHandler.php's own doc comment).
+  // purchaseRef itself only ever lives in this component's React state
+  // (and briefly in the Paddle Checkout call) -- never a URL, never
+  // localStorage/sessionStorage, matching this file's existing session-
+  // token handling.
+  async function openPhase3Checkout() {
+    if (!purchaseRef || 'error' in sandboxConfig || openingCheckout.current) return
+    openingCheckout.current = true
+    setCheckoutLoading(true)
+    setCheckoutError('')
+    setCheckoutStatus('Loading Paddle Sandbox Checkout…')
+
+    try {
+      const paddle = await initializePaddle({
+        environment: 'sandbox',
+        token: sandboxConfig.token,
+        eventCallback: handleCheckoutEvent,
+      })
+      if (!mountedCheckout.current) return
+      if (!paddle?.Initialized) throw new Error('Paddle did not initialize')
+      checkoutInstance.current = paddle
+      setCheckoutStatus('Checkout requested. Complete the test payment in the overlay.')
+      paddle.Checkout.open({
+        settings: { displayMode: 'overlay' },
+        items: [{ priceId: sandboxConfig.priceId, quantity: 1 }],
+        customData: { purchase_ref: purchaseRef },
+      })
+    } catch {
+      if (mountedCheckout.current) {
+        setCheckoutError('Could not open Paddle Sandbox Checkout. Check the sandbox configuration and network, then reload this page to retry.')
+        setCheckoutStatus('Checkout unavailable.')
+      }
+    } finally {
+      openingCheckout.current = false
+      if (mountedCheckout.current) setCheckoutLoading(false)
+    }
+  }
+
+  function handleCheckoutEvent(event: PaddleEventData) {
+    if (!mountedCheckout.current || !event.name) return
+    const name = event.name
+    if (name === 'checkout.completed') {
+      // Client events are diagnostic only and MUST NOT grant entitlement
+      // -- see "3. Entitlement" below, which always reads
+      // entitlement-me.php's server-verified state instead.
+      setCheckoutStatus('Checkout completed (sandbox). Entitlement is not granted client-side — check it below once the webhook has processed.')
+    }
   }
 
   async function handleCheckEntitlement() {
@@ -98,6 +173,8 @@ export default function AccountTestPage() {
     setCurrentUser(null)
     setPurchaseRef(null)
     setEntitlementCheck({ kind: 'idle' })
+    setCheckoutError('')
+    setCheckoutStatus('')
   }
 
   if (!apiBase) {
@@ -203,14 +280,41 @@ export default function AccountTestPage() {
               <p className="text-sm">
                 purchase_ref: <code data-testid="purchase-ref-value">{purchaseRef}</code>
                 <br />
-                Pass this single value as Paddle customData on the existing Sandbox Checkout (<code>/paddle-test</code>) —
-                this is the only identifier the browser is allowed to send Paddle for the real-user path.
+                This is the only identifier the browser sends Paddle for the real-user path — see the Sandbox Checkout
+                below.
               </p>
             )}
           </section>
 
+          {purchaseRef && (
+            <section className="flex flex-col gap-3 border-t border-neutral-300 pt-5 dark:border-neutral-700">
+              <h2 className="text-lg font-semibold">3. Paddle Sandbox Checkout</h2>
+              <p className="text-sm text-neutral-600 dark:text-neutral-400">
+                Opens Paddle Sandbox Checkout with <code>customData: {'{'} purchase_ref {'}'}</code> only — never{' '}
+                <code>internal_user_id</code>. The server's signed-webhook handler
+                (<code>server/src/Purchase/PurchaseWebhookHandler.php</code>) resolves the purchasing user from this
+                value alone.
+              </p>
+              {'error' in sandboxConfig && (
+                <p role="alert" data-testid="sandbox-checkout-config-missing" className="rounded-lg border border-amber-500 p-4 text-sm">
+                  {sandboxConfig.error}
+                </p>
+              )}
+              {checkoutError && <p role="alert" className="rounded-lg border border-amber-500 p-4 text-sm">{checkoutError}</p>}
+              <button
+                type="button"
+                onClick={() => void openPhase3Checkout()}
+                disabled={'error' in sandboxConfig || checkoutLoading}
+                className="self-start rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Open Paddle Sandbox Checkout
+              </button>
+              {checkoutStatus && <p role="status">{checkoutStatus}</p>}
+            </section>
+          )}
+
           <section className="flex flex-col gap-3 border-t border-neutral-300 pt-5 dark:border-neutral-700">
-            <h2 className="text-lg font-semibold">3. Entitlement (server-verified only)</h2>
+            <h2 className="text-lg font-semibold">4. Entitlement (server-verified only)</h2>
             <p className="text-sm text-neutral-600 dark:text-neutral-400">
               Client-side checkout events are diagnostic only and never set entitlement — this always reads the server's
               signed-webhook-verified state.
