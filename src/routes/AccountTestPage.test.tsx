@@ -93,6 +93,35 @@ describe('AccountTestPage', () => {
     await waitFor(() => expect(authClient.requestMagicLink).toHaveBeenCalledWith(expect.any(String), 'tester@example.com'))
   })
 
+  it('does not show or enable Retrieve until the request-link call has actually completed (no race)', async () => {
+    let resolveRequest!: () => void
+    vi.mocked(authClient.requestMagicLink).mockReturnValueOnce(
+      new Promise((resolve) => { resolveRequest = () => resolve(undefined) }),
+    )
+
+    renderPage()
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'tester@example.com' } })
+
+    const requestButton = screen.getByRole('button', { name: /request (test )?magic link/i })
+    fireEvent.click(requestButton)
+
+    // While the request is still in flight: Request is disabled, and
+    // Retrieve is not offered at all yet -- there must be no window
+    // where a click on Retrieve could race dev_harness_magic_links not
+    // having a row yet.
+    expect(requestButton).toBeDisabled()
+    expect(screen.queryByRole('button', { name: /retrieve (test )?link/i })).not.toBeInTheDocument()
+    expect(authClient.fetchDevHarnessMagicLink).not.toHaveBeenCalled()
+
+    await act(async () => {
+      resolveRequest()
+    })
+
+    // Only after the awaited request-link call resolves does Retrieve appear.
+    expect(await screen.findByRole('button', { name: /retrieve (test )?link/i })).toBeEnabled()
+    expect(requestButton).toBeEnabled()
+  })
+
   it('retrieving the dev-only link surfaces a follow-link control when one is pending', async () => {
     vi.mocked(authClient.fetchDevHarnessMagicLink).mockResolvedValueOnce('https://example.com/kana-game/#/verify?token=raw-token')
     renderPage()

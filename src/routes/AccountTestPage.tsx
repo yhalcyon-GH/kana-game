@@ -46,6 +46,7 @@ export default function AccountTestPage() {
 
   const [email, setEmail] = useState('')
   const [requestedEmail, setRequestedEmail] = useState<string | null>(null)
+  const [requestingLink, setRequestingLink] = useState(false)
   const [linkRetrieval, setLinkRetrieval] = useState<LinkRetrievalState>({ kind: 'idle' })
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [purchaseRef, setPurchaseRef] = useState<string | null>(null)
@@ -81,11 +82,28 @@ export default function AccountTestPage() {
     void refreshCurrentUser()
   }, [refreshCurrentUser])
 
+  // requestedEmail (which gates showing the Retrieve button at all -- see
+  // the JSX below) is set only AFTER requestMagicLink()'s await resolves,
+  // never before -- request-link.php's own contract is "always 200,
+  // never distinguish failure reasons" (see authClient.ts), so this
+  // waits only for the request to have actually reached the server and
+  // completed, not for any particular outcome. Retrieving before the
+  // request has actually landed server-side would race against
+  // dev_harness_magic_links not having a row yet, independent of and in
+  // addition to that endpoint's own generic-response security contract
+  // (server/dev-only/last-magic-link.php), which this change does not
+  // touch.
   async function handleRequestLink() {
-    if (!apiBase || !email) return
-    setRequestedEmail(email)
+    if (!apiBase || !email || requestingLink) return
+    setRequestingLink(true)
+    setRequestedEmail(null)
     setLinkRetrieval({ kind: 'idle' })
-    await requestMagicLink(apiBase, email)
+    try {
+      await requestMagicLink(apiBase, email)
+      setRequestedEmail(email)
+    } finally {
+      setRequestingLink(false)
+    }
   }
 
   async function handleRetrieveLink() {
@@ -230,11 +248,13 @@ export default function AccountTestPage() {
           <button
             type="button"
             onClick={() => void handleRequestLink()}
-            disabled={!email}
+            disabled={!email || requestingLink}
             className="self-start rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Request test Magic Link
+            {requestingLink ? 'Requesting…' : 'Request test Magic Link'}
           </button>
+
+          {requestingLink && <p role="status">Requesting test Magic Link…</p>}
 
           {requestedEmail && (
             <div className="flex flex-col gap-2">
