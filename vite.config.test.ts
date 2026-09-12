@@ -1,5 +1,19 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { PWA_RUNTIME_CACHING } from './vite.config'
+import { PWA_RUNTIME_CACHING, resolveBasePath } from './vite.config'
+
+describe('resolveBasePath', () => {
+  it('defaults to the current GitHub Pages project path when VITE_BASE_PATH is unset (existing deploy workflow behavior, unchanged)', () => {
+    expect(resolveBasePath({})).toBe('/kana-game/')
+  })
+
+  it('defaults to the project path when VITE_BASE_PATH is set but empty', () => {
+    expect(resolveBasePath({ VITE_BASE_PATH: '' })).toBe('/kana-game/')
+  })
+
+  it('uses VITE_BASE_PATH when set, for a future custom-domain-root build', () => {
+    expect(resolveBasePath({ VITE_BASE_PATH: '/' })).toBe('/')
+  })
+})
 
 const audioRoute = PWA_RUNTIME_CACHING.find((entry) => {
   const pattern = entry.urlPattern
