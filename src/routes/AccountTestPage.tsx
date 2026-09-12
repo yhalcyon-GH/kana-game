@@ -52,12 +52,50 @@ export default function AccountTestPage() {
   const [purchaseRef, setPurchaseRef] = useState<string | null>(null)
   const [entitlementCheck, setEntitlementCheck] = useState<EntitlementCheckState>({ kind: 'idle' })
   const [loadingUser, setLoadingUser] = useState(true)
-  const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [checkoutError, setCheckoutError] = useState('')
   const [checkoutStatus, setCheckoutStatus] = useState('')
+  // True from the moment "Open Paddle Sandbox Checkout" is clicked until
+  // this attempt reaches a terminal per-attempt state (closed, or a
+  // completed/mismatch resolution -- see handleCheckoutEvent). Disables
+  // both "Create purchase intent" and "Open Paddle Sandbox Checkout"
+  // below so a second purchase intent, or a second Checkout.open() for
+  // the current one, can never be created while an attempt is already
+  // in flight -- this is what previously let an old, still-open
+  // checkout overlay (for a stale purchase_ref) get completed after a
+  // new purchase intent had already replaced it in state.
+  const [checkoutActive, setCheckoutActive] = useState(false)
+  // Once checkout.completed correlates successfully for a given
+  // purchase_ref, "Open" stays disabled for THAT purchase_ref even
+  // after checkoutActive clears -- only creating a new purchase intent
+  // (a new purchase_ref) re-enables it, so a completed checkout can
+  // never accidentally be reopened/reused.
+  const [completedForRef, setCompletedForRef] = useState<string | null>(null)
+
   const mountedCheckout = useRef(false)
-  const openingCheckout = useRef(false)
   const checkoutInstance = useRef<Paddle | undefined>(undefined)
+  // initializePaddle() is called at most once per mount -- reused
+  // (including its in-flight promise, to collapse racing double-clicks)
+  // across every subsequent Checkout.open(), rather than re-initializing
+  // a fresh Paddle instance per open as before.
+  const paddleInitPromise = useRef<Promise<Paddle | undefined> | null>(null)
+  // Mutable mirrors of the latest purchaseRef / tracked transaction id,
+  // read by handleCheckoutEvent. initializePaddle's eventCallback is
+  // registered at most once for the whole mount (see paddleInitPromise
+  // above), so it must never rely on values closed over from that first
+  // call -- refs are updated synchronously and read fresh on every event.
+  const purchaseRefRef = useRef<string | null>(null)
+  const trackedTransactionIdRef = useRef<string | null>(null)
+  // Synchronous reentrancy guard mirroring `checkoutActive` (state).
+  // React state updates are asynchronous, so a rapid double-click on
+  // "Open" could pass the `disabled` check twice before a re-render
+  // lands -- this ref is the actual source of truth checked/set
+  // synchronously inside openPhase3Checkout; the `checkoutActive` state
+  // exists only to drive the UI's disabled attributes.
+  const checkoutActiveRef = useRef(false)
+
+  useEffect(() => {
+    purchaseRefRef.current = purchaseRef
+  }, [purchaseRef])
 
   useEffect(() => {
     mountedCheckout.current = true
@@ -66,6 +104,17 @@ export default function AccountTestPage() {
       checkoutInstance.current?.Checkout.close()
     }
   }, [])
+
+  // Releases the busy guard used while one checkout attempt is in
+  // flight (open -> loaded -> completed/closed). Does NOT touch
+  // `completedForRef` -- a successful completion keeps Open disabled
+  // for that purchase_ref independently of this reset (see
+  // `completedForRef`'s own comment above).
+  function resetCheckoutLifecycle() {
+    checkoutActiveRef.current = false
+    trackedTransactionIdRef.current = null
+    setCheckoutActive(false)
+  }
 
   const refreshCurrentUser = useCallback(async () => {
     if (!apiBase) {
@@ -114,10 +163,16 @@ export default function AccountTestPage() {
   }
 
   async function handleCreatePurchaseIntent() {
-    if (!apiBase) return
+    // Also guarded by the `disabled` attribute below, but checked here
+    // too (defense in depth) -- a purchase intent must never be
+    // replaced while a checkout attempt for the current one is in
+    // flight or tracking a transaction.
+    if (!apiBase || checkoutActiveRef.current) return
     setPurchaseRef(null)
     setCheckoutError('')
     setCheckoutStatus('')
+    setCompletedForRef(null)
+    trackedTransactionIdRef.current = null
     const ref = await createPurchaseIntent(apiBase)
     setPurchaseRef(ref)
   }
@@ -135,21 +190,36 @@ export default function AccountTestPage() {
   // localStorage/sessionStorage, matching this file's existing session-
   // token handling.
   async function openPhase3Checkout() {
-    if (!purchaseRef || 'error' in sandboxConfig || openingCheckout.current) return
-    openingCheckout.current = true
-    setCheckoutLoading(true)
+    if (!purchaseRef || 'error' in sandboxConfig || checkoutActiveRef.current) return
+    checkoutActiveRef.current = true
+    setCheckoutActive(true)
     setCheckoutError('')
     setCheckoutStatus('Loading Paddle Sandbox Checkout…')
 
     try {
-      const paddle = await initializePaddle({
-        environment: 'sandbox',
-        token: sandboxConfig.token,
-        eventCallback: handleCheckoutEvent,
-      })
+      if (!paddleInitPromise.current) {
+        paddleInitPromise.current = initializePaddle({
+          environment: 'sandbox',
+          token: sandboxConfig.token,
+          eventCallback: handleCheckoutEvent,
+        })
+      }
+      let paddle: Paddle | undefined
+      try {
+        paddle = await paddleInitPromise.current
+      } catch (err) {
+        // A failed initialize must not permanently wedge future opens
+        // -- clear the cached promise so the next attempt retries it.
+        paddleInitPromise.current = null
+        throw err
+      }
       if (!mountedCheckout.current) return
-      if (!paddle?.Initialized) throw new Error('Paddle did not initialize')
+      if (!paddle?.Initialized) {
+        paddleInitPromise.current = null
+        throw new Error('Paddle did not initialize')
+      }
       checkoutInstance.current = paddle
+      trackedTransactionIdRef.current = null
       setCheckoutStatus('Checkout requested. Complete the test payment in the overlay.')
       paddle.Checkout.open({
         settings: { displayMode: 'overlay' },
@@ -161,20 +231,75 @@ export default function AccountTestPage() {
         setCheckoutError('Could not open Paddle Sandbox Checkout. Check the sandbox configuration and network, then reload this page to retry.')
         setCheckoutStatus('Checkout unavailable.')
       }
-    } finally {
-      openingCheckout.current = false
-      if (mountedCheckout.current) setCheckoutLoading(false)
+      resetCheckoutLifecycle()
     }
   }
 
+  // Registered (at most) once per mount as initializePaddle's
+  // eventCallback -- must read purchaseRefRef/trackedTransactionIdRef
+  // (never the purchaseRef/purchaseRef-derived state captured in this
+  // closure's first invocation) so correlation always reflects the
+  // CURRENT purchase intent, not whichever one was current when
+  // initializePaddle first ran.
   function handleCheckoutEvent(event: PaddleEventData) {
     if (!mountedCheckout.current || !event.name) return
-    const name = event.name
-    if (name === 'checkout.completed') {
+
+    if (event.name === 'checkout.loaded') {
+      const eventTransactionId = event.data?.transaction_id
+      const eventPurchaseRef = (event.data?.custom_data as { purchase_ref?: unknown } | null | undefined)?.purchase_ref
+      const currentRef = purchaseRefRef.current
+      const hasTransactionId = typeof eventTransactionId === 'string' && eventTransactionId !== ''
+      const purchaseRefMatches = currentRef !== null && eventPurchaseRef === currentRef
+
+      if (hasTransactionId && purchaseRefMatches) {
+        trackedTransactionIdRef.current = eventTransactionId
+        setCheckoutStatus('Checkout loaded and correlated.')
+        setCheckoutError('')
+        return
+      }
+
+      // Never trust an uncorrelated checkout -- close it and require an
+      // explicit new purchase intent + Open, rather than silently
+      // reopening or falling back to any other identity source.
+      checkoutInstance.current?.Checkout.close()
+      resetCheckoutLifecycle()
+      setCheckoutStatus('Checkout unavailable.')
+      setCheckoutError(
+        `Checkout could not be correlated to the current purchase intent (transaction present: ${hasTransactionId}, purchase_ref match: ${purchaseRefMatches}). Closed for safety — create a new purchase intent to retry.`,
+      )
+      return
+    }
+
+    if (event.name === 'checkout.completed') {
       // Client events are diagnostic only and MUST NOT grant entitlement
       // -- see "3. Entitlement" below, which always reads
-      // entitlement-me.php's server-verified state instead.
-      setCheckoutStatus('Checkout completed (sandbox). Entitlement is not granted client-side — check it below once the webhook has processed.')
+      // entitlement-me.php's server-verified state instead. This
+      // correlation check only decides whether to show the diagnostic
+      // "completed" status vs. a mismatch error; it never itself grants
+      // anything.
+      const eventTransactionId = event.data?.transaction_id
+      const eventPurchaseRef = (event.data?.custom_data as { purchase_ref?: unknown } | null | undefined)?.purchase_ref
+      const currentRef = purchaseRefRef.current
+      const tracked = trackedTransactionIdRef.current
+      const transactionMatch = tracked !== null && eventTransactionId === tracked
+      const purchaseRefMatch = currentRef !== null && eventPurchaseRef === currentRef
+
+      if (transactionMatch && purchaseRefMatch) {
+        setCheckoutStatus('Checkout completed (sandbox). Entitlement is not granted client-side — check it below once the webhook has processed.')
+        setCheckoutError('')
+        if (currentRef !== null) setCompletedForRef(currentRef)
+      } else {
+        setCheckoutStatus('Checkout unavailable.')
+        setCheckoutError(
+          `Checkout completion could not be correlated to the current purchase intent (transaction match: ${transactionMatch}, purchase_ref match: ${purchaseRefMatch}). Not treated as a successful checkout — create a new purchase intent to retry.`,
+        )
+      }
+      resetCheckoutLifecycle()
+      return
+    }
+
+    if (event.name === 'checkout.closed') {
+      resetCheckoutLifecycle()
     }
   }
 
@@ -187,6 +312,9 @@ export default function AccountTestPage() {
 
   async function handleLogout() {
     if (!apiBase) return
+    checkoutInstance.current?.Checkout.close()
+    resetCheckoutLifecycle()
+    setCompletedForRef(null)
     await logout(apiBase)
     setCurrentUser(null)
     setPurchaseRef(null)
@@ -292,7 +420,8 @@ export default function AccountTestPage() {
             <button
               type="button"
               onClick={() => void handleCreatePurchaseIntent()}
-              className="self-start rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700"
+              disabled={checkoutActive}
+              className="self-start rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Create purchase intent
             </button>
@@ -324,7 +453,7 @@ export default function AccountTestPage() {
               <button
                 type="button"
                 onClick={() => void openPhase3Checkout()}
-                disabled={'error' in sandboxConfig || checkoutLoading}
+                disabled={'error' in sandboxConfig || checkoutActive || completedForRef === purchaseRef}
                 className="self-start rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Open Paddle Sandbox Checkout
