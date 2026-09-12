@@ -21,6 +21,7 @@ require_once __DIR__ . '/../../src/ProductMatcher.php';
 require_once __DIR__ . '/../../src/Purchase/PurchaseIntentRepository.php';
 require_once __DIR__ . '/../../src/Purchase/TransactionGrantRepository.php';
 require_once __DIR__ . '/../../src/Purchase/PendingAdjustmentRepository.php';
+require_once __DIR__ . '/../../src/Purchase/RefundCompleteness.php';
 require_once __DIR__ . '/../../src/Purchase/PurchaseWebhookHandler.php';
 
 const PWH_TEST_SECRET = 'test-webhook-secret';
@@ -87,6 +88,7 @@ function makePurchaseWebhookTestDb(): PDO
             action TEXT NOT NULL,
             adjustment_status TEXT NOT NULL,
             adjustment_type TEXT NOT NULL,
+            items_json TEXT NULL,
             occurred_at TEXT NOT NULL,
             reconciled_at TEXT NULL,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -138,18 +140,33 @@ function pwhTransactionCompletedPayload(string $eventId, string $transactionId, 
     ]);
 }
 
-function pwhAdjustmentPayload(string $eventId, string $eventType, string $transactionId, string $action, string $status, string $type, string $occurredAt = '2026-01-02T00:00:00Z'): string
+/**
+ * Builds an adjustment.created/adjustment.updated payload. `$items`
+ * mirrors Paddle's real `data.items` shape (a list of
+ * `['type' => 'full'|'partial', 'item_id' => ..., 'totals' => [...]]`
+ * entries) -- omit it (default null) for tests that don't care about
+ * item-level detail, e.g. a whole-transaction ($type = 'full') refund.
+ *
+ * @param list<array<string, mixed>>|null $items
+ */
+function pwhAdjustmentPayload(string $eventId, string $eventType, string $transactionId, string $action, string $status, string $type, string $occurredAt = '2026-01-02T00:00:00Z', ?array $items = null, string $adjustmentId = 'adj_test'): string
 {
+    $data = [
+        'id' => $adjustmentId,
+        'transaction_id' => $transactionId,
+        'action' => $action,
+        'status' => $status,
+        'type' => $type,
+    ];
+    if ($items !== null) {
+        $data['items'] = $items;
+    }
+
     return json_encode([
         'event_id' => $eventId,
         'event_type' => $eventType,
         'occurred_at' => $occurredAt,
-        'data' => [
-            'transaction_id' => $transactionId,
-            'action' => $action,
-            'status' => $status,
-            'type' => $type,
-        ],
+        'data' => $data,
     ]);
 }
 
@@ -366,6 +383,107 @@ function purchaseWebhookHandlerTests(): array
 
             $entitlements = new EntitlementRepository($pdo);
             assertTrue($entitlements->find('user-1', 'full_tamamizu')['active'], 'partial refund must not revoke entitlement');
+        },
+
+        // -- item-scoped refund completeness (real Paddle Sandbox shape:
+        // adjustment-level type=partial, items[].type=full) --
+
+        'approved item-scoped refund of the single entitlement item revokes entitlement (real payload regression)' => function () {
+            // Regression for the Tamamizu Sandbox refund that stayed
+            // active: Paddle's real payload for a full-item refund has
+            // adjustment-level data.type = "partial" with exactly one
+            // items[] entry whose type = "full" -- not adjustment-level
+            // type = "full".
+            $pdo = makePurchaseWebhookTestDb();
+            $intents = new PurchaseIntentRepository($pdo);
+            $intents->create('user-1', 'full_tamamizu', 'raw-ref-itemfull', new \DateTimeImmutable('+30 minutes'));
+            $handler = makePurchaseWebhookHandler($pdo);
+            $body = pwhTransactionCompletedPayload('evt_if1', 'txn_itemfull', 'raw-ref-itemfull');
+            $handler->handle($body, pwhSign($body));
+
+            $items = [['type' => 'full', 'item_id' => 'txnitm_1', 'totals' => ['total' => '534']]];
+            $createdBody = pwhAdjustmentPayload('evt_if2', 'adjustment.created', 'txn_itemfull', 'refund', 'pending_approval', 'partial', '2026-01-02T00:00:00Z', $items, 'adj_itemfull');
+            $handler->handle($createdBody, pwhSign($createdBody));
+
+            $updatedBody = pwhAdjustmentPayload('evt_if3', 'adjustment.updated', 'txn_itemfull', 'refund', 'approved', 'partial', '2026-01-03T00:00:00Z', $items, 'adj_itemfull');
+            $result = $handler->handle($updatedBody, pwhSign($updatedBody));
+
+            assertSame(200, $result->statusCode, 'the adjustment.updated event should be safely acknowledged');
+
+            $grants = new TransactionGrantRepository($pdo);
+            assertSame('refunded', $grants->findByTransactionId('txn_itemfull')['status'], 'the single entitlement item being fully refunded should refund the grant');
+
+            $entitlements = new EntitlementRepository($pdo);
+            assertFalse($entitlements->find('user-1', 'full_tamamizu')['active'], 'entitlement should be revoked once the single item is fully refunded');
+        },
+
+        'approved refund with a partially-refunded item does not revoke entitlement' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $intents = new PurchaseIntentRepository($pdo);
+            $intents->create('user-1', 'full_tamamizu', 'raw-ref-itempartial', new \DateTimeImmutable('+30 minutes'));
+            $handler = makePurchaseWebhookHandler($pdo);
+            $body = pwhTransactionCompletedPayload('evt_ip1', 'txn_itempartial', 'raw-ref-itempartial');
+            $handler->handle($body, pwhSign($body));
+
+            $items = [['type' => 'partial', 'item_id' => 'txnitm_1', 'totals' => ['total' => '100']]];
+            $adjBody = pwhAdjustmentPayload('evt_ip2', 'adjustment.created', 'txn_itempartial', 'refund', 'approved', 'partial', '2026-01-02T00:00:00Z', $items);
+            $handler->handle($adjBody, pwhSign($adjBody));
+
+            $grants = new TransactionGrantRepository($pdo);
+            assertSame('active', $grants->findByTransactionId('txn_itempartial')['status'], 'a partially-refunded item must not change grant status');
+
+            $entitlements = new EntitlementRepository($pdo);
+            assertTrue($entitlements->find('user-1', 'full_tamamizu')['active'], 'entitlement must remain active for a partially-refunded item');
+        },
+
+        'approved refund with multiple items, only one fully refunded, does not revoke entitlement' => function () {
+            // The current domain model has no per-item tracking on
+            // transaction_grants (single-item transactions only), so a
+            // multi-item adjustment can never be safely mapped onto
+            // "the whole grant was refunded" -- this must stay
+            // conservative even though it should not arise in practice
+            // today.
+            $pdo = makePurchaseWebhookTestDb();
+            $intents = new PurchaseIntentRepository($pdo);
+            $intents->create('user-1', 'full_tamamizu', 'raw-ref-multi', new \DateTimeImmutable('+30 minutes'));
+            $handler = makePurchaseWebhookHandler($pdo);
+            $body = pwhTransactionCompletedPayload('evt_mi1', 'txn_multiitem', 'raw-ref-multi');
+            $handler->handle($body, pwhSign($body));
+
+            $items = [
+                ['type' => 'full', 'item_id' => 'txnitm_1', 'totals' => ['total' => '534']],
+                ['type' => 'partial', 'item_id' => 'txnitm_2', 'totals' => ['total' => '10']],
+            ];
+            $adjBody = pwhAdjustmentPayload('evt_mi2', 'adjustment.created', 'txn_multiitem', 'refund', 'approved', 'partial', '2026-01-02T00:00:00Z', $items);
+            $handler->handle($adjBody, pwhSign($adjBody));
+
+            $grants = new TransactionGrantRepository($pdo);
+            assertSame('active', $grants->findByTransactionId('txn_multiitem')['status'], 'an ambiguous multi-item adjustment must not be treated as a full refund');
+
+            $entitlements = new EntitlementRepository($pdo);
+            assertTrue($entitlements->find('user-1', 'full_tamamizu')['active'], 'entitlement must remain active when full-refund coverage cannot be safely determined');
+        },
+
+        'adjustment.created and adjustment.updated for the same adjustment id but different event_ids are both processed' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $intents = new PurchaseIntentRepository($pdo);
+            $intents->create('user-1', 'full_tamamizu', 'raw-ref-sameadj', new \DateTimeImmutable('+30 minutes'));
+            $handler = makePurchaseWebhookHandler($pdo);
+            $body = pwhTransactionCompletedPayload('evt_sa1', 'txn_sameadj', 'raw-ref-sameadj');
+            $handler->handle($body, pwhSign($body));
+
+            $items = [['type' => 'full', 'item_id' => 'txnitm_1', 'totals' => ['total' => '534']]];
+            $createdBody = pwhAdjustmentPayload('evt_sa_created', 'adjustment.created', 'txn_sameadj', 'refund', 'pending_approval', 'partial', '2026-01-02T00:00:00Z', $items, 'adj_shared_id');
+            $createdResult = $handler->handle($createdBody, pwhSign($createdBody));
+
+            $updatedBody = pwhAdjustmentPayload('evt_sa_updated', 'adjustment.updated', 'txn_sameadj', 'refund', 'approved', 'partial', '2026-01-03T00:00:00Z', $items, 'adj_shared_id');
+            $updatedResult = $handler->handle($updatedBody, pwhSign($updatedBody));
+
+            assertSame(200, $createdResult->statusCode, 'adjustment.created should be processed even though it shares data.id with a later adjustment.updated');
+            assertSame(200, $updatedResult->statusCode, 'adjustment.updated should be processed despite sharing data.id with adjustment.created');
+
+            $grants = new TransactionGrantRepository($pdo);
+            assertSame('refunded', $grants->findByTransactionId('txn_sameadj')['status'], 'both events, keyed by their distinct event_id, should be applied in order');
         },
 
         'refund on transaction A never touches transaction B' => function () {
