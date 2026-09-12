@@ -59,6 +59,7 @@ final class Config
             'MAGIC_LINK_TOKEN_EXPIRY_MINUTES',
             'SESSION_EXPIRY_HOURS',
             'MAGIC_LINK_FRONTEND_BASE_URL',
+            'DEV_HARNESS_ENABLED',
         ];
 
         $values = [];

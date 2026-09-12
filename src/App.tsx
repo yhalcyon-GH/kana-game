@@ -38,6 +38,14 @@ import { ThirdPartyNoticesPage } from './routes/ThirdPartyNoticesPage'
 // from production builds. Keep this conditional import and the route guard.
 const PaddleTestPage = import.meta.env.DEV ? lazy(() => import('./routes/PaddleTestPage')) : null
 
+// Phase 3A PR C — same compile-time exclusion pattern as PaddleTestPage
+// above. Not a production login/account/purchase UI — see
+// docs/adr/0001-cross-site-auth-transport.md (production browser
+// session transport is a separate, later decision) and
+// docs/paddle-auth-phase3a-pr-c.md.
+const AccountTestPage = import.meta.env.DEV ? lazy(() => import('./routes/AccountTestPage')) : null
+const VerifyPage = import.meta.env.DEV ? lazy(() => import('./routes/VerifyPage')) : null
+
 function RestaurantRoute() {
   const { checkpointId } = useParams()
   return <RestaurantPage checkpointId={checkpointId ?? 'na-row'} />
@@ -85,6 +93,12 @@ function App() {
             <Routes>
               {import.meta.env.DEV && PaddleTestPage && (
                 <Route path="/paddle-test" element={<Suspense fallback={<p>Loading sandbox test page…</p>}><PaddleTestPage /></Suspense>} />
+              )}
+              {import.meta.env.DEV && AccountTestPage && (
+                <Route path="/account-test" element={<Suspense fallback={<p>Loading account test page…</p>}><AccountTestPage /></Suspense>} />
+              )}
+              {import.meta.env.DEV && VerifyPage && (
+                <Route path="/verify" element={<Suspense fallback={<p>Loading…</p>}><VerifyPage /></Suspense>} />
               )}
               <Route path="/" element={<HomePage />} />
               <Route

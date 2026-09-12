@@ -43,6 +43,7 @@ require __DIR__ . '/src/ProductMatcher.php';
 require __DIR__ . '/src/Purchase/PurchaseIntentRepository.php';
 require __DIR__ . '/src/Purchase/TransactionGrantRepository.php';
 require __DIR__ . '/src/Purchase/PendingAdjustmentRepository.php';
+require __DIR__ . '/src/Purchase/RefundCompleteness.php';
 require __DIR__ . '/src/Purchase/PurchaseWebhookHandler.php';
 
 use KanaGame\Paddle\Config;

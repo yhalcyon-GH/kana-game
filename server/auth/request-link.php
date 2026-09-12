@@ -28,6 +28,8 @@ require __DIR__ . '/../src/Auth/Mailer.php';
 require __DIR__ . '/../src/Auth/RateLimiter.php';
 require __DIR__ . '/../src/Auth/SessionRepository.php';
 require __DIR__ . '/../src/Auth/UserRepository.php';
+require __DIR__ . '/../src/DevOnly/DevHarnessMagicLinkStore.php';
+require __DIR__ . '/../src/DevOnly/DevHarnessMailer.php';
 require __DIR__ . '/../src/Uuid.php';
 
 use KanaGame\Paddle\Auth\CurrentUserService;
@@ -41,6 +43,8 @@ use KanaGame\Paddle\Auth\UserRepository;
 use KanaGame\Paddle\Config;
 use KanaGame\Paddle\Cors;
 use KanaGame\Paddle\Db;
+use KanaGame\Paddle\DevOnly\DevHarnessMagicLinkStore;
+use KanaGame\Paddle\DevOnly\DevHarnessMailer;
 
 $config = Config::load();
 $cors = new Cors($config->allowedOrigins());
@@ -81,7 +85,10 @@ $clientIp = $_SERVER['REMOTE_ADDR'] ?? '';
 // server/src/Auth/Mailer.php's doc comment. This inline no-op keeps
 // "no real mailer exists yet" visible at the one call site that
 // matters, and makes this endpoint fully deployable (if email-less)
-// without a real SMTP credential.
+// without a real SMTP credential. It is used UNLESS the dev-only
+// harness is explicitly enabled (see below) — production behavior is
+// completely unaffected by the harness flag's existence, since the
+// flag defaults to disabled/absent.
 $noopMailer = new class implements Mailer {
     public function sendMagicLink(string $emailNormalized, string $magicLinkUrl): void
     {
@@ -90,6 +97,22 @@ $noopMailer = new class implements Mailer {
 
 try {
     $pdo = Db::connect($config);
+
+    // Dev-only substitution: ONLY when DEV_HARNESS_ENABLED is the exact
+    // string 'true' does this endpoint route the magic-link URL to
+    // DevHarnessMagicLinkStore instead of doing nothing with it. See
+    // server/src/DevOnly/DevHarnessMailer.php and
+    // server/dev-only/last-magic-link.php for the rest of this
+    // mechanism. This substitution happens ONLY here, at this one call
+    // site — no other entrypoint's behavior changes based on this flag.
+    $mailer = $config->get('DEV_HARNESS_ENABLED') === 'true'
+        ? new DevHarnessMailer(
+            new DevHarnessMagicLinkStore($pdo),
+            true,
+            $config->intWithDefault('MAGIC_LINK_TOKEN_EXPIRY_MINUTES', 15),
+        )
+        : $noopMailer;
+
     $currentUser = new CurrentUserService(
         new UserRepository($pdo),
         new SessionRepository($pdo),
@@ -105,7 +128,7 @@ try {
             $config->intWithDefault('RATE_LIMIT_EMAIL_PER_HOUR', 5),
             $config->intWithDefault('RATE_LIMIT_IP_PER_HOUR', 20),
         ),
-        $noopMailer,
+        $mailer,
         new MagicLinkUrlBuilder($config->require('MAGIC_LINK_FRONTEND_BASE_URL')),
         $currentUser,
         $config->intWithDefault('MAGIC_LINK_TOKEN_EXPIRY_MINUTES', 15),

@@ -1,5 +1,6 @@
 import { initializePaddle, type Paddle, type PaddleEventData } from '@paddle/paddle-js'
 import { useEffect, useRef, useState } from 'react'
+import { readSandboxConfig } from '../lib/paddle/sandboxConfig'
 
 // Sandbox PoC ONLY — see server/src/SandboxUser.php (server-side source of
 // truth for this same constant). There is no Magic Link / real account
@@ -18,29 +19,6 @@ function readEntitlementApiUrl(): string | undefined {
   return import.meta.env.VITE_PADDLE_ENTITLEMENT_API_URL?.trim() || undefined
 }
 
-function readSandboxConfig() {
-  if (!import.meta.env.DEV) return { error: 'Sandbox Checkout PoC is available only in development.' }
-
-  const environment = import.meta.env.VITE_PADDLE_ENVIRONMENT?.trim()
-  const token = import.meta.env.VITE_PADDLE_CLIENT_TOKEN?.trim()
-  const priceId = import.meta.env.VITE_PADDLE_PRICE_ID?.trim()
-  const missing = [
-    !environment && 'VITE_PADDLE_ENVIRONMENT',
-    !token && 'VITE_PADDLE_CLIENT_TOKEN',
-    !priceId && 'VITE_PADDLE_PRICE_ID',
-  ].filter(Boolean)
-
-  if (missing.length) {
-    return { error: `Configuration missing: ${missing.join(', ')}. Set these in .env.local and restart the dev server.` }
-  }
-  if (environment !== 'sandbox') return { error: 'VITE_PADDLE_ENVIRONMENT must be sandbox for this PoC.' }
-  if (!token?.startsWith('test_')) {
-    return { error: 'VITE_PADDLE_CLIENT_TOKEN must be a sandbox client-side token (test_). Never use an API key.' }
-  }
-  if (!priceId?.startsWith('pri_')) return { error: 'VITE_PADDLE_PRICE_ID must be a Paddle price ID (pri_).' }
-  return { token, priceId }
-}
-
 type EntitlementCheckState =
   | { kind: 'idle' }
   | { kind: 'loading' }
@@ -48,7 +26,7 @@ type EntitlementCheckState =
   | { kind: 'error'; message: string }
 
 export default function PaddleTestPage() {
-  const config = readSandboxConfig()
+  const config = readSandboxConfig('Sandbox Checkout PoC is available only in development.')
   const entitlementApiUrl = readEntitlementApiUrl()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -105,7 +83,7 @@ export default function PaddleTestPage() {
   }
 
   async function openCheckout() {
-    if (!import.meta.env.DEV || config.error || !config.token || !config.priceId || opening.current) return
+    if (!import.meta.env.DEV || 'error' in config || opening.current) return
     opening.current = true
     setLoading(true)
     setError('')
@@ -158,16 +136,18 @@ export default function PaddleTestPage() {
       <p className="text-sm text-neutral-600 dark:text-neutral-400">
         Test payment only. Confirm the product, USD price, quantity and any tax in Paddle before paying.
       </p>
-      {(config.error || error) && <p role="alert" className="rounded-lg border border-amber-500 p-4">{config.error || error}</p>}
+      {(('error' in config && config.error) || error) && (
+        <p role="alert" className="rounded-lg border border-amber-500 p-4">{('error' in config && config.error) || error}</p>
+      )}
       <button
         type="button"
         onClick={() => void openCheckout()}
-        disabled={Boolean(config.error) || loading}
+        disabled={'error' in config || loading}
         className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
       >
         Open Paddle Sandbox Checkout
       </button>
-      <p role="status">{config.error ? 'Checkout disabled until configuration is valid.' : status}</p>
+      <p role="status">{'error' in config ? 'Checkout disabled until configuration is valid.' : status}</p>
       <section className="flex flex-col gap-2">
         <h2 id="paddle-events-heading" className="text-lg font-semibold">Checkout events</h2>
         <div role="log" aria-labelledby="paddle-events-heading" className="rounded-lg bg-neutral-100 p-4 text-sm dark:bg-neutral-800">

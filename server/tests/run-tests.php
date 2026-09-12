@@ -18,6 +18,7 @@ require_once __DIR__ . '/TestCase.php';
 use KanaGame\Paddle\Tests\TestFailure;
 
 $testFiles = [
+    __DIR__ . '/ConfigTest.php' => 'KanaGame\\Paddle\\Tests\\configTests',
     __DIR__ . '/PaddleSignatureTest.php' => 'KanaGame\\Paddle\\Tests\\paddleSignatureTests',
     __DIR__ . '/ProductMatcherTest.php' => 'KanaGame\\Paddle\\Tests\\productMatcherTests',
     __DIR__ . '/WebhookHandlerTest.php' => 'KanaGame\\Paddle\\Tests\\webhookHandlerTests',
@@ -40,6 +41,9 @@ $testFiles = [
     __DIR__ . '/Purchase/PurchaseWebhookHandlerTest.php' => 'KanaGame\\Paddle\\Tests\\purchaseWebhookHandlerTests',
     __DIR__ . '/Purchase/PurchaseWebhookHandlerIsolationTest.php' => 'KanaGame\\Paddle\\Tests\\purchaseWebhookHandlerIsolationTests',
     __DIR__ . '/Purchase/CurrentUserEntitlementServiceTest.php' => 'KanaGame\\Paddle\\Tests\\currentUserEntitlementServiceTests',
+    __DIR__ . '/DevOnly/DevHarnessMagicLinkStoreTest.php' => 'KanaGame\\Paddle\\Tests\\devHarnessMagicLinkStoreTests',
+    __DIR__ . '/DevOnly/DevHarnessMailerTest.php' => 'KanaGame\\Paddle\\Tests\\devHarnessMailerTests',
+    __DIR__ . '/DevOnly/LastMagicLinkEntrypointTest.php' => 'KanaGame\\Paddle\\Tests\\lastMagicLinkEntrypointTests',
 ];
 
 $totalPassed = 0;

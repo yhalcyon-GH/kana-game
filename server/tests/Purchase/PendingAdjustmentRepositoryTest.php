@@ -22,6 +22,7 @@ function makePendingAdjustmentsTestDb(): PDO
             action TEXT NOT NULL,
             adjustment_status TEXT NOT NULL,
             adjustment_type TEXT NOT NULL,
+            items_json TEXT NULL,
             occurred_at TEXT NOT NULL,
             reconciled_at TEXT NULL,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -38,7 +39,7 @@ function pendingAdjustmentRepositoryTests(): array
     return [
         'queue() inserts an unreconciled pending adjustment' => function () {
             $repo = new PendingAdjustmentRepository(makePendingAdjustmentsTestDb());
-            $repo->queue('txn_1', 'evt_1', 'refund', 'approved', 'full', new \DateTimeImmutable('2026-01-01 00:00:00'));
+            $repo->queue('txn_1', 'evt_1', 'refund', 'approved', 'full', null, new \DateTimeImmutable('2026-01-01 00:00:00'));
 
             $pending = $repo->findUnreconciledForTransaction('txn_1');
             assertSame(1, count($pending), 'exactly one unreconciled adjustment should be queued');
@@ -47,8 +48,8 @@ function pendingAdjustmentRepositoryTests(): array
         'queue() with a duplicate paddle_event_id is idempotent (no duplicate row, no throw)' => function () {
             $pdo = makePendingAdjustmentsTestDb();
             $repo = new PendingAdjustmentRepository($pdo);
-            $repo->queue('txn_1', 'evt_dup', 'refund', 'approved', 'full', new \DateTimeImmutable('2026-01-01 00:00:00'));
-            $repo->queue('txn_1', 'evt_dup', 'refund', 'approved', 'full', new \DateTimeImmutable('2026-01-01 00:00:00'));
+            $repo->queue('txn_1', 'evt_dup', 'refund', 'approved', 'full', null, new \DateTimeImmutable('2026-01-01 00:00:00'));
+            $repo->queue('txn_1', 'evt_dup', 'refund', 'approved', 'full', null, new \DateTimeImmutable('2026-01-01 00:00:00'));
 
             $count = (int) $pdo->query('SELECT COUNT(*) FROM pending_adjustments')->fetchColumn();
             assertSame(1, $count, 'a duplicate event_id must not create a second row');
@@ -56,9 +57,9 @@ function pendingAdjustmentRepositoryTests(): array
 
         'findUnreconciledForTransaction() returns only unreconciled rows for the given transaction' => function () {
             $repo = new PendingAdjustmentRepository(makePendingAdjustmentsTestDb());
-            $repo->queue('txn_1', 'evt_1', 'refund', 'pending_approval', 'full', new \DateTimeImmutable('2026-01-01 00:00:00'));
-            $repo->queue('txn_1', 'evt_2', 'refund', 'approved', 'full', new \DateTimeImmutable('2026-01-02 00:00:00'));
-            $repo->queue('txn_2', 'evt_3', 'refund', 'approved', 'full', new \DateTimeImmutable('2026-01-01 00:00:00'));
+            $repo->queue('txn_1', 'evt_1', 'refund', 'pending_approval', 'full', null, new \DateTimeImmutable('2026-01-01 00:00:00'));
+            $repo->queue('txn_1', 'evt_2', 'refund', 'approved', 'full', null, new \DateTimeImmutable('2026-01-02 00:00:00'));
+            $repo->queue('txn_2', 'evt_3', 'refund', 'approved', 'full', null, new \DateTimeImmutable('2026-01-01 00:00:00'));
 
             $pending = $repo->findUnreconciledForTransaction('txn_1');
             assertSame(2, count($pending), 'both queued adjustments for txn_1 should be returned');
@@ -69,8 +70,8 @@ function pendingAdjustmentRepositoryTests(): array
 
         'findUnreconciledForTransaction() orders results by occurred_at ascending (oldest first)' => function () {
             $repo = new PendingAdjustmentRepository(makePendingAdjustmentsTestDb());
-            $repo->queue('txn_1', 'evt_newer', 'refund', 'approved', 'full', new \DateTimeImmutable('2026-01-05 00:00:00'));
-            $repo->queue('txn_1', 'evt_older', 'refund', 'pending_approval', 'full', new \DateTimeImmutable('2026-01-01 00:00:00'));
+            $repo->queue('txn_1', 'evt_newer', 'refund', 'approved', 'full', null, new \DateTimeImmutable('2026-01-05 00:00:00'));
+            $repo->queue('txn_1', 'evt_older', 'refund', 'pending_approval', 'full', null, new \DateTimeImmutable('2026-01-01 00:00:00'));
 
             $pending = $repo->findUnreconciledForTransaction('txn_1');
             assertSame('evt_older', $pending[0]['paddle_event_id'], 'the older event should come first');
@@ -80,7 +81,7 @@ function pendingAdjustmentRepositoryTests(): array
         'findUnreconciledForTransaction() excludes already-reconciled rows' => function () {
             $pdo = makePendingAdjustmentsTestDb();
             $repo = new PendingAdjustmentRepository($pdo);
-            $repo->queue('txn_1', 'evt_1', 'refund', 'approved', 'full', new \DateTimeImmutable('2026-01-01 00:00:00'));
+            $repo->queue('txn_1', 'evt_1', 'refund', 'approved', 'full', null, new \DateTimeImmutable('2026-01-01 00:00:00'));
             $repo->markReconciled('evt_1');
 
             $pending = $repo->findUnreconciledForTransaction('txn_1');
@@ -90,7 +91,7 @@ function pendingAdjustmentRepositoryTests(): array
         'markReconciled() sets reconciled_at for the given event id' => function () {
             $pdo = makePendingAdjustmentsTestDb();
             $repo = new PendingAdjustmentRepository($pdo);
-            $repo->queue('txn_1', 'evt_1', 'refund', 'approved', 'full', new \DateTimeImmutable('2026-01-01 00:00:00'));
+            $repo->queue('txn_1', 'evt_1', 'refund', 'approved', 'full', null, new \DateTimeImmutable('2026-01-01 00:00:00'));
             $repo->markReconciled('evt_1');
 
             $reconciledAt = $pdo->query("SELECT reconciled_at FROM pending_adjustments WHERE paddle_event_id = 'evt_1'")->fetchColumn();
@@ -99,7 +100,7 @@ function pendingAdjustmentRepositoryTests(): array
 
         'isEventKnown() returns true for a previously queued event id, false otherwise' => function () {
             $repo = new PendingAdjustmentRepository(makePendingAdjustmentsTestDb());
-            $repo->queue('txn_1', 'evt_1', 'refund', 'approved', 'full', new \DateTimeImmutable('2026-01-01 00:00:00'));
+            $repo->queue('txn_1', 'evt_1', 'refund', 'approved', 'full', null, new \DateTimeImmutable('2026-01-01 00:00:00'));
 
             assertTrue($repo->isEventKnown('evt_1'), 'a queued event should be known');
             assertFalse($repo->isEventKnown('evt_never_queued'), 'an unqueued event should not be known');

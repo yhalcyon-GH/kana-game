@@ -20,6 +20,7 @@ For day-to-day development, start with [`CLAUDE.md`](../CLAUDE.md) or [`AGENTS.m
 - **[paddle-webhook-poc.md](./paddle-webhook-poc.md)** — Phase 2 PoC: PHP/MySQL server-side webhook signature verification and entitlement storage, Xserver deployment, Paddle Sandbox webhook setup, and human end-to-end verification.
 - **[paddle-auth-phase3a-pr-a.md](./paddle-auth-phase3a-pr-a.md)** — Phase 3A PR A: real-user identity + Magic Link auth foundation (users, sessions, rate limiting, CORS preflight); not yet deployed.
 - **[paddle-auth-phase3a-pr-b.md](./paddle-auth-phase3a-pr-b.md)** — Phase 3A PR B: secure purchase attribution (purchase_ref, transaction_grants, out-of-order webhook reconciliation, refund lifecycle); not yet deployed.
+- **[paddle-auth-phase3a-pr-c.md](./paddle-auth-phase3a-pr-c.md)** — Phase 3A PR C: dev-only end-to-end auth/purchase harness (`/account-test`, `/verify`, dev-only Magic Link retrieval); not yet deployed.
 - **[tamamizu-guide-scripts.md](./tamamizu-guide-scripts.md)** — approved guide copy / visual direction where still applicable.
 - **[restaurant-audio-manifest.csv](./restaurant-audio-manifest.csv)** — restaurant audio asset manifest.
 

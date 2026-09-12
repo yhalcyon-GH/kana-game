@@ -209,29 +209,37 @@ final class PurchaseWebhookHandler
             return false;
         }
 
+        $items = $data['items'] ?? null;
+
         $grant = $this->grants->findByTransactionId($transactionId);
         if ($grant === null) {
             // Paddle does not guarantee webhook delivery order -- the
             // transaction.completed this adjustment refers to may not
             // have arrived yet. Queue it for reconciliation rather than
             // dropping it.
-            $this->pendingAdjustments->queue($transactionId, $eventId, $action, $adjustmentStatus, $adjustmentType, $occurredAt);
+            $this->pendingAdjustments->queue($transactionId, $eventId, $action, $adjustmentStatus, $adjustmentType, $items, $occurredAt);
             return true;
         }
 
-        return $this->applyRefundTransition($grant['user_id'], $grant['product_key'], $transactionId, $adjustmentStatus, $adjustmentType, $occurredAt);
+        return $this->applyRefundTransition($grant['user_id'], $grant['product_key'], $transactionId, $adjustmentStatus, $adjustmentType, $items, $occurredAt);
     }
 
     /**
      * Applies one refund status transition to an existing grant, per
      * the design spec's lifecycle rules:
      *   pending_approval -> refund_pending (still entitlement-bearing)
-     *   approved + full  -> refunded (revokes)
-     *   approved + partial -> no status change (recorded/idempotent
-     *     only -- partial-refund entitlement policy remains deferred)
+     *   approved + full refund of the grant -> refunded (revokes)
+     *   approved + not a full refund of the grant -> no status change
+     *     (recorded/idempotent only -- partial-refund entitlement
+     *     policy remains deferred)
      *   rejected -> active (restored)
-     * A stale (older occurred_at) transition is discarded by
+     * "Full refund of the grant" is decided by RefundCompleteness --
+     * NOT simply adjustment-level type === 'full' -- see that class for
+     * why (Paddle reports item-scoped full refunds as adjustment-level
+     * `partial`). A stale (older occurred_at) transition is discarded by
      * TransactionGrantRepository::updateStatus() itself.
+     *
+     * @param mixed $items The adjustment's `data.items`, if present.
      */
     private function applyRefundTransition(
         string $userId,
@@ -239,23 +247,26 @@ final class PurchaseWebhookHandler
         string $transactionId,
         string $adjustmentStatus,
         string $adjustmentType,
+        mixed $items,
         \DateTimeImmutable $occurredAt,
     ): bool {
+        $isFullRefund = RefundCompleteness::isFullRefund($adjustmentType, $items);
+
         $newStatus = match (true) {
             $adjustmentStatus === 'pending_approval' => 'refund_pending',
-            $adjustmentStatus === 'approved' && $adjustmentType === 'full' => 'refunded',
-            $adjustmentStatus === 'approved' && $adjustmentType === 'partial' => null,
+            $adjustmentStatus === 'approved' && $isFullRefund => 'refunded',
+            $adjustmentStatus === 'approved' && !$isFullRefund => null,
             $adjustmentStatus === 'rejected' => 'active',
             default => null,
         };
 
         if ($newStatus === null) {
-            // Either a partial-approved refund (recorded via
-            // payment_events idempotency, but no grant status change --
-            // partial-refund entitlement policy remains deferred) or an
-            // unrecognized/unconfirmed status value. Either way: safely
-            // acknowledged, no state change.
-            return $adjustmentStatus === 'approved' && $adjustmentType === 'partial';
+            // Either an approved refund that does not fully cover the
+            // grant (recorded via payment_events idempotency, but no
+            // grant status change -- partial-refund entitlement policy
+            // remains deferred) or an unrecognized/unconfirmed status
+            // value. Either way: safely acknowledged, no state change.
+            return $adjustmentStatus === 'approved' && !$isFullRefund;
         }
 
         $applied = $this->grants->updateStatus($transactionId, $newStatus, $occurredAt);
@@ -289,6 +300,7 @@ final class PurchaseWebhookHandler
                 $transactionId,
                 $pending['adjustment_status'],
                 $pending['adjustment_type'],
+                $pending['items'],
                 $occurredAt,
             );
             $this->pendingAdjustments->markReconciled($pending['paddle_event_id']);

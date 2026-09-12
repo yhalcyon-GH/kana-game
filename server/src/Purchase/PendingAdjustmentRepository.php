@@ -22,6 +22,10 @@ final class PendingAdjustmentRepository
     /**
      * Idempotent — a duplicate paddle_event_id is a safe no-op, not an
      * error (Paddle may redeliver the same event).
+     *
+     * @param mixed $items The adjustment's `data.items`, if present --
+     *   stored so reconciliation (once the transaction arrives) can
+     *   run the same RefundCompleteness check as the direct path.
      */
     public function queue(
         string $paddleTransactionId,
@@ -29,16 +33,19 @@ final class PendingAdjustmentRepository
         string $action,
         string $adjustmentStatus,
         string $adjustmentType,
+        mixed $items,
         \DateTimeImmutable $occurredAt,
     ): void {
+        $itemsJson = $items === null ? null : json_encode($items);
+
         $driver = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
         $sql = $driver === 'sqlite'
             ? 'INSERT OR IGNORE INTO pending_adjustments
-                (paddle_transaction_id, paddle_event_id, action, adjustment_status, adjustment_type, occurred_at, created_at)
-               VALUES (:txn_id, :event_id, :action, :status, :type, :occurred_at, CURRENT_TIMESTAMP)'
+                (paddle_transaction_id, paddle_event_id, action, adjustment_status, adjustment_type, items_json, occurred_at, created_at)
+               VALUES (:txn_id, :event_id, :action, :status, :type, :items_json, :occurred_at, CURRENT_TIMESTAMP)'
             : 'INSERT INTO pending_adjustments
-                (paddle_transaction_id, paddle_event_id, action, adjustment_status, adjustment_type, occurred_at, created_at)
-               VALUES (:txn_id, :event_id, :action, :status, :type, :occurred_at, NOW())
+                (paddle_transaction_id, paddle_event_id, action, adjustment_status, adjustment_type, items_json, occurred_at, created_at)
+               VALUES (:txn_id, :event_id, :action, :status, :type, :items_json, :occurred_at, NOW())
                ON DUPLICATE KEY UPDATE paddle_event_id = paddle_event_id';
 
         $statement = $this->pdo->prepare($sql);
@@ -48,6 +55,7 @@ final class PendingAdjustmentRepository
             'action' => $action,
             'status' => $adjustmentStatus,
             'type' => $adjustmentType,
+            'items_json' => $itemsJson,
             'occurred_at' => $occurredAt->format('Y-m-d H:i:s'),
         ]);
     }
@@ -58,20 +66,29 @@ final class PendingAdjustmentRepository
      * them in the order Paddle says they actually happened, not
      * arrival order.
      *
-     * @return list<array{id: int, paddle_transaction_id: string, paddle_event_id: string, action: string, adjustment_status: string, adjustment_type: string, occurred_at: string}>
+     * @return list<array{id: int, paddle_transaction_id: string, paddle_event_id: string, action: string, adjustment_status: string, adjustment_type: string, items: mixed, occurred_at: string}>
      */
     public function findUnreconciledForTransaction(string $paddleTransactionId): array
     {
         $statement = $this->pdo->prepare(
-            'SELECT id, paddle_transaction_id, paddle_event_id, action, adjustment_status, adjustment_type, occurred_at
+            'SELECT id, paddle_transaction_id, paddle_event_id, action, adjustment_status, adjustment_type, items_json, occurred_at
              FROM pending_adjustments
              WHERE paddle_transaction_id = :txn_id AND reconciled_at IS NULL
              ORDER BY occurred_at ASC',
         );
         $statement->execute(['txn_id' => $paddleTransactionId]);
 
-        /** @var list<array{id: int, paddle_transaction_id: string, paddle_event_id: string, action: string, adjustment_status: string, adjustment_type: string, occurred_at: string}> */
-        return $statement->fetchAll();
+        /** @var list<array{id: int, paddle_transaction_id: string, paddle_event_id: string, action: string, adjustment_status: string, adjustment_type: string, items_json: string|null, occurred_at: string}> $rows */
+        $rows = $statement->fetchAll();
+
+        return array_map(
+            static function (array $row): array {
+                $row['items'] = $row['items_json'] === null ? null : json_decode($row['items_json'], true);
+                unset($row['items_json']);
+                return $row;
+            },
+            $rows,
+        );
     }
 
     public function markReconciled(string $paddleEventId): void
