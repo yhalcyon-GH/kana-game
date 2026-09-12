@@ -732,5 +732,35 @@ function purchaseWebhookHandlerTests(): array
                 'the choice of handler must never be derived from webhook payload contents',
             );
         },
+
+        // -- Regression test (explicitly requested): PurchaseWebhookHandler
+        // calls RefundCompleteness::isFullRefund(...), but PHP has no
+        // autoloader registered here -- a bare `use` statement does not
+        // load the class, only require/require_once does. The real
+        // deployed entrypoint omitted this require, which is invisible to
+        // every other test in this file because
+        // makePurchaseWebhookHandler() (via this test file's own
+        // require_once list) already loads RefundCompleteness.php
+        // unconditionally, masking the entrypoint's own wiring gap. This
+        // is a source-inspection test on server/paddle-webhook.php itself
+        // (same rationale as the "constructs PurchaseWebhookHandler only"
+        // test above) -- it proves the ENTRYPOINT actually requires the
+        // class its own handler depends on, in an order where the
+        // dependency is available before it's used.
+        'server/paddle-webhook.php requires RefundCompleteness.php before requiring PurchaseWebhookHandler.php' => function () {
+            $entrypointPath = __DIR__ . '/../../paddle-webhook.php';
+            $source = file_get_contents($entrypointPath);
+            assertTrue($source !== false, 'server/paddle-webhook.php should be readable');
+
+            $refundCompletenessPos = strpos($source, "require __DIR__ . '/src/Purchase/RefundCompleteness.php';");
+            $handlerPos = strpos($source, "require __DIR__ . '/src/Purchase/PurchaseWebhookHandler.php';");
+
+            assertTrue($refundCompletenessPos !== false, 'the entrypoint must require src/Purchase/RefundCompleteness.php');
+            assertTrue($handlerPos !== false, 'the entrypoint must require src/Purchase/PurchaseWebhookHandler.php');
+            assertTrue(
+                $refundCompletenessPos < $handlerPos,
+                'RefundCompleteness.php must be required before PurchaseWebhookHandler.php, which calls RefundCompleteness::isFullRefund(...) at class-definition-load time',
+            );
+        },
     ];
 }
