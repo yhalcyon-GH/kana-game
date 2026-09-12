@@ -91,7 +91,7 @@ function corsTests(): array
             assertSame([], $sent, 'a disallowed origin must get no headers at all, including no preflight authorization headers');
         },
 
-        'applyPreflightHeaders() never emits Access-Control-Allow-Credentials or a wildcard origin' => function () {
+        'applyPreflightHeaders() never emits Access-Control-Allow-Credentials when not constructed as credentialed (the default)' => function () {
             $sent = [];
             $cors = new Cors(['https://yhalcyon-gh.github.io'], function (string $header) use (&$sent) {
                 $sent[] = $header;
@@ -102,12 +102,70 @@ function corsTests(): array
             $joined = implode("\n", $sent);
             assertFalse(
                 str_contains($joined, 'Access-Control-Allow-Credentials'),
-                'production cookie transport is deferred -- this header must never be emitted yet',
+                'the default (non-credentialed) constructor must never emit this header -- every Sandbox/dev deployment with cookie mode off must see IDENTICAL CORS headers to before Phase 3B',
             );
             assertFalse(
                 str_contains($joined, 'Access-Control-Allow-Origin: *'),
                 'the origin must never be echoed back as a wildcard',
             );
+        },
+
+        'applyHeaders() never emits Access-Control-Allow-Credentials when not constructed as credentialed (the default)' => function () {
+            $sent = [];
+            $cors = new Cors(['https://yhalcyon-gh.github.io'], function (string $header) use (&$sent) {
+                $sent[] = $header;
+            });
+
+            $cors->applyHeaders('https://yhalcyon-gh.github.io');
+
+            assertFalse(
+                str_contains(implode("\n", $sent), 'Access-Control-Allow-Credentials'),
+                'the default (non-credentialed) constructor must never emit this header on the non-preflight path either',
+            );
+        },
+
+        'applyHeaders() emits Access-Control-Allow-Credentials: true, alongside the exact origin (never a wildcard), when constructed as credentialed' => function () {
+            $sent = [];
+            $cors = new Cors(['https://app.tamamizu.giganihongo.com'], function (string $header) use (&$sent) {
+                $sent[] = $header;
+            }, true);
+
+            $cors->applyHeaders('https://app.tamamizu.giganihongo.com');
+
+            assertSame(
+                [
+                    'Access-Control-Allow-Origin: https://app.tamamizu.giganihongo.com',
+                    'Vary: Origin',
+                    'Access-Control-Allow-Credentials: true',
+                ],
+                $sent,
+                'credentialed mode must emit exactly these three headers, with the exact origin echoed back, never a wildcard',
+            );
+        },
+
+        'applyPreflightHeaders() emits Access-Control-Allow-Credentials: true when constructed as credentialed' => function () {
+            $sent = [];
+            $cors = new Cors(['https://app.tamamizu.giganihongo.com'], function (string $header) use (&$sent) {
+                $sent[] = $header;
+            }, true);
+
+            $cors->applyPreflightHeaders('https://app.tamamizu.giganihongo.com');
+
+            $joined = implode("\n", $sent);
+            assertTrue(str_contains($joined, 'Access-Control-Allow-Credentials: true'), 'credentialed preflight must include Allow-Credentials');
+            assertTrue(str_contains($joined, 'Access-Control-Allow-Origin: https://app.tamamizu.giganihongo.com'), 'credentialed preflight must still echo the exact origin');
+            assertFalse(str_contains($joined, 'Access-Control-Allow-Origin: *'), 'credentialed mode must never combine with a wildcard origin');
+        },
+
+        'credentialed mode still emits nothing at all for a disallowed origin' => function () {
+            $sent = [];
+            $cors = new Cors(['https://app.tamamizu.giganihongo.com'], function (string $header) use (&$sent) {
+                $sent[] = $header;
+            }, true);
+
+            $cors->applyHeaders('https://evil.example.com');
+
+            assertSame([], $sent, 'an unlisted origin must get no headers even in credentialed mode -- credentialed does not loosen the allowlist check');
         },
 
         'applyHeaders() (non-preflight) emits exactly Access-Control-Allow-Origin and Vary for an allowed origin, nothing more' => function () {

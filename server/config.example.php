@@ -77,6 +77,42 @@ return [
     // design.md, section 5.
     'MAGIC_LINK_FRONTEND_BASE_URL' => '',
 
+    // --- Phase 3B: Production Web session cookie ---
+    // See docs/adr/0001-cross-site-auth-transport.md. Default OFF —
+    // when unset/anything other than the exact string 'true', every
+    // auth endpoint behaves exactly as it did before Phase 3B (Bearer
+    // header only, verify.php returns session_token in the body). Only
+    // set 'true' on the deployment actually serving the Production Web
+    // frontend (app.tamamizu.giganihongo.com) over HTTPS -- the cookie
+    // is rejected by browsers on non-HTTPS origins (Secure attribute)
+    // and is meaningless for the dev harness / native transports, which
+    // keep using Authorization: Bearer regardless of this setting.
+    'WEB_SESSION_COOKIE_ENABLED' => '',
+
+    // Optional — defaults to '__Host-tamamizu_session' if unset (see
+    // WebSessionCookie::DEFAULT_NAME). The __Host- prefix requires this
+    // API to be served over HTTPS with no Domain attribute and Path=/;
+    // do not rename away from an __Host- prefixed name without
+    // re-reading the ADR's "Host-only, not domain-wide" section.
+    'WEB_SESSION_COOKIE_NAME' => '',
+
+    // --- Phase 3B: production Magic Link email (Resend) ---
+    // See server/src/Auth/ResendMailer.php. request-link.php only
+    // constructs a ResendMailer when ALL THREE of these are present and
+    // non-empty -- an incomplete config here falls back to the existing
+    // safe no-op Mailer (no email sent, no error surfaced to the
+    // caller), never a half-configured mailer that fails on every send.
+    // Get an API key from the Resend dashboard -> API Keys. NEVER commit
+    // a real value here or in server/config.php's actual deployed copy
+    // to git; NEVER log it.
+    'RESEND_API_KEY' => '',
+
+    // The verified sending address/display name in your Resend domain
+    // (Resend dashboard -> Domains). Not secrets, but must match a
+    // domain you've verified with Resend or every send will fail.
+    'MAGIC_LINK_FROM_EMAIL' => '',
+    'MAGIC_LINK_FROM_NAME' => '',
+
     // --- Phase 3A PR C: dev-only /account-test harness ---
 
     // Must be the EXACT string 'true' to enable. Any other value

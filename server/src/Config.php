@@ -60,6 +60,11 @@ final class Config
             'SESSION_EXPIRY_HOURS',
             'MAGIC_LINK_FRONTEND_BASE_URL',
             'DEV_HARNESS_ENABLED',
+            'WEB_SESSION_COOKIE_ENABLED',
+            'WEB_SESSION_COOKIE_NAME',
+            'RESEND_API_KEY',
+            'MAGIC_LINK_FROM_EMAIL',
+            'MAGIC_LINK_FROM_NAME',
         ];
 
         $values = [];

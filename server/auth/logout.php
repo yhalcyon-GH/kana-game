@@ -21,19 +21,23 @@ require __DIR__ . '/../src/Config.php';
 require __DIR__ . '/../src/Db.php';
 require __DIR__ . '/../src/Cors.php';
 require __DIR__ . '/../src/Auth/CurrentUserService.php';
+require __DIR__ . '/../src/Auth/SessionCredentialResolver.php';
 require __DIR__ . '/../src/Auth/SessionRepository.php';
 require __DIR__ . '/../src/Auth/UserRepository.php';
+require __DIR__ . '/../src/Auth/WebSessionCookie.php';
 require __DIR__ . '/../src/Uuid.php';
 
 use KanaGame\Paddle\Auth\CurrentUserService;
+use KanaGame\Paddle\Auth\SessionCredentialResolver;
 use KanaGame\Paddle\Auth\SessionRepository;
 use KanaGame\Paddle\Auth\UserRepository;
+use KanaGame\Paddle\Auth\WebSessionCookie;
 use KanaGame\Paddle\Config;
 use KanaGame\Paddle\Cors;
 use KanaGame\Paddle\Db;
 
 $config = Config::load();
-$cors = new Cors($config->allowedOrigins());
+$cors = new Cors($config->allowedOrigins(), null, $config->get('WEB_SESSION_COOKIE_ENABLED') === 'true');
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
     $cors->applyPreflightHeaders($_SERVER['HTTP_ORIGIN'] ?? null);
@@ -50,13 +54,39 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     exit;
 }
 
-$authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
-$rawSessionToken = str_starts_with($authHeader, 'Bearer ')
-    ? substr($authHeader, strlen('Bearer '))
-    : null;
+$webSessionCookie = new WebSessionCookie(
+    $config->get('WEB_SESSION_COOKIE_ENABLED') === 'true',
+    $config->get('WEB_SESSION_COOKIE_NAME') ?? WebSessionCookie::DEFAULT_NAME,
+);
+$cookieToken = $webSessionCookie->readToken($_COOKIE);
+
+// CSRF defense-in-depth for the cookie transport: SameSite=Lax already
+// blocks this cookie from being sent on most cross-site POSTs, but this
+// must not be the ONLY defense (see docs/adr/0001-cross-site-auth-
+// transport.md and the Phase 3B CORS/CSRF design) — a state-changing
+// request that DID carry the session cookie must also come from an
+// allowlisted Origin, or it is rejected outright, before any session
+// lookup happens. A Bearer-only caller (no cookie at all) is entirely
+// unaffected by this check.
+if ($cookieToken !== null && !$cors->isOriginAllowed($_SERVER['HTTP_ORIGIN'] ?? null)) {
+    http_response_code(403);
+    echo json_encode(['error' => 'forbidden']);
+    exit;
+}
+
+$rawSessionToken = SessionCredentialResolver::resolve(
+    SessionCredentialResolver::extractBearerToken($_SERVER['HTTP_AUTHORIZATION'] ?? null),
+    $cookieToken,
+);
 
 if ($rawSessionToken === null) {
-    // No token supplied at all — nothing to revoke, not an error.
+    // No (unambiguous) token supplied at all — nothing to revoke, not
+    // an error. Still clear the cookie when cookie mode is enabled:
+    // idempotent, and safe even if the browser sent a stale/mismatched
+    // cookie alongside a Bearer header.
+    if ($webSessionCookie->isEnabled()) {
+        header('Set-Cookie: ' . $webSessionCookie->deleteHeader(), false);
+    }
     echo json_encode(['status' => 'ok']);
     exit;
 }
@@ -81,4 +111,7 @@ try {
     exit;
 }
 
+if ($webSessionCookie->isEnabled()) {
+    header('Set-Cookie: ' . $webSessionCookie->deleteHeader(), false);
+}
 echo json_encode(['status' => 'ok']);
