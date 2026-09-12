@@ -22,6 +22,16 @@ $testFiles = [
     __DIR__ . '/WebhookHandlerTest.php' => 'KanaGame\\Paddle\\Tests\\webhookHandlerTests',
     __DIR__ . '/EntitlementRepositoryTest.php' => 'KanaGame\\Paddle\\Tests\\entitlementRepositoryTests',
     __DIR__ . '/CorsTest.php' => 'KanaGame\\Paddle\\Tests\\corsTests',
+    __DIR__ . '/UuidTest.php' => 'KanaGame\\Paddle\\Tests\\uuidTests',
+    __DIR__ . '/Auth/UserRepositoryTest.php' => 'KanaGame\\Paddle\\Tests\\userRepositoryTests',
+    __DIR__ . '/Auth/MagicLinkTokenRepositoryTest.php' => 'KanaGame\\Paddle\\Tests\\magicLinkTokenRepositoryTests',
+    __DIR__ . '/Auth/SessionRepositoryTest.php' => 'KanaGame\\Paddle\\Tests\\sessionRepositoryTests',
+    __DIR__ . '/Auth/RateLimiterTest.php' => 'KanaGame\\Paddle\\Tests\\rateLimiterTests',
+    __DIR__ . '/Auth/EmailNormalizerTest.php' => 'KanaGame\\Paddle\\Tests\\emailNormalizerTests',
+    __DIR__ . '/Auth/EmailValidatorTest.php' => 'KanaGame\\Paddle\\Tests\\emailValidatorTests',
+    __DIR__ . '/Auth/CurrentUserServiceTest.php' => 'KanaGame\\Paddle\\Tests\\currentUserServiceTests',
+    __DIR__ . '/Auth/MagicLinkUrlBuilderTest.php' => 'KanaGame\\Paddle\\Tests\\magicLinkUrlBuilderTests',
+    __DIR__ . '/Auth/MagicLinkAuthServiceTest.php' => 'KanaGame\\Paddle\\Tests\\magicLinkAuthServiceTests',
 ];
 
 $totalPassed = 0;

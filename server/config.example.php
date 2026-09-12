@@ -45,4 +45,35 @@ return [
     // Example for local development + the deployed GitHub Pages app:
     //   'http://localhost:5173,http://localhost:4173,https://yhalcyon-gh.github.io'
     'ALLOWED_ORIGINS' => '',
+
+    // --- Phase 3A PR A: real-user identity + Magic Link auth ---
+
+    // HMAC pepper for rate-limit identifiers (server/src/Auth/RateLimiter.php).
+    // Required in real deployment config. Never committed. Rotating this
+    // only resets everyone's rate-limit window — it does not invalidate
+    // any stored identity, magic-link token, or session.
+    'RATE_LIMIT_PEPPER' => '',
+
+    // Optional — defaults to 5/hour and 20/hour respectively if unset or
+    // non-numeric (see Config::intWithDefault()).
+    'RATE_LIMIT_EMAIL_PER_HOUR' => '',
+    'RATE_LIMIT_IP_PER_HOUR' => '',
+
+    // Optional — defaults to 15 minutes (magic-link token) and 24 hours
+    // (session) if unset or non-numeric. The 24-hour session default is
+    // explicitly provisional for Phase 3A (in-memory-only browser
+    // transport, no refresh/rotation system yet) — see
+    // docs/adr/0001-cross-site-auth-transport.md.
+    'MAGIC_LINK_TOKEN_EXPIRY_MINUTES' => '',
+    'SESSION_EXPIRY_HOURS' => '',
+
+    // The frontend origin/path prefix a magic-link token is appended to
+    // — e.g. 'https://yhalcyon-gh.github.io/kana-game/'. Do NOT include
+    // a "#/verify" route here: server/src/Auth/MagicLinkUrlBuilder.php
+    // appends that fragment route and the urlencoded token itself, in
+    // code, specifically so a config mistake here cannot turn the raw
+    // token into a server-visible query parameter. See
+    // docs/superpowers/specs/2026-09-08-paddle-auth-entitlement-phase3-
+    // design.md, section 5.
+    'MAGIC_LINK_FRONTEND_BASE_URL' => '',
 ];
