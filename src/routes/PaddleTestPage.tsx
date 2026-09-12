@@ -1,6 +1,23 @@
 import { initializePaddle, type Paddle, type PaddleEventData } from '@paddle/paddle-js'
 import { useEffect, useRef, useState } from 'react'
 
+// Sandbox PoC ONLY — see server/src/SandboxUser.php (server-side source of
+// truth for this same constant). There is no Magic Link / real account
+// system yet, so every Sandbox purchase in this PoC is attributed to one
+// fixed test identifier. NEVER use this as a production user id, and never
+// wire this into anything outside the /paddle-test development route.
+const SANDBOX_TEST_USER_ID = 'sandbox-test-user'
+
+// Development-only entitlement-read endpoint base URL. Left unset by
+// default; set VITE_PADDLE_ENTITLEMENT_API_URL in .env.local once a real
+// Xserver deployment of server/entitlement.php exists (see
+// docs/paddle-webhook-poc.md). Never a production content-access check —
+// see the PoC-only guard on the whole page below.
+function readEntitlementApiUrl(): string | undefined {
+  if (!import.meta.env.DEV) return undefined
+  return import.meta.env.VITE_PADDLE_ENTITLEMENT_API_URL?.trim() || undefined
+}
+
 function readSandboxConfig() {
   if (!import.meta.env.DEV) return { error: 'Sandbox Checkout PoC is available only in development.' }
 
@@ -24,12 +41,20 @@ function readSandboxConfig() {
   return { token, priceId }
 }
 
+type EntitlementCheckState =
+  | { kind: 'idle' }
+  | { kind: 'loading' }
+  | { kind: 'success'; active: boolean }
+  | { kind: 'error'; message: string }
+
 export default function PaddleTestPage() {
   const config = readSandboxConfig()
+  const entitlementApiUrl = readEntitlementApiUrl()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [status, setStatus] = useState('Ready for a sandbox test purchase.')
   const [events, setEvents] = useState<string[]>([])
+  const [entitlementCheck, setEntitlementCheck] = useState<EntitlementCheckState>({ kind: 'idle' })
   const mounted = useRef(false)
   const opening = useRef(false)
   const checkout = useRef<Paddle | undefined>(undefined)
@@ -41,6 +66,31 @@ export default function PaddleTestPage() {
       checkout.current?.Checkout.close()
     }
   }, [])
+
+  // Development/Sandbox-only: reads the PoC entitlement.php endpoint for
+  // the fixed Sandbox test user. This NEVER gates any real curriculum
+  // content — see docs/paddle-webhook-poc.md's Phase 2 scope. Fetch
+  // failures are shown, not thrown, so a missing/unreachable server
+  // config never breaks this development page.
+  async function checkEntitlement() {
+    if (!import.meta.env.DEV || !entitlementApiUrl) return
+    setEntitlementCheck({ kind: 'loading' })
+    try {
+      const url = new URL(entitlementApiUrl)
+      url.searchParams.set('user_id', SANDBOX_TEST_USER_ID)
+      const response = await fetch(url.toString())
+      if (!mounted.current) return
+      if (!response.ok) {
+        setEntitlementCheck({ kind: 'error', message: `Entitlement check failed (HTTP ${response.status}).` })
+        return
+      }
+      const body: unknown = await response.json()
+      const active = typeof body === 'object' && body !== null && 'active' in body && (body as { active: unknown }).active === true
+      setEntitlementCheck({ kind: 'success', active })
+    } catch {
+      if (mounted.current) setEntitlementCheck({ kind: 'error', message: 'Could not reach the entitlement endpoint.' })
+    }
+  }
 
   function handleEvent(event: PaddleEventData) {
     if (!mounted.current || !event.name) return
@@ -78,6 +128,16 @@ export default function PaddleTestPage() {
       paddle.Checkout.open({
         settings: { displayMode: 'overlay' },
         items: [{ priceId: config.priceId, quantity: 1 }],
+        // Sandbox/development-only: attaches the fixed Sandbox test user
+        // id so the server-side webhook (server/paddle-webhook.php) can
+        // resolve which internal user to activate entitlement for once it
+        // verifies this transaction. Paddle's official docs confirm
+        // customData appears at the client (camelCase) and is echoed back
+        // as `custom_data` (snake_case) on the transaction object in the
+        // webhook payload — see docs/paddle-webhook-poc.md. This value is
+        // NEVER a real user id and this whole page is excluded from
+        // production builds (see App.tsx's compile-time guard).
+        customData: { internal_user_id: SANDBOX_TEST_USER_ID },
       })
     } catch {
       if (mounted.current) {
@@ -118,6 +178,36 @@ export default function PaddleTestPage() {
         Client events are for this test only. Production unlocks require a server-side verified Paddle webhook.
         This PoC does not grant access or change learning progress.
       </p>
+      <section className="flex flex-col gap-2 border-t border-neutral-300 pt-5 dark:border-neutral-700">
+        <h2 className="text-lg font-semibold">Entitlement check (Phase 2 PoC)</h2>
+        <p className="text-sm text-neutral-600 dark:text-neutral-400">
+          Reads the server-side entitlement for the fixed Sandbox test user only — this does not lock/unlock any
+          curriculum content. Requires a deployed <code>server/entitlement.php</code> and{' '}
+          <code>VITE_PADDLE_ENTITLEMENT_API_URL</code> in <code>.env.local</code> (see docs/paddle-webhook-poc.md).
+        </p>
+        {!entitlementApiUrl ? (
+          <p data-testid="entitlement-config-missing" className="rounded-lg border border-amber-500 p-4 text-sm">
+            Configuration missing: VITE_PADDLE_ENTITLEMENT_API_URL. Entitlement check disabled.
+          </p>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => void checkEntitlement()}
+              disabled={entitlementCheck.kind === 'loading'}
+              className="self-start rounded-xl border border-neutral-400 px-5 py-3 font-semibold hover:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-600"
+            >
+              Check entitlement
+            </button>
+            <p role="status" data-testid="entitlement-status">
+              {entitlementCheck.kind === 'idle' && 'Entitlement: not checked yet.'}
+              {entitlementCheck.kind === 'loading' && 'Checking entitlement…'}
+              {entitlementCheck.kind === 'success' && `Entitlement: ${entitlementCheck.active ? 'active' : 'inactive'}`}
+              {entitlementCheck.kind === 'error' && `Entitlement check error: ${entitlementCheck.message}`}
+            </p>
+          </>
+        )}
+      </section>
     </div>
   )
 }

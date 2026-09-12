@@ -6,6 +6,11 @@ interface ImportMetaEnv {
   readonly VITE_PADDLE_ENVIRONMENT?: string
   readonly VITE_PADDLE_CLIENT_TOKEN?: string
   readonly VITE_PADDLE_PRICE_ID?: string
+  // Phase 2 PoC only — base URL of a deployed server/entitlement.php (e.g.
+  // https://your-domain/api/entitlement.php). Used only by the
+  // development-only entitlement-check button on /paddle-test; never read
+  // in production builds. See docs/paddle-webhook-poc.md.
+  readonly VITE_PADDLE_ENTITLEMENT_API_URL?: string
   // Injected by .github/workflows/deploy.yml from the CI commit SHA — see
   // src/lib/buildInfo.ts. Never hardcoded, and empty/undefined in local dev.
   readonly VITE_BUILD_SHA?: string

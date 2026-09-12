@@ -79,7 +79,16 @@ describe('Paddle Sandbox checkout page', () => {
     expect(openCheckout).toHaveBeenCalledWith({
       settings: { displayMode: 'overlay' },
       items: [{ priceId: 'pri_poc_fixture', quantity: 1 }],
+      customData: { internal_user_id: 'sandbox-test-user' },
     })
+  })
+
+  it('always attaches the fixed Sandbox test user id as customData, never a real/production identifier', async () => {
+    render(<PaddleTestPage />)
+    fireEvent.click(button())
+    await waitFor(() => expect(openCheckout).toHaveBeenCalledTimes(1))
+    const call = openCheckout.mock.calls[0][0] as { customData?: Record<string, unknown> }
+    expect(call.customData).toEqual({ internal_user_id: 'sandbox-test-user' })
   })
 
   it('shows events and keeps completion visible after closing, without persisting an unlock', async () => {
@@ -135,5 +144,73 @@ describe('Paddle Sandbox checkout page', () => {
     await waitFor(() => expect(openCheckout).toHaveBeenCalledTimes(2))
     emit('checkout.completed')
     expect(screen.getByRole('status')).toHaveTextContent(/purchase successful/i)
+  })
+})
+
+describe('Paddle Sandbox entitlement check (Phase 2 PoC)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('disables the entitlement check when VITE_PADDLE_ENTITLEMENT_API_URL is not set', () => {
+    render(<PaddleTestPage />)
+    expect(screen.queryByRole('button', { name: 'Check entitlement' })).not.toBeInTheDocument()
+    expect(screen.getByTestId('entitlement-config-missing')).toHaveTextContent('VITE_PADDLE_ENTITLEMENT_API_URL')
+  })
+
+  it('is disabled even with a configured URL when outside development', () => {
+    vi.stubEnv('DEV', false)
+    vi.stubEnv('VITE_PADDLE_ENTITLEMENT_API_URL', 'https://example.test/entitlement.php')
+    render(<PaddleTestPage />)
+    expect(screen.queryByRole('button', { name: 'Check entitlement' })).not.toBeInTheDocument()
+  })
+
+  it('fetches the fixed Sandbox test user id and shows active on success', async () => {
+    vi.stubEnv('VITE_PADDLE_ENTITLEMENT_API_URL', 'https://example.test/entitlement.php')
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ user_id: 'sandbox-test-user', product: 'full_tamamizu', active: true }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<PaddleTestPage />)
+    fireEvent.click(screen.getByRole('button', { name: 'Check entitlement' }))
+
+    await waitFor(() => expect(screen.getByTestId('entitlement-status')).toHaveTextContent('Entitlement: active'))
+    const requestedUrl = new URL(fetchMock.mock.calls[0][0] as string)
+    expect(requestedUrl.searchParams.get('user_id')).toBe('sandbox-test-user')
+  })
+
+  it('shows inactive when the endpoint reports active: false', async () => {
+    vi.stubEnv('VITE_PADDLE_ENTITLEMENT_API_URL', 'https://example.test/entitlement.php')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ user_id: 'sandbox-test-user', product: 'full_tamamizu', active: false }),
+    }))
+
+    render(<PaddleTestPage />)
+    fireEvent.click(screen.getByRole('button', { name: 'Check entitlement' }))
+
+    await waitFor(() => expect(screen.getByTestId('entitlement-status')).toHaveTextContent('Entitlement: inactive'))
+  })
+
+  it('shows a recoverable error when the entitlement endpoint fails', async () => {
+    vi.stubEnv('VITE_PADDLE_ENTITLEMENT_API_URL', 'https://example.test/entitlement.php')
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500, json: () => Promise.resolve({}) }))
+
+    render(<PaddleTestPage />)
+    fireEvent.click(screen.getByRole('button', { name: 'Check entitlement' }))
+
+    await waitFor(() => expect(screen.getByTestId('entitlement-status')).toHaveTextContent(/entitlement check error/i))
+  })
+
+  it('shows a recoverable error when the entitlement endpoint is unreachable', async () => {
+    vi.stubEnv('VITE_PADDLE_ENTITLEMENT_API_URL', 'https://example.test/entitlement.php')
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')))
+
+    render(<PaddleTestPage />)
+    fireEvent.click(screen.getByRole('button', { name: 'Check entitlement' }))
+
+    await waitFor(() => expect(screen.getByTestId('entitlement-status')).toHaveTextContent(/could not reach/i))
   })
 })
