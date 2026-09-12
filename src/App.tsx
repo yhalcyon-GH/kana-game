@@ -46,6 +46,34 @@ const PaddleTestPage = import.meta.env.DEV ? lazy(() => import('./routes/PaddleT
 const AccountTestPage = import.meta.env.DEV ? lazy(() => import('./routes/AccountTestPage')) : null
 const VerifyPage = import.meta.env.DEV ? lazy(() => import('./routes/VerifyPage')) : null
 
+// Phase 3B — the production Web auth UI. Unlike PaddleTestPage/
+// AccountTestPage/VerifyPage above, none of these need excluding from a
+// production bundle -- LoginPage and AccountPage are always present
+// (both dev and production builds). ProductionVerifyPage is also always
+// imported (no module-level DEV gate, no tree-shaking need here — it's
+// legitimate production code), but which one of it / the dev-only
+// VerifyPage actually gets a Route registered at the shared "/verify"
+// path is decided at RENDER time below via `import.meta.env.DEV`,
+// mirroring the exact same live-condition pattern already used for
+// PaddleTestPage/AccountTestPage/VerifyPage's own Route guards (see
+// those `{import.meta.env.DEV && X && (...)}` lines) — this is what
+// makes both the dev-vs-production selection testable via
+// `vi.stubEnv('DEV', ...)` (a module-level `const X = import.meta.env.DEV
+// ? ... : null` only ever evaluates once, at first import, and would
+// never re-toggle for a later stubEnv call within the same test file)
+// AND what lets a real Rollup production build dead-code-eliminate the
+// dev-only VerifyPage branch (import.meta.env.DEV is statically
+// replaced with `false` at build time there).
+//
+// Both pages render at the exact same "#/verify" route the backend
+// hardcodes into every Magic Link (see MagicLinkUrlBuilder.php) — they
+// are mutually exclusive by DEV/production build, never both
+// registered at once, so a Magic Link always lands on the right one
+// for the build that sent it.
+const LoginPage = lazy(() => import('./routes/LoginPage'))
+const AccountPage = lazy(() => import('./routes/AccountPage'))
+const ProductionVerifyPage = lazy(() => import('./routes/ProductionVerifyPage'))
+
 function RestaurantRoute() {
   const { checkpointId } = useParams()
   return <RestaurantPage checkpointId={checkpointId ?? 'na-row'} />
@@ -100,6 +128,11 @@ function App() {
               {import.meta.env.DEV && VerifyPage && (
                 <Route path="/verify" element={<Suspense fallback={<p>Loading…</p>}><VerifyPage /></Suspense>} />
               )}
+              {!import.meta.env.DEV && (
+                <Route path="/verify" element={<Suspense fallback={<p>Loading…</p>}><ProductionVerifyPage /></Suspense>} />
+              )}
+              <Route path="/login" element={<Suspense fallback={<p>Loading…</p>}><LoginPage /></Suspense>} />
+              <Route path="/account" element={<Suspense fallback={<p>Loading…</p>}><AccountPage /></Suspense>} />
               <Route path="/" element={<HomePage />} />
               <Route
                 path="/hiragana"

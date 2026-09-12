@@ -29,6 +29,13 @@ jobs:
       - run: npm run build
         env:
           VITE_BUILD_SHA: ${{ github.sha }}
+          # Deliberately NOT set here -- this workflow still builds the
+          # existing '/kana-game/' GitHub Pages project-path output
+          # (vite.config.ts's resolveBasePath() default) until a custom-
+          # domain cutover workflow change is made separately, after
+          # PR #216 merges. See docs/adr/0001-cross-site-auth-transport.md
+          # Phase 8 for the custom-domain root build this var enables.
+          # VITE_BASE_PATH: (intentionally unset)
           # All optional and safe to leave unset: the app falls back to its
           # feedback-hidden / analytics-no-op behavior when these are blank.
           # None of these are secrets — a feedback form URL and a Umami

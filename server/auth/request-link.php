@@ -26,6 +26,7 @@ require __DIR__ . '/../src/Auth/MagicLinkTokenRepository.php';
 require __DIR__ . '/../src/Auth/MagicLinkUrlBuilder.php';
 require __DIR__ . '/../src/Auth/Mailer.php';
 require __DIR__ . '/../src/Auth/RateLimiter.php';
+require __DIR__ . '/../src/Auth/ResendMailer.php';
 require __DIR__ . '/../src/Auth/SessionRepository.php';
 require __DIR__ . '/../src/Auth/UserRepository.php';
 require __DIR__ . '/../src/DevOnly/DevHarnessMagicLinkStore.php';
@@ -38,6 +39,7 @@ use KanaGame\Paddle\Auth\MagicLinkTokenRepository;
 use KanaGame\Paddle\Auth\MagicLinkUrlBuilder;
 use KanaGame\Paddle\Auth\Mailer;
 use KanaGame\Paddle\Auth\RateLimiter;
+use KanaGame\Paddle\Auth\ResendMailer;
 use KanaGame\Paddle\Auth\SessionRepository;
 use KanaGame\Paddle\Auth\UserRepository;
 use KanaGame\Paddle\Config;
@@ -98,20 +100,40 @@ $noopMailer = new class implements Mailer {
 try {
     $pdo = Db::connect($config);
 
-    // Dev-only substitution: ONLY when DEV_HARNESS_ENABLED is the exact
-    // string 'true' does this endpoint route the magic-link URL to
-    // DevHarnessMagicLinkStore instead of doing nothing with it. See
-    // server/src/DevOnly/DevHarnessMailer.php and
-    // server/dev-only/last-magic-link.php for the rest of this
-    // mechanism. This substitution happens ONLY here, at this one call
-    // site — no other entrypoint's behavior changes based on this flag.
-    $mailer = $config->get('DEV_HARNESS_ENABLED') === 'true'
-        ? new DevHarnessMailer(
+    // Mailer selection, in priority order:
+    //   1. Dev-only substitution: ONLY when DEV_HARNESS_ENABLED is the
+    //      exact string 'true' does this endpoint route the magic-link
+    //      URL to DevHarnessMagicLinkStore instead of doing nothing with
+    //      it. See server/src/DevOnly/DevHarnessMailer.php and
+    //      server/dev-only/last-magic-link.php for the rest of this
+    //      mechanism. Takes priority over Resend so a deployment that
+    //      accidentally has both the dev harness AND real Resend config
+    //      set never sends a real email during dev-harness testing.
+    //   2. Production Resend mailer — ONLY when ALL THREE of
+    //      RESEND_API_KEY / MAGIC_LINK_FROM_EMAIL / MAGIC_LINK_FROM_NAME
+    //      are present and non-empty. An incomplete config (e.g. an API
+    //      key set but no from-address yet) must never construct a
+    //      half-configured mailer that fails on every send while
+    //      LOOKING configured — it falls through to the safe no-op
+    //      below instead, exactly like "Resend not configured at all."
+    //   3. The existing safe no-op — unchanged from before Phase 3B.
+    // This substitution happens ONLY here, at this one call site — no
+    // other entrypoint's behavior changes based on any of these flags.
+    $resendApiKey = $config->get('RESEND_API_KEY');
+    $resendFromEmail = $config->get('MAGIC_LINK_FROM_EMAIL');
+    $resendFromName = $config->get('MAGIC_LINK_FROM_NAME');
+
+    if ($config->get('DEV_HARNESS_ENABLED') === 'true') {
+        $mailer = new DevHarnessMailer(
             new DevHarnessMagicLinkStore($pdo),
             true,
             $config->intWithDefault('MAGIC_LINK_TOKEN_EXPIRY_MINUTES', 15),
-        )
-        : $noopMailer;
+        );
+    } elseif ($resendApiKey !== null && $resendFromEmail !== null && $resendFromName !== null) {
+        $mailer = new ResendMailer($resendApiKey, $resendFromEmail, $resendFromName);
+    } else {
+        $mailer = $noopMailer;
+    }
 
     $currentUser = new CurrentUserService(
         new UserRepository($pdo),

@@ -28,9 +28,25 @@ final class Cors
      *   does, so server/tests/CorsTest.php injects a recording closure
      *   here to observe what would have been sent. Production code
      *   never passes this argument.
+     * @param bool $credentialed When true, emits
+     *   `Access-Control-Allow-Credentials: true` alongside the exact
+     *   origin (never a wildcard — Access-Control-Allow-Origin already
+     *   never is one). Callers pass this as exactly
+     *   `$config->get('WEB_SESSION_COOKIE_ENABLED') === 'true'` (see
+     *   docs/adr/0001-cross-site-auth-transport.md) so a deployment with
+     *   cookie mode off — the default, including every Sandbox/dev
+     *   deployment — emits IDENTICAL CORS headers to before Phase 3B.
+     *   Emitting this header has no effect on requests that don't send
+     *   `credentials: 'include'` (the existing Bearer-only dev harness);
+     *   it only permits a browser to actually read the response for a
+     *   fetch that DOES include credentials, which the Production Web
+     *   cookie transport requires.
      */
-    public function __construct(private readonly array $allowedOrigins, ?callable $sendHeader = null)
-    {
+    public function __construct(
+        private readonly array $allowedOrigins,
+        ?callable $sendHeader = null,
+        private readonly bool $credentialed = false,
+    ) {
         $this->sendHeader = $sendHeader ?? static function (string $header): void {
             header($header);
         };
@@ -64,6 +80,9 @@ final class Cors
         }
         ($this->sendHeader)('Access-Control-Allow-Origin: ' . $requestOrigin);
         ($this->sendHeader)('Vary: Origin');
+        if ($this->credentialed) {
+            ($this->sendHeader)('Access-Control-Allow-Credentials: true');
+        }
     }
 
     /**
@@ -72,12 +91,11 @@ final class Cors
      * POST with a JSON body and/or an Authorization header, both of
      * which trigger a browser preflight. Emits the origin/Vary headers
      * (same as applyHeaders()) plus the specific method/header policy
-     * those endpoints need. Never emits Access-Control-Allow-Credentials
-     * — a production cookie transport is still deferred (see
-     * docs/adr/0001-cross-site-auth-transport.md), and emitting that
-     * header now would be a premature commitment this class does not
-     * make. Does nothing for a disallowed origin, same as
-     * applyHeaders().
+     * those endpoints need. Emits Access-Control-Allow-Credentials only
+     * when constructed with $credentialed = true (see the constructor's
+     * doc comment) — a Sandbox/dev deployment with cookie mode off
+     * never emits it, identical to Phase 3A's behavior. Does nothing
+     * for a disallowed origin, same as applyHeaders().
      */
     public function applyPreflightHeaders(?string $requestOrigin): void
     {
@@ -88,5 +106,8 @@ final class Cors
         ($this->sendHeader)('Vary: Origin');
         ($this->sendHeader)('Access-Control-Allow-Methods: GET, POST, OPTIONS');
         ($this->sendHeader)('Access-Control-Allow-Headers: Content-Type, Authorization');
+        if ($this->credentialed) {
+            ($this->sendHeader)('Access-Control-Allow-Credentials: true');
+        }
     }
 }

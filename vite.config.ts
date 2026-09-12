@@ -45,9 +45,25 @@ export const PWA_RUNTIME_CACHING = [
   },
 ]
 
+// GitHub Pages currently serves this app from a project path
+// (/kana-game/), but Phase 8's custom-domain plan (app.tamamizu.
+// giganihongo.com) serves it from the domain root (/). Every asset/PWA/
+// audio reference in this codebase already goes through
+// `import.meta.env.BASE_URL` (see src/main.tsx's HashRouter comment and
+// src/audio/staticFileProvider.ts) rather than a hardcoded '/kana-game/',
+// so the ONLY thing that needs to differ between the two deployments is
+// this one value -- read from an optional build-time env var so the
+// existing GitHub Pages deploy workflow (which never sets it) keeps
+// building the exact same '/kana-game/' output it always has, while a
+// future custom-domain build can pass VITE_BASE_PATH=/ without any other
+// code change.
+export function resolveBasePath(env: Record<string, string | undefined> = process.env): string {
+  return env.VITE_BASE_PATH || '/kana-game/'
+}
+
 // https://vite.dev/config/
 export default defineConfig({
-  base: '/kana-game/',
+  base: resolveBasePath(),
   plugins: [
     react(),
     tailwindcss(),
