@@ -4,50 +4,7 @@ declare(strict_types=1);
 
 namespace KanaGame\Paddle;
 
-/**
- * Result of handling one webhook delivery — the HTTP entrypoint
- * (server/paddle-webhook.php) turns this into a status code + body. Kept
- * separate from the entrypoint so this logic is testable without a real
- * HTTP server (see server/tests/WebhookHandlerTest.php).
- */
-final class WebhookResult
-{
-    private function __construct(
-        public readonly int $statusCode,
-        public readonly string $message,
-    ) {
-    }
-
-    public static function invalidSignature(): self
-    {
-        return new self(401, 'invalid signature');
-    }
-
-    public static function malformedPayload(): self
-    {
-        return new self(400, 'malformed payload');
-    }
-
-    public static function duplicateEvent(): self
-    {
-        return new self(200, 'duplicate event, already processed');
-    }
-
-    public static function ignoredEvent(string $eventType): self
-    {
-        return new self(200, "event ignored: {$eventType}");
-    }
-
-    public static function processed(string $eventType): self
-    {
-        return new self(200, "event processed: {$eventType}");
-    }
-
-    public static function serverError(): self
-    {
-        return new self(500, 'temporary server error');
-    }
-}
+require_once __DIR__ . '/WebhookResult.php';
 
 /**
  * Core webhook business logic: verify signature, parse the envelope,
@@ -194,33 +151,16 @@ final class WebhookHandler
      * Verifies the transaction's line items include the configured Full
      * Tamamizu price AND product id — never activate entitlement for an
      * unrecognized price/product (see docs/paddle-webhook-poc.md, "Full
-     * Tamamizu の対象検証").
+     * Tamamizu の対象検証"). Delegates to ProductMatcher (extracted,
+     * behavior-preserving refactor — see that class's own doc comment)
+     * so this exact logic is shared with Phase 3A's
+     * PurchaseWebhookHandler instead of existing as two copies.
      *
      * @param array<mixed> $data
      */
     private function matchesFullTamamizu(array $data): bool
     {
-        $items = $data['items'] ?? null;
-        if (!is_array($items)) {
-            return false;
-        }
-
-        foreach ($items as $item) {
-            if (!is_array($item)) {
-                continue;
-            }
-            $price = $item['price'] ?? null;
-            if (!is_array($price)) {
-                continue;
-            }
-            $priceId = $price['id'] ?? null;
-            $productId = $price['product_id'] ?? null;
-            if ($priceId === $this->expectedPriceId && $productId === $this->expectedProductId) {
-                return true;
-            }
-        }
-
-        return false;
+        return ProductMatcher::matches($data, $this->expectedPriceId, $this->expectedProductId);
     }
 
     /**
