@@ -31,28 +31,44 @@ function sessionCredentialResolverTests(): array
             assertSame(null, SessionCredentialResolver::extractBearerToken('Bearer '), 'an empty token after the scheme must resolve to null, not empty string');
         },
 
-        'resolve() returns null when neither credential is present' => function () {
-            assertSame(null, SessionCredentialResolver::resolve(null, null), 'no credential at all must resolve to null');
+        'resolve() returns a none() result (token=null, ambiguous=false) when neither credential is present' => function () {
+            $result = SessionCredentialResolver::resolve(null, null);
+            assertSame(null, $result->token, 'no credential at all must resolve to a null token');
+            assertFalse($result->ambiguous, 'a genuinely missing credential must never be reported as ambiguous');
         },
 
         'resolve() returns the Bearer token when only Bearer is present' => function () {
-            assertSame('bearer-tok', SessionCredentialResolver::resolve('bearer-tok', null), 'Bearer-only must resolve to the Bearer token');
+            $result = SessionCredentialResolver::resolve('bearer-tok', null);
+            assertSame('bearer-tok', $result->token, 'Bearer-only must resolve to the Bearer token');
+            assertFalse($result->ambiguous, 'a single credential must never be ambiguous');
         },
 
         'resolve() returns the cookie token when only the cookie is present' => function () {
-            assertSame('cookie-tok', SessionCredentialResolver::resolve(null, 'cookie-tok'), 'cookie-only must resolve to the cookie token');
+            $result = SessionCredentialResolver::resolve(null, 'cookie-tok');
+            assertSame('cookie-tok', $result->token, 'cookie-only must resolve to the cookie token');
+            assertFalse($result->ambiguous, 'a single credential must never be ambiguous');
         },
 
         'resolve() returns the shared token when both credentials agree' => function () {
-            assertSame('same-tok', SessionCredentialResolver::resolve('same-tok', 'same-tok'), 'matching Bearer and cookie must resolve to that token');
+            $result = SessionCredentialResolver::resolve('same-tok', 'same-tok');
+            assertSame('same-tok', $result->token, 'matching Bearer and cookie must resolve to that token');
+            assertFalse($result->ambiguous, 'two AGREEING credentials must never be reported as ambiguous');
         },
 
-        'resolve() rejects (returns null) when Bearer and cookie disagree' => function () {
-            assertSame(
-                null,
-                SessionCredentialResolver::resolve('bearer-tok', 'different-cookie-tok'),
-                'a Bearer/cookie mismatch must never be resolved to either value -- this is the ambiguous-credential reject case',
-            );
+        'resolve() reports ambiguous (token=null, ambiguous=true) when Bearer and cookie disagree' => function () {
+            $result = SessionCredentialResolver::resolve('bearer-tok', 'different-cookie-tok');
+            assertSame(null, $result->token, 'a Bearer/cookie mismatch must never carry either value as a resolved token');
+            assertTrue($result->ambiguous, 'a Bearer/cookie mismatch must be reported as ambiguous, distinct from "no credential at all"');
+        },
+
+        'resolve()\'s ambiguous result is distinguishable from its none() result -- this is the whole point of the value object' => function () {
+            $none = SessionCredentialResolver::resolve(null, null);
+            $ambiguous = SessionCredentialResolver::resolve('a', 'b');
+
+            assertSame(null, $none->token, 'none() carries no token');
+            assertSame(null, $ambiguous->token, 'ambiguous() also carries no token');
+            assertFalse($none->ambiguous, 'none() must not be flagged ambiguous');
+            assertTrue($ambiguous->ambiguous, 'ambiguous() must be flagged ambiguous');
         },
     ];
 }

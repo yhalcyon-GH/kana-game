@@ -56,16 +56,21 @@ $webSessionCookie = new WebSessionCookie(
     $config->get('WEB_SESSION_COOKIE_ENABLED') === 'true',
     $config->get('WEB_SESSION_COOKIE_NAME') ?? WebSessionCookie::DEFAULT_NAME,
 );
-$rawSessionToken = SessionCredentialResolver::resolve(
+$credential = SessionCredentialResolver::resolve(
     SessionCredentialResolver::extractBearerToken($_SERVER['HTTP_AUTHORIZATION'] ?? null),
     $webSessionCookie->readToken($_COOKIE),
 );
 
-if ($rawSessionToken === null) {
+// A missing credential and an AMBIGUOUS one (Bearer + cookie present
+// and disagreeing) are both simply "not authenticated" here -- unlike
+// logout.php, this is a read-only lookup with no idempotent-success
+// contract to accidentally satisfy, so both collapse to the same 401.
+if ($credential->token === null) {
     http_response_code(401);
     echo json_encode(['error' => 'unauthorized']);
     exit;
 }
+$rawSessionToken = $credential->token;
 
 try {
     $pdo = Db::connect($config);

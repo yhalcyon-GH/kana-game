@@ -84,16 +84,19 @@ if ($cookieToken !== null && !$cors->isOriginAllowed($_SERVER['HTTP_ORIGIN'] ?? 
     exit;
 }
 
-$rawSessionToken = SessionCredentialResolver::resolve(
+$credential = SessionCredentialResolver::resolve(
     SessionCredentialResolver::extractBearerToken($_SERVER['HTTP_AUTHORIZATION'] ?? null),
     $cookieToken,
 );
 
-if ($rawSessionToken === null) {
+// A missing credential and an ambiguous one both mean "not
+// authenticated" here -- see the identical comment in auth/me.php.
+if ($credential->token === null) {
     http_response_code(401);
     echo json_encode(['error' => 'unauthorized']);
     exit;
 }
+$rawSessionToken = $credential->token;
 
 try {
     $pdo = Db::connect($config);

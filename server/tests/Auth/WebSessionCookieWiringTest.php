@@ -228,5 +228,84 @@ function webSessionCookieWiringTests(): array
             $source = loadServerSource('auth/verify.php');
             assertSame(1, substr_count($source, 'new WebSessionCookie('), 'verify.php must construct WebSessionCookie exactly once, reused for both the Origin check and the later issueHeader() call');
         },
+
+        // Code-review finding: an ambiguous (Bearer != cookie) credential
+        // was being silently folded into logout.php's "nothing to
+        // revoke" 200 OK path -- indistinguishable from a genuinely
+        // successful logout. Fixed by having SessionCredentialResolver
+        // return a SessionCredentialResolution value object instead of
+        // a bare `?string`, so "no credential" and "ambiguous credential"
+        // are no longer the same value. These assert the FIX, not just
+        // the original mismatch-reject behavior (already covered by
+        // SessionCredentialResolverTest.php at the pure-logic level).
+        'auth/logout.php checks $credential->ambiguous BEFORE the no-credential/idempotent branch, and rejects with 401' => function () {
+            $source = loadServerSource('auth/logout.php');
+
+            assertTrue(str_contains($source, 'if ($credential->ambiguous) {'), 'logout.php must check the ambiguous flag');
+
+            $ambiguousCheckPos = strpos($source, 'if ($credential->ambiguous)');
+            $noCredentialCheckPos = strpos($source, '$credential->token === null');
+            assertTrue($ambiguousCheckPos !== false && $noCredentialCheckPos !== false, 'expected both checks to be present');
+            assertTrue($ambiguousCheckPos < $noCredentialCheckPos, 'the ambiguous check must run before the no-credential/idempotent-200 check, so an ambiguous pair can never fall through to it');
+
+            // The ambiguous branch's own 401 must come strictly between
+            // the two checks above (i.e. inside that branch), not
+            // reused from some unrelated later 401.
+            $responseCodePos = strpos($source, 'http_response_code(401)', $ambiguousCheckPos);
+            assertTrue(
+                $responseCodePos !== false && $responseCodePos < $noCredentialCheckPos,
+                'the ambiguous branch must reject with its own http_response_code(401) before the no-credential branch',
+            );
+        },
+
+        'auth/logout.php never calls deleteHeader() inside the ambiguous branch (a rejected request must not look like a logout)' => function () {
+            $source = loadServerSource('auth/logout.php');
+            $ambiguousPos = strpos($source, 'if ($credential->ambiguous)');
+            assertTrue($ambiguousPos !== false, 'expected an ambiguous branch');
+            $branchEnd = strpos($source, 'exit;', $ambiguousPos);
+            assertTrue($branchEnd !== false, 'expected the ambiguous branch to end with its own exit;');
+            $ambiguousBranch = substr($source, $ambiguousPos, $branchEnd - $ambiguousPos);
+
+            assertFalse(
+                str_contains($ambiguousBranch, 'deleteHeader()'),
+                'the ambiguous branch must never send a Set-Cookie deletion -- that would be a state change (an effective forced logout) triggered by an untrusted/malformed credential pair',
+            );
+            assertFalse(
+                str_contains($ambiguousBranch, '->logout('),
+                'the ambiguous branch must never call CurrentUserService::logout() / attempt a revoke',
+            );
+            assertFalse(
+                str_contains($ambiguousBranch, 'error_log('),
+                'the ambiguous branch must never log anything -- an ambiguous credential is a normal, expected client-side condition, not a server error worth logging',
+            );
+            assertFalse(
+                (bool) preg_match('/\$(bearerToken|cookieToken|rawSessionToken)\b/', $ambiguousBranch),
+                'the ambiguous branch response must never reference the raw Bearer/cookie token values -- only the generic {"error":"unauthorized"} body',
+            );
+        },
+
+        'auth/logout.php never attempts CurrentUserService::logout() before the ambiguous check has run' => function () {
+            $source = loadServerSource('auth/logout.php');
+            $ambiguousPos = strpos($source, 'if ($credential->ambiguous)');
+            $logoutCallPos = strpos($source, '$currentUser->logout(');
+            assertTrue($ambiguousPos !== false && $logoutCallPos !== false, 'expected both an ambiguous check and a logout() call');
+            assertTrue($ambiguousPos < $logoutCallPos, 'the ambiguous check must run before any revoke attempt');
+        },
+
+        'auth/me.php, entitlement-me.php, and purchase-intent.php treat an ambiguous credential as unauthorized via the same null-token check as a missing credential' => function () {
+            foreach (['auth/me.php', 'entitlement-me.php', 'purchase-intent.php'] as $path) {
+                $source = loadServerSource($path);
+                assertTrue(
+                    str_contains($source, 'if ($credential->token === null) {'),
+                    "{$path} must check \$credential->token === null (which is true for BOTH missing and ambiguous credentials) before proceeding",
+                );
+                // These endpoints have no idempotent-success contract to
+                // accidentally satisfy (unlike logout.php) -- an
+                // ambiguous credential correctly collapsing to the same
+                // 401 as a missing one is safe and intentional here, so
+                // (unlike logout.php) there is no separate ->ambiguous
+                // branch expected in these three files.
+            }
+        },
     ];
 }

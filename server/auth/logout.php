@@ -10,6 +10,15 @@ declare(strict_types=1);
  * -> 200 {"status": "ok"}  -- for a MISSING token, an UNKNOWN token, or
  *    an ALREADY-REVOKED token: these are idempotent no-ops by design
  *    (SessionRepository::revoke()'s own contract), not errors.
+ * -> 401 {"error": "unauthorized"} -- for an AMBIGUOUS credential
+ *    (Authorization: Bearer AND the session cookie both present and
+ *    carrying DIFFERENT tokens). This is deliberately NOT folded into
+ *    the 200/idempotent-no-op path above: a mismatched pair is not
+ *    "nothing to revoke," and must never look like a successful
+ *    logout. No revoke is attempted, and the session cookie is
+ *    deliberately left untouched (see the ambiguous branch below for
+ *    why) -- see SessionCredentialResolution's own doc comment for the
+ *    general contract this endpoint is the one caller that needs.
  * -> 500 {"error": "temporary server error"} -- ONLY if an actual
  *    DB/server exception prevents the revoke attempt from completing.
  *    A genuine failure to revoke must never be reported as 200, since
@@ -74,22 +83,46 @@ if ($cookieToken !== null && !$cors->isOriginAllowed($_SERVER['HTTP_ORIGIN'] ?? 
     exit;
 }
 
-$rawSessionToken = SessionCredentialResolver::resolve(
+$credential = SessionCredentialResolver::resolve(
     SessionCredentialResolver::extractBearerToken($_SERVER['HTTP_AUTHORIZATION'] ?? null),
     $cookieToken,
 );
 
-if ($rawSessionToken === null) {
-    // No (unambiguous) token supplied at all — nothing to revoke, not
-    // an error. Still clear the cookie when cookie mode is enabled:
-    // idempotent, and safe even if the browser sent a stale/mismatched
-    // cookie alongside a Bearer header.
+if ($credential->ambiguous) {
+    // Bearer and cookie were BOTH supplied and DISAGREED. Never treat
+    // this as "nothing to revoke" (the null-token idempotent path
+    // below) -- that would return the same 200 {"status":"ok"} a
+    // genuinely successful logout returns, indistinguishable to the
+    // caller from an actual revoke having happened. Reject outright,
+    // attempt no revoke, and never guess which of the two credentials
+    // was "real."
+    //
+    // The session cookie is deliberately left UNTOUCHED here (no
+    // cookie-deletion header is sent), unlike the genuinely-no-
+    // credential path below: this request is being rejected as invalid, not honored --
+    // sending a Set-Cookie deletion as a side effect of a REJECTED
+    // request would itself be a state change (effectively a forced
+    // logout) triggered by an untrusted/malformed credential pair,
+    // which this endpoint has no basis to treat as an intentional
+    // logout from the legitimate cookie holder.
+    http_response_code(401);
+    echo json_encode(['error' => 'unauthorized']);
+    exit;
+}
+
+if ($credential->token === null) {
+    // Reaching here (past the ambiguous check above) means genuinely
+    // NO credential was supplied at all — nothing to revoke, not an
+    // error. Still clear the cookie when cookie mode is enabled:
+    // idempotent, and unconditionally safe here since there was no
+    // disagreeing credential in play.
     if ($webSessionCookie->isEnabled()) {
         header('Set-Cookie: ' . $webSessionCookie->deleteHeader(), false);
     }
     echo json_encode(['status' => 'ok']);
     exit;
 }
+$rawSessionToken = $credential->token;
 
 try {
     $pdo = Db::connect($config);
