@@ -2,8 +2,8 @@ import { NavLink } from 'react-router-dom'
 import { CategoryIcon } from './CategoryIcon'
 import { NavBadge } from './NavBadge'
 import { SCRIPT_ENTRY_POINTS } from '../data/scriptEntryPoints'
-import { useCurriculum } from '../hooks/useCurriculum'
-import { useSavedItemsStore } from '../store/savedItemsStore'
+import { useCommercialCurriculum } from '../hooks/useCommercialCurriculum'
+import { useCommercialSavedItems } from '../hooks/useCommercialSavedItems'
 import { useGuideHighlight } from './GuideHighlightContext'
 
 // Top nav: Home / Review / Saved (icon + label side by side, one row, no
@@ -13,8 +13,8 @@ import { useGuideHighlight } from './GuideHighlightContext'
 // intentionally absent here even though the /about route itself still
 // exists for old links/bookmarks.
 export function NavBar() {
-  const { reviewCount } = useCurriculum()
-  const savedCount = useSavedItemsStore((s) => s.savedCharacterIds.length + s.savedWordIds.length)
+  const { reviewCount } = useCommercialCurriculum()
+  const { savedCount } = useCommercialSavedItems()
   const { reviewGuideVisible } = useGuideHighlight()
 
   const itemClass = ({ isActive }: { isActive: boolean }) =>

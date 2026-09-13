@@ -21,7 +21,8 @@ import { SPECIAL_KATAKANA_GUIDE } from '../data/specialKatakanaGuide'
 import { SpecialKatakanaGuide } from '../components/SpecialKatakanaGuide'
 import { PARTICLE_GUIDE } from '../data/particleGuide'
 import { ParticleGuide } from '../components/ParticleGuide'
-import { REVIEW_SCOPE_ID, useCurriculum } from '../hooks/useCurriculum'
+import { REVIEW_SCOPE_ID } from '../hooks/useCurriculum'
+import { useCommercialCurriculum } from '../hooks/useCommercialCurriculum'
 import { useActiveGuideReplayId, useGuideReplay } from '../hooks/useGuideReplay'
 import { getRecommendedActivity } from '../lib/recommendedPath'
 import { useProgressStore } from '../store/progressStore'
@@ -108,7 +109,7 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
   const params = useParams<{ categoryId?: string; rowId?: string }>()
   const rowId = rowIdOverride ?? params.rowId
   const navigate = useNavigate()
-  const { isScopeReady, reviewCount, globalRecommendedTarget } = useCurriculum()
+  const { isScopeReady, reviewCount, globalRecommendedTarget } = useCommercialCurriculum()
   const isReview = rowId === REVIEW_SCOPE_ID
   const row = rowId && !isReview ? ROWS_BY_ID[rowId] : undefined
   const categoryId = isReview ? undefined : (params.categoryId ?? row?.categoryId)

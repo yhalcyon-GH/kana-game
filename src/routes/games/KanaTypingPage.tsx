@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AnswerFeedbackRow } from '../../components/AnswerFeedbackRow'
+import { CommercialReviewSession } from '../../components/CommercialReviewSession'
 import { AnswerReveal } from '../../components/AnswerReveal'
 import { GameRoundHeader } from '../../components/GameRoundHeader'
 import { PracticeSummary } from '../../components/PracticeSummary'
@@ -10,7 +11,8 @@ import { WordImage } from '../../components/WordImage'
 import { ROWS_BY_ID } from '../../data/curriculum'
 import type { QuestionMode } from '../../data/feedback'
 import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
-import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
+import { REVIEW_SCOPE_ID } from '../../hooks/useCurriculum'
+import { useCommercialCurriculum } from '../../hooks/useCommercialCurriculum'
 import { useDelayedAction } from '../../hooks/useDelayedAction'
 import { useEnterAdvance } from '../../hooks/useEnterAdvance'
 import { useFrozenWordPool } from '../../hooks/useFrozenWordPool'
@@ -35,11 +37,15 @@ type Props = {
   rowIdOverride?: string
 }
 
-export function KanaTypingPage({ rowIdOverride }: Props = {}) {
+export function KanaTypingPage(props: Props = {}) {
+  return <CommercialReviewSession rowIdOverride={props.rowIdOverride}><KanaTypingSession {...props} /></CommercialReviewSession>
+}
+
+function KanaTypingSession({ rowIdOverride }: Props) {
   const params = useParams<{ categoryId?: string; rowId?: string }>()
   const rowId = rowIdOverride ?? params.rowId
   const navigate = useNavigate()
-  const { isScopeReady, getScopeWords, getScopeRounds, isSimilarLettersRow, getConfusionGroups } = useCurriculum()
+  const { isScopeReady, getScopeWords, getScopeRounds, isSimilarLettersRow, getConfusionGroups } = useCommercialCurriculum()
   const recordWordReviewResult = useProgressStore((s) => s.recordWordReviewResult)
   const characters = useProgressStore((s) => s.characters)
   const { speak, supported } = useTTS()

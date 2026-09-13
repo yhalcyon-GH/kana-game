@@ -5,7 +5,7 @@ import { SaveWordToggle } from '../components/SaveWordToggle'
 import { WordCard } from '../components/WordCard'
 import { CHARACTERS_BY_ID } from '../data/characters'
 import { WORDS_BY_ID } from '../data/words'
-import { useSavedItemsStore } from '../store/savedItemsStore'
+import { useCommercialSavedItems } from '../hooks/useCommercialSavedItems'
 
 // Learner-curated list of Characters/Words manually Saved from Learn or
 // after a Practice mistake — see savedItemsStore.ts. Entirely independent
@@ -16,8 +16,7 @@ import { useSavedItemsStore } from '../store/savedItemsStore'
 // the app, so a saved id whose card content changes upstream never goes
 // stale.
 export function SavedPage() {
-  const savedCharacterIds = useSavedItemsStore((s) => s.savedCharacterIds)
-  const savedWordIds = useSavedItemsStore((s) => s.savedWordIds)
+  const { savedCharacterIds, savedWordIds } = useCommercialSavedItems()
 
   const savedCharacters = savedCharacterIds.map((id) => CHARACTERS_BY_ID[id]).filter(Boolean)
   const savedWords = savedWordIds.map((id) => WORDS_BY_ID[id]).filter(Boolean)

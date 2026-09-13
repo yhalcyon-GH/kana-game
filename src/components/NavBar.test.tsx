@@ -1,6 +1,8 @@
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { ROWS } from '../data/curriculum'
+import { WORDS_BY_ROW } from '../data/words'
 import { useProgressStore } from '../store/progressStore'
 import { useSavedItemsStore } from '../store/savedItemsStore'
 import { GuideHighlightProvider } from './GuideHighlightProvider'
@@ -115,7 +117,9 @@ describe('NavBar Saved badge', () => {
   })
 
   it('caps display at 99+ beyond 99 saved items', () => {
-    for (let i = 0; i < 105; i++) useSavedItemsStore.getState().toggleCharacter(`char-${i}`)
+    const words = ROWS.filter((row) => row.categoryId === 'hiragana').flatMap((row) => WORDS_BY_ROW[row.id] ?? [])
+    for (const word of words.slice(0, 105)) useSavedItemsStore.getState().toggleWord(word.id)
+    for (const id of ['a', 'i', 'u', 'e', 'o', 'n']) useSavedItemsStore.getState().toggleCharacter(id)
     renderNav()
     const savedLink = screen.getByRole('link', { name: /Saved/ })
     const badge = savedLink.querySelector('span.bg-red-500')

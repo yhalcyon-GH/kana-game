@@ -1,6 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import { PARENTHESIZED_CHARACTER_IDS } from '../data/characters'
-import { useCurriculum } from '../hooks/useCurriculum'
+import { useCommercialCurriculum } from '../hooks/useCommercialCurriculum'
 import { useProgressStore } from '../store/progressStore'
 import { ProgressBadge } from './ProgressBadge'
 import { ReviewGuide } from './ReviewGuide'
@@ -56,7 +56,7 @@ export function PracticeSummary({
   score,
   continueAction,
 }: Props) {
-  const { reviewCount } = useCurriculum()
+  const { reviewCount } = useCommercialCurriculum()
   const hasCompletedReviewGuide = useProgressStore((s) => s.hasCompletedReviewGuide)
   const { pathname } = useLocation()
   const showReviewGuide = !hasCompletedReviewGuide && reviewCount > 0 && !pathname.startsWith('/practice/review')

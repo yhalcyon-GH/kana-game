@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AnswerFeedbackRow } from '../../components/AnswerFeedbackRow'
 import { AnswerReveal } from '../../components/AnswerReveal'
+import { CommercialReviewSession } from '../../components/CommercialReviewSession'
 import { GameRoundHeader } from '../../components/GameRoundHeader'
 import { KanaTile } from '../../components/KanaTile'
 import { PracticeSummary } from '../../components/PracticeSummary'
@@ -13,7 +14,8 @@ import type { QuestionMode } from '../../data/feedback'
 import { PRACTICE_CHECKPOINTS } from '../../data/practiceCheckpoints'
 import type { AnchorWord } from '../../data/types'
 import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
-import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
+import { REVIEW_SCOPE_ID } from '../../hooks/useCurriculum'
+import { useCommercialCurriculum } from '../../hooks/useCommercialCurriculum'
 import { useDelayedAction } from '../../hooks/useDelayedAction'
 import { useEnterAdvance } from '../../hooks/useEnterAdvance'
 import { useFrozenWordPool } from '../../hooks/useFrozenWordPool'
@@ -37,12 +39,16 @@ type Props = {
   rowIdOverride?: string
 }
 
-export function WordBuilderPage({ rowIdOverride }: Props = {}) {
+export function WordBuilderPage(props: Props = {}) {
+  return <CommercialReviewSession rowIdOverride={props.rowIdOverride}><WordBuilderSession {...props} /></CommercialReviewSession>
+}
+
+function WordBuilderSession({ rowIdOverride }: Props) {
   const params = useParams<{ categoryId?: string; rowId?: string }>()
   const rowId = rowIdOverride ?? params.rowId
   const navigate = useNavigate()
   const { isScopeReady, getScopeCharacterIds, getScopeWords, getScopeRounds, isSimilarLettersRow, getConfusionGroups } =
-    useCurriculum()
+    useCommercialCurriculum()
   const recordResult = useProgressStore((s) => s.recordResult)
   const recordCharacterReviewResult = useProgressStore((s) => s.recordCharacterReviewResult)
   const recordWordReviewResult = useProgressStore((s) => s.recordWordReviewResult)

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AnswerFeedbackRow } from '../../components/AnswerFeedbackRow'
+import { CommercialReviewSession } from '../../components/CommercialReviewSession'
 import { GameRoundHeader } from '../../components/GameRoundHeader'
 import { PracticeSummary } from '../../components/PracticeSummary'
 import { ReviewEmptyState } from '../../components/ReviewEmptyState'
@@ -12,7 +13,8 @@ import { ROWS_BY_ID } from '../../data/curriculum'
 import type { QuestionMode } from '../../data/feedback'
 import type { AnchorWord } from '../../data/types'
 import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
-import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
+import { REVIEW_SCOPE_ID } from '../../hooks/useCurriculum'
+import { useCommercialCurriculum } from '../../hooks/useCommercialCurriculum'
 import { useDelayedAction } from '../../hooks/useDelayedAction'
 import { useEnterAdvance } from '../../hooks/useEnterAdvance'
 import { useFrozenWordPool } from '../../hooks/useFrozenWordPool'
@@ -34,11 +36,15 @@ type Props = {
   rowIdOverride?: string
 }
 
-export function ListeningPage({ rowIdOverride }: Props = {}) {
+export function ListeningPage(props: Props = {}) {
+  return <CommercialReviewSession rowIdOverride={props.rowIdOverride}><ListeningSession {...props} /></CommercialReviewSession>
+}
+
+function ListeningSession({ rowIdOverride }: Props) {
   const params = useParams<{ categoryId?: string; rowId?: string }>()
   const rowId = rowIdOverride ?? params.rowId
   const navigate = useNavigate()
-  const { isScopeReady, getScopeWords, getScopeRounds, isSimilarLettersRow, getConfusionGroups } = useCurriculum()
+  const { isScopeReady, getScopeWords, getScopeRounds, isSimilarLettersRow, getConfusionGroups } = useCommercialCurriculum()
   const recordResult = useProgressStore((s) => s.recordResult)
   const recordWordReviewResult = useProgressStore((s) => s.recordWordReviewResult)
   const markRowActivityCompleted = useProgressStore((s) => s.markRowActivityCompleted)
