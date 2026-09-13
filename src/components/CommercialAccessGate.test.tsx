@@ -46,20 +46,20 @@ describe('CommercialAccessGate', () => {
 
   it('links signed-out learners to sign in and their account', () => {
     renderGate({ kind: 'row', rowId: 'katakana-a-row' }, { status: 'signed-out', user: null })
-    expect(screen.getByRole('heading', { name: 'Sign in to continue' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Sign in to unlock' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login')
     expect(screen.getByRole('link', { name: 'Account' })).toHaveAttribute('href', '/account')
   })
 
   it('links inactive learners to their account', () => {
     renderGate({ kind: 'row', rowId: 'katakana-a-row' }, { status: 'inactive', user: signedInUser })
-    expect(screen.getByRole('heading', { name: 'Content locked' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Full Tamamizu required' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Account' })).toHaveAttribute('href', '/account')
   })
 
   it('offers Retry and Account access when the entitlement service is unavailable', () => {
     const refresh = renderGate({ kind: 'row', rowId: 'katakana-a-row' }, { status: 'unavailable', user: signedInUser })
-    expect(screen.getByRole('heading', { name: 'Access status unavailable' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Couldn’t verify access' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Account' })).toHaveAttribute('href', '/account')
     fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
     expect(refresh).toHaveBeenCalledOnce()
