@@ -28,6 +28,7 @@ function renderAt(path: string) {
 }
 
 beforeEach(() => {
+  vi.stubEnv('VITE_PRODUCTION_AUTH_API_BASE_URL', 'https://api.example.com')
   useProgressStore.getState().resetProgress()
   useProgressStore.getState().setHasCompletedIntroGuide(true)
   vi.mocked(productionAuthClient.requestMagicLink).mockReset().mockResolvedValue(undefined)
@@ -48,6 +49,16 @@ describe('Production Web auth (Phase 3B)', () => {
   it('/login is reachable in development', async () => {
     renderAt('/login')
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
+  })
+
+  it('/login does not fall back to production auth in unconfigured development', async () => {
+    vi.stubEnv('VITE_PRODUCTION_AUTH_API_BASE_URL', '')
+    renderAt('/login')
+
+    expect(await screen.findByText(/production auth testing is disabled in development/i)).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'anything@example.com' } })
+    expect(screen.getByRole('button', { name: /send sign-in link/i })).toBeDisabled()
+    expect(productionAuthClient.requestMagicLink).not.toHaveBeenCalled()
   })
 
   it('/login is reachable in a production build too', async () => {

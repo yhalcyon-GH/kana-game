@@ -53,6 +53,10 @@ export default function ProductionVerifyPage() {
 
     void (async () => {
       const apiBase = readProductionAuthApiBase()
+      if (!apiBase) {
+        setState({ kind: 'error' })
+        return
+      }
       const result = await verifyMagicLinkToken(apiBase, rawToken)
       if (result === null) {
         setState({ kind: 'error' })

@@ -18,7 +18,7 @@ export default function AccountPage() {
   const { state, refresh, markSignedOut } = useEntitlement()
 
   async function handleLogout() {
-    await logout(apiBase)
+    if (apiBase) await logout(apiBase)
     markSignedOut()
   }
 

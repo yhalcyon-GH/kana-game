@@ -12,9 +12,13 @@ export function EntitlementProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     const requestId = ++requestSequence.current
-    setState((current) => ({ status: 'loading', user: current.user }))
-
     const apiBase = readProductionAuthApiBase()
+    if (!apiBase) {
+      setState({ status: 'signed-out', user: null })
+      return
+    }
+
+    setState((current) => ({ status: 'loading', user: current.user }))
     const userResult = await fetchCurrentUserResult(apiBase)
     if (requestId !== requestSequence.current) return
 

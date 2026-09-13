@@ -18,7 +18,7 @@ export default function LoginPage() {
   const [requested, setRequested] = useState(false)
 
   async function handleRequestLink() {
-    if (!email || requesting) return
+    if (!apiBase || !email || requesting) return
     setRequesting(true)
     try {
       await requestMagicLink(apiBase, email)
@@ -39,6 +39,11 @@ export default function LoginPage() {
         </p>
       ) : (
         <>
+          {!apiBase && (
+            <p role="status" className="rounded-xl border border-neutral-300 bg-white px-4 py-3 text-center dark:border-neutral-600 dark:bg-neutral-800">
+              Production Auth testing is disabled in development. Set VITE_PRODUCTION_AUTH_API_BASE_URL to enable it.
+            </p>
+          )}
           <label className="flex w-full flex-col gap-1 text-sm">
             Email
             <input
@@ -52,7 +57,7 @@ export default function LoginPage() {
           <button
             type="button"
             onClick={() => void handleRequestLink()}
-            disabled={!email || requesting}
+            disabled={!apiBase || !email || requesting}
             className="w-full rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {requesting ? 'Sending…' : 'Send sign-in link'}

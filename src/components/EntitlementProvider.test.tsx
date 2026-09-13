@@ -34,6 +34,8 @@ function renderProvider() {
 }
 
 beforeEach(() => {
+  vi.stubEnv('DEV', true)
+  vi.stubEnv('VITE_PRODUCTION_AUTH_API_BASE_URL', 'https://auth-dev.example.com/api')
   vi.mocked(productionAuthClient.fetchCurrentUserResult).mockReset().mockResolvedValue({ kind: 'signed-out' })
   vi.mocked(productionAuthClient.fetchCurrentEntitlementResult).mockReset()
   useProgressStore.getState().resetProgress()
@@ -41,9 +43,45 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks()
+  vi.unstubAllEnvs()
 })
 
 describe('EntitlementProvider', () => {
+  it('refreshes on startup and focus in production', async () => {
+    vi.stubEnv('DEV', false)
+    vi.stubEnv('VITE_PRODUCTION_AUTH_API_BASE_URL', '')
+
+    renderProvider()
+    await screen.findByText('signed-out')
+    expect(productionAuthClient.fetchCurrentUserResult).toHaveBeenCalledWith(
+      'https://tamamizu.giganihongo.com/api',
+    )
+
+    act(() => window.dispatchEvent(new Event('focus')))
+    await waitFor(() => expect(productionAuthClient.fetchCurrentUserResult).toHaveBeenCalledTimes(2))
+  })
+
+  it('does not contact production auth on startup, focus, or manual refresh in unconfigured development', async () => {
+    vi.stubEnv('DEV', true)
+    vi.stubEnv('VITE_PRODUCTION_AUTH_API_BASE_URL', '')
+
+    renderProvider()
+    expect(await screen.findByText('signed-out')).toBeInTheDocument()
+    act(() => window.dispatchEvent(new Event('focus')))
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }))
+
+    await waitFor(() => expect(screen.getByText('signed-out')).toBeInTheDocument())
+    expect(productionAuthClient.fetchCurrentUserResult).not.toHaveBeenCalled()
+    expect(productionAuthClient.fetchCurrentEntitlementResult).not.toHaveBeenCalled()
+  })
+
+  it('uses an explicitly configured auth API in development', async () => {
+    renderProvider()
+
+    await screen.findByText('signed-out')
+    expect(productionAuthClient.fetchCurrentUserResult).toHaveBeenCalledWith('https://auth-dev.example.com/api')
+  })
+
   it('distinguishes signed-out, inactive, active, and unavailable server states', async () => {
     const user = { userId: 'u1', emailNormalized: 'learner@example.com' }
     vi.mocked(productionAuthClient.fetchCurrentUserResult)
