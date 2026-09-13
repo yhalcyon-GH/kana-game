@@ -1,19 +1,17 @@
-/**
- * Shared Paddle Sandbox client-side config validation — used by both the
- * Phase 2 PoC (/paddle-test) and the Phase 3A real-user harness
- * (/account-test's Sandbox Checkout section). Extracted so the two
- * pages can never drift on what counts as valid Sandbox config; DEV-only
- * for both call sites, and the price/token shape checks are identical.
- */
+/** Shared Paddle Sandbox client-side config validation. */
 
 export type SandboxConfigResult = { error: string } | { token: string; priceId: string }
 
-export function readSandboxConfig(disabledMessage: string): SandboxConfigResult {
-  if (!import.meta.env.DEV) return { error: disabledMessage }
+export type SandboxConfigInput = {
+  environment?: string
+  token?: string
+  priceId?: string
+}
 
-  const environment = import.meta.env.VITE_PADDLE_ENVIRONMENT?.trim()
-  const token = import.meta.env.VITE_PADDLE_CLIENT_TOKEN?.trim()
-  const priceId = import.meta.env.VITE_PADDLE_PRICE_ID?.trim()
+export function validateSandboxConfig(input: SandboxConfigInput): SandboxConfigResult {
+  const environment = input.environment?.trim()
+  const token = input.token?.trim()
+  const priceId = input.priceId?.trim()
   const missing = [
     !environment && 'VITE_PADDLE_ENVIRONMENT',
     !token && 'VITE_PADDLE_CLIENT_TOKEN',
@@ -29,4 +27,24 @@ export function readSandboxConfig(disabledMessage: string): SandboxConfigResult 
   }
   if (!priceId?.startsWith('pri_')) return { error: 'VITE_PADDLE_PRICE_ID must be a Paddle price ID (pri_).' }
   return { token, priceId }
+}
+
+function readSandboxBuildValues(): SandboxConfigInput {
+  return {
+    environment: import.meta.env.VITE_PADDLE_ENVIRONMENT,
+    token: import.meta.env.VITE_PADDLE_CLIENT_TOKEN,
+    priceId: import.meta.env.VITE_PADDLE_PRICE_ID,
+  }
+}
+
+/** Development-harness reader; production callers must use readProductionSandboxConfig. */
+export function readSandboxConfig(disabledMessage: string): SandboxConfigResult {
+  if (!import.meta.env.DEV) return { error: disabledMessage }
+
+  return validateSandboxConfig(readSandboxBuildValues())
+}
+
+/** Production-capable Sandbox reader. Invalid or absent values fail closed. */
+export function readProductionSandboxConfig(): SandboxConfigResult {
+  return validateSandboxConfig(readSandboxBuildValues())
 }
