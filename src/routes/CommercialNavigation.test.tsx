@@ -9,6 +9,11 @@ import { useProgressStore } from '../store/progressStore'
 import { HomePage } from './HomePage'
 import { CategoryRowsPage } from './CategoryRowsPage'
 
+vi.mock('../hooks/useTTS', () => {
+  const tts = { speak: vi.fn(), stop: vi.fn() }
+  return { useTTS: () => tts }
+})
+
 const user = { userId: 'learner', emailNormalized: 'learner@example.com' }
 const deniedStates: EntitlementState[] = [
   { status: 'signed-out', user: null },
@@ -46,6 +51,43 @@ beforeEach(() => {
 })
 
 describe('commercial navigation', () => {
+  describe.each([
+    { categoryIds: ['sokuon', 'chouon'], guide: 'sokuon-guide' },
+    { categoryIds: ['sokuon', 'chouon'], guide: 'chouon-guide' },
+    { categoryIds: ['youon', 'special-katakana'], guide: 'youon-guide' },
+  ])('$guide automatic content', ({ categoryIds, guide }) => {
+    it.each(deniedStates)('does not mount or complete while $status, restores only when active', (state) => {
+      useProgressStore.getState().setHasCompletedIntroGuide(true)
+      if (guide === 'chouon-guide') {
+        useProgressStore.getState().setHasCompletedSokuonGuide(true)
+        useProgressStore.getState().markRowTaught('sokuon-row')
+        for (const activity of ['listening', 'wordBuilder', 'checkpoint'] as const) {
+          useProgressStore.getState().markRowActivityCompleted('sokuon-row', activity)
+        }
+      }
+      const before = JSON.stringify(useProgressStore.getState())
+      const page = <CategoryRowsPage title="Paid section" description="" categoryIds={categoryIds} />
+      const view = render(fixture(page, state))
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(JSON.stringify(useProgressStore.getState())).toBe(before)
+
+      view.rerender(fixture(page, active))
+      expect(screen.getByTestId(guide)).toHaveAttribute('role', 'dialog')
+      view.rerender(fixture(page, state))
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      expect(JSON.stringify(useProgressStore.getState())).toBe(before)
+    })
+  })
+
+  it.each(deniedStates)('preserves manual Hiragana intro replay with Intro completed while $status', (state) => {
+    useProgressStore.getState().setHasCompletedIntroGuide(true)
+    const before = JSON.stringify(useProgressStore.getState())
+    render(fixture(<CategoryRowsPage title="Hiragana" description="" categoryIds={['hiragana']} askTamamizuKanaIntroVariant="hiragana" />, state))
+    fireEvent.click(screen.getByTestId('ask-tamamizu-hiragana'))
+    expect(screen.getByTestId('kana-intro-excerpt-guide')).toHaveAttribute('role', 'dialog')
+    expect(JSON.stringify(useProgressStore.getState())).toBe(before)
+  })
+
   it.each(deniedStates)('keeps paid Home recommendation and Continue visible without paid navigation while $status', (state) => {
     completeHiragana()
     useProgressStore.getState().setLastStudied({ categoryId: 'katakana', rowId: 'katakana-a-row', activity: 'learn' })

@@ -1,5 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { CommercialAccessLink } from '../components/CommercialAccessLink'
+import { useEntitlement } from '../components/EntitlementContext'
+import { isRowAccessible } from '../lib/commercialAccess'
 import { KanaIntroExcerptGuide } from '../components/KanaIntroExcerptGuide'
 import { ConceptGuide } from '../components/ConceptGuide'
 import { ChouonGuide } from '../components/ChouonGuide'
@@ -79,6 +81,7 @@ type Props = {
 // stacked in one page. HomePage itself is now just a chooser linking here.
 export function CategoryRowsPage({ title, description, categoryIds, askTamamizuKanaIntroVariant }: Props) {
   const { rows, isRowUnlocked, isRowTaught, globalRecommendedTarget } = useCurriculum()
+  const { state: entitlement } = useEntitlement()
   const navigate = useNavigate()
   const kanaIntroExcerptGuide = useGuideReplay('kanaIntro')
   const particleGuide = useGuideReplay('particle')
@@ -113,13 +116,18 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
   const sokuonCategory = CATEGORIES_BY_ID[SOKUON_CATEGORY_ID]
   const sokuonRowDone =
     !!sokuonRow && !!sokuonCategory && isRowRecommendedPathDone(sokuonRow, sokuonCategory, taughtRowIds, rowActivityCompletion)
-  const showAutoSokuonGuide = hasSokuonCategory && hasCompletedIntroGuide && !hasCompletedSokuonGuide
+  const showAutoSokuonGuide =
+    hasSokuonCategory && hasCompletedIntroGuide && !hasCompletedSokuonGuide &&
+    isRowAccessible(SOKUON_GUIDE.target.rowId, entitlement.status)
   // Chōon's auto-display timing is gated on the preceding Sokuon Recommended
   // Path being done. Since checkpoints are now Recommended steps too, a
   // Sokuon Cafe checkpoint (when configured) is part of that same invariant.
   const showAutoChouonGuide =
-    hasChouonCategory && hasCompletedIntroGuide && !hasCompletedChouonGuide && sokuonRowDone && !showAutoSokuonGuide
-  const showAutoYouonGuide = hasYouonCategory && hasCompletedIntroGuide && !hasCompletedYouonGuide
+    hasChouonCategory && hasCompletedIntroGuide && !hasCompletedChouonGuide && sokuonRowDone && !showAutoSokuonGuide &&
+    isRowAccessible(CHOUON_GUIDE.target.rowId, entitlement.status)
+  const showAutoYouonGuide =
+    hasYouonCategory && hasCompletedIntroGuide && !hasCompletedYouonGuide &&
+    isRowAccessible(YOUON_GUIDE.target.rowId, entitlement.status)
 
   const categoryRows = rows.filter((r) => categoryIds.includes(r.categoryId) && !r.isSummary && !r.isSimilarLetters)
   // Similar Letters (🔍, see GojuonRow.isSimilarLetters) renders immediately
