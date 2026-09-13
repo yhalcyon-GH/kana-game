@@ -59,4 +59,45 @@ final class PaymentEventRepository
             'processed_at' => (new \DateTimeImmutable())->format('Y-m-d H:i:s'),
         ]);
     }
+
+    /**
+     * Phase H1-2: atomically claims a Paddle event_id as "being
+     * processed now." This is the FIRST write PurchaseWebhookHandler
+     * makes inside its per-request DB transaction — not a
+     * record-on-success step at the end — so that:
+     *  - a concurrent/racing duplicate delivery loses the UNIQUE
+     *    (paddle_event_id) constraint race here and is turned away
+     *    (returns false) before touching any other table;
+     *  - a crash/exception anywhere later in that same transaction
+     *    rolls this claim back too, so a Paddle retry of the same
+     *    event_id is processed fresh rather than silently swallowed as
+     *    "already processed" by a claim that survived while the rest
+     *    of the work did not.
+     * Returns true iff this call won the claim. Returns false (does not
+     * throw) for a duplicate paddle_event_id — the same UNIQUE-
+     * violation-as-no-op treatment as TransactionGrantRepository::
+     * create() and PurchaseIntentRepository::consume() rely on
+     * elsewhere in this codebase.
+     */
+    public function claim(
+        string $paddleEventId,
+        string $eventType,
+        ?string $paddleTransactionId,
+        \DateTimeImmutable $occurredAt,
+    ): bool {
+        try {
+            $this->record($paddleEventId, $eventType, $paddleTransactionId, $occurredAt);
+            return true;
+        } catch (\PDOException $e) {
+            if ($this->isUniqueConstraintViolation($e)) {
+                return false;
+            }
+            throw $e;
+        }
+    }
+
+    private function isUniqueConstraintViolation(\PDOException $e): bool
+    {
+        return $e->getCode() === '23000' || str_contains($e->getMessage(), 'UNIQUE constraint failed');
+    }
 }

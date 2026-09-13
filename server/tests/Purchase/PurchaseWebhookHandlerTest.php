@@ -100,6 +100,7 @@ function makePurchaseWebhookTestDb(): PDO
 function makePurchaseWebhookHandler(PDO $pdo): PurchaseWebhookHandler
 {
     return new PurchaseWebhookHandler(
+        $pdo,
         new PaddleSignature(PWH_TEST_SECRET),
         new PaymentEventRepository($pdo),
         new PurchaseIntentRepository($pdo),
@@ -267,6 +268,8 @@ function purchaseWebhookHandlerTests(): array
             assertSame(200, $second->statusCode, 'duplicate delivery should be safely acknowledged');
             $count = (int) $pdo->query('SELECT COUNT(*) FROM transaction_grants')->fetchColumn();
             assertSame(1, $count, 'exactly one grant should exist despite the duplicate delivery');
+            $eventCount = (int) $pdo->query('SELECT COUNT(*) FROM payment_events')->fetchColumn();
+            assertSame(1, $eventCount, 'exactly one payment_events row should exist -- the second delivery must lose the claim, not record a second row');
         },
 
         'one purchase intent cannot create two transaction grants' => function () {
@@ -761,6 +764,136 @@ function purchaseWebhookHandlerTests(): array
                 $refundCompletenessPos < $handlerPos,
                 'RefundCompleteness.php must be required before PurchaseWebhookHandler.php, which calls RefundCompleteness::isFullRefund(...) at class-definition-load time',
             );
+        },
+
+        // -- Phase H1-2: webhook transaction atomicity --
+        //
+        // handle() now runs the event claim (PaymentEventRepository::
+        // claim(), the UNIQUE (paddle_event_id) constraint) as the FIRST
+        // write inside one PDO transaction that also covers every
+        // business-logic write and the entitlement recompute. True
+        // concurrent-thread testing isn't feasible against a single
+        // SQLite in-memory connection (same accepted limitation as the
+        // Phase H1-1 EntitlementRepository tests) -- these tests use the
+        // same accepted proxies: sequential calls for the duplicate/race
+        // case, and a deliberately broken table to force a mid-
+        // transaction exception for the rollback/retry cases.
+
+        'a concurrent delivery that loses the event claim never reaches business logic -- no grant, no intent consumption' => function () {
+            // Simulates "another request already committed the claim a
+            // moment ago": pre-insert the payment_events row directly
+            // (bypassing handle() entirely) rather than calling handle()
+            // twice, so this exercises the transactional claim() check
+            // itself, not any separate pre-check.
+            $pdo = makePurchaseWebhookTestDb();
+            $intents = new PurchaseIntentRepository($pdo);
+            $intents->create('user-1', 'full_tamamizu', 'raw-ref-concurrent', new \DateTimeImmutable('+30 minutes'));
+
+            $pdo->prepare(
+                'INSERT INTO payment_events (paddle_event_id, event_type, paddle_transaction_id, occurred_at, processed_at)
+                 VALUES (:event_id, :event_type, :txn_id, :occurred_at, :processed_at)',
+            )->execute([
+                'event_id' => 'evt_concurrent',
+                'event_type' => 'transaction.completed',
+                'txn_id' => 'txn_concurrent',
+                'occurred_at' => '2026-01-01T00:00:00Z',
+                'processed_at' => '2026-01-01T00:00:00Z',
+            ]);
+
+            $handler = makePurchaseWebhookHandler($pdo);
+            $body = pwhTransactionCompletedPayload('evt_concurrent', 'txn_concurrent', 'raw-ref-concurrent');
+            $result = $handler->handle($body, pwhSign($body));
+
+            assertSame(200, $result->statusCode, 'the losing claim must be safely acknowledged, not an error');
+            assertSame('duplicate event, already processed', $result->message, 'must report as a duplicate event');
+
+            $grantCount = (int) $pdo->query('SELECT COUNT(*) FROM transaction_grants')->fetchColumn();
+            assertSame(0, $grantCount, 'no grant may be created for a delivery that lost the event claim');
+
+            $consumedAt = $pdo->query("SELECT consumed_at FROM purchase_intents WHERE purchase_ref_hash = '" . hash('sha256', 'raw-ref-concurrent') . "'")->fetchColumn();
+            assertSame(null, $consumedAt, 'the purchase_intent must remain unconsumed -- business logic must never run for a delivery that lost the claim');
+        },
+
+        'a mid-transaction failure after the event claim rolls back the claim, the grant, and the consumed purchase_intent together' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $intents = new PurchaseIntentRepository($pdo);
+            $intents->create('user-1', 'full_tamamizu', 'raw-ref-crash', new \DateTimeImmutable('+30 minutes'));
+
+            // Force a failure AFTER the intent is consumed and the grant
+            // is created, but during the entitlement recompute step, by
+            // removing the table EntitlementRepository::activate()
+            // writes to. This is a deliberately broken-environment proxy
+            // for "the process crashes partway through" -- the important
+            // property under test is what handle() leaves behind in the
+            // OTHER tables when this step fails, not the specific cause.
+            $pdo->exec('DROP TABLE entitlements');
+
+            $handler = makePurchaseWebhookHandler($pdo);
+            $body = pwhTransactionCompletedPayload('evt_crash', 'txn_crash', 'raw-ref-crash');
+
+            $threw = false;
+            try {
+                $handler->handle($body, pwhSign($body));
+            } catch (\Throwable $e) {
+                $threw = true;
+            }
+            assertTrue($threw, 'a failure inside the transaction must propagate as an exception, not be swallowed as a normal result -- server/paddle-webhook.php turns this into a 500 so Paddle retries');
+
+            $grantCount = (int) $pdo->query('SELECT COUNT(*) FROM transaction_grants')->fetchColumn();
+            assertSame(0, $grantCount, 'the grant write must be rolled back when a later step in the same transaction fails');
+
+            $eventCount = (int) $pdo->query('SELECT COUNT(*) FROM payment_events')->fetchColumn();
+            assertSame(0, $eventCount, 'the event claim must be rolled back too -- otherwise Paddle\'s retry of this event_id would be silently swallowed as "already processed" forever');
+
+            $consumedAt = $pdo->query("SELECT consumed_at FROM purchase_intents WHERE purchase_ref_hash = '" . hash('sha256', 'raw-ref-crash') . "'")->fetchColumn();
+            assertSame(null, $consumedAt, 'the purchase_intent consumption must also roll back, so a redelivery can consume it again rather than being permanently locked out');
+        },
+
+        'redelivering the same event after a mid-transaction failure is fixed succeeds exactly once' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $intents = new PurchaseIntentRepository($pdo);
+            $intents->create('user-1', 'full_tamamizu', 'raw-ref-retry', new \DateTimeImmutable('+30 minutes'));
+            $pdo->exec('DROP TABLE entitlements');
+
+            $handler = makePurchaseWebhookHandler($pdo);
+            $body = pwhTransactionCompletedPayload('evt_retry', 'txn_retry', 'raw-ref-retry');
+
+            try {
+                $handler->handle($body, pwhSign($body));
+            } catch (\Throwable) {
+                // Expected -- see the rollback test above.
+            }
+
+            // "Fix the bug": recreate the table the earlier failure was
+            // forced by, matching the schema makePurchaseWebhookTestDb()
+            // creates.
+            $pdo->exec(
+                'CREATE TABLE entitlements (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    internal_user_id TEXT NOT NULL,
+                    product_key TEXT NOT NULL,
+                    active INTEGER NOT NULL DEFAULT 0,
+                    paddle_transaction_id TEXT NULL,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (internal_user_id, product_key)
+                )',
+            );
+
+            $retryResult = $handler->handle($body, pwhSign($body));
+
+            assertSame(200, $retryResult->statusCode, 'redelivery of the same event_id after the fault is fixed must succeed');
+            assertSame('event processed: transaction.completed', $retryResult->message, 'redelivery should process transaction.completed normally');
+
+            $grantCount = (int) $pdo->query('SELECT COUNT(*) FROM transaction_grants')->fetchColumn();
+            assertSame(1, $grantCount, 'exactly one grant should exist after the successful redelivery -- the earlier rolled-back attempt must not have left a partial row');
+
+            $entitlements = new EntitlementRepository($pdo);
+            $found = $entitlements->find('user-1', 'full_tamamizu');
+            assertTrue($found !== null && $found['active'] === true, 'entitlement should be active after the successful redelivery');
+
+            $eventCount = (int) $pdo->query('SELECT COUNT(*) FROM payment_events')->fetchColumn();
+            assertSame(1, $eventCount, 'exactly one payment_events row should exist -- the failed first attempt left none behind');
         },
     ];
 }

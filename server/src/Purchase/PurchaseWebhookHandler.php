@@ -11,6 +11,7 @@ use KanaGame\Paddle\PaddleSignature;
 use KanaGame\Paddle\PaymentEventRepository;
 use KanaGame\Paddle\ProductMatcher;
 use KanaGame\Paddle\WebhookResult;
+use PDO;
 
 /**
  * Phase 3A purchase-attribution webhook logic — the real-user path,
@@ -44,6 +45,7 @@ final class PurchaseWebhookHandler
     private const REFUND_ACTION = 'refund';
 
     public function __construct(
+        private readonly PDO $pdo,
         private readonly PaddleSignature $signature,
         private readonly PaymentEventRepository $events,
         private readonly PurchaseIntentRepository $intents,
@@ -55,6 +57,31 @@ final class PurchaseWebhookHandler
     ) {
     }
 
+    /**
+     * Phase H1-2: everything from the event claim through the
+     * entitlement recompute runs inside ONE PDO transaction, owned
+     * here (no repository called from this method may open its own
+     * transaction — see PurchaseIntentRepository::consume(),
+     * TransactionGrantRepository::create()/updateStatus(),
+     * PendingAdjustmentRepository, EntitlementRepository::upsert(),
+     * none of which do). Signature verification and payload parsing
+     * happen BEFORE the transaction starts — they have no DB side
+     * effects, so there is nothing to roll back for a malformed or
+     * unsigned request, and it keeps the transaction window as short
+     * as possible.
+     *
+     * The event claim (PaymentEventRepository::claim(), backed by the
+     * UNIQUE (paddle_event_id) constraint) is the FIRST write inside
+     * the transaction, not a record-on-success step at the end. This
+     * makes the whole request idempotent under concurrent/racing
+     * redelivery: a losing concurrent claim is turned away before any
+     * other table is touched, and a crash/exception anywhere later in
+     * the SAME transaction rolls the claim back too -- so Paddle's
+     * retry of that event_id is processed fresh (including re-consuming
+     * the still-unconsumed purchase_intent) rather than being
+     * permanently locked out by a claim that survived a rollback of
+     * everything else.
+     */
     public function handle(string $rawBody, ?string $signatureHeader): WebhookResult
     {
         if ($signatureHeader === null || $signatureHeader === '' || !$this->signature->verify($rawBody, $signatureHeader)) {
@@ -75,10 +102,6 @@ final class PurchaseWebhookHandler
             return WebhookResult::malformedPayload();
         }
 
-        if ($this->events->alreadyProcessed($eventId)) {
-            return WebhookResult::duplicateEvent();
-        }
-
         try {
             $occurredAt = new \DateTimeImmutable($occurredAtRaw);
         } catch (\Exception) {
@@ -87,19 +110,31 @@ final class PurchaseWebhookHandler
 
         $transactionId = $this->extractTransactionId($eventType, $data);
 
-        $handled = match ($eventType) {
-            self::EVENT_TRANSACTION_COMPLETED => $this->handleTransactionCompleted($data, $occurredAt),
-            self::EVENT_ADJUSTMENT_CREATED, self::EVENT_ADJUSTMENT_UPDATED => $this->handleAdjustment($eventId, $data, $occurredAt),
-            default => false,
-        };
-
+        $this->pdo->beginTransaction();
         try {
-            $this->events->record($eventId, $eventType, $transactionId, $occurredAt);
-        } catch (\PDOException $e) {
-            if ($this->isUniqueConstraintViolation($e)) {
+            if (!$this->events->claim($eventId, $eventType, $transactionId, $occurredAt)) {
+                $this->pdo->rollBack();
                 return WebhookResult::duplicateEvent();
             }
-            return WebhookResult::serverError();
+
+            $handled = match ($eventType) {
+                self::EVENT_TRANSACTION_COMPLETED => $this->handleTransactionCompleted($data, $occurredAt),
+                self::EVENT_ADJUSTMENT_CREATED, self::EVENT_ADJUSTMENT_UPDATED => $this->handleAdjustment($eventId, $data, $occurredAt),
+                default => false,
+            };
+
+            $this->pdo->commit();
+        } catch (\Throwable $e) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            // Re-thrown, never converted to a WebhookResult here -- the
+            // caller (server/paddle-webhook.php) turns an uncaught
+            // exception into a 500 so Paddle retries. Swallowing it here
+            // would mean acknowledging a delivery whose transaction was
+            // just rolled back, which is exactly the silent-failure
+            // mode this transaction wrap exists to prevent.
+            throw $e;
         }
 
         return $handled ? WebhookResult::processed($eventType) : WebhookResult::ignoredEvent($eventType);
@@ -327,10 +362,5 @@ final class PurchaseWebhookHandler
         } else {
             $this->entitlements->revoke($userId, $productKey, $triggeringTransactionId);
         }
-    }
-
-    private function isUniqueConstraintViolation(\PDOException $e): bool
-    {
-        return $e->getCode() === '23000' || str_contains($e->getMessage(), 'UNIQUE constraint failed');
     }
 }
