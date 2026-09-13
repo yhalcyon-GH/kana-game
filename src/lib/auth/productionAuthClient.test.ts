@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   fetchCurrentEntitlement,
+  fetchCurrentEntitlementResult,
   fetchCurrentUser,
+  fetchCurrentUserResult,
   logout,
   requestMagicLink,
   verifyMagicLinkToken,
@@ -9,9 +11,10 @@ import {
 
 const API_BASE = 'https://api.example.com'
 
-function jsonResponse(body: unknown, ok = true): Response {
+function jsonResponse(body: unknown, ok = true, status = ok ? 200 : 500): Response {
   return {
     ok,
+    status,
     json: () => Promise.resolve(body),
   } as unknown as Response
 }
@@ -85,8 +88,19 @@ describe('productionAuthClient', () => {
   })
 
   it('fetchCurrentUser() returns null for a 401', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({ error: 'unauthorized' }, false))
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({ error: 'unauthorized' }, false, 401))
     expect(await fetchCurrentUser(API_BASE)).toBeNull()
+  })
+
+  it('fetchCurrentUserResult() distinguishes signed-out from an unavailable API', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(jsonResponse({ error: 'unauthorized' }, false, 401))
+      .mockResolvedValueOnce(jsonResponse({ error: 'forbidden' }, false, 403))
+      .mockResolvedValueOnce(jsonResponse({ error: 'server failure' }, false, 500))
+
+    expect(await fetchCurrentUserResult(API_BASE)).toEqual({ kind: 'signed-out' })
+    expect(await fetchCurrentUserResult(API_BASE)).toEqual({ kind: 'unavailable' })
+    expect(await fetchCurrentUserResult(API_BASE)).toEqual({ kind: 'unavailable' })
   })
 
   it('fetchCurrentEntitlement() sends credentials: "include"', async () => {
@@ -96,6 +110,23 @@ describe('productionAuthClient', () => {
     const [, init] = vi.mocked(fetch).mock.calls[0]
     expect(init).toMatchObject({ credentials: 'include' })
     expect(result).toEqual({ active: true })
+  })
+
+  it('fetchCurrentEntitlementResult() distinguishes an expired session from an unavailable API', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(jsonResponse({ error: 'unauthorized' }, false, 401))
+      .mockResolvedValueOnce(jsonResponse({ error: 'forbidden' }, false, 403))
+      .mockRejectedValueOnce(new Error('network down'))
+
+    expect(await fetchCurrentEntitlementResult(API_BASE)).toEqual({ kind: 'signed-out' })
+    expect(await fetchCurrentEntitlementResult(API_BASE)).toEqual({ kind: 'unavailable' })
+    expect(await fetchCurrentEntitlementResult(API_BASE)).toEqual({ kind: 'unavailable' })
+  })
+
+  it('fetchCurrentEntitlementResult() treats a malformed successful response as unavailable', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({ active: 'yes' }))
+
+    expect(await fetchCurrentEntitlementResult(API_BASE)).toEqual({ kind: 'unavailable' })
   })
 
   it('logout() posts with credentials: "include" and no Authorization header', async () => {

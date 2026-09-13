@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { Link, Route, Routes, useParams } from 'react-router-dom'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { EntitlementProvider } from './components/EntitlementProvider'
 import { GuideHighlightProvider } from './components/GuideHighlightProvider'
 import { IntroGuide } from './components/IntroGuide'
 import { NavBar } from './components/NavBar'
@@ -112,8 +113,9 @@ const OTHER_CATEGORY_IDS = CATEGORIES.map((c) => c.id).filter(
 function App() {
   useTrackLastStudied()
   return (
-    <GuideHighlightProvider>
-      <div className="min-h-screen bg-white text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100">
+    <EntitlementProvider>
+      <GuideHighlightProvider>
+        <div className="min-h-screen bg-white text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100">
         <IntroGuide />
         <NavBar />
         <main className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-4 py-8">
@@ -233,8 +235,9 @@ function App() {
             </Routes>
           </ErrorBoundary>
         </main>
-      </div>
-    </GuideHighlightProvider>
+        </div>
+      </GuideHighlightProvider>
+    </EntitlementProvider>
   )
 }
 

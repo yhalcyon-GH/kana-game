@@ -13,6 +13,8 @@ vi.mock('./lib/auth/productionAuthClient', async () => {
     verifyMagicLinkToken: vi.fn(),
     fetchCurrentUser: vi.fn(),
     fetchCurrentEntitlement: vi.fn(),
+    fetchCurrentUserResult: vi.fn(),
+    fetchCurrentEntitlementResult: vi.fn(),
     logout: vi.fn(),
   }
 })
@@ -26,12 +28,15 @@ function renderAt(path: string) {
 }
 
 beforeEach(() => {
+  vi.stubEnv('VITE_PRODUCTION_AUTH_API_BASE_URL', 'https://api.example.com')
   useProgressStore.getState().resetProgress()
   useProgressStore.getState().setHasCompletedIntroGuide(true)
   vi.mocked(productionAuthClient.requestMagicLink).mockReset().mockResolvedValue(undefined)
   vi.mocked(productionAuthClient.verifyMagicLinkToken).mockReset()
   vi.mocked(productionAuthClient.fetchCurrentUser).mockReset().mockResolvedValue(null)
   vi.mocked(productionAuthClient.fetchCurrentEntitlement).mockReset()
+  vi.mocked(productionAuthClient.fetchCurrentUserResult).mockReset().mockResolvedValue({ kind: 'signed-out' })
+  vi.mocked(productionAuthClient.fetchCurrentEntitlementResult).mockReset()
   vi.mocked(productionAuthClient.logout).mockReset().mockResolvedValue(undefined)
 })
 
@@ -44,6 +49,16 @@ describe('Production Web auth (Phase 3B)', () => {
   it('/login is reachable in development', async () => {
     renderAt('/login')
     expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
+  })
+
+  it('/login does not fall back to production auth in unconfigured development', async () => {
+    vi.stubEnv('VITE_PRODUCTION_AUTH_API_BASE_URL', '')
+    renderAt('/login')
+
+    expect(await screen.findByText(/production auth testing is disabled in development/i)).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'anything@example.com' } })
+    expect(screen.getByRole('button', { name: /send sign-in link/i })).toBeDisabled()
+    expect(productionAuthClient.requestMagicLink).not.toHaveBeenCalled()
   })
 
   it('/login is reachable in a production build too', async () => {
@@ -65,7 +80,6 @@ describe('Production Web auth (Phase 3B)', () => {
   })
 
   it('/account shows "Not signed in" and a Sign in link when there is no session cookie', async () => {
-    vi.mocked(productionAuthClient.fetchCurrentUser).mockResolvedValue(null)
     renderAt('/account')
 
     expect(await screen.findByText(/not signed in/i)).toBeInTheDocument()
@@ -73,16 +87,29 @@ describe('Production Web auth (Phase 3B)', () => {
   })
 
   it('/account resolves the current user purely from the session cookie -- no client-held token is read', async () => {
-    vi.mocked(productionAuthClient.fetchCurrentUser).mockResolvedValue({ userId: 'u1', emailNormalized: 'signed-in@example.com' })
+    vi.mocked(productionAuthClient.fetchCurrentUserResult).mockResolvedValue({
+      kind: 'authenticated',
+      user: { userId: 'u1', emailNormalized: 'signed-in@example.com' },
+    })
+    vi.mocked(productionAuthClient.fetchCurrentEntitlementResult).mockResolvedValue({
+      kind: 'available',
+      entitlement: { active: false },
+    })
     renderAt('/account')
 
     expect(await screen.findByText('signed-in@example.com')).toBeInTheDocument()
-    expect(productionAuthClient.fetchCurrentUser).toHaveBeenCalledWith(expect.any(String))
+    expect(productionAuthClient.fetchCurrentUserResult).toHaveBeenCalledWith(expect.any(String))
   })
 
   it('/account "Check entitlement" reads server-verified entitlement only', async () => {
-    vi.mocked(productionAuthClient.fetchCurrentUser).mockResolvedValue({ userId: 'u1', emailNormalized: 'signed-in@example.com' })
-    vi.mocked(productionAuthClient.fetchCurrentEntitlement).mockResolvedValue({ active: true })
+    vi.mocked(productionAuthClient.fetchCurrentUserResult).mockResolvedValue({
+      kind: 'authenticated',
+      user: { userId: 'u1', emailNormalized: 'signed-in@example.com' },
+    })
+    vi.mocked(productionAuthClient.fetchCurrentEntitlementResult).mockResolvedValue({
+      kind: 'available',
+      entitlement: { active: true },
+    })
     renderAt('/account')
 
     await screen.findByText('signed-in@example.com')
@@ -91,10 +118,18 @@ describe('Production Web auth (Phase 3B)', () => {
     })
 
     expect(await screen.findByText(/entitlement: active/i)).toBeInTheDocument()
+    expect(productionAuthClient.fetchCurrentEntitlementResult).toHaveBeenCalledTimes(2)
   })
 
   it('/account "Sign out" calls logout() and returns to the not-signed-in state', async () => {
-    vi.mocked(productionAuthClient.fetchCurrentUser).mockResolvedValue({ userId: 'u1', emailNormalized: 'signed-in@example.com' })
+    vi.mocked(productionAuthClient.fetchCurrentUserResult).mockResolvedValue({
+      kind: 'authenticated',
+      user: { userId: 'u1', emailNormalized: 'signed-in@example.com' },
+    })
+    vi.mocked(productionAuthClient.fetchCurrentEntitlementResult).mockResolvedValue({
+      kind: 'available',
+      entitlement: { active: false },
+    })
     renderAt('/account')
     await screen.findByText('signed-in@example.com')
 
@@ -158,6 +193,24 @@ describe('Production Web auth (Phase 3B)', () => {
       const link = await screen.findByRole('link', { name: /go to your account/i })
       expect(link).toHaveAttribute('href', '/account')
       expect(document.body.textContent).not.toContain('raw-magic-link-token')
+    })
+
+    it('refreshes the app-level entitlement state immediately after login succeeds', async () => {
+      const user = { userId: 'u1', emailNormalized: 'a@example.com' }
+      vi.mocked(productionAuthClient.verifyMagicLinkToken).mockResolvedValue(user)
+      vi.mocked(productionAuthClient.fetchCurrentUserResult)
+        .mockResolvedValueOnce({ kind: 'signed-out' })
+        .mockResolvedValueOnce({ kind: 'authenticated', user })
+      vi.mocked(productionAuthClient.fetchCurrentEntitlementResult).mockResolvedValue({
+        kind: 'available',
+        entitlement: { active: false },
+      })
+
+      renderAt('/verify?token=raw-magic-link-token')
+
+      await screen.findByText(/you're signed in/i)
+      await waitFor(() => expect(productionAuthClient.fetchCurrentUserResult).toHaveBeenCalledTimes(2))
+      await waitFor(() => expect(productionAuthClient.fetchCurrentEntitlementResult).toHaveBeenCalledTimes(1))
     })
 
     it('an invalid/expired token shows a recoverable error with a link back to /login', async () => {

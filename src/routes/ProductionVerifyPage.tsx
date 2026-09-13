@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
+import { useEntitlement } from '../components/EntitlementContext'
 import { verifyMagicLinkToken } from '../lib/auth/productionAuthClient'
 import { readProductionAuthApiBase } from '../lib/auth/productionAuthApiBase'
 
@@ -33,6 +34,7 @@ export default function ProductionVerifyPage() {
   const [searchParams] = useSearchParams()
   const [state, setState] = useState<VerifyState>({ kind: 'verifying' })
   const started = useRef(false)
+  const { refresh } = useEntitlement()
 
   useEffect(() => {
     if (started.current) return
@@ -51,10 +53,19 @@ export default function ProductionVerifyPage() {
 
     void (async () => {
       const apiBase = readProductionAuthApiBase()
+      if (!apiBase) {
+        setState({ kind: 'error' })
+        return
+      }
       const result = await verifyMagicLinkToken(apiBase, rawToken)
-      setState(result === null ? { kind: 'error' } : { kind: 'success' })
+      if (result === null) {
+        setState({ kind: 'error' })
+        return
+      }
+      void refresh()
+      setState({ kind: 'success' })
     })()
-  }, [searchParams])
+  }, [refresh, searchParams])
 
   return (
     <div className="flex w-full max-w-sm flex-col items-center gap-6">

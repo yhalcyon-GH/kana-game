@@ -1,6 +1,9 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
+  // Production Auth API base. Production builds default to the deployed API;
+  // development builds require this explicit opt-in and never fall back to it.
+  readonly VITE_PRODUCTION_AUTH_API_BASE_URL?: string
   // Public client-side configuration for the development-only Sandbox PoC.
   // Never put Paddle API secrets/API keys in these variables.
   readonly VITE_PADDLE_ENVIRONMENT?: string

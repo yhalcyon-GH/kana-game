@@ -20,6 +20,16 @@ export interface CurrentEntitlement {
   active: boolean
 }
 
+export type CurrentUserResult =
+  | { kind: 'authenticated'; user: CurrentUser }
+  | { kind: 'signed-out' }
+  | { kind: 'unavailable' }
+
+export type CurrentEntitlementResult =
+  | { kind: 'available'; entitlement: CurrentEntitlement }
+  | { kind: 'signed-out' }
+  | { kind: 'unavailable' }
+
 async function safeJson(response: Response): Promise<unknown> {
   try {
     return await response.json()
@@ -75,28 +85,41 @@ export async function verifyMagicLinkToken(apiBase: string, rawToken: string): P
 }
 
 export async function fetchCurrentUser(apiBase: string): Promise<CurrentUser | null> {
+  const result = await fetchCurrentUserResult(apiBase)
+  return result.kind === 'authenticated' ? result.user : null
+}
+
+export async function fetchCurrentUserResult(apiBase: string): Promise<CurrentUserResult> {
   try {
     const response = await fetch(`${apiBase}/auth/me.php`, { credentials: 'include' })
-    if (!response.ok) return null
+    if (response.status === 401) return { kind: 'signed-out' }
+    if (!response.ok) return { kind: 'unavailable' }
 
     const body = (await safeJson(response)) as { user_id?: unknown; email_normalized?: unknown } | null
-    if (typeof body?.user_id !== 'string' || typeof body.email_normalized !== 'string') return null
+    if (typeof body?.user_id !== 'string' || typeof body.email_normalized !== 'string') return { kind: 'unavailable' }
 
-    return { userId: body.user_id, emailNormalized: body.email_normalized }
+    return { kind: 'authenticated', user: { userId: body.user_id, emailNormalized: body.email_normalized } }
   } catch {
-    return null
+    return { kind: 'unavailable' }
   }
 }
 
 export async function fetchCurrentEntitlement(apiBase: string): Promise<CurrentEntitlement | null> {
+  const result = await fetchCurrentEntitlementResult(apiBase)
+  return result.kind === 'available' ? result.entitlement : null
+}
+
+export async function fetchCurrentEntitlementResult(apiBase: string): Promise<CurrentEntitlementResult> {
   try {
     const response = await fetch(`${apiBase}/entitlement-me.php`, { credentials: 'include' })
-    if (!response.ok) return null
+    if (response.status === 401) return { kind: 'signed-out' }
+    if (!response.ok) return { kind: 'unavailable' }
 
     const body = (await safeJson(response)) as { active?: unknown } | null
-    return { active: body?.active === true }
+    if (typeof body?.active !== 'boolean') return { kind: 'unavailable' }
+    return { kind: 'available', entitlement: { active: body.active } }
   } catch {
-    return null
+    return { kind: 'unavailable' }
   }
 }
 
