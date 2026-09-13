@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  createPurchaseIntent,
   fetchCurrentEntitlement,
   fetchCurrentEntitlementResult,
   fetchCurrentUser,
@@ -28,6 +29,37 @@ afterEach(() => {
 })
 
 describe('productionAuthClient', () => {
+  it('creates a cookie-authenticated purchase intent with no body, identity, product, or Authorization', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({ purchase_ref: 'raw-purchase-reference' }))
+    expect(await createPurchaseIntent(API_BASE)).toEqual({ kind: 'created', purchaseRef: 'raw-purchase-reference' })
+    expect(fetch).toHaveBeenCalledExactlyOnceWith(`${API_BASE}/purchase-intent.php`, {
+      method: 'POST', credentials: 'include',
+    })
+  })
+
+  it('returns signed-out for an unauthenticated purchase intent response even if it contains a reference', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({ purchase_ref: 'not-authorized' }, false, 401))
+    expect(await createPurchaseIntent(API_BASE)).toEqual({ kind: 'signed-out' })
+  })
+
+  it.each([403, 429, 500])('returns unavailable for purchase intent HTTP %s', async (status) => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({ purchase_ref: 'not-created' }, false, status))
+    expect(await createPurchaseIntent(API_BASE)).toEqual({ kind: 'unavailable' })
+  })
+
+  it.each([null, {}, { purchase_ref: '' }, { purchase_ref: '   ' }, { purchase_ref: 42 }, { purchase_ref: false }, { purchase_ref: [] }])('rejects malformed purchase intent response %j', async (body) => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse(body))
+    expect(await createPurchaseIntent(API_BASE)).toEqual({ kind: 'unavailable' })
+  })
+
+  it('returns unavailable for malformed JSON and network failures without exposing raw error details', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => { throw new Error('raw-purchase-reference') } } as unknown as Response)
+      .mockRejectedValueOnce(new Error('raw-purchase-reference'))
+    expect(await createPurchaseIntent(API_BASE)).toEqual({ kind: 'unavailable' })
+    expect(await createPurchaseIntent(API_BASE)).toEqual({ kind: 'unavailable' })
+  })
+
   it('requestMagicLink() posts the email as JSON, no credentials needed (no session yet)', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({ status: 'ok' }))
     await requestMagicLink(API_BASE, 'a@example.com')

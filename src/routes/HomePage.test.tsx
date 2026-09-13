@@ -36,7 +36,7 @@ function completeCategory(categoryId: string) {
 function renderHome() {
   return render(
     <MemoryRouter>
-      <EntitlementContext.Provider value={{ state: { status: 'active', user: { userId: 'learner', emailNormalized: 'learner@example.com' } }, refresh: async () => {}, markSignedOut: () => {} }}>
+      <EntitlementContext.Provider value={{ state: { status: 'active', user: { userId: 'learner', emailNormalized: 'learner@example.com' } }, refresh: async () => ({ kind: 'stale' }), markSignedOut: () => {} }}>
         <HomePage />
       </EntitlementContext.Provider>
     </MemoryRouter>,

@@ -22,7 +22,7 @@ import { EntitlementContext } from '../components/EntitlementContext'
 // These progression/guide tests exercise the fully entitled curriculum.
 function render(children: ReactNode) {
   return renderWithTestingLibrary(
-    <EntitlementContext.Provider value={{ state: { status: 'active', user: { userId: 'learner', emailNormalized: 'learner@example.com' } }, refresh: async () => {}, markSignedOut: () => {} }}>
+    <EntitlementContext.Provider value={{ state: { status: 'active', user: { userId: 'learner', emailNormalized: 'learner@example.com' } }, refresh: async () => ({ kind: 'stale' }), markSignedOut: () => {} }}>
       {children}
     </EntitlementContext.Provider>,
   )

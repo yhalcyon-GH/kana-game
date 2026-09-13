@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as productionAuthClient from '../lib/auth/productionAuthClient'
 import { useProgressStore } from '../store/progressStore'
-import { useEntitlement } from './EntitlementContext'
+import { useEntitlement, type EntitlementContextValue } from './EntitlementContext'
 import { EntitlementProvider } from './EntitlementProvider'
 
 vi.mock('../lib/auth/productionAuthClient', async () => {
@@ -33,6 +33,24 @@ function renderProvider() {
   )
 }
 
+const user = { userId: 'u1', emailNormalized: 'learner@example.com' }
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((done) => { resolve = done })
+  return { promise, resolve }
+}
+
+function captureProvider() {
+  let context!: EntitlementContextValue
+  function Capture() {
+    context = useEntitlement()
+    return <Harness />
+  }
+  const view = render(<EntitlementProvider><Capture /></EntitlementProvider>)
+  return { ...view, current: () => context }
+}
+
 beforeEach(() => {
   vi.stubEnv('DEV', true)
   vi.stubEnv('VITE_PRODUCTION_AUTH_API_BASE_URL', 'https://auth-dev.example.com/api')
@@ -47,6 +65,85 @@ afterEach(() => {
 })
 
 describe('EntitlementProvider', () => {
+  it('returns the same applied state from one non-disruptive verification', async () => {
+    vi.mocked(productionAuthClient.fetchCurrentUserResult).mockResolvedValue({ kind: 'authenticated', user })
+    vi.mocked(productionAuthClient.fetchCurrentEntitlementResult).mockResolvedValue({ kind: 'available', entitlement: { active: false } })
+    const provider = captureProvider()
+    await screen.findByText('inactive')
+    const pending = deferred<productionAuthClient.CurrentEntitlementResult>()
+    vi.mocked(productionAuthClient.fetchCurrentEntitlementResult).mockReturnValueOnce(pending.promise)
+
+    let refresh!: ReturnType<EntitlementContextValue['refresh']>
+    act(() => { refresh = provider.current().refresh({ nonDisruptive: true }) })
+    await waitFor(() => expect(productionAuthClient.fetchCurrentEntitlementResult).toHaveBeenCalledTimes(2))
+    expect(screen.getByText('inactive')).toBeInTheDocument()
+    expect(screen.getByText(user.emailNormalized)).toBeInTheDocument()
+    await act(async () => { pending.resolve({ kind: 'available', entitlement: { active: true } }); await refresh })
+
+    expect(await refresh).toEqual({ kind: 'applied', state: { status: 'active', user } })
+    expect(screen.getByText('active')).toBeInTheDocument()
+    expect(productionAuthClient.fetchCurrentUserResult).toHaveBeenCalledTimes(2)
+    expect(productionAuthClient.fetchCurrentEntitlementResult).toHaveBeenCalledTimes(2)
+  })
+
+  it('returns stale for a refresh superseded by a newer verification', async () => {
+    const provider = captureProvider()
+    await screen.findByText('signed-out')
+    const pending = deferred<productionAuthClient.CurrentUserResult>()
+    vi.mocked(productionAuthClient.fetchCurrentUserResult).mockReturnValueOnce(pending.promise)
+    let oldRefresh!: ReturnType<EntitlementContextValue['refresh']>
+    act(() => { oldRefresh = provider.current().refresh() })
+    await act(async () => {
+      expect(await provider.current().refresh()).toEqual({ kind: 'applied', state: { status: 'signed-out', user: null } })
+    })
+    await act(async () => { pending.resolve({ kind: 'authenticated', user }); await oldRefresh })
+    expect(await oldRefresh).toEqual({ kind: 'stale' })
+    expect(screen.getByText('signed-out')).toBeInTheDocument()
+    expect(productionAuthClient.fetchCurrentEntitlementResult).not.toHaveBeenCalled()
+  })
+
+  it.each(['user', 'entitlement'] as const)('invalidates a pending %s response when signed out', async (stage) => {
+    const provider = captureProvider()
+    await screen.findByText('signed-out')
+    const pendingUser = deferred<productionAuthClient.CurrentUserResult>()
+    const pendingEntitlement = deferred<productionAuthClient.CurrentEntitlementResult>()
+    vi.mocked(productionAuthClient.fetchCurrentUserResult).mockReturnValueOnce(
+      stage === 'user' ? pendingUser.promise : Promise.resolve({ kind: 'authenticated', user }),
+    )
+    vi.mocked(productionAuthClient.fetchCurrentEntitlementResult).mockReturnValueOnce(pendingEntitlement.promise)
+    let refresh!: ReturnType<EntitlementContextValue['refresh']>
+    await act(async () => { refresh = provider.current().refresh({ nonDisruptive: true }) })
+    act(() => provider.current().markSignedOut())
+    await act(async () => {
+      pendingUser.resolve({ kind: 'authenticated', user })
+      pendingEntitlement.resolve({ kind: 'available', entitlement: { active: true } })
+      await refresh
+    })
+    expect(await refresh).toEqual({ kind: 'stale' })
+    expect(screen.getByText('signed-out')).toBeInTheDocument()
+  })
+
+  it('returns stale when unmounted during verification', async () => {
+    vi.mocked(productionAuthClient.fetchCurrentEntitlementResult).mockResolvedValue({ kind: 'available', entitlement: { active: true } })
+    const provider = captureProvider()
+    await screen.findByText('signed-out')
+    const pending = deferred<productionAuthClient.CurrentUserResult>()
+    vi.mocked(productionAuthClient.fetchCurrentUserResult).mockReturnValueOnce(pending.promise)
+    let refresh!: ReturnType<EntitlementContextValue['refresh']>
+    act(() => { refresh = provider.current().refresh() })
+    provider.unmount()
+    pending.resolve({ kind: 'authenticated', user })
+    expect(await refresh).toEqual({ kind: 'stale' })
+    expect(productionAuthClient.fetchCurrentEntitlementResult).not.toHaveBeenCalled()
+  })
+
+  it('does not promote a truthy non-boolean entitlement to active', async () => {
+    vi.mocked(productionAuthClient.fetchCurrentUserResult).mockResolvedValue({ kind: 'authenticated', user })
+    vi.mocked(productionAuthClient.fetchCurrentEntitlementResult).mockResolvedValue({ kind: 'available', entitlement: { active: 'true' as unknown as boolean } })
+    renderProvider()
+    expect(await screen.findByText('inactive')).toBeInTheDocument()
+  })
+
   it('refreshes on startup and focus in production', async () => {
     vi.stubEnv('DEV', false)
     vi.stubEnv('VITE_PRODUCTION_AUTH_API_BASE_URL', '')

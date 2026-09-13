@@ -12,7 +12,7 @@ const user = { userId: 'learner', emailNormalized: 'learner@example.com' }
 let state: EntitlementState
 function wrapper({ children }: { children: ReactNode }) {
   return createElement(EntitlementContext.Provider, {
-    value: { state, refresh: async () => {}, markSignedOut: () => {} },
+    value: { state, refresh: async () => ({ kind: 'stale' as const }), markSignedOut: () => {} },
   }, children)
 }
 
