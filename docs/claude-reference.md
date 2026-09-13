@@ -19,7 +19,9 @@ Home routes:
 - `/youon`
 - `/other` for smaller categories such as 促音 and 長音
 
-Rows are navigable even when progress-badged as locked/new/taught/mastered; they are not hard access-gated.
+Progression badges do not gate one row behind another. Commercial access is a
+separate layer: Hiragana is free, while Katakana and later categories require
+an active server-verified entitlement.
 
 `PracticeHubPage` also serves the Review pseudo-row (`REVIEW_SCOPE_ID = 'review'`).
 

@@ -1,4 +1,9 @@
 import { expect, test } from '@playwright/test'
+import { installProductionAuthFixture } from './production-auth-fixture.js'
+
+test.beforeEach(async ({ page }) => {
+  await installProductionAuthFixture(page)
+})
 
 test('production excludes the Paddle Sandbox route and never loads Paddle', async ({ page }) => {
   const paddleRequests = []

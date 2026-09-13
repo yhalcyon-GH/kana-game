@@ -2,19 +2,19 @@ import { NavLink } from 'react-router-dom'
 import { CategoryIcon } from './CategoryIcon'
 import { NavBadge } from './NavBadge'
 import { SCRIPT_ENTRY_POINTS } from '../data/scriptEntryPoints'
-import { useCurriculum } from '../hooks/useCurriculum'
-import { useSavedItemsStore } from '../store/savedItemsStore'
+import { useCommercialCurriculum } from '../hooks/useCommercialCurriculum'
+import { useCommercialSavedItems } from '../hooks/useCommercialSavedItems'
 import { useGuideHighlight } from './GuideHighlightContext'
 
 // Top nav: Home / Review / Saved (icon + label side by side, one row, no
-// wrap even at 320px) plus a gear-only Settings entry with no visible
+// wrap even at 320px) plus compact Account and gear-only Settings entries with no visible
 // "Settings" text — About is reached from within Settings (see
 // SettingsPage) rather than a separate top-level nav entry, so it's
 // intentionally absent here even though the /about route itself still
 // exists for old links/bookmarks.
 export function NavBar() {
-  const { reviewCount } = useCurriculum()
-  const savedCount = useSavedItemsStore((s) => s.savedCharacterIds.length + s.savedWordIds.length)
+  const { reviewCount } = useCommercialCurriculum()
+  const { savedCount } = useCommercialSavedItems()
   const { reviewGuideVisible } = useGuideHighlight()
 
   const itemClass = ({ isActive }: { isActive: boolean }) =>
@@ -33,7 +33,7 @@ export function NavBar() {
 
   return (
     <div className="border-b border-neutral-200 dark:border-neutral-700">
-      <nav className="flex items-center justify-center gap-1 py-2">
+      <nav className="flex flex-nowrap items-center justify-center gap-1 py-2">
         <NavLink to="/" end className={itemClass}>
           <span className="text-lg leading-none" aria-hidden="true">🏠</span>
           Home
@@ -57,6 +57,10 @@ export function NavBar() {
             Saved
             <NavBadge count={savedCount} />
           </span>
+        </NavLink>
+
+        <NavLink to="/account" aria-label="Account" title="Account" className={itemClass}>
+          <span className="text-lg leading-none" aria-hidden="true">👤</span>
         </NavLink>
 
         <NavLink to="/settings" aria-label="Settings" className={itemClass}>

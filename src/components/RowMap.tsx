@@ -1,4 +1,6 @@
-import { Link } from 'react-router-dom'
+import { CommercialAccessLink } from './CommercialAccessLink'
+import { useEntitlement } from './EntitlementContext'
+import { isRowAccessible } from '../lib/commercialAccess'
 import type { GojuonRow } from '../data/types'
 import { RecommendedFrame, RecommendedLabel } from './Recommended'
 
@@ -14,17 +16,19 @@ type Props = {
 }
 
 export function RowMap({ rows, isUnlocked, isTaught, isMastered, isRecommended }: Props) {
+  const { state } = useEntitlement()
   return (
     <div className="grid w-full max-w-2xl grid-cols-2 gap-4 sm:grid-cols-3">
       {rows.map((row) => {
         const unlocked = isUnlocked(row.id)
+        const accessible = isRowAccessible(row.id, state.status)
         const taught = isTaught(row.id)
         const mastered = isMastered(row.id)
         const recommended = isRecommended?.(row.id) ?? false
 
         const card = (
           <div
-            className={`flex h-full flex-col items-center justify-center gap-2 rounded-xl text-center transition-colors ${row.displayLines ? 'p-3' : 'p-4'} ${row.isSummary || row.isSimilarLetters ? 'border-2' : 'border'} ${
+            className={`flex ${accessible ? 'h-full' : ''} flex-col items-center justify-center gap-2 rounded-xl text-center transition-colors ${row.displayLines ? 'p-3' : 'p-4'} ${row.isSummary || row.isSimilarLetters ? 'border-2' : 'border'} ${
               unlocked
                 ? row.isSummary
                   ? 'border-neutral-300 bg-white group-hover:border-red-400 group-hover:bg-red-50 group-active:bg-red-100 dark:border-neutral-600 dark:bg-neutral-800 dark:group-hover:border-red-500 dark:group-hover:bg-red-950/30 dark:group-active:bg-red-950/50'
@@ -58,13 +62,14 @@ export function RowMap({ rows, isUnlocked, isTaught, isMastered, isRecommended }
 
         return (
           <div key={row.id} className="h-full">
-            {unlocked ? (
-              <Link
+            {unlocked || !accessible ? (
+              <CommercialAccessLink
+                target={{ kind: 'row', rowId: row.id }}
                 to={`/practice/${row.categoryId}/${row.id}`}
                 className="group block h-full rounded-xl focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-blue-400"
               >
                 {framedCard}
-              </Link>
+              </CommercialAccessLink>
             ) : (
               framedCard
             )}

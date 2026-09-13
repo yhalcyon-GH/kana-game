@@ -1,4 +1,9 @@
 import { expect, test } from '@playwright/test'
+import { installProductionAuthFixture } from './production-auth-fixture.js'
+
+test.beforeEach(async ({ page }) => {
+  await installProductionAuthFixture(page)
+})
 
 const STABLE_GUIDE_STATE = {
   hasCompletedIntroGuide: true,
@@ -161,6 +166,31 @@ test('Final pending Home recommendation is clear and fits at 320px', async ({ pa
   await expect(finalLink).toHaveAttribute('href', '#/assessment/final-graduation')
   await expect(finalLink).not.toContainText('シェ〜ウォ')
   await expect(finalLink).not.toContainText('Yōon')
+  await expectNoHorizontalPageOverflow(page)
+})
+
+test('inactive paid content is locked without 320px overflow', async ({ page }) => {
+  await installProductionAuthFixture(page, 'inactive')
+  await page.setViewportSize({ width: 320, height: 800 })
+  await gotoHash(page, '/practice/katakana/katakana-a-row')
+
+  await expect(page.getByRole('heading', { name: 'Full Tamamizu required' })).toBeVisible()
+  await expect(page.locator('main').getByRole('link', { name: 'Account', exact: true })).toHaveAttribute('href', '#/account')
+  await expectNoHorizontalPageOverflow(page)
+})
+
+test('unavailable entitlement blocks paid content but not free Hiragana at 320px', async ({ page }) => {
+  await installProductionAuthFixture(page, 'unavailable')
+  await page.setViewportSize({ width: 320, height: 800 })
+  await gotoHash(page, '/practice/katakana/katakana-a-row')
+
+  await expect(page.getByRole('heading', { name: 'Couldn’t verify access' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible()
+  await expectNoHorizontalPageOverflow(page)
+
+  await gotoHash(page, '/practice/hiragana/a-row')
+  await expect(page.getByText('Tracing', { exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Couldn’t verify access' })).toHaveCount(0)
   await expectNoHorizontalPageOverflow(page)
 })
 

@@ -11,7 +11,8 @@ import { WordImage } from '../../components/WordImage'
 import { CHARACTERS_BY_ID, getCharacterAudioId } from '../../data/characters'
 import { CATEGORIES_BY_ID, ROWS_BY_ID, SPECIAL_KATAKANA_CATEGORY_ID } from '../../data/curriculum'
 import { getSimilarLetterExplanationImage } from '../../data/similarLetterExplanations'
-import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
+import { REVIEW_SCOPE_ID } from '../../hooks/useCurriculum'
+import { useCommercialCurriculum } from '../../hooks/useCommercialCurriculum'
 import { useTTS } from '../../hooks/useTTS'
 import { buildTracingUnit, buildTracingUnits, packTracingRows, unitCellWidth } from '../../lib/tracingUnits'
 import type { PackedRow } from '../../lib/tracingUnits'
@@ -74,7 +75,7 @@ function useContainerWidth<T extends HTMLElement>() {
 export function TracingPage() {
   const { categoryId, rowId } = useParams<{ categoryId: string; rowId: string }>()
   const navigate = useNavigate()
-  const { isScopeReady, getScopeQuizCharacterIds, getScopeWords, isSimilarLettersRow } = useCurriculum()
+  const { isScopeReady, getScopeQuizCharacterIds, getScopeWords, isSimilarLettersRow } = useCommercialCurriculum()
   const { speak, supported } = useTTS()
   const markRowActivityCompleted = useProgressStore((s) => s.markRowActivityCompleted)
   const isReview = rowId === REVIEW_SCOPE_ID

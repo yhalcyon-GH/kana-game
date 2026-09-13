@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AnswerFeedbackRow } from '../../components/AnswerFeedbackRow'
+import { CommercialReviewSession } from '../../components/CommercialReviewSession'
 import { GameRoundHeader } from '../../components/GameRoundHeader'
 import { PracticeSummary } from '../../components/PracticeSummary'
 import { SaveCharacterToggle } from '../../components/SaveCharacterToggle'
@@ -9,7 +10,8 @@ import { CHARACTERS_BY_ID, getCharacterAudioId } from '../../data/characters'
 import { CATEGORIES_BY_ID, ROWS_BY_ID } from '../../data/curriculum'
 import type { QuestionMode } from '../../data/feedback'
 import { useAnswerFeedback } from '../../hooks/useAnswerFeedback'
-import { REVIEW_SCOPE_ID, useCurriculum } from '../../hooks/useCurriculum'
+import { REVIEW_SCOPE_ID } from '../../hooks/useCurriculum'
+import { useCommercialCurriculum } from '../../hooks/useCommercialCurriculum'
 import { useDelayedAction } from '../../hooks/useDelayedAction'
 import { useEnterAdvance } from '../../hooks/useEnterAdvance'
 import { useGameSession } from '../../hooks/useGameSession'
@@ -49,7 +51,11 @@ type Props = {
   rowIdOverride?: string
 }
 
-export function KanaQuizPage({ rowIdOverride }: Props = {}) {
+export function KanaQuizPage(props: Props = {}) {
+  return <CommercialReviewSession rowIdOverride={props.rowIdOverride}><KanaQuizSession {...props} /></CommercialReviewSession>
+}
+
+function KanaQuizSession({ rowIdOverride }: Props) {
   const params = useParams<{ categoryId?: string; rowId?: string }>()
   const rowId = rowIdOverride ?? params.rowId
   const navigate = useNavigate()
@@ -62,7 +68,7 @@ export function KanaQuizPage({ rowIdOverride }: Props = {}) {
     isSummaryRow,
     isSimilarLettersRow,
     getConfusionGroups,
-  } = useCurriculum()
+  } = useCommercialCurriculum()
   const recordResult = useProgressStore((s) => s.recordResult)
   const recordCharacterReviewResult = useProgressStore((s) => s.recordCharacterReviewResult)
   const markRowActivityCompleted = useProgressStore((s) => s.markRowActivityCompleted)
