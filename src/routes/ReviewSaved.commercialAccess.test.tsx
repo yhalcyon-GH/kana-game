@@ -22,6 +22,12 @@ const games = [
   ['kana-quiz', KanaQuizPage], ['kana-typing', KanaTypingPage],
   ['listening', ListeningPage], ['word-builder', WordBuilderPage],
 ] as const
+const browseSurfaces = [
+  ['Saved characters', <SavedPage key="saved-characters" />, 'ア', 'あ'],
+  ['Saved words', <SavedPage key="saved-words" />, 'おと', 'あい'],
+  ['Review characters', <ReviewMistakesPage key="review-characters" kind="chars" />, 'ア', 'あ'],
+  ['Review words', <ReviewMistakesPage key="review-words" kind="words" />, 'おと', 'あい'],
+] as const
 
 function withAccess(children: ReactNode, status: EntitlementState['status']) {
   const state: EntitlementState = status === 'signed-out' ? { status, user: null } : { status, user }
@@ -54,6 +60,42 @@ afterEach(() => {
 })
 
 describe('commercial Saved and Review presentation', () => {
+  it.each(browseSurfaces)('%s stops retained paid pronunciation on every access revocation without mutating learning data', (_name, page, paidKana) => {
+    seedMixedReview()
+    useSavedItemsStore.setState({ savedCharacterIds: ['a', 'katakana-a'], savedWordIds: ['a-ai', 'sokuon-oto'] })
+    const progress = JSON.stringify(useProgressStore.getState())
+    const saved = JSON.stringify(useSavedItemsStore.getState())
+    const storage = JSON.stringify({ ...localStorage })
+    const { rerender, view } = renderSurface(page, 'active')
+    const pause = vi.mocked(HTMLMediaElement.prototype.pause)
+    for (const status of ['inactive', 'signed-out', 'loading', 'unavailable'] as const) {
+      rerender(view('active'))
+      fireEvent.click(screen.getByRole('button', { name: `Play pronunciation of ${paidKana}` }))
+      pause.mockClear()
+      rerender(view(status))
+      expect(pause).toHaveBeenCalledTimes(1)
+      expect(screen.queryByRole('button', { name: `Play pronunciation of ${paidKana}` })).not.toBeInTheDocument()
+    }
+    expect(JSON.stringify(useProgressStore.getState())).toBe(progress)
+    expect(JSON.stringify(useSavedItemsStore.getState())).toBe(saved)
+    expect(JSON.stringify({ ...localStorage })).toBe(storage)
+  })
+
+  it.each(browseSurfaces)('%s preserves Hiragana playback and card identity across equivalent restricted states', (_name, page, _paidKana, freeKana) => {
+    seedMixedReview()
+    useSavedItemsStore.setState({ savedCharacterIds: ['a', 'katakana-a'], savedWordIds: ['a-ai', 'sokuon-oto'] })
+    const { rerender, view } = renderSurface(page, 'loading')
+    const card = screen.getByRole('button', { name: `Play pronunciation of ${freeKana}` })
+    fireEvent.click(card)
+    const pause = vi.mocked(HTMLMediaElement.prototype.pause)
+    pause.mockClear()
+    for (const status of ['inactive', 'unavailable', 'signed-out'] as const) {
+      rerender(view(status))
+      expect(pause).not.toHaveBeenCalled()
+      expect(screen.getByRole('button', { name: `Play pronunciation of ${freeKana}` })).toBe(card)
+    }
+  })
+
   it.each(['signed-out', 'loading', 'inactive', 'unavailable'] as const)('filters Saved cards and both badges while %s, restoring retained items when active', (status) => {
     seedMixedReview()
     useSavedItemsStore.setState({ savedCharacterIds: ['a', 'katakana-a', 'missing'], savedWordIds: ['a-ai', 'sokuon-oto', 'missing'] })

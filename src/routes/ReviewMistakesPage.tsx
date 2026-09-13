@@ -5,6 +5,7 @@ import { WordCard } from '../components/WordCard'
 import { CHARACTERS_BY_ID } from '../data/characters'
 import { REVIEW_SCOPE_ID } from '../hooks/useCurriculum'
 import { useCommercialCurriculum } from '../hooks/useCommercialCurriculum'
+import { useCommercialContentSession } from '../hooks/useCommercialContentSession'
 
 const BATCH_SIZE = 10
 
@@ -22,6 +23,7 @@ type Props = {
 // Batched 10 at a time since a learner with many weak items would otherwise
 // face one huge grid.
 export function ReviewMistakesPage({ kind }: Props) {
+  useCommercialContentSession('review-content')
   const { weakCharacterIds, weakWords } = useCommercialCurriculum()
   const [batchIndex, setBatchIndex] = useState(0)
 
