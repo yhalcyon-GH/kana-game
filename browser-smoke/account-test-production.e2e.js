@@ -1,4 +1,9 @@
 import { expect, test } from '@playwright/test'
+import { installProductionAuthFixture } from './production-auth-fixture.js'
+
+test.beforeEach(async ({ page }) => {
+  await installProductionAuthFixture(page)
+})
 
 test('production excludes the dev-only Account Test harness route', async ({ page }) => {
   await page.goto('./#/account-test')

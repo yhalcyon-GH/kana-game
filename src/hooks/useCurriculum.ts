@@ -89,11 +89,10 @@ export function useCurriculum() {
   const assessmentCompletion = useProgressStore((s) => s.assessmentCompletion)
 
   // Characters actually attempted at least once, regardless of whether
-  // Learn was ever formally completed for their row — rows are never
-  // access-gated (Learn AND Practice are both always available per-row),
-  // so jumping straight into Practice without doing Learn first is a
-  // normal path, not a mistake, and Review should reflect real practice
-  // history rather than only Learn completion.
+  // Learn was ever formally completed for their row — curriculum
+  // progression never gates rows behind another row, so jumping straight
+  // into Practice without doing Learn first is a normal path. Commercial
+  // access is a separate UI/route concern layered outside this hook.
   const practicedCharacterIds = useMemo(
     () => Object.keys(characters).filter((id) => (characters[id]?.totalSeen ?? 0) > 0),
     [characters],
@@ -265,9 +264,9 @@ export function useCurriculum() {
     reviewCharacterCount,
     reviewWordCount,
     reviewCount,
-    // Rows are never gated — the learner can freely jump to any row,
-    // regardless of SRS-based unlock progress (which is still tracked in
-    // unlockedRowIds for informational purposes elsewhere).
+    // Progression never gates one row behind another. Commercial access is
+    // evaluated separately and does not change this calculation or the
+    // informational unlockedRowIds state.
     isRowUnlocked: () => true,
     isRowTaught,
     recommendedCategoryId,
