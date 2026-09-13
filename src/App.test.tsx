@@ -1,8 +1,23 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { useProgressStore } from './store/progressStore'
+
+// This legacy suite exercises routing and page behavior, including paid
+// routes. Commercial denial states are covered in App.commercialAccess.test;
+// keep these existing cases focused by giving the gate explicit active access.
+vi.mock('./components/EntitlementContext', async () => {
+  const actual = await vi.importActual<typeof import('./components/EntitlementContext')>('./components/EntitlementContext')
+  return {
+    ...actual,
+    useEntitlement: () => ({
+      state: { status: 'active' as const, user: { userId: 'route-test', emailNormalized: 'route@example.com' } },
+      refresh: vi.fn(),
+      markSignedOut: vi.fn(),
+    }),
+  }
+})
 
 // Route-resolution tests. Curl/HTTP checks against the dev server can't
 // verify this app's client-side routing at all — it's mounted under
@@ -71,9 +86,9 @@ describe('routing', () => {
     expect(screen.getByText('Trace each character')).toBeInTheDocument()
   })
 
-  it('a mismatched category (a-row is hiragana, not katakana) redirects home rather than rendering', () => {
+  it('a mismatched category (a-row is hiragana, not katakana) fails closed rather than rendering', () => {
     renderAt('/practice/katakana/a-row')
-    expect(screen.getByRole('heading', { name: 'Tamamizu' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Content locked' })).toBeInTheDocument()
   })
 
   it('/practice/katakana/katakana-a-row renders that row\'s Practice Hub', () => {
@@ -91,9 +106,9 @@ describe('routing', () => {
     expect(screen.getByText(/Round 1/)).toBeInTheDocument()
   })
 
-  it('an unknown row id redirects home', () => {
+  it('an unknown row id fails closed', () => {
     renderAt('/practice/hiragana/not-a-real-row')
-    expect(screen.getByRole('heading', { name: 'Tamamizu' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Content locked' })).toBeInTheDocument()
   })
 
   it('/practice/review shows a "nothing to review yet" message (not a silent redirect) until at least one row is taught', () => {

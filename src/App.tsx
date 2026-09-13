@@ -1,5 +1,6 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, type ReactNode } from 'react'
 import { Link, Route, Routes, useParams } from 'react-router-dom'
+import { CommercialAccessGate } from './components/CommercialAccessGate'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { EntitlementProvider } from './components/EntitlementProvider'
 import { GuideHighlightProvider } from './components/GuideHighlightProvider'
@@ -10,11 +11,13 @@ import {
   CATEGORIES_BY_ID,
   DEFAULT_CATEGORY_ID,
   KATAKANA_CATEGORY_ID,
+  ROWS_BY_ID,
   SPECIAL_KATAKANA_CATEGORY_ID,
   YOUON_CATEGORY_ID,
 } from './data/curriculum'
 import { REVIEW_SCOPE_ID } from './hooks/useCurriculum'
 import { useTrackLastStudied } from './hooks/useTrackLastStudied'
+import type { CommercialAccessTarget, CommercialActivity } from './lib/commercialAccess'
 import { AssessmentPage } from './routes/games/AssessmentPage'
 import { CafePage } from './routes/games/CafePage'
 import { KanaQuizPage } from './routes/games/KanaQuizPage'
@@ -34,6 +37,7 @@ import { ReviewPage } from './routes/ReviewPage'
 import { SavedPage } from './routes/SavedPage'
 import { SettingsPage } from './routes/SettingsPage'
 import { ThirdPartyNoticesPage } from './routes/ThirdPartyNoticesPage'
+import type { AssessmentScript } from './store/progressStore'
 
 // Compile-time guard: the PoC page, its env values and Paddle SDK are omitted
 // from production builds. Keep this conditional import and the route guard.
@@ -75,14 +79,44 @@ const LoginPage = lazy(() => import('./routes/LoginPage'))
 const AccountPage = lazy(() => import('./routes/AccountPage'))
 const ProductionVerifyPage = lazy(() => import('./routes/ProductionVerifyPage'))
 
+function RowCommercialRoute({ activity, children }: { activity?: CommercialActivity; children: ReactNode }) {
+  const { categoryId, rowId } = useParams<{ categoryId: string; rowId: string }>()
+  const row = rowId ? ROWS_BY_ID[rowId] : undefined
+  const resolvedRowId = row && row.categoryId === categoryId ? row.id : ''
+  const target: CommercialAccessTarget = activity
+    ? { kind: 'activity', rowId: resolvedRowId, activity }
+    : { kind: 'row', rowId: resolvedRowId }
+
+  return <CommercialAccessGate target={target}>{children}</CommercialAccessGate>
+}
+
 function RestaurantRoute() {
   const { checkpointId } = useParams()
-  return <RestaurantPage checkpointId={checkpointId ?? 'na-row'} />
+  const resolvedCheckpointId = checkpointId ?? ''
+  return (
+    <CommercialAccessGate target={{ kind: 'checkpoint', checkpointId: resolvedCheckpointId, mode: 'restaurant' }}>
+      <RestaurantPage checkpointId={resolvedCheckpointId} />
+    </CommercialAccessGate>
+  )
 }
 
 function CafeRoute() {
   const { checkpointId } = useParams()
-  return <CafePage checkpointId={checkpointId ?? 'katakana-ha-row'} />
+  const resolvedCheckpointId = checkpointId ?? ''
+  return (
+    <CommercialAccessGate target={{ kind: 'checkpoint', checkpointId: resolvedCheckpointId, mode: 'cafe' }}>
+      <CafePage checkpointId={resolvedCheckpointId} />
+    </CommercialAccessGate>
+  )
+}
+
+function AssessmentRoute() {
+  const { script } = useParams<{ script: string }>()
+  return (
+    <CommercialAccessGate target={{ kind: 'assessment', assessment: (script ?? '') as AssessmentScript }}>
+      <AssessmentPage />
+    </CommercialAccessGate>
+  )
 }
 
 function NotFoundPage() {
@@ -187,13 +221,13 @@ function App() {
                   />
                 }
               />
-              <Route path="/learn/:categoryId/:rowId" element={<LearnPage />} />
-              <Route path="/practice/:categoryId/:rowId" element={<PracticeHubPage />} />
-              <Route path="/practice/:categoryId/:rowId/word-builder" element={<WordBuilderPage />} />
-              <Route path="/practice/:categoryId/:rowId/listening" element={<ListeningPage />} />
-              <Route path="/practice/:categoryId/:rowId/kana-quiz" element={<KanaQuizPage />} />
-              <Route path="/practice/:categoryId/:rowId/kana-typing" element={<KanaTypingPage />} />
-              <Route path="/practice/:categoryId/:rowId/tracing" element={<TracingPage />} />
+              <Route path="/learn/:categoryId/:rowId" element={<RowCommercialRoute activity="learn"><LearnPage /></RowCommercialRoute>} />
+              <Route path="/practice/:categoryId/:rowId" element={<RowCommercialRoute><PracticeHubPage /></RowCommercialRoute>} />
+              <Route path="/practice/:categoryId/:rowId/word-builder" element={<RowCommercialRoute activity="word-builder"><WordBuilderPage /></RowCommercialRoute>} />
+              <Route path="/practice/:categoryId/:rowId/listening" element={<RowCommercialRoute activity="listening"><ListeningPage /></RowCommercialRoute>} />
+              <Route path="/practice/:categoryId/:rowId/kana-quiz" element={<RowCommercialRoute activity="kana-quiz"><KanaQuizPage /></RowCommercialRoute>} />
+              <Route path="/practice/:categoryId/:rowId/kana-typing" element={<RowCommercialRoute activity="kana-typing"><KanaTypingPage /></RowCommercialRoute>} />
+              <Route path="/practice/:categoryId/:rowId/tracing" element={<RowCommercialRoute activity="tracing"><TracingPage /></RowCommercialRoute>} />
               {/* Review mixes every taught row across every category, so it
                   deliberately does NOT nest under :categoryId — see
                   REVIEW_SCOPE_ID in hooks/useCurriculum.ts. Each page component
@@ -224,7 +258,7 @@ function App() {
                   routes/games/AssessmentPage.tsx and
                   lib/recommendedPath.ts's assessment-after-checkpoint
                   wiring. */}
-              <Route path="/assessment/:script" element={<AssessmentPage />} />
+              <Route path="/assessment/:script" element={<AssessmentRoute />} />
               <Route path="/review" element={<ReviewPage />} />
               <Route path="/saved" element={<SavedPage />} />
               <Route path="/settings" element={<SettingsPage />} />
