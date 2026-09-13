@@ -95,6 +95,7 @@ try {
 }
 
 $handler = new PurchaseWebhookHandler(
+    $pdo,
     new PaddleSignature($secret),
     new PaymentEventRepository($pdo),
     new PurchaseIntentRepository($pdo),

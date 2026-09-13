@@ -64,6 +64,7 @@ function purchaseWebhookHandlerIsolationTests(): array
                 \$pdo->exec('CREATE TABLE pending_adjustments (id INTEGER PRIMARY KEY AUTOINCREMENT, paddle_transaction_id TEXT NOT NULL, action TEXT NOT NULL, occurred_at TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)');
 
                 \$handler = new PurchaseWebhookHandler(
+                    \$pdo,
                     new PaddleSignature('test-secret'),
                     new PaymentEventRepository(\$pdo),
                     new PurchaseIntentRepository(\$pdo),
