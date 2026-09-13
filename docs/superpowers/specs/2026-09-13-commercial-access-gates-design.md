@@ -59,4 +59,3 @@ category cards, Review/Saved filtering and restoration, unknown targets,
 Hiragana end-to-end access, the unchanged Recommended result, and the E1A dev
 network guard. Final verification includes focused tests, `npm run verify`,
 Playwright browser smoke, `git diff --check`, and a real 320px browser check.
-
