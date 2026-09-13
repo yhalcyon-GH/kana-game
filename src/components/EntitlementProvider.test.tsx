@@ -65,6 +65,33 @@ afterEach(() => {
 })
 
 describe('EntitlementProvider', () => {
+  it.each(['before', 'user', 'entitlement'] as const)('returns stale without applying an aborted refresh at %s', async (stage) => {
+    vi.mocked(productionAuthClient.fetchCurrentUserResult).mockResolvedValue({ kind: 'authenticated', user })
+    vi.mocked(productionAuthClient.fetchCurrentEntitlementResult).mockResolvedValue({ kind: 'available', entitlement: { active: false } })
+    const provider = captureProvider()
+    await screen.findByText('inactive')
+    const abort = new AbortController()
+    const pendingUser = deferred<productionAuthClient.CurrentUserResult>()
+    const pendingEntitlement = deferred<productionAuthClient.CurrentEntitlementResult>()
+    vi.mocked(productionAuthClient.fetchCurrentUserResult).mockReturnValueOnce(
+      stage === 'user' ? pendingUser.promise : Promise.resolve({ kind: 'authenticated', user }),
+    )
+    vi.mocked(productionAuthClient.fetchCurrentEntitlementResult).mockReturnValueOnce(pendingEntitlement.promise)
+    if (stage === 'before') abort.abort()
+    let refresh!: ReturnType<EntitlementContextValue['refresh']>
+    await act(async () => { refresh = provider.current().refresh({ nonDisruptive: true, signal: abort.signal }) })
+    abort.abort()
+    await act(async () => {
+      pendingUser.resolve({ kind: 'authenticated', user })
+      pendingEntitlement.resolve({ kind: 'available', entitlement: { active: true } })
+      await refresh
+    })
+    expect(await refresh).toEqual({ kind: 'stale' })
+    expect(screen.getByText('inactive')).toBeInTheDocument()
+    expect(productionAuthClient.fetchCurrentUserResult).toHaveBeenCalledTimes(stage === 'before' ? 1 : 2)
+    expect(productionAuthClient.fetchCurrentEntitlementResult).toHaveBeenCalledTimes(stage === 'entitlement' ? 2 : 1)
+  })
+
   it('returns the same applied state from one non-disruptive verification', async () => {
     vi.mocked(productionAuthClient.fetchCurrentUserResult).mockResolvedValue({ kind: 'authenticated', user })
     vi.mocked(productionAuthClient.fetchCurrentEntitlementResult).mockResolvedValue({ kind: 'available', entitlement: { active: false } })

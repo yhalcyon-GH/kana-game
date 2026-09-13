@@ -15,6 +15,8 @@ export type EntitlementRefreshResult =
 export type EntitlementRefreshOptions = {
   /** Preserve the current presentation while purchase confirmation is in flight. */
   nonDisruptive?: boolean
+  /** An invalidated Account attempt must never apply its pending verification. */
+  signal?: AbortSignal
 }
 
 export type EntitlementContextValue = {

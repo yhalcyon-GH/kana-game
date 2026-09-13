@@ -12,9 +12,11 @@ export function EntitlementProvider({ children }: { children: ReactNode }) {
   const invalidateRequests = useCallback(() => { ++requestSequence.current }, [])
 
   const refresh = useCallback(async (options: EntitlementRefreshOptions = {}): Promise<EntitlementRefreshResult> => {
+    if (options.signal?.aborted) return { kind: 'stale' }
     const requestId = ++requestSequence.current
+    const isStale = () => requestId !== requestSequence.current || options.signal?.aborted
     const apply = (nextState: EntitlementState): EntitlementRefreshResult => {
-      if (requestId !== requestSequence.current) return { kind: 'stale' }
+      if (isStale()) return { kind: 'stale' }
       setState(nextState)
       return { kind: 'applied', state: nextState }
     }
@@ -27,7 +29,7 @@ export function EntitlementProvider({ children }: { children: ReactNode }) {
       setState((current) => ({ status: 'loading', user: current.user }))
     }
     const userResult = await fetchCurrentUserResult(apiBase)
-    if (requestId !== requestSequence.current) return { kind: 'stale' }
+    if (isStale()) return { kind: 'stale' }
 
     if (userResult.kind === 'signed-out') {
       return apply({ status: 'signed-out', user: null })
@@ -37,7 +39,7 @@ export function EntitlementProvider({ children }: { children: ReactNode }) {
     }
 
     const entitlementResult = await fetchCurrentEntitlementResult(apiBase)
-    if (requestId !== requestSequence.current) return { kind: 'stale' }
+    if (isStale()) return { kind: 'stale' }
 
     if (entitlementResult.kind === 'signed-out') {
       return apply({ status: 'signed-out', user: null })

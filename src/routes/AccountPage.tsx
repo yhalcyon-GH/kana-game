@@ -2,11 +2,12 @@ import { Link } from 'react-router-dom'
 import { useEntitlement } from '../components/EntitlementContext'
 import { logout } from '../lib/auth/productionAuthClient'
 import { readProductionAuthApiBase } from '../lib/auth/productionAuthApiBase'
+import { useProductionSandboxPurchase } from '../hooks/useProductionSandboxPurchase'
 
 /**
  * Production account page — current signed-in user (resolved via the
  * HttpOnly session cookie, never a client-held credential), sign out,
- * and a read-only entitlement lookup. See docs/adr/0001-cross-site-
+ * and Sandbox purchase confirmation. See docs/adr/0001-cross-site-
  * auth-transport.md and src/lib/auth/productionAuthClient.ts.
  *
  * The app-level EntitlementProvider re-resolves the session and entitlement
@@ -16,10 +17,12 @@ import { readProductionAuthApiBase } from '../lib/auth/productionAuthApiBase'
 export default function AccountPage() {
   const apiBase = readProductionAuthApiBase()
   const { state, refresh, markSignedOut } = useEntitlement()
+  const purchase = useProductionSandboxPurchase()
 
   async function handleLogout() {
-    if (apiBase) await logout(apiBase)
+    purchase.invalidate()
     markSignedOut()
+    if (apiBase) await logout(apiBase)
   }
 
   if (state.status === 'loading') {
@@ -43,53 +46,62 @@ export default function AccountPage() {
     )
   }
 
-  if (state.status === 'unavailable' && !state.user) {
-    return (
-      <div className="flex w-full max-w-sm flex-col items-center gap-6">
-        <h1 className="text-2xl font-bold">Account</h1>
-        <p role="status">Account status is temporarily unavailable.</p>
-        <button
-          type="button"
-          onClick={() => void refresh()}
-          className="w-full rounded-xl border border-neutral-400 px-5 py-3 font-semibold hover:border-blue-500 dark:border-neutral-600"
-        >
-          Try again
-        </button>
-      </div>
-    )
-  }
-
   const currentUser = state.user
-  if (!currentUser) return null
+  const confirming = purchase.status === 'processing' || purchase.status === 'still-confirming'
+  const checkoutBusy = purchase.status === 'preparing' || purchase.status === 'open'
+  const buttonClass = 'w-full rounded-xl border border-neutral-400 px-5 py-3 font-semibold hover:border-blue-500 dark:border-neutral-600'
 
   return (
     <div className="flex w-full max-w-sm flex-col items-center gap-6">
       <h1 className="text-2xl font-bold">Account</h1>
 
-      <p role="status" className="w-full rounded-xl border border-neutral-300 bg-white px-4 py-3 text-center dark:border-neutral-600 dark:bg-neutral-800">
-        Signed in as <span>{currentUser.emailNormalized}</span>
-      </p>
+      {currentUser && (
+        <p role="status" className="w-full break-words rounded-xl border border-neutral-300 bg-white px-4 py-3 text-center dark:border-neutral-600 dark:bg-neutral-800">
+          Signed in as <span>{currentUser.emailNormalized}</span>
+        </p>
+      )}
 
-      <button
-        type="button"
-        onClick={() => void refresh()}
-        className="w-full rounded-xl border border-neutral-400 px-5 py-3 font-semibold hover:border-blue-500 dark:border-neutral-600"
-      >
-        Check entitlement
-      </button>
-      <p role="status">
-        {state.status === 'active' && 'Entitlement: active'}
-        {state.status === 'inactive' && 'Entitlement: inactive'}
-        {state.status === 'unavailable' && 'Entitlement check failed.'}
-      </p>
+      {state.status === 'active' ? (
+        <p role="status">Full Tamamizu: Active</p>
+      ) : confirming ? (
+        <>
+          <p role="status">{purchase.status === 'processing' ? 'Processing purchase…' : 'Still confirming your purchase'}</p>
+          {purchase.status === 'still-confirming' && (
+            <button type="button" onClick={purchase.retry} className={buttonClass}>Retry</button>
+          )}
+          <button type="button" onClick={purchase.cancel} className={buttonClass}>Cancel confirmation</button>
+        </>
+      ) : state.status === 'unavailable' ? (
+        <>
+          <p role="status">Couldn’t verify access</p>
+          <button type="button" onClick={() => void refresh()} className={buttonClass}>Retry</button>
+        </>
+      ) : (
+        <section aria-labelledby="full-tamamizu" className="flex w-full flex-col gap-4 text-center">
+          <h2 id="full-tamamizu" className="text-xl font-semibold">Full Tamamizu</h2>
+          <p>Paddle Checkout shows the price, taxes, and total.</p>
+          <button
+            type="button"
+            disabled={!purchase.configured || checkoutBusy}
+            onClick={() => void purchase.start()}
+            className="w-full rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Sandbox test purchase
+          </button>
+          {!purchase.configured && <p role="status">Sandbox configuration unavailable</p>}
+          {purchase.status === 'preparing' && <p role="status">Preparing Sandbox Checkout…</p>}
+          {purchase.status === 'open' && <p role="status">Complete your test purchase in Paddle Checkout.</p>}
+          {purchase.status === 'unavailable' && <p role="status">Couldn’t open Sandbox Checkout. Please try again.</p>}
+          {checkoutBusy && <button type="button" onClick={purchase.cancel} className={buttonClass}>Cancel checkout</button>}
+        </section>
+      )}
 
-      <button
-        type="button"
-        onClick={() => void handleLogout()}
-        className="w-full rounded-xl border border-neutral-400 px-5 py-3 font-semibold hover:border-blue-500 dark:border-neutral-600"
-      >
-        Sign out
-      </button>
+      {!confirming && !checkoutBusy && state.status !== 'unavailable' && (
+        <button type="button" onClick={() => void refresh()} className={buttonClass}>Check entitlement</button>
+      )}
+      {(currentUser || confirming) && (
+        <button type="button" onClick={() => void handleLogout()} className={buttonClass}>Sign out</button>
+      )}
     </div>
   )
 }
