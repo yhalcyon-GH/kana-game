@@ -44,6 +44,25 @@ final class PurchaseWebhookHandler
     private const EVENT_ADJUSTMENT_UPDATED = 'adjustment.updated';
     private const REFUND_ACTION = 'refund';
 
+    // Phase H1-3. Confirmed against current Paddle Billing docs: these
+    // are the four chargeback-family adjustment `action` values, each
+    // its own action (not a status transition of one shared action --
+    // unlike refund, which uses one action with status
+    // pending_approval/approved/rejected). Do NOT branch chargeback
+    // handling on `data.status` -- action is the sole signal for what
+    // transition to apply; see applyChargebackTransition().
+    private const CHARGEBACK_ACTION = 'chargeback';
+    private const CHARGEBACK_REVERSE_ACTION = 'chargeback_reverse';
+    private const CHARGEBACK_WARNING_ACTION = 'chargeback_warning';
+    private const CHARGEBACK_WARNING_REVERSE_ACTION = 'chargeback_warning_reverse';
+
+    private const CHARGEBACK_FAMILY_ACTIONS = [
+        self::CHARGEBACK_ACTION,
+        self::CHARGEBACK_REVERSE_ACTION,
+        self::CHARGEBACK_WARNING_ACTION,
+        self::CHARGEBACK_WARNING_REVERSE_ACTION,
+    ];
+
     public function __construct(
         private readonly PDO $pdo,
         private readonly PaddleSignature $signature,
@@ -224,13 +243,11 @@ final class PurchaseWebhookHandler
     private function handleAdjustment(string $eventId, array $data, \DateTimeImmutable $occurredAt): bool
     {
         $action = $data['action'] ?? null;
-        if ($action !== self::REFUND_ACTION) {
-            // Chargeback-family actions and non-refund adjustment types
-            // are intentionally not acted upon in PR B -- recognized as
-            // existing, never invented behavior for. Not queued either
-            // (queueing is specifically for reconciling entitlement-
-            // affecting refund transitions against not-yet-arrived
-            // transactions).
+        if ($action !== self::REFUND_ACTION && !in_array($action, self::CHARGEBACK_FAMILY_ACTIONS, true)) {
+            // Any other adjustment action (e.g. 'credit') is
+            // intentionally not acted upon and not queued -- queueing
+            // is specifically for reconciling entitlement-affecting
+            // transitions against a not-yet-arrived transaction.
             return false;
         }
 
@@ -251,12 +268,41 @@ final class PurchaseWebhookHandler
             // Paddle does not guarantee webhook delivery order -- the
             // transaction.completed this adjustment refers to may not
             // have arrived yet. Queue it for reconciliation rather than
-            // dropping it.
+            // dropping it. This applies identically to refund and
+            // chargeback-family actions; $action is stored so
+            // reconcilePendingAdjustments() can dispatch correctly once
+            // the transaction arrives.
             $this->pendingAdjustments->queue($transactionId, $eventId, $action, $adjustmentStatus, $adjustmentType, $items, $occurredAt);
             return true;
         }
 
-        return $this->applyRefundTransition($grant['user_id'], $grant['product_key'], $transactionId, $adjustmentStatus, $adjustmentType, $items, $occurredAt);
+        return $this->applyAdjustmentTransition($grant['user_id'], $grant['product_key'], $transactionId, $action, $adjustmentStatus, $adjustmentType, $items, $occurredAt);
+    }
+
+    /**
+     * Dispatches to the refund or chargeback-family transition logic
+     * based on $action alone -- the single entry point both the direct
+     * path (handleAdjustment()) and reconciliation
+     * (reconcilePendingAdjustments()) go through, so the two can never
+     * diverge in which rule set applies to a given action.
+     *
+     * @param mixed $items The adjustment's `data.items`, if present.
+     */
+    private function applyAdjustmentTransition(
+        string $userId,
+        string $productKey,
+        string $transactionId,
+        string $action,
+        string $adjustmentStatus,
+        string $adjustmentType,
+        mixed $items,
+        \DateTimeImmutable $occurredAt,
+    ): bool {
+        if (in_array($action, self::CHARGEBACK_FAMILY_ACTIONS, true)) {
+            return $this->applyChargebackTransition($userId, $productKey, $transactionId, $action, $occurredAt);
+        }
+
+        return $this->applyRefundTransition($userId, $productKey, $transactionId, $adjustmentStatus, $adjustmentType, $items, $occurredAt);
     }
 
     /**
@@ -313,12 +359,75 @@ final class PurchaseWebhookHandler
     }
 
     /**
+     * Applies one chargeback-family transition, per the design spec's
+     * first-candidate policy:
+     *   chargeback         -> 'chargeback'          (revokes)
+     *   chargeback_warning -> 'chargeback_pending'   (revokes)
+     *   chargeback_reverse         -> 'active', ONLY from 'chargeback'
+     *   chargeback_warning_reverse -> 'active', ONLY from 'chargeback_pending'
+     *
+     * $action alone decides the target status -- data.status is never
+     * read here (unlike refund's pending_approval/approved/rejected
+     * lifecycle), per the design spec's explicit instruction not to
+     * depend on a chargeback event's initial status.
+     *
+     * The two reversal actions each pass their own single-element
+     * $allowedFromStatuses to TransactionGrantRepository::updateStatus()
+     * -- this is the guard that makes reversal safe: it is independent
+     * of, and in addition to, the existing status_changed_at staleness
+     * check. Without it, an occurred_at merely newer than the grant's
+     * last status_changed_at would be enough to blindly restore
+     * 'active' from ANY current status, including an already-finalized
+     * 'refunded' grant (an out-of-order chargeback_reverse arriving
+     * after a full refund must never reactivate it) or the WRONG
+     * chargeback state (chargeback_reverse must never fire from
+     * 'chargeback_pending' -- only chargeback_warning_reverse pairs
+     * with that state, and vice versa). The forward (non-reversal)
+     * actions pass null -- deliberately unrestricted by source status,
+     * matching how a chargeback can legitimately follow either an
+     * 'active' or a 'refund_pending' grant.
+     *
+     * Repurchase safety is structural, not logic here: transaction_grants
+     * has one row per Paddle transaction, never per (user, product), so
+     * a chargeback/reversal for an old transaction can only ever touch
+     * ITS OWN row -- see TransactionGrantRepository's own class
+     * doc comment.
+     */
+    private function applyChargebackTransition(
+        string $userId,
+        string $productKey,
+        string $transactionId,
+        string $action,
+        \DateTimeImmutable $occurredAt,
+    ): bool {
+        [$newStatus, $allowedFromStatuses] = match ($action) {
+            self::CHARGEBACK_ACTION => ['chargeback', null],
+            self::CHARGEBACK_WARNING_ACTION => ['chargeback_pending', null],
+            self::CHARGEBACK_REVERSE_ACTION => ['active', ['chargeback']],
+            self::CHARGEBACK_WARNING_REVERSE_ACTION => ['active', ['chargeback_pending']],
+            default => [null, null],
+        };
+
+        if ($newStatus === null) {
+            return false;
+        }
+
+        $applied = $this->grants->updateStatus($transactionId, $newStatus, $occurredAt, $allowedFromStatuses);
+        if ($applied) {
+            $this->recomputeEntitlement($userId, $productKey, $transactionId);
+        }
+
+        return $applied;
+    }
+
+    /**
      * Reconciles any adjustments queued (because they arrived before
      * this transaction's transaction.completed) for the just-created
      * grant. Applies each unreconciled adjustment in occurred_at order
      * (oldest first) -- the LAST one applied (chronologically) is what
      * the grant's final status reflects, since each call goes through
-     * the same stale-event-discarding updateStatus().
+     * the same stale-event-discarding, source-status-guarded
+     * updateStatus() via applyAdjustmentTransition().
      */
     private function reconcilePendingAdjustments(string $transactionId): void
     {
@@ -329,10 +438,11 @@ final class PurchaseWebhookHandler
 
         foreach ($this->pendingAdjustments->findUnreconciledForTransaction($transactionId) as $pending) {
             $occurredAt = new \DateTimeImmutable($pending['occurred_at']);
-            $this->applyRefundTransition(
+            $this->applyAdjustmentTransition(
                 $grant['user_id'],
                 $grant['product_key'],
                 $transactionId,
+                $pending['action'],
                 $pending['adjustment_status'],
                 $pending['adjustment_type'],
                 $pending['items'],

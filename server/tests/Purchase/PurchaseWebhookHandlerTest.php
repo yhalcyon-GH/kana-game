@@ -172,6 +172,20 @@ function pwhAdjustmentPayload(string $eventId, string $eventType, string $transa
 }
 
 /**
+ * Test helper: creates a purchase intent and delivers its
+ * transaction.completed event, producing an 'active' transaction_grants
+ * row -- the common starting point for the Phase H1-3 chargeback tests
+ * below, which are about what happens to an EXISTING grant.
+ */
+function pwhMakeActiveGrant(PDO $pdo, PurchaseWebhookHandler $handler, string $userId, string $rawRef, string $eventId, string $transactionId, string $productKey = 'full_tamamizu'): void
+{
+    $intents = new PurchaseIntentRepository($pdo);
+    $intents->create($userId, $productKey, $rawRef, new \DateTimeImmutable('+30 minutes'));
+    $body = pwhTransactionCompletedPayload($eventId, $transactionId, $rawRef, '2026-01-01T00:00:00Z');
+    $handler->handle($body, pwhSign($body));
+}
+
+/**
  * @return array<string, callable(): void>
  */
 function purchaseWebhookHandlerTests(): array
@@ -894,6 +908,321 @@ function purchaseWebhookHandlerTests(): array
 
             $eventCount = (int) $pdo->query('SELECT COUNT(*) FROM payment_events')->fetchColumn();
             assertSame(1, $eventCount, 'exactly one payment_events row should exist -- the failed first attempt left none behind');
+        },
+
+        // -- Phase H1-3: chargeback / dispute handling --
+
+        'chargeback action revokes an active grant' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $handler = makePurchaseWebhookHandler($pdo);
+            pwhMakeActiveGrant($pdo, $handler, 'user-1', 'raw-ref-cb1', 'evt_cb1_txn', 'txn_cb1');
+
+            $body = pwhAdjustmentPayload('evt_cb1_cb', 'adjustment.created', 'txn_cb1', 'chargeback', 'n/a', 'n/a', '2026-01-02T00:00:00Z');
+            $handler->handle($body, pwhSign($body));
+
+            $grants = new TransactionGrantRepository($pdo);
+            assertSame('chargeback', $grants->findByTransactionId('txn_cb1')['status'], 'grant status should be chargeback');
+            $entitlements = new EntitlementRepository($pdo);
+            assertFalse($entitlements->find('user-1', 'full_tamamizu')['active'], 'entitlement should be revoked');
+        },
+
+        'chargeback_warning action revokes an active grant into chargeback_pending' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $handler = makePurchaseWebhookHandler($pdo);
+            pwhMakeActiveGrant($pdo, $handler, 'user-1', 'raw-ref-cbw1', 'evt_cbw1_txn', 'txn_cbw1');
+
+            $body = pwhAdjustmentPayload('evt_cbw1_w', 'adjustment.created', 'txn_cbw1', 'chargeback_warning', 'n/a', 'n/a', '2026-01-02T00:00:00Z');
+            $handler->handle($body, pwhSign($body));
+
+            $grants = new TransactionGrantRepository($pdo);
+            assertSame('chargeback_pending', $grants->findByTransactionId('txn_cbw1')['status'], 'grant status should be chargeback_pending');
+            $entitlements = new EntitlementRepository($pdo);
+            assertFalse($entitlements->find('user-1', 'full_tamamizu')['active'], 'entitlement should be revoked on a chargeback warning, not just a full chargeback');
+        },
+
+        'chargeback does not depend on data.status -- an unrecognized/nonsensical status value is ignored, only action matters' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $handler = makePurchaseWebhookHandler($pdo);
+            pwhMakeActiveGrant($pdo, $handler, 'user-1', 'raw-ref-cbns', 'evt_cbns_txn', 'txn_cbns');
+
+            // A status value that would be meaningless/unrecognized for
+            // the refund lifecycle -- proves the chargeback branch never
+            // reads it.
+            $body = pwhAdjustmentPayload('evt_cbns_cb', 'adjustment.created', 'txn_cbns', 'chargeback', 'totally_not_a_real_status', 'also_not_real', '2026-01-02T00:00:00Z');
+            $result = $handler->handle($body, pwhSign($body));
+
+            assertSame(200, $result->statusCode, 'should be processed normally despite the nonsensical status');
+            $grants = new TransactionGrantRepository($pdo);
+            assertSame('chargeback', $grants->findByTransactionId('txn_cbns')['status'], 'action alone must decide the transition regardless of data.status content');
+        },
+
+        'chargeback_reverse restores an active entitlement only from a chargeback grant' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $handler = makePurchaseWebhookHandler($pdo);
+            pwhMakeActiveGrant($pdo, $handler, 'user-1', 'raw-ref-cbr1', 'evt_cbr1_txn', 'txn_cbr1');
+
+            $cbBody = pwhAdjustmentPayload('evt_cbr1_cb', 'adjustment.created', 'txn_cbr1', 'chargeback', 'n/a', 'n/a', '2026-01-02T00:00:00Z');
+            $handler->handle($cbBody, pwhSign($cbBody));
+
+            $reverseBody = pwhAdjustmentPayload('evt_cbr1_rev', 'adjustment.created', 'txn_cbr1', 'chargeback_reverse', 'n/a', 'n/a', '2026-01-03T00:00:00Z');
+            $handler->handle($reverseBody, pwhSign($reverseBody));
+
+            $grants = new TransactionGrantRepository($pdo);
+            assertSame('active', $grants->findByTransactionId('txn_cbr1')['status'], 'grant should be restored to active');
+            $entitlements = new EntitlementRepository($pdo);
+            assertTrue($entitlements->find('user-1', 'full_tamamizu')['active'], 'entitlement should be restored');
+        },
+
+        'chargeback_reverse does NOT restore a grant whose status is chargeback_pending -- wrong pairing, must use chargeback_warning_reverse' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $handler = makePurchaseWebhookHandler($pdo);
+            pwhMakeActiveGrant($pdo, $handler, 'user-1', 'raw-ref-cbr2', 'evt_cbr2_txn', 'txn_cbr2');
+
+            $warningBody = pwhAdjustmentPayload('evt_cbr2_w', 'adjustment.created', 'txn_cbr2', 'chargeback_warning', 'n/a', 'n/a', '2026-01-02T00:00:00Z');
+            $handler->handle($warningBody, pwhSign($warningBody));
+
+            // Wrong reversal action for a chargeback_pending grant.
+            $wrongReverseBody = pwhAdjustmentPayload('evt_cbr2_rev', 'adjustment.created', 'txn_cbr2', 'chargeback_reverse', 'n/a', 'n/a', '2026-01-03T00:00:00Z');
+            $handler->handle($wrongReverseBody, pwhSign($wrongReverseBody));
+
+            $grants = new TransactionGrantRepository($pdo);
+            assertSame('chargeback_pending', $grants->findByTransactionId('txn_cbr2')['status'], 'status must remain chargeback_pending -- chargeback_reverse must not fire from it');
+            $entitlements = new EntitlementRepository($pdo);
+            assertFalse($entitlements->find('user-1', 'full_tamamizu')['active'], 'entitlement must remain revoked');
+        },
+
+        'chargeback_warning_reverse restores an active entitlement only from a chargeback_pending grant' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $handler = makePurchaseWebhookHandler($pdo);
+            pwhMakeActiveGrant($pdo, $handler, 'user-1', 'raw-ref-cbwr1', 'evt_cbwr1_txn', 'txn_cbwr1');
+
+            $warningBody = pwhAdjustmentPayload('evt_cbwr1_w', 'adjustment.created', 'txn_cbwr1', 'chargeback_warning', 'n/a', 'n/a', '2026-01-02T00:00:00Z');
+            $handler->handle($warningBody, pwhSign($warningBody));
+
+            $reverseBody = pwhAdjustmentPayload('evt_cbwr1_rev', 'adjustment.created', 'txn_cbwr1', 'chargeback_warning_reverse', 'n/a', 'n/a', '2026-01-03T00:00:00Z');
+            $handler->handle($reverseBody, pwhSign($reverseBody));
+
+            $grants = new TransactionGrantRepository($pdo);
+            assertSame('active', $grants->findByTransactionId('txn_cbwr1')['status'], 'grant should be restored to active');
+            $entitlements = new EntitlementRepository($pdo);
+            assertTrue($entitlements->find('user-1', 'full_tamamizu')['active'], 'entitlement should be restored');
+        },
+
+        'chargeback_warning_reverse does NOT restore a grant whose status is chargeback -- wrong pairing, must use chargeback_reverse' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $handler = makePurchaseWebhookHandler($pdo);
+            pwhMakeActiveGrant($pdo, $handler, 'user-1', 'raw-ref-cbwr2', 'evt_cbwr2_txn', 'txn_cbwr2');
+
+            $cbBody = pwhAdjustmentPayload('evt_cbwr2_cb', 'adjustment.created', 'txn_cbwr2', 'chargeback', 'n/a', 'n/a', '2026-01-02T00:00:00Z');
+            $handler->handle($cbBody, pwhSign($cbBody));
+
+            $wrongReverseBody = pwhAdjustmentPayload('evt_cbwr2_rev', 'adjustment.created', 'txn_cbwr2', 'chargeback_warning_reverse', 'n/a', 'n/a', '2026-01-03T00:00:00Z');
+            $handler->handle($wrongReverseBody, pwhSign($wrongReverseBody));
+
+            $grants = new TransactionGrantRepository($pdo);
+            assertSame('chargeback', $grants->findByTransactionId('txn_cbwr2')['status'], 'status must remain chargeback -- chargeback_warning_reverse must not fire from it');
+            $entitlements = new EntitlementRepository($pdo);
+            assertFalse($entitlements->find('user-1', 'full_tamamizu')['active'], 'entitlement must remain revoked');
+        },
+
+        // -- Phase H1-3: the critical refund/chargeback intersection guarantee --
+
+        'chargeback_reverse must NEVER reactivate a grant that was already fully refunded (finalized refund is terminal)' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $handler = makePurchaseWebhookHandler($pdo);
+            pwhMakeActiveGrant($pdo, $handler, 'user-1', 'raw-ref-refch1', 'evt_refch1_txn', 'txn_refch1');
+
+            // Fully refund the grant first (existing refund lifecycle).
+            $refundBody = pwhAdjustmentPayload('evt_refch1_refund', 'adjustment.updated', 'txn_refch1', 'refund', 'approved', 'full', '2026-01-02T00:00:00Z');
+            $handler->handle($refundBody, pwhSign($refundBody));
+
+            $grants = new TransactionGrantRepository($pdo);
+            assertSame('refunded', $grants->findByTransactionId('txn_refch1')['status'], 'sanity check: grant should be refunded');
+
+            // A LATER, out-of-order chargeback_reverse for the SAME
+            // transaction must not reactivate it -- there is no valid
+            // real-world reason a reversal should apply to a transaction
+            // that was never in a chargeback state, and treating
+            // "newer occurred_at" alone as sufficient would let this
+            // happen.
+            $reverseBody = pwhAdjustmentPayload('evt_refch1_rev', 'adjustment.created', 'txn_refch1', 'chargeback_reverse', 'n/a', 'n/a', '2026-01-03T00:00:00Z');
+            $handler->handle($reverseBody, pwhSign($reverseBody));
+
+            assertSame('refunded', $grants->findByTransactionId('txn_refch1')['status'], 'status must remain refunded -- chargeback_reverse must never fire from a refunded grant');
+            $entitlements = new EntitlementRepository($pdo);
+            assertFalse($entitlements->find('user-1', 'full_tamamizu')['active'], 'entitlement must remain revoked -- a finalized refund is never undone by a chargeback reversal');
+        },
+
+        'chargeback_warning_reverse must NEVER reactivate a grant that was already fully refunded' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $handler = makePurchaseWebhookHandler($pdo);
+            pwhMakeActiveGrant($pdo, $handler, 'user-1', 'raw-ref-refch2', 'evt_refch2_txn', 'txn_refch2');
+
+            $refundBody = pwhAdjustmentPayload('evt_refch2_refund', 'adjustment.updated', 'txn_refch2', 'refund', 'approved', 'full', '2026-01-02T00:00:00Z');
+            $handler->handle($refundBody, pwhSign($refundBody));
+
+            $reverseBody = pwhAdjustmentPayload('evt_refch2_rev', 'adjustment.created', 'txn_refch2', 'chargeback_warning_reverse', 'n/a', 'n/a', '2026-01-03T00:00:00Z');
+            $handler->handle($reverseBody, pwhSign($reverseBody));
+
+            $grants = new TransactionGrantRepository($pdo);
+            assertSame('refunded', $grants->findByTransactionId('txn_refch2')['status'], 'status must remain refunded');
+            $entitlements = new EntitlementRepository($pdo);
+            assertFalse($entitlements->find('user-1', 'full_tamamizu')['active'], 'entitlement must remain revoked');
+        },
+
+        'a charge that was disputed and then reversed does not later get re-refunded into a wrong state -- chargeback then reverse then rejected refund all apply cleanly in order' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $handler = makePurchaseWebhookHandler($pdo);
+            pwhMakeActiveGrant($pdo, $handler, 'user-1', 'raw-ref-mix1', 'evt_mix1_txn', 'txn_mix1');
+
+            $cbBody = pwhAdjustmentPayload('evt_mix1_cb', 'adjustment.created', 'txn_mix1', 'chargeback', 'n/a', 'n/a', '2026-01-02T00:00:00Z');
+            $handler->handle($cbBody, pwhSign($cbBody));
+
+            $reverseBody = pwhAdjustmentPayload('evt_mix1_rev', 'adjustment.created', 'txn_mix1', 'chargeback_reverse', 'n/a', 'n/a', '2026-01-03T00:00:00Z');
+            $handler->handle($reverseBody, pwhSign($reverseBody));
+
+            // The refund lifecycle is untouched by chargeback handling --
+            // a later, unrelated refund pending_approval must still work
+            // normally on the now-'active' grant.
+            $refundPendingBody = pwhAdjustmentPayload('evt_mix1_refpending', 'adjustment.created', 'txn_mix1', 'refund', 'pending_approval', 'full', '2026-01-04T00:00:00Z');
+            $handler->handle($refundPendingBody, pwhSign($refundPendingBody));
+
+            $grants = new TransactionGrantRepository($pdo);
+            assertSame('refund_pending', $grants->findByTransactionId('txn_mix1')['status'], 'the refund lifecycle must still work normally after a chargeback/reverse cycle');
+            $entitlements = new EntitlementRepository($pdo);
+            assertTrue($entitlements->find('user-1', 'full_tamamizu')['active'], 'refund_pending remains entitlement-bearing');
+        },
+
+        // -- Phase H1-3: out-of-order chargeback events --
+
+        'a chargeback arriving before its transaction.completed is queued and reconciled once the transaction arrives' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $handler = makePurchaseWebhookHandler($pdo);
+            $intents = new PurchaseIntentRepository($pdo);
+            $intents->create('user-1', 'full_tamamizu', 'raw-ref-ooo1', new \DateTimeImmutable('+30 minutes'));
+
+            $cbBody = pwhAdjustmentPayload('evt_ooo1_cb', 'adjustment.created', 'txn_ooo1', 'chargeback', 'n/a', 'n/a', '2026-01-02T00:00:00Z');
+            $cbResult = $handler->handle($cbBody, pwhSign($cbBody));
+            assertSame(200, $cbResult->statusCode, 'the early chargeback should be safely acknowledged');
+
+            $grants = new TransactionGrantRepository($pdo);
+            assertSame(null, $grants->findByTransactionId('txn_ooo1'), 'no grant should exist yet');
+
+            $txnBody = pwhTransactionCompletedPayload('evt_ooo1_txn', 'txn_ooo1', 'raw-ref-ooo1', '2026-01-01T00:00:00Z');
+            $handler->handle($txnBody, pwhSign($txnBody));
+
+            assertSame('chargeback', $grants->findByTransactionId('txn_ooo1')['status'], 'the queued chargeback should be reconciled once the grant exists');
+            $entitlements = new EntitlementRepository($pdo);
+            assertFalse($entitlements->find('user-1', 'full_tamamizu')['active'], 'entitlement should be revoked after reconciliation');
+        },
+
+        'multiple queued chargeback-family events reconcile in occurred_at order, not arrival order' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $handler = makePurchaseWebhookHandler($pdo);
+            $intents = new PurchaseIntentRepository($pdo);
+            $intents->create('user-1', 'full_tamamizu', 'raw-ref-ooo2', new \DateTimeImmutable('+30 minutes'));
+
+            // Arrival order: reverse first, then the chargeback it
+            // reverses -- but occurred_at says the chargeback happened
+            // first. Both queue (no grant exists yet); reconciliation
+            // must replay them in occurred_at order, so the reverse
+            // ultimately applies cleanly on top of the chargeback.
+            $reverseBody = pwhAdjustmentPayload('evt_ooo2_rev', 'adjustment.created', 'txn_ooo2', 'chargeback_reverse', 'n/a', 'n/a', '2026-01-03T00:00:00Z');
+            $handler->handle($reverseBody, pwhSign($reverseBody));
+
+            $cbBody = pwhAdjustmentPayload('evt_ooo2_cb', 'adjustment.created', 'txn_ooo2', 'chargeback', 'n/a', 'n/a', '2026-01-02T00:00:00Z');
+            $handler->handle($cbBody, pwhSign($cbBody));
+
+            $txnBody = pwhTransactionCompletedPayload('evt_ooo2_txn', 'txn_ooo2', 'raw-ref-ooo2', '2026-01-01T00:00:00Z');
+            $handler->handle($txnBody, pwhSign($txnBody));
+
+            $grants = new TransactionGrantRepository($pdo);
+            assertSame('active', $grants->findByTransactionId('txn_ooo2')['status'], 'reconciliation must apply the chargeback then the reverse in occurred_at order, ending active');
+            $entitlements = new EntitlementRepository($pdo);
+            assertTrue($entitlements->find('user-1', 'full_tamamizu')['active'], 'entitlement should be active after correct in-order reconciliation');
+        },
+
+        'a stale queued chargeback_reverse (occurred_at older than a newer queued chargeback) does not win reconciliation' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $handler = makePurchaseWebhookHandler($pdo);
+            $intents = new PurchaseIntentRepository($pdo);
+            $intents->create('user-1', 'full_tamamizu', 'raw-ref-ooo3', new \DateTimeImmutable('+30 minutes'));
+
+            // Reverse is OLDER (2026-01-02) than the chargeback it would
+            // otherwise reverse (2026-01-03) -- correct final state is
+            // 'chargeback', not 'active'.
+            $reverseBody = pwhAdjustmentPayload('evt_ooo3_rev', 'adjustment.created', 'txn_ooo3', 'chargeback_reverse', 'n/a', 'n/a', '2026-01-02T00:00:00Z');
+            $handler->handle($reverseBody, pwhSign($reverseBody));
+
+            $cbBody = pwhAdjustmentPayload('evt_ooo3_cb', 'adjustment.created', 'txn_ooo3', 'chargeback', 'n/a', 'n/a', '2026-01-03T00:00:00Z');
+            $handler->handle($cbBody, pwhSign($cbBody));
+
+            $txnBody = pwhTransactionCompletedPayload('evt_ooo3_txn', 'txn_ooo3', 'raw-ref-ooo3', '2026-01-01T00:00:00Z');
+            $handler->handle($txnBody, pwhSign($txnBody));
+
+            $grants = new TransactionGrantRepository($pdo);
+            assertSame('chargeback', $grants->findByTransactionId('txn_ooo3')['status'], 'the chronologically later chargeback must be the final state, not the earlier reverse');
+            $entitlements = new EntitlementRepository($pdo);
+            assertFalse($entitlements->find('user-1', 'full_tamamizu')['active'], 'entitlement must remain revoked');
+        },
+
+        // -- Phase H1-3: repurchase interaction --
+
+        'repurchase: a chargeback on an old transaction never touches a new transaction for the same user/product' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $handler = makePurchaseWebhookHandler($pdo);
+            pwhMakeActiveGrant($pdo, $handler, 'user-1', 'raw-ref-rep1a', 'evt_rep1a_txn', 'txn_rep1a');
+
+            $cbBody = pwhAdjustmentPayload('evt_rep1a_cb', 'adjustment.created', 'txn_rep1a', 'chargeback', 'n/a', 'n/a', '2026-01-02T00:00:00Z');
+            $handler->handle($cbBody, pwhSign($cbBody));
+
+            // Repurchase -- a distinct transaction/intent for the same
+            // user/product.
+            pwhMakeActiveGrant($pdo, $handler, 'user-1', 'raw-ref-rep1b', 'evt_rep1b_txn', 'txn_rep1b');
+
+            $grants = new TransactionGrantRepository($pdo);
+            assertSame('chargeback', $grants->findByTransactionId('txn_rep1a')['status'], 'the old chargedback grant must be untouched');
+            assertSame('active', $grants->findByTransactionId('txn_rep1b')['status'], 'the repurchase grant must be active');
+            $entitlements = new EntitlementRepository($pdo);
+            assertTrue($entitlements->find('user-1', 'full_tamamizu')['active'], 'the repurchase must grant entitlement despite the old chargeback');
+        },
+
+        'repurchase: a late out-of-order chargeback_reverse for an old, already-chargedback transaction does not affect a newer repurchase grant' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $handler = makePurchaseWebhookHandler($pdo);
+            pwhMakeActiveGrant($pdo, $handler, 'user-1', 'raw-ref-rep2a', 'evt_rep2a_txn', 'txn_rep2a');
+
+            $cbBody = pwhAdjustmentPayload('evt_rep2a_cb', 'adjustment.created', 'txn_rep2a', 'chargeback', 'n/a', 'n/a', '2026-01-02T00:00:00Z');
+            $handler->handle($cbBody, pwhSign($cbBody));
+
+            pwhMakeActiveGrant($pdo, $handler, 'user-1', 'raw-ref-rep2b', 'evt_rep2b_txn', 'txn_rep2b');
+
+            // A late chargeback_reverse for the OLD transaction arrives.
+            $reverseBody = pwhAdjustmentPayload('evt_rep2a_rev', 'adjustment.created', 'txn_rep2a', 'chargeback_reverse', 'n/a', 'n/a', '2026-01-03T00:00:00Z');
+            $handler->handle($reverseBody, pwhSign($reverseBody));
+
+            $grants = new TransactionGrantRepository($pdo);
+            assertSame('active', $grants->findByTransactionId('txn_rep2a')['status'], 'the old transaction is correctly restored by its own reverse');
+            assertSame('active', $grants->findByTransactionId('txn_rep2b')['status'], 'the repurchase grant must remain untouched by the old transaction\'s reverse');
+            $entitlements = new EntitlementRepository($pdo);
+            assertTrue($entitlements->find('user-1', 'full_tamamizu')['active'], 'entitlement must remain active throughout -- B alone is enough');
+        },
+
+        // -- Phase H1-3: transaction boundary preserved from H1-2 --
+
+        'a chargeback event still goes through the same PDO transaction as other adjustment handling -- a claim collision is still safely rejected' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $handler = makePurchaseWebhookHandler($pdo);
+            pwhMakeActiveGrant($pdo, $handler, 'user-1', 'raw-ref-cbtx1', 'evt_cbtx1_txn', 'txn_cbtx1');
+
+            $body = pwhAdjustmentPayload('evt_cbtx1_cb', 'adjustment.created', 'txn_cbtx1', 'chargeback', 'n/a', 'n/a', '2026-01-02T00:00:00Z');
+            $first = $handler->handle($body, pwhSign($body));
+            $second = $handler->handle($body, pwhSign($body));
+
+            assertSame(200, $first->statusCode, 'first delivery should succeed');
+            assertSame(200, $second->statusCode, 'duplicate delivery of the same chargeback event must be safely acknowledged');
+            $eventCount = (int) $pdo->query("SELECT COUNT(*) FROM payment_events WHERE paddle_event_id = 'evt_cbtx1_cb'")->fetchColumn();
+            assertSame(1, $eventCount, 'the event claim must still be exactly-once for chargeback-family events, per the H1-2 transaction boundary');
         },
     ];
 }
