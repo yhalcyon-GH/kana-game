@@ -5,6 +5,7 @@ import { CHOUON_CATEGORY_ID, DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID, ROWS, SO
 import { PRACTICE_CHECKPOINTS } from '../data/practiceCheckpoints'
 import { useProgressStore } from '../store/progressStore'
 import { HomePage } from './HomePage'
+import { EntitlementContext } from '../components/EntitlementContext'
 
 beforeEach(() => {
   useProgressStore.getState().resetProgress()
@@ -35,7 +36,9 @@ function completeCategory(categoryId: string) {
 function renderHome() {
   return render(
     <MemoryRouter>
-      <HomePage />
+      <EntitlementContext.Provider value={{ state: { status: 'active', user: { userId: 'learner', emailNormalized: 'learner@example.com' } }, refresh: async () => {}, markSignedOut: () => {} }}>
+        <HomePage />
+      </EntitlementContext.Provider>
     </MemoryRouter>,
   )
 }

@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { CommercialAccessLink } from '../components/CommercialAccessLink'
 import { CategoryIcon } from '../components/CategoryIcon'
 import { RecommendedFrame, RecommendedLabel } from '../components/Recommended'
 import { ROWS_BY_ID } from '../data/curriculum'
@@ -24,16 +24,17 @@ function ContinueCard() {
   const section = SCRIPT_ENTRY_POINTS.find((card) => card.categoryIds.includes(lastStudied.categoryId))
 
   return (
-    <Link
+    <CommercialAccessLink
+      target={{ kind: 'row', rowId: row.id }}
       to={resumeRowHref(lastStudied)}
-      className="flex w-full max-w-md items-center justify-between gap-2 rounded-xl border border-neutral-300 bg-white px-4 py-2.5 hover:border-blue-400 dark:border-neutral-600 dark:bg-neutral-800"
+      className="flex w-full max-w-md flex-wrap items-center justify-between gap-2 rounded-xl border border-neutral-300 bg-white px-4 py-2.5 hover:border-blue-400 dark:border-neutral-600 dark:bg-neutral-800"
     >
       <span className="flex min-w-0 flex-col text-left">
         <span className="truncate text-sm font-semibold">{section?.english ?? section?.label ?? row.categoryId}</span>
         <span className="truncate text-xs text-neutral-500 dark:text-neutral-400">{row.label}</span>
       </span>
       <span className="shrink-0 text-sm font-semibold text-blue-600 dark:text-blue-400">Continue</span>
-    </Link>
+    </CommercialAccessLink>
   )
 }
 
@@ -61,10 +62,13 @@ export function HomePage() {
               ? `/assessment/${globalRecommendedTarget.assessmentScript}`
               : card.to
           const link = (
-            <Link
+            <CommercialAccessLink
               key={card.to}
+              target={isRecommended && globalRecommendedTarget?.assessmentScript
+                ? { kind: 'assessment', assessment: globalRecommendedTarget.assessmentScript }
+                : { kind: 'category', categoryId: isRecommended ? recommendedCategoryId! : card.categoryIds[0] }}
               to={destination}
-              className="flex h-full flex-col items-center gap-2 rounded-xl border border-neutral-300 bg-white p-6 text-center hover:border-blue-400 dark:border-neutral-600 dark:bg-neutral-800"
+              className="flex h-full min-w-0 flex-col items-center gap-2 rounded-xl border border-neutral-300 bg-white p-3 text-center hover:border-blue-400 sm:p-6 dark:border-neutral-600 dark:bg-neutral-800"
             >
               <CategoryIcon icon={card.icon} className="h-10 w-10 text-2xl" />
               <span className="font-kana text-2xl font-bold">{card.label}</span>
@@ -79,7 +83,7 @@ export function HomePage() {
                   )}
                 </>
               )}
-            </Link>
+            </CommercialAccessLink>
           )
           return isRecommended ? (
             <RecommendedFrame key={card.to} className="h-full">

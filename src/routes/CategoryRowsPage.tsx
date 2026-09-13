@@ -1,4 +1,5 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+import { CommercialAccessLink } from '../components/CommercialAccessLink'
 import { KanaIntroExcerptGuide } from '../components/KanaIntroExcerptGuide'
 import { ConceptGuide } from '../components/ConceptGuide'
 import { ChouonGuide } from '../components/ChouonGuide'
@@ -236,7 +237,6 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
                         globalRecommendedTarget?.rowId === segment.checkpoint.afterRowId &&
                         globalRecommendedTarget.activity === segment.checkpoint.mode
                       }
-                      onClick={() => navigate(segment.checkpoint!.routePath)}
                     />
                   )}
                 </div>
@@ -344,7 +344,8 @@ function AssessmentCards({
 function AssessmentCard({ config, score, graduated, recommended }: { config: AssessmentCardConfig; score?: { correct: number; total: number } | { correct: number; total: number; percentage: number }; graduated?: boolean; recommended: boolean }) {
   const scoreStatus = score ? getAssessmentCardScoreStatus(config.final === true, score, graduated === true) : null
   return (
-    <Link
+    <CommercialAccessLink
+      target={{ kind: 'assessment', assessment: config.script }}
       to={`/assessment/${config.script}`}
       data-testid={`assessment-card-${config.script}`}
       className={`w-full max-w-md rounded-2xl border px-5 py-4 text-left shadow-md transition hover:scale-[1.01] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500 dark:focus-visible:outline-amber-300 ${config.final ? 'border-orange-400 bg-orange-50 hover:bg-orange-100 dark:border-orange-700 dark:bg-orange-950/50 dark:hover:bg-orange-900/60' : 'border-amber-300 bg-amber-50 hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/40 dark:hover:bg-amber-900/50'} ${recommended ? 'ring-2 ring-yellow-400 ring-offset-2 dark:ring-yellow-300' : ''}`}
@@ -364,7 +365,7 @@ function AssessmentCard({ config, score, graduated, recommended }: { config: Ass
           )}
         </span>
       </span>
-    </Link>
+    </CommercialAccessLink>
   )
 }
 
@@ -379,22 +380,20 @@ function getAssessmentCardScoreStatus(isFinal: boolean, score: { correct: number
 }
 
 // Shared CTA markup for every inline Restaurant/Cafe checkpoint. It stays
-// freely clickable at all times, but now shows the same single ⭐ Recommended
+// clickable when commercially accessible, and shows the same single ⭐ Recommended
 // signal when this checkpoint is the current Global Recommended step.
 function PracticeCheckpointCta({
   checkpoint,
   recommended,
-  onClick,
 }: {
   checkpoint: PracticeCheckpoint
   recommended: boolean
-  onClick: () => void
 }) {
   const isCafe = checkpoint.mode === 'cafe'
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <CommercialAccessLink
+      target={{ kind: 'checkpoint', checkpointId: checkpoint.id, mode: checkpoint.mode }}
+      to={checkpoint.routePath}
       data-testid={isCafe ? 'cafe-cta' : 'restaurant-cta'}
       className={`w-full max-w-md rounded-2xl border bg-amber-50 px-5 py-4 text-left shadow-md transition hover:border-amber-400 hover:bg-amber-100 active:scale-[0.98] dark:bg-amber-950/40 dark:hover:bg-amber-900/50 ${
         recommended
@@ -416,6 +415,6 @@ function PracticeCheckpointCta({
         </span>
         <span className="shrink-0 text-sm font-bold text-amber-800 dark:text-amber-200">Try it →</span>
       </span>
-    </button>
+    </CommercialAccessLink>
   )
 }

@@ -22,6 +22,13 @@ function renderNav() {
 }
 
 describe('NavBar top row', () => {
+  it('exposes a compact Account link in the unwrapped 320px top row', () => {
+    renderNav()
+    const account = screen.getByRole('link', { name: 'Account' })
+    expect(account).toHaveAttribute('href', '/account')
+    expect(account).toHaveAttribute('title', 'Account')
+    expect(account.closest('nav')).toHaveClass('flex-nowrap')
+  })
   it('renders Home, Review, and Saved as icon+label links', () => {
     renderNav()
     expect(screen.getByRole('link', { name: /Home/ })).toHaveAttribute('href', '/')

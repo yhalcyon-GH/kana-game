@@ -1,4 +1,5 @@
-import { fireEvent, render } from '@testing-library/react'
+import type { ReactNode } from 'react'
+import { fireEvent, render as renderWithTestingLibrary } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { CHOUON_CATEGORY_ID, DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID, SOKUON_CATEGORY_ID, SPECIAL_KATAKANA_CATEGORY_ID, YOUON_CATEGORY_ID } from '../data/curriculum'
@@ -16,6 +17,16 @@ import {
 } from '../data/askTamamizu'
 import { useProgressStore } from '../store/progressStore'
 import { CategoryRowsPage } from './CategoryRowsPage'
+import { EntitlementContext } from '../components/EntitlementContext'
+
+// These progression/guide tests exercise the fully entitled curriculum.
+function render(children: ReactNode) {
+  return renderWithTestingLibrary(
+    <EntitlementContext.Provider value={{ state: { status: 'active', user: { userId: 'learner', emailNormalized: 'learner@example.com' } }, refresh: async () => {}, markSignedOut: () => {} }}>
+      {children}
+    </EntitlementContext.Provider>,
+  )
+}
 
 function renderKatakana() {
   return render(
