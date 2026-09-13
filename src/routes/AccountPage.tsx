@@ -1,18 +1,7 @@
-import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import {
-  fetchCurrentEntitlement,
-  fetchCurrentUser,
-  logout,
-  type CurrentUser,
-} from '../lib/auth/productionAuthClient'
+import { useEntitlement } from '../components/EntitlementContext'
+import { logout } from '../lib/auth/productionAuthClient'
 import { readProductionAuthApiBase } from '../lib/auth/productionAuthApiBase'
-
-type EntitlementCheckState =
-  | { kind: 'idle' }
-  | { kind: 'loading' }
-  | { kind: 'success'; active: boolean }
-  | { kind: 'error' }
 
 /**
  * Production account page — current signed-in user (resolved via the
@@ -20,40 +9,20 @@ type EntitlementCheckState =
  * and a read-only entitlement lookup. See docs/adr/0001-cross-site-
  * auth-transport.md and src/lib/auth/productionAuthClient.ts.
  *
- * Reloading this page re-resolves the session from the cookie alone
- * (fetchCurrentUser() with credentials: 'include') -- there is nothing
- * to restore from any client-side storage, by design.
+ * The app-level EntitlementProvider re-resolves the session and entitlement
+ * from the cookie on startup, focus, login, and manual refresh -- there is
+ * nothing to restore from any client-side storage, by design.
  */
 export default function AccountPage() {
   const apiBase = readProductionAuthApiBase()
-  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
-  const [loadingUser, setLoadingUser] = useState(true)
-  const [entitlementCheck, setEntitlementCheck] = useState<EntitlementCheckState>({ kind: 'idle' })
-
-  const refreshCurrentUser = useCallback(async () => {
-    setLoadingUser(true)
-    const user = await fetchCurrentUser(apiBase)
-    setCurrentUser(user)
-    setLoadingUser(false)
-  }, [apiBase])
-
-  useEffect(() => {
-    void refreshCurrentUser()
-  }, [refreshCurrentUser])
-
-  async function handleCheckEntitlement() {
-    setEntitlementCheck({ kind: 'loading' })
-    const result = await fetchCurrentEntitlement(apiBase)
-    setEntitlementCheck(result ? { kind: 'success', active: result.active } : { kind: 'error' })
-  }
+  const { state, refresh, markSignedOut } = useEntitlement()
 
   async function handleLogout() {
     await logout(apiBase)
-    setCurrentUser(null)
-    setEntitlementCheck({ kind: 'idle' })
+    markSignedOut()
   }
 
-  if (loadingUser) {
+  if (state.status === 'loading') {
     return (
       <div className="flex w-full max-w-sm flex-col items-center gap-6">
         <h1 className="text-2xl font-bold">Account</h1>
@@ -62,7 +31,7 @@ export default function AccountPage() {
     )
   }
 
-  if (!currentUser) {
+  if (state.status === 'signed-out') {
     return (
       <div className="flex w-full max-w-sm flex-col items-center gap-6">
         <h1 className="text-2xl font-bold">Account</h1>
@@ -74,6 +43,25 @@ export default function AccountPage() {
     )
   }
 
+  if (state.status === 'unavailable' && !state.user) {
+    return (
+      <div className="flex w-full max-w-sm flex-col items-center gap-6">
+        <h1 className="text-2xl font-bold">Account</h1>
+        <p role="status">Account status is temporarily unavailable.</p>
+        <button
+          type="button"
+          onClick={() => void refresh()}
+          className="w-full rounded-xl border border-neutral-400 px-5 py-3 font-semibold hover:border-blue-500 dark:border-neutral-600"
+        >
+          Try again
+        </button>
+      </div>
+    )
+  }
+
+  const currentUser = state.user
+  if (!currentUser) return null
+
   return (
     <div className="flex w-full max-w-sm flex-col items-center gap-6">
       <h1 className="text-2xl font-bold">Account</h1>
@@ -84,17 +72,15 @@ export default function AccountPage() {
 
       <button
         type="button"
-        onClick={() => void handleCheckEntitlement()}
-        disabled={entitlementCheck.kind === 'loading'}
-        className="w-full rounded-xl border border-neutral-400 px-5 py-3 font-semibold hover:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-600"
+        onClick={() => void refresh()}
+        className="w-full rounded-xl border border-neutral-400 px-5 py-3 font-semibold hover:border-blue-500 dark:border-neutral-600"
       >
         Check entitlement
       </button>
       <p role="status">
-        {entitlementCheck.kind === 'idle' && 'Entitlement: not checked yet.'}
-        {entitlementCheck.kind === 'loading' && 'Checking entitlement…'}
-        {entitlementCheck.kind === 'success' && `Entitlement: ${entitlementCheck.active ? 'active' : 'inactive'}`}
-        {entitlementCheck.kind === 'error' && 'Entitlement check failed.'}
+        {state.status === 'active' && 'Entitlement: active'}
+        {state.status === 'inactive' && 'Entitlement: inactive'}
+        {state.status === 'unavailable' && 'Entitlement check failed.'}
       </p>
 
       <button
