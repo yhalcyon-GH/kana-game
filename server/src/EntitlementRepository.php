@@ -30,48 +30,40 @@ final class EntitlementRepository
     private function upsert(string $internalUserId, string $productKey, bool $active, string $paddleTransactionId): void
     {
         // Relies on the UNIQUE (internal_user_id, product_key) key from
-        // server/sql/schema.sql. A re-delivered webhook or a repeat
-        // Sandbox purchase for the same user/product safely converges on
-        // the same row rather than erroring or duplicating.
+        // server/sql/schema.sql (uniq_user_product). A re-delivered webhook
+        // or a repeat purchase for the same user/product safely converges
+        // on the same row rather than erroring or duplicating.
         //
-        // Uses a portable SELECT-then-INSERT/UPDATE instead of MySQL's
-        // `INSERT ... ON DUPLICATE KEY UPDATE` so the exact same repository
-        // code runs against the real MySQL deployment AND against SQLite
-        // in tests/run-tests.php — this PoC intentionally avoids a second,
-        // divergent code path just for tests. A theoretical two-writer
-        // race on first-ever insert for a given (user, product) is
-        // acceptable for this PoC's scope (Sandbox, single fixed test
-        // user) and is called out in docs/paddle-webhook-poc.md's Known
-        // limitations.
-        $existing = $this->pdo->prepare(
-            'SELECT id FROM entitlements WHERE internal_user_id = :user_id AND product_key = :product_key LIMIT 1',
-        );
-        $existing->execute(['user_id' => $internalUserId, 'product_key' => $productKey]);
-        $id = $existing->fetchColumn();
+        // Phase H1-1: this used to be a portable SELECT-then-INSERT/UPDATE,
+        // which has a first-insert race between the SELECT and the INSERT —
+        // two concurrent webhook deliveries for the same (user, product)
+        // could both see no row and both attempt INSERT, throwing an
+        // uncaught PDOException from the loser. That was accepted for this
+        // PoC's original Sandbox/single-fixed-user scope but is unsafe now
+        // that this path serves real, concurrent users (Phase 3A+). Fixed
+        // here with a single atomic INSERT ... ON DUPLICATE KEY UPDATE /
+        // ON CONFLICT statement per dialect, still kept portable across
+        // the real MySQL deployment and SQLite in tests/run-tests.php.
+        $driver = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+        $sql = $driver === 'sqlite'
+            ? 'INSERT INTO entitlements (internal_user_id, product_key, active, paddle_transaction_id, updated_at)
+               VALUES (:user_id, :product_key, :active, :transaction_id, CURRENT_TIMESTAMP)
+               ON CONFLICT (internal_user_id, product_key)
+               DO UPDATE SET active = excluded.active,
+                              paddle_transaction_id = excluded.paddle_transaction_id,
+                              updated_at = CURRENT_TIMESTAMP'
+            : 'INSERT INTO entitlements (internal_user_id, product_key, active, paddle_transaction_id)
+               VALUES (:user_id, :product_key, :active, :transaction_id)
+               ON DUPLICATE KEY UPDATE active = VALUES(active),
+                                        paddle_transaction_id = VALUES(paddle_transaction_id),
+                                        updated_at = CURRENT_TIMESTAMP';
 
-        if ($id === false) {
-            $insert = $this->pdo->prepare(
-                'INSERT INTO entitlements (internal_user_id, product_key, active, paddle_transaction_id)
-                 VALUES (:user_id, :product_key, :active, :transaction_id)',
-            );
-            $insert->execute([
-                'user_id' => $internalUserId,
-                'product_key' => $productKey,
-                'active' => $active ? 1 : 0,
-                'transaction_id' => $paddleTransactionId,
-            ]);
-            return;
-        }
-
-        $update = $this->pdo->prepare(
-            'UPDATE entitlements
-             SET active = :active, paddle_transaction_id = :transaction_id, updated_at = CURRENT_TIMESTAMP
-             WHERE id = :id',
-        );
-        $update->execute([
+        $statement = $this->pdo->prepare($sql);
+        $statement->execute([
+            'user_id' => $internalUserId,
+            'product_key' => $productKey,
             'active' => $active ? 1 : 0,
             'transaction_id' => $paddleTransactionId,
-            'id' => $id,
         ]);
     }
 

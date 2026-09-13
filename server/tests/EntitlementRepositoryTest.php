@@ -93,5 +93,53 @@ function entitlementRepositoryTests(): array
 
             assertSame(null, $repo->find('sandbox-test-user', 'some_other_product'), 'a different product must not be affected');
         },
+
+        // Phase H1-1 regression: upsert() moved from SELECT-then-INSERT/UPDATE
+        // to a single atomic INSERT ... ON DUPLICATE KEY UPDATE / ON CONFLICT
+        // statement to remove a first-insert race. True concurrent-thread
+        // testing isn't feasible against a single SQLite in-memory
+        // connection, so these are the accepted sequential-call proxy: the
+        // fixed statement must behave identically to the old branching logic
+        // for repeated calls on the same (user, product), with no exception.
+        'consecutive activate() calls for the same user/product do not throw and converge on one active row' => function () {
+            $pdo = makeEntitlementsTestDb();
+            $repo = new EntitlementRepository($pdo);
+            $repo->activate('sandbox-test-user', 'full_tamamizu', 'txn_1');
+            $repo->activate('sandbox-test-user', 'full_tamamizu', 'txn_2');
+            $repo->activate('sandbox-test-user', 'full_tamamizu', 'txn_3');
+
+            $count = (int) $pdo->query('SELECT COUNT(*) FROM entitlements')->fetchColumn();
+            assertSame(1, $count, 'exactly one row should exist after repeated activations');
+
+            $found = $repo->find('sandbox-test-user', 'full_tamamizu');
+            assertTrue($found['active'], 'should still be active');
+        },
+
+        'activate() then revoke() for the same user/product does not throw and leaves the row inactive' => function () {
+            $pdo = makeEntitlementsTestDb();
+            $repo = new EntitlementRepository($pdo);
+            $repo->activate('sandbox-test-user', 'full_tamamizu', 'txn_1');
+            $repo->revoke('sandbox-test-user', 'full_tamamizu', 'txn_1_refund');
+
+            $count = (int) $pdo->query('SELECT COUNT(*) FROM entitlements')->fetchColumn();
+            assertSame(1, $count, 'exactly one row should exist');
+
+            $found = $repo->find('sandbox-test-user', 'full_tamamizu');
+            assertFalse($found['active'], 'should be inactive after revoke');
+        },
+
+        'revoke() then activate() (rejected refund / repurchase) does not throw and leaves the row active' => function () {
+            $pdo = makeEntitlementsTestDb();
+            $repo = new EntitlementRepository($pdo);
+            $repo->activate('sandbox-test-user', 'full_tamamizu', 'txn_1');
+            $repo->revoke('sandbox-test-user', 'full_tamamizu', 'txn_1_refund');
+            $repo->activate('sandbox-test-user', 'full_tamamizu', 'txn_1_restore');
+
+            $count = (int) $pdo->query('SELECT COUNT(*) FROM entitlements')->fetchColumn();
+            assertSame(1, $count, 'exactly one row should exist');
+
+            $found = $repo->find('sandbox-test-user', 'full_tamamizu');
+            assertTrue($found['active'], 'should be active again');
+        },
     ];
 }
