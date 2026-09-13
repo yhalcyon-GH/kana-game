@@ -30,6 +30,11 @@ export type CurrentEntitlementResult =
   | { kind: 'signed-out' }
   | { kind: 'unavailable' }
 
+export type PurchaseIntentResult =
+  | { kind: 'created'; purchaseRef: string }
+  | { kind: 'signed-out' }
+  | { kind: 'unavailable' }
+
 async function safeJson(response: Response): Promise<unknown> {
   try {
     return await response.json()
@@ -118,6 +123,26 @@ export async function fetchCurrentEntitlementResult(apiBase: string): Promise<Cu
     const body = (await safeJson(response)) as { active?: unknown } | null
     if (typeof body?.active !== 'boolean') return { kind: 'unavailable' }
     return { kind: 'available', entitlement: { active: body.active } }
+  } catch {
+    return { kind: 'unavailable' }
+  }
+}
+
+/** The server selects the user and product from its cookie-authenticated session. */
+export async function createPurchaseIntent(apiBase: string): Promise<PurchaseIntentResult> {
+  try {
+    const response = await fetch(`${apiBase}/purchase-intent.php`, {
+      method: 'POST',
+      credentials: 'include',
+    })
+    if (response.status === 401) return { kind: 'signed-out' }
+    if (!response.ok) return { kind: 'unavailable' }
+
+    const body = (await safeJson(response)) as { purchase_ref?: unknown } | null
+    if (typeof body?.purchase_ref !== 'string' || body.purchase_ref.trim().length === 0) {
+      return { kind: 'unavailable' }
+    }
+    return { kind: 'created', purchaseRef: body.purchase_ref }
   } catch {
     return { kind: 'unavailable' }
   }

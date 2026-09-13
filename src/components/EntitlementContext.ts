@@ -8,15 +8,27 @@ export type EntitlementState =
   | { status: 'active'; user: CurrentUser }
   | { status: 'unavailable'; user: CurrentUser | null }
 
+export type EntitlementRefreshResult =
+  | { kind: 'applied'; state: EntitlementState }
+  | { kind: 'unavailable' }
+  | { kind: 'stale' }
+
+export type EntitlementRefreshOptions = {
+  /** Preserve the current presentation while purchase confirmation is in flight. */
+  nonDisruptive?: boolean
+  /** An invalidated Account attempt must never apply its pending verification. */
+  signal?: AbortSignal
+}
+
 export type EntitlementContextValue = {
   state: EntitlementState
-  refresh: () => Promise<void>
+  refresh: (options?: EntitlementRefreshOptions) => Promise<EntitlementRefreshResult>
   markSignedOut: () => void
 }
 
 const defaultValue: EntitlementContextValue = {
   state: { status: 'loading', user: null },
-  refresh: async () => {},
+  refresh: async () => ({ kind: 'stale' }),
   markSignedOut: () => {},
 }
 

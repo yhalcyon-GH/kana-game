@@ -23,7 +23,8 @@ vi.mock('../lib/auth/authClient', async () => {
 vi.mock('@paddle/paddle-js', () => ({ initializePaddle: vi.fn() }))
 const openCheckout = vi.fn()
 const closeCheckout = vi.fn()
-const paddle = { Initialized: true, Checkout: { open: openCheckout, close: closeCheckout } } as unknown as Paddle
+const updatePaddle = vi.fn()
+const paddle = { Initialized: true, Checkout: { open: openCheckout, close: closeCheckout }, Update: updatePaddle } as unknown as Paddle
 
 async function signInWithPurchaseRef(purchaseRef = 'raw-purchase-ref-value') {
   inMemorySessionTransport.setToken('session-abc')
@@ -35,7 +36,7 @@ async function signInWithPurchaseRef(purchaseRef = 'raw-purchase-ref-value') {
   await act(async () => {
     fireEvent.click(screen.getByRole('button', { name: /create purchase intent/i }))
   })
-  await waitFor(() => expect(screen.getByTestId('purchase-ref-value')).toHaveTextContent(purchaseRef))
+  await screen.findByTestId('purchase-intent-status')
 }
 
 // Minimal fixture matching Paddle's real checkout.loaded/completed event
@@ -56,7 +57,7 @@ function paddleEventFixture(
 }
 
 function latestEventCallback() {
-  return vi.mocked(initializePaddle).mock.calls.at(-1)?.[0]?.eventCallback
+  return updatePaddle.mock.calls.at(-1)?.[0]?.eventCallback ?? vi.mocked(initializePaddle).mock.calls.at(-1)?.[0]?.eventCallback
 }
 
 function renderPage() {
@@ -168,7 +169,7 @@ describe('AccountTestPage', () => {
     expect(await screen.findByText('signed-in@example.com')).toBeInTheDocument()
   })
 
-  it('creating a purchase intent shows the returned purchase_ref, never internal_user_id anywhere', async () => {
+  it('creating a purchase intent shows readiness without exposing the raw purchase reference', async () => {
     inMemorySessionTransport.setToken('session-abc')
     vi.mocked(authClient.fetchCurrentUser).mockResolvedValue({ userId: 'u1', emailNormalized: 'signed-in@example.com' })
     vi.mocked(authClient.createPurchaseIntent).mockResolvedValueOnce('raw-purchase-ref-value')
@@ -179,12 +180,9 @@ describe('AccountTestPage', () => {
       fireEvent.click(screen.getByRole('button', { name: /create purchase intent/i }))
     })
 
-    await waitFor(() => expect(screen.getByTestId('purchase-ref-value')).toHaveTextContent('raw-purchase-ref-value'))
-    // The purchase-intent section's own text never names internal_user_id
-    // as a value in play here -- the Sandbox Checkout section below it
-    // legitimately mentions the name in prose ("never internal_user_id")
-    // to document what customData excludes, which is a distinct claim.
-    expect(screen.getByTestId('purchase-ref-value').closest('section')).not.toHaveTextContent('internal_user_id')
+    await screen.findByTestId('purchase-intent-status')
+    expect(document.body.innerHTML).not.toContain('raw-purchase-ref-value')
+    expect(screen.getByTestId('purchase-intent-status')).toHaveTextContent(/ready/i)
   })
 
   it('checking entitlement shows active/inactive from the server, not from any client-side checkout event', async () => {
@@ -249,13 +247,14 @@ describe('AccountTestPage', () => {
     expect(Object.keys(call.customData ?? {})).toEqual(['purchase_ref'])
   })
 
-  it('never places the raw purchase_ref in the URL or browser storage', async () => {
+  it('never places the raw purchase_ref in the DOM, URL or browser storage', async () => {
     const storageWrite = vi.spyOn(Storage.prototype, 'setItem')
     await signInWithPurchaseRef('raw-purchase-ref-value')
 
     fireEvent.click(screen.getByRole('button', { name: 'Open Paddle Sandbox Checkout' }))
     await waitFor(() => expect(openCheckout).toHaveBeenCalledTimes(1))
 
+    expect(document.body.innerHTML).not.toContain('raw-purchase-ref-value')
     expect(window.location.href).not.toContain('raw-purchase-ref-value')
     expect(storageWrite).not.toHaveBeenCalled()
     storageWrite.mockRestore()
@@ -303,7 +302,7 @@ describe('AccountTestPage', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /create purchase intent/i }))
     })
-    await waitFor(() => expect(screen.getByTestId('purchase-ref-value')).toHaveTextContent('ref-2'))
+    await screen.findByTestId('purchase-intent-status')
 
     fireEvent.click(screen.getByRole('button', { name: 'Open Paddle Sandbox Checkout' }))
     await waitFor(() => expect(openCheckout).toHaveBeenCalledTimes(2))
@@ -403,7 +402,7 @@ describe('AccountTestPage', () => {
     expect(button).toBeDisabled()
   })
 
-  it('checkout.closed safely resets state, re-enabling both buttons for a retry', async () => {
+  it('checkout.closed clears the reference and requires a fresh intent before retry', async () => {
     await signInWithPurchaseRef('raw-purchase-ref-value')
     fireEvent.click(screen.getByRole('button', { name: 'Open Paddle Sandbox Checkout' }))
     await waitFor(() => expect(openCheckout).toHaveBeenCalledTimes(1))
@@ -414,7 +413,7 @@ describe('AccountTestPage', () => {
     })
 
     expect(screen.getByRole('button', { name: /create purchase intent/i })).toBeEnabled()
-    expect(screen.getByRole('button', { name: 'Open Paddle Sandbox Checkout' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Open Paddle Sandbox Checkout' })).toBeDisabled()
   })
 
   it('keeps Open disabled for the same purchase_ref after a correlated completion, until a new intent is created', async () => {
@@ -435,7 +434,7 @@ describe('AccountTestPage', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /create purchase intent/i }))
     })
-    await waitFor(() => expect(screen.getByTestId('purchase-ref-value')).toHaveTextContent('ref-2'))
+    await screen.findByTestId('purchase-intent-status')
 
     expect(screen.getByRole('button', { name: 'Open Paddle Sandbox Checkout' })).toBeEnabled()
   })
@@ -450,7 +449,7 @@ describe('AccountTestPage', () => {
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /create purchase intent/i }))
     })
-    await waitFor(() => expect(screen.getByTestId('purchase-ref-value')).toHaveTextContent('raw-purchase-ref-value'))
+    await screen.findByTestId('purchase-intent-status')
 
     fireEvent.click(screen.getByRole('button', { name: 'Open Paddle Sandbox Checkout' }))
     await waitFor(() => expect(openCheckout).toHaveBeenCalledTimes(1))

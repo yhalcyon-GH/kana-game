@@ -31,7 +31,7 @@ const browseSurfaces = [
 
 function withAccess(children: ReactNode, status: EntitlementState['status']) {
   const state: EntitlementState = status === 'signed-out' ? { status, user: null } : { status, user }
-  return <EntitlementContext.Provider value={{ state, refresh: async () => {}, markSignedOut: () => {} }}>
+  return <EntitlementContext.Provider value={{ state, refresh: async () => ({ kind: 'stale' }), markSignedOut: () => {} }}>
     <GuideHighlightProvider>{children}</GuideHighlightProvider>
   </EntitlementContext.Provider>
 }

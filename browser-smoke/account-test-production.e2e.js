@@ -40,3 +40,30 @@ test('production exposes the new /login and /account routes', async ({ page }) =
   if (await skip.isVisible()) await skip.click()
   await expect(page.getByRole('heading', { name: 'Account', exact: true })).toBeVisible()
 })
+
+test('inactive production Account fails closed without Sandbox config at 320px', async ({ page }) => {
+  await installProductionAuthFixture(page, 'inactive')
+  await page.setViewportSize({ width: 320, height: 800 })
+  await page.goto('./#/account')
+  const skip = page.getByRole('button', { name: 'Skip', exact: true })
+  if (await skip.isVisible()) await skip.click()
+
+  await expect(page.getByRole('heading', { name: 'Full Tamamizu', exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Sandbox test purchase' })).toBeDisabled()
+  await expect(page.getByText('Sandbox configuration unavailable')).toBeVisible()
+  const hasOverflow = await page.locator('body').evaluate((body) => body.scrollWidth > body.clientWidth)
+  expect(hasOverflow).toBe(false)
+})
+
+test('active production Account has no purchase CTA at 320px', async ({ page }) => {
+  await installProductionAuthFixture(page, 'active')
+  await page.setViewportSize({ width: 320, height: 800 })
+  await page.goto('./#/account')
+  const skip = page.getByRole('button', { name: 'Skip', exact: true })
+  if (await skip.isVisible()) await skip.click()
+
+  await expect(page.getByText('Full Tamamizu: Active')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Sandbox test purchase' })).toHaveCount(0)
+  const hasOverflow = await page.locator('body').evaluate((body) => body.scrollWidth > body.clientWidth)
+  expect(hasOverflow).toBe(false)
+})
