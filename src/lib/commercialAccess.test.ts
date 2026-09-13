@@ -94,5 +94,7 @@ describe('commercial access policy', () => {
     expect(isCategoryAccessible('future-unknown-category', 'active')).toBe(false)
     expect(isRowAccessible('future-unknown-row', 'active')).toBe(false)
     expect(isActivityAccessible({ rowId: 'a-row', activity: 'future-game' as never }, 'active')).toBe(false)
+    expect(isReviewContentAccessible('future-unknown-category', 'active')).toBe(false)
+    expect(isSavedContentAccessible('future-unknown-category', 'active')).toBe(false)
   })
 })
