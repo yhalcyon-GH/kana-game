@@ -166,8 +166,12 @@ describe('production Account purchase UI', () => {
     entitlement = { active: 'not-a-boolean' }
     await complete()
     expect(screen.getByText('Processing purchase…')).toBeInTheDocument()
+    expect(screen.getByLabelText('Server access')).toHaveTextContent('inactive')
+    expect(screen.getByText('Signed in as')).toBeInTheDocument()
     await act(async () => { await vi.advanceTimersByTimeAsync(30_000) })
     expect(screen.getByText('Still confirming your purchase')).toBeInTheDocument()
+    expect(screen.getByLabelText('Server access')).toHaveTextContent('inactive')
+    expect(screen.getByText('Signed in as')).toBeInTheDocument()
     expect(document.body.textContent).not.toMatch(/payment failed/i)
     expect(screen.queryByRole('button', { name: 'Sandbox test purchase' })).not.toBeInTheDocument()
     expect(requestCount('/entitlement-me.php')).toBe(7)
