@@ -1,22 +1,25 @@
 import { CATEGORIES_BY_ID, DEFAULT_CATEGORY_ID, ROWS_BY_ID } from '../data/curriculum'
+import { PRACTICE_CHECKPOINTS_BY_ID } from '../data/practiceCheckpoints'
+import type { PracticeMode } from '../data/restaurantDishes'
 import type { AssessmentScript } from '../store/progressStore'
 
 export type EntitlementStatus = 'signed-out' | 'loading' | 'inactive' | 'active' | 'unavailable'
 
-export type CommercialActivity =
-  | 'learn'
-  | 'tracing'
-  | 'kana-quiz'
-  | 'listening'
-  | 'kana-typing'
-  | 'word-builder'
-  | 'restaurant'
-  | 'cafe'
+export const COMMERCIAL_ACTIVITIES = [
+  'learn',
+  'tracing',
+  'kana-quiz',
+  'listening',
+  'kana-typing',
+  'word-builder',
+] as const
+export type CommercialActivity = (typeof COMMERCIAL_ACTIVITIES)[number]
 
 export type CommercialAccessTarget =
   | { kind: 'category'; categoryId: string }
   | { kind: 'row'; rowId: string }
   | { kind: 'activity'; rowId: string; activity: CommercialActivity }
+  | { kind: 'checkpoint'; checkpointId: string; mode: PracticeMode }
   | { kind: 'assessment'; assessment: AssessmentScript }
   | { kind: 'review-content'; sourceCategoryId: string }
   | { kind: 'saved-content'; sourceCategoryId: string }
@@ -28,6 +31,7 @@ const KNOWN_ASSESSMENTS = new Set<AssessmentScript>([
   'youon-special-katakana',
   'final-graduation',
 ])
+const KNOWN_ACTIVITIES = new Set<CommercialActivity>(COMMERCIAL_ACTIVITIES)
 
 function isKnownCategory(categoryId: string): boolean {
   return CATEGORIES_BY_ID[categoryId] !== undefined
@@ -53,6 +57,12 @@ export function isCommerciallyAccessible(target: CommercialAccessTarget, status:
     }
     case 'activity': {
       const row = ROWS_BY_ID[target.rowId]
+      return KNOWN_ACTIVITIES.has(target.activity) && row !== undefined && hasCategoryAccess(row.categoryId, status)
+    }
+    case 'checkpoint': {
+      const checkpoint = PRACTICE_CHECKPOINTS_BY_ID[target.checkpointId]
+      if (!checkpoint || checkpoint.mode !== target.mode) return false
+      const row = ROWS_BY_ID[checkpoint.afterRowId]
       return row !== undefined && hasCategoryAccess(row.categoryId, status)
     }
     case 'assessment':
@@ -81,6 +91,14 @@ export function isActivityAccessible(
 
 export function isAssessmentAccessible(assessment: AssessmentScript, status: EntitlementStatus): boolean {
   return isCommerciallyAccessible({ kind: 'assessment', assessment }, status)
+}
+
+export function isCheckpointAccessible(
+  checkpointId: string,
+  mode: PracticeMode,
+  status: EntitlementStatus,
+): boolean {
+  return isCommerciallyAccessible({ kind: 'checkpoint', checkpointId, mode }, status)
 }
 
 export function isReviewContentAccessible(sourceCategoryId: string, status: EntitlementStatus): boolean {

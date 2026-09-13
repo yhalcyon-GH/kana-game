@@ -95,9 +95,11 @@ describe('productionAuthClient', () => {
   it('fetchCurrentUserResult() distinguishes signed-out from an unavailable API', async () => {
     vi.mocked(fetch)
       .mockResolvedValueOnce(jsonResponse({ error: 'unauthorized' }, false, 401))
+      .mockResolvedValueOnce(jsonResponse({ error: 'forbidden' }, false, 403))
       .mockResolvedValueOnce(jsonResponse({ error: 'server failure' }, false, 500))
 
     expect(await fetchCurrentUserResult(API_BASE)).toEqual({ kind: 'signed-out' })
+    expect(await fetchCurrentUserResult(API_BASE)).toEqual({ kind: 'unavailable' })
     expect(await fetchCurrentUserResult(API_BASE)).toEqual({ kind: 'unavailable' })
   })
 
@@ -113,9 +115,11 @@ describe('productionAuthClient', () => {
   it('fetchCurrentEntitlementResult() distinguishes an expired session from an unavailable API', async () => {
     vi.mocked(fetch)
       .mockResolvedValueOnce(jsonResponse({ error: 'unauthorized' }, false, 401))
+      .mockResolvedValueOnce(jsonResponse({ error: 'forbidden' }, false, 403))
       .mockRejectedValueOnce(new Error('network down'))
 
     expect(await fetchCurrentEntitlementResult(API_BASE)).toEqual({ kind: 'signed-out' })
+    expect(await fetchCurrentEntitlementResult(API_BASE)).toEqual({ kind: 'unavailable' })
     expect(await fetchCurrentEntitlementResult(API_BASE)).toEqual({ kind: 'unavailable' })
   })
 

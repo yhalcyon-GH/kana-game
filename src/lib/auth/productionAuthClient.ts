@@ -92,7 +92,7 @@ export async function fetchCurrentUser(apiBase: string): Promise<CurrentUser | n
 export async function fetchCurrentUserResult(apiBase: string): Promise<CurrentUserResult> {
   try {
     const response = await fetch(`${apiBase}/auth/me.php`, { credentials: 'include' })
-    if (response.status === 401 || response.status === 403) return { kind: 'signed-out' }
+    if (response.status === 401) return { kind: 'signed-out' }
     if (!response.ok) return { kind: 'unavailable' }
 
     const body = (await safeJson(response)) as { user_id?: unknown; email_normalized?: unknown } | null
@@ -112,7 +112,7 @@ export async function fetchCurrentEntitlement(apiBase: string): Promise<CurrentE
 export async function fetchCurrentEntitlementResult(apiBase: string): Promise<CurrentEntitlementResult> {
   try {
     const response = await fetch(`${apiBase}/entitlement-me.php`, { credentials: 'include' })
-    if (response.status === 401 || response.status === 403) return { kind: 'signed-out' }
+    if (response.status === 401) return { kind: 'signed-out' }
     if (!response.ok) return { kind: 'unavailable' }
 
     const body = (await safeJson(response)) as { active?: unknown } | null

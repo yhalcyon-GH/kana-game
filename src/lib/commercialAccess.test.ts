@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { CATEGORIES, ROWS } from '../data/curriculum'
+import { PRACTICE_CHECKPOINTS } from '../data/practiceCheckpoints'
 import type { AssessmentScript } from '../store/progressStore'
 import {
+  COMMERCIAL_ACTIVITIES,
   isActivityAccessible,
   isAssessmentAccessible,
   isCategoryAccessible,
+  isCheckpointAccessible,
   isReviewContentAccessible,
   isRowAccessible,
   isSavedContentAccessible,
@@ -20,8 +23,9 @@ describe('commercial access policy', () => {
     expect(hiraganaRows.length).toBeGreaterThan(0)
     for (const row of hiraganaRows) {
       expect(isRowAccessible(row.id, status)).toBe(true)
-      expect(isActivityAccessible({ rowId: row.id, activity: 'learn' }, status)).toBe(true)
-      expect(isActivityAccessible({ rowId: row.id, activity: 'restaurant' }, status)).toBe(true)
+      for (const activity of COMMERCIAL_ACTIVITIES) {
+        expect(isActivityAccessible({ rowId: row.id, activity }, status)).toBe(true)
+      }
     }
     expect(isAssessmentAccessible('hiragana', status)).toBe(true)
     expect(isReviewContentAccessible('hiragana', status)).toBe(true)
@@ -41,8 +45,23 @@ describe('commercial access policy', () => {
     }
     for (const row of paidRows) {
       expect(isRowAccessible(row.id, status)).toBe(false)
-      expect(isActivityAccessible({ rowId: row.id, activity: 'listening' }, status)).toBe(false)
+      for (const activity of COMMERCIAL_ACTIVITIES) {
+        expect(isActivityAccessible({ rowId: row.id, activity }, status)).toBe(false)
+      }
     }
+  })
+
+  it.each(NON_ACTIVE_STATUSES)('allows only Hiragana checkpoints while %s', (status) => {
+    for (const checkpoint of PRACTICE_CHECKPOINTS) {
+      const isHiragana = ROWS.find((row) => row.id === checkpoint.afterRowId)?.categoryId === 'hiragana'
+      expect(isCheckpointAccessible(checkpoint.id, checkpoint.mode, status)).toBe(isHiragana)
+    }
+  })
+
+  it('rejects unknown checkpoints and mode mismatches even when active', () => {
+    expect(isCheckpointAccessible('unknown-checkpoint', 'restaurant', 'active')).toBe(false)
+    expect(isCheckpointAccessible('katakana-ha-row', 'restaurant', 'active')).toBe(false)
+    expect(isCheckpointAccessible('katakana-ha-row', 'cafe', 'active')).toBe(true)
   })
 
   it('allows all known categories, rows, activities, and assessments when active', () => {
@@ -57,13 +76,23 @@ describe('commercial access policy', () => {
     for (const category of CATEGORIES) expect(isCategoryAccessible(category.id, 'active')).toBe(true)
     for (const row of ROWS) {
       expect(isRowAccessible(row.id, 'active')).toBe(true)
-      expect(isActivityAccessible({ rowId: row.id, activity: 'word-builder' }, 'active')).toBe(true)
+      for (const activity of COMMERCIAL_ACTIVITIES) {
+        expect(isActivityAccessible({ rowId: row.id, activity }, 'active')).toBe(true)
+      }
+    }
+    for (const checkpoint of PRACTICE_CHECKPOINTS) {
+      expect(isCheckpointAccessible(checkpoint.id, checkpoint.mode, 'active')).toBe(true)
     }
     for (const assessment of assessments) expect(isAssessmentAccessible(assessment, 'active')).toBe(true)
+    for (const category of CATEGORIES) {
+      expect(isReviewContentAccessible(category.id, 'active')).toBe(true)
+      expect(isSavedContentAccessible(category.id, 'active')).toBe(true)
+    }
   })
 
   it('fails closed for unknown commercial targets even when active', () => {
     expect(isCategoryAccessible('future-unknown-category', 'active')).toBe(false)
     expect(isRowAccessible('future-unknown-row', 'active')).toBe(false)
+    expect(isActivityAccessible({ rowId: 'a-row', activity: 'future-game' as never }, 'active')).toBe(false)
   })
 })
