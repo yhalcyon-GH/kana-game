@@ -89,7 +89,7 @@ Server verification and app-state application remain owned by
 
 - execute the existing current-user and entitlement verification path;
 - apply only the result belonging to its current request generation;
-- return the applied state/result to its caller; and
+- return an explicit `applied`, `unavailable`, or `stale` result to its caller; and
 - transition to `active` only after a server response explicitly contains
   `active: true`.
 
@@ -102,8 +102,10 @@ result ends polling and unlocks through the state already applied by that same
 request.
 
 The provider will support non-disruptive polling refreshes that preserve the
-current authenticated presentation while verification is in flight; ordinary
-startup/manual/focus behavior keeps its established state semantics.
+current authenticated presentation while verification is in flight and when a
+poll is temporarily unavailable. The caller receives `unavailable` and may
+continue its bounded schedule; ordinary startup/manual/focus behavior keeps its
+established state semantics.
 
 ## Bounded polling and Account orchestration
 

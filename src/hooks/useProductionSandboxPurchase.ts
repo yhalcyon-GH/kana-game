@@ -75,6 +75,7 @@ export function useProductionSandboxPurchase() {
           changeStatus('still-confirming')
           return
         }
+        if (result.kind === 'unavailable') continue
         if (result.state.status === 'active' || result.state.status === 'signed-out') {
           invalidate()
           return

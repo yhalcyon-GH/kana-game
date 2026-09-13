@@ -10,6 +10,7 @@ export type EntitlementState =
 
 export type EntitlementRefreshResult =
   | { kind: 'applied'; state: EntitlementState }
+  | { kind: 'unavailable' }
   | { kind: 'stale' }
 
 export type EntitlementRefreshOptions = {

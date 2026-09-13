@@ -42,8 +42,8 @@
 - Modify: `src/lib/auth/productionAuthClient.ts`
 - Modify: `src/lib/auth/productionAuthClient.test.ts`
 
-- [ ] Add failing tests for a refresh return result, active-only server transition, stale refresh invalidation, logout race, and cookie-auth purchase intent result types.
-- [ ] Make the shared Provider verification primitive return its applied/stale result and support non-disruptive polling refresh.
+- [ ] Add failing tests for applied/unavailable/stale refresh results, active-only server transition, stale refresh invalidation, logout race, and cookie-auth purchase intent result types.
+- [ ] Make the shared Provider verification primitive return its applied/unavailable/stale result and preserve authenticated state during non-disruptive temporary failures.
 - [ ] Ensure `markSignedOut()` invalidates every in-flight refresh.
 - [ ] Add production `createPurchaseIntent()` using `credentials: include`, no identity/product body, and strict response parsing.
 - [ ] Run focused Production Auth and E1A/E1B regression tests.

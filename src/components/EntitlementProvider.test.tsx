@@ -113,6 +113,24 @@ describe('EntitlementProvider', () => {
     expect(productionAuthClient.fetchCurrentEntitlementResult).toHaveBeenCalledTimes(2)
   })
 
+  it('preserves authenticated state when a non-disruptive refresh is temporarily unavailable', async () => {
+    vi.mocked(productionAuthClient.fetchCurrentUserResult).mockResolvedValue({ kind: 'authenticated', user })
+    vi.mocked(productionAuthClient.fetchCurrentEntitlementResult)
+      .mockResolvedValueOnce({ kind: 'available', entitlement: { active: false } })
+      .mockResolvedValueOnce({ kind: 'unavailable' })
+    const provider = captureProvider()
+    await screen.findByText('inactive')
+
+    let result!: Awaited<ReturnType<EntitlementContextValue['refresh']>>
+    await act(async () => {
+      result = await provider.current().refresh({ nonDisruptive: true })
+    })
+
+    expect(result).toEqual({ kind: 'unavailable' })
+    expect(screen.getByText('inactive')).toBeInTheDocument()
+    expect(screen.getByText(user.emailNormalized)).toBeInTheDocument()
+  })
+
   it('returns stale for a refresh superseded by a newer verification', async () => {
     const provider = captureProvider()
     await screen.findByText('signed-out')

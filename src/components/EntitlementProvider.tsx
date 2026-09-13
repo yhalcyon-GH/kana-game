@@ -20,6 +20,9 @@ export function EntitlementProvider({ children }: { children: ReactNode }) {
       setState(nextState)
       return { kind: 'applied', state: nextState }
     }
+    const unavailable = (nextState: EntitlementState): EntitlementRefreshResult => (
+      options.nonDisruptive ? { kind: 'unavailable' } : apply(nextState)
+    )
     const apiBase = readProductionAuthApiBase()
     if (!apiBase) {
       return apply({ status: 'signed-out', user: null })
@@ -35,7 +38,7 @@ export function EntitlementProvider({ children }: { children: ReactNode }) {
       return apply({ status: 'signed-out', user: null })
     }
     if (userResult.kind === 'unavailable') {
-      return apply({ status: 'unavailable', user: null })
+      return unavailable({ status: 'unavailable', user: null })
     }
 
     const entitlementResult = await fetchCurrentEntitlementResult(apiBase)
@@ -44,7 +47,7 @@ export function EntitlementProvider({ children }: { children: ReactNode }) {
     if (entitlementResult.kind === 'signed-out') {
       return apply({ status: 'signed-out', user: null })
     } else if (entitlementResult.kind === 'unavailable') {
-      return apply({ status: 'unavailable', user: userResult.user })
+      return unavailable({ status: 'unavailable', user: userResult.user })
     } else {
       return apply({
         status: entitlementResult.entitlement.active === true ? 'active' : 'inactive',

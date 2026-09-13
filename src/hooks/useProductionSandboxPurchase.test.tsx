@@ -146,7 +146,7 @@ describe('production Sandbox purchase orchestration', () => {
 
   it('polls after 0, 1, 2, 4, 8, 15 seconds and Retry repeats confirmation without an intent', async () => {
     const f = fixture()
-    f.refresh.mockResolvedValueOnce({ kind: 'applied', state: { status: 'unavailable', user } })
+    f.refresh.mockResolvedValueOnce({ kind: 'unavailable' })
     await f.start()
     await f.complete()
     expect(f.refresh).toHaveBeenCalledTimes(1)
