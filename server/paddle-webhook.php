@@ -77,14 +77,36 @@ if ($rawBody === false) {
 
 $signatureHeader = $_SERVER['HTTP_PADDLE_SIGNATURE'] ?? null;
 
+// Observability note: each startup stage below is logged with its own
+// fixed stage= tag on failure, so a human reading the error log can tell
+// "wrong Paddle env config" apart from "DB unreachable" apart from
+// "handler blew up" after the fact -- without ever logging
+// $e->getMessage(), the raw payload, or any request data. See
+// docs/observability.md for the full tag list and what to do about each.
 try {
     $config = Config::load();
+} catch (\Throwable $e) {
+    error_log('paddle-webhook: stage=config_load error=' . get_class($e));
+    http_response_code(500);
+    echo json_encode(['error' => 'temporary server error']);
+    exit;
+}
+
+try {
     // Phase H2 -- resolves the ONE environment (sandbox or live) this
     // deployment is configured for and its own config triplet only. See
     // PaddleEnvironmentConfig's own doc comment: this fails closed (throws)
     // on a missing/unknown PADDLE_ENVIRONMENT or a missing key for the
     // selected environment -- there is no fallback and no default.
     $environmentConfig = PaddleEnvironmentConfig::resolve($config);
+} catch (\Throwable $e) {
+    error_log('paddle-webhook: stage=paddle_environment error=' . get_class($e));
+    http_response_code(500);
+    echo json_encode(['error' => 'temporary server error']);
+    exit;
+}
+
+try {
     $pdo = Db::connect($config);
 } catch (\Throwable $e) {
     // Configuration/DB connectivity problems are server-side and
@@ -93,7 +115,7 @@ try {
     // Never log $e->getMessage() -- see server/src/Purchase/
     // PurchaseWebhookHandler.php's own doc comment for why an exception
     // message could itself carry sensitive payload-derived data.
-    error_log('paddle-webhook: startup failure: ' . get_class($e));
+    error_log('paddle-webhook: stage=db_connect error=' . get_class($e));
     http_response_code(500);
     echo json_encode(['error' => 'temporary server error']);
     exit;
@@ -119,11 +141,42 @@ try {
     // section and PurchaseWebhookHandler's own doc comment. Only the
     // exception's class (no message, no payload contents) goes to the
     // server error log.
-    error_log('paddle-webhook: unexpected error: ' . get_class($e));
+    error_log('paddle-webhook: stage=handle error=' . get_class($e));
     http_response_code(500);
     echo json_encode(['error' => 'temporary server error']);
     exit;
 }
 
+// One safe, fixed-vocabulary line per request — never the raw
+// WebhookResult::$message (which can embed a Paddle event-type string)
+// and never any payload/event/transaction identifier. See
+// docs/observability.md for what each outcome means operationally.
+error_log(sprintf(
+    'paddle-webhook: environment=%s outcome=%s status=%d',
+    $environmentConfig->environment,
+    paddle_webhook_outcome_tag($result),
+    $result->statusCode,
+));
+
 http_response_code($result->statusCode);
 echo json_encode(['message' => $result->message]);
+
+/**
+ * Maps a WebhookResult to a fixed, safe outcome tag for logging. Deliberately
+ * does NOT log $result->message itself, since ignoredEvent()/processed()
+ * embed a Paddle event-type string in that message -- classifying by
+ * statusCode plus a fixed-prefix check keeps the logged value drawn from a
+ * closed enum this file controls, never payload-derived free text.
+ */
+function paddle_webhook_outcome_tag(\KanaGame\Paddle\WebhookResult $result): string
+{
+    return match (true) {
+        $result->statusCode === 401 => 'invalid_signature',
+        $result->statusCode === 400 => 'malformed_payload',
+        $result->statusCode === 500 => 'server_error',
+        $result->statusCode === 200 && str_starts_with($result->message, 'duplicate event') => 'duplicate',
+        $result->statusCode === 200 && str_starts_with($result->message, 'event ignored') => 'ignored',
+        $result->statusCode === 200 && str_starts_with($result->message, 'event processed') => 'processed',
+        default => 'unknown',
+    };
+}
