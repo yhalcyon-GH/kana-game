@@ -54,6 +54,7 @@ $testFiles = [
     __DIR__ . '/DevOnly/DevHarnessMailerTest.php' => 'KanaGame\\Paddle\\Tests\\devHarnessMailerTests',
     __DIR__ . '/DevOnly/LastMagicLinkEntrypointTest.php' => 'KanaGame\\Paddle\\Tests\\lastMagicLinkEntrypointTests',
     __DIR__ . '/ObservabilityLoggingTest.php' => 'KanaGame\\Paddle\\Tests\\observabilityLoggingTests',
+    __DIR__ . '/Ops/AuthReadinessCheckTest.php' => 'KanaGame\\Paddle\\Tests\\authReadinessCheckTests',
 ];
 
 $totalPassed = 0;
