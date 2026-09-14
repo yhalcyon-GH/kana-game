@@ -8,10 +8,24 @@ describe('PrivacyPage', () => {
     expect(screen.getByRole('heading', { name: 'Privacy Policy', level: 1 })).toBeInTheDocument()
   })
 
-  it('discloses local-storage-only progress data and no accounts', () => {
+  it('discloses local-storage-only progress data for the free app, and that an account is only needed to purchase', () => {
     render(<PrivacyPage />)
-    expect(screen.getByText(/No accounts/i)).toBeInTheDocument()
+    const heading = screen.getByRole('heading', { name: 'Account (optional)', level: 2 })
+    const text = heading.parentElement?.textContent ?? ''
+    expect(text).toMatch(/You do not need an account to use the free parts/i)
+    expect(text).toMatch(/only involved if you purchase premium content/i)
+    expect(text).toMatch(/Magic Link/)
     expect(screen.getAllByText(/local storage/i).length).toBeGreaterThan(0)
+  })
+
+  it('discloses the sign-in session cookie accurately, including the no-sign-in case', () => {
+    render(<PrivacyPage />)
+    const heading = screen.getByRole('heading', { name: 'Cookies', level: 2 })
+    const text = heading.parentElement?.textContent ?? ''
+    expect(text).toMatch(/sets one cookie to keep you signed in/i)
+    expect(text).toMatch(/never your email address/i)
+    expect(text).toMatch(/not used for tracking or analytics/i)
+    expect(text).toMatch(/If you don't\s*sign in, no cookie is set/i)
   })
 
   it('accurately states analytics is currently inactive, and names Umami as the provider if a future build enables it', () => {

@@ -15,8 +15,15 @@ export function PrivacyPage() {
       </p>
 
       <section className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">No accounts</h2>
-        <p>There is no sign-up, login, or user account of any kind. Nobody's identity is collected.</p>
+        <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Account (optional)</h2>
+        <p>
+          You do not need an account to use the free parts of this app — those work entirely from local storage on
+          your device, as described below. An account is only involved if you purchase premium content, so that your
+          purchase can be recognized on that device. Signing in does not use a password: you enter your email
+          address and receive a one-time Magic Link to that address, which signs you in when you open it. This app
+          only learns the email address you choose to provide for that purpose — it is used solely to send you the
+          sign-in link and to identify your purchase, and is not used for marketing.
+        </p>
       </section>
 
       <section className="flex flex-col gap-2">
@@ -65,7 +72,12 @@ export function PrivacyPage() {
 
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Cookies</h2>
-        <p>This app does not set cookies.</p>
+        <p>
+          If you sign in to an account (see above), this app sets one cookie to keep you signed in. That cookie
+          holds only a random session identifier — never your email address or any other personal data — and is
+          used solely to recognize your device as signed in; it is not used for tracking or analytics. If you don't
+          sign in, no cookie is set.
+        </p>
       </section>
 
       <section className="flex flex-col gap-2">
