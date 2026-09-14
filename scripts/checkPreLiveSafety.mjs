@@ -84,6 +84,20 @@ for (const key of [
 
 const aiEndpointPattern = /(?:api\.openai\.com|api\.anthropic\.com|generativelanguage\.googleapis\.com|api\.elevenlabs\.io)/i
 const sourceFilePattern = /\.(?:[cm]?[jt]sx?|css|json)$/i
+const directRuntimeAiPackages = new Set([
+  '@anthropic-ai/sdk',
+  '@google/genai',
+  '@google/generative-ai',
+  '@mistralai/mistralai',
+  'ai',
+  'cohere',
+  'cohere-ai',
+  'elevenlabs',
+  'groq-sdk',
+  'openai',
+  'replicate',
+  'together-ai',
+])
 
 // A regression here would make the scan silently vacuous. Keep these
 // self-checks in the executable guard instead of relying on review alone.
@@ -92,6 +106,16 @@ if (!aiEndpointPattern.test('https://api.openai.com/v1')) {
 }
 if (!sourceFilePattern.test('src/example.ts')) {
   fail('Internal regression: runtime source-file matcher is not active.')
+}
+if (!directRuntimeAiPackages.has('openai')) {
+  fail('Internal regression: runtime AI dependency matcher is not active.')
+}
+
+const runtimeDependencies = Object.keys(JSON.parse(read('package.json')).dependencies || {})
+for (const dependency of runtimeDependencies) {
+  if (directRuntimeAiPackages.has(dependency)) {
+    fail('Runtime AI dependency found in package.json: ' + dependency + '.')
+  }
 }
 
 for (const path of walk('src')) {
@@ -107,4 +131,4 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log('Pre-Live Safety passed: AI_REACHABLE=0 for shipped runtime source; tracked secret config is absent and examples are safe.')
+console.log('Pre-Live Safety passed: AI_REACHABLE=0 for shipped runtime source and production dependencies; tracked secret config is absent and examples are safe.')
