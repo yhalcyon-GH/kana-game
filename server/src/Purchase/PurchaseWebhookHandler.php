@@ -371,21 +371,39 @@ final class PurchaseWebhookHandler
      * lifecycle), per the design spec's explicit instruction not to
      * depend on a chargeback event's initial status.
      *
-     * The two reversal actions each pass their own single-element
-     * $allowedFromStatuses to TransactionGrantRepository::updateStatus()
-     * -- this is the guard that makes reversal safe: it is independent
-     * of, and in addition to, the existing status_changed_at staleness
-     * check. Without it, an occurred_at merely newer than the grant's
-     * last status_changed_at would be enough to blindly restore
-     * 'active' from ANY current status, including an already-finalized
-     * 'refunded' grant (an out-of-order chargeback_reverse arriving
-     * after a full refund must never reactivate it) or the WRONG
-     * chargeback state (chargeback_reverse must never fire from
-     * 'chargeback_pending' -- only chargeback_warning_reverse pairs
-     * with that state, and vice versa). The forward (non-reversal)
-     * actions pass null -- deliberately unrestricted by source status,
-     * matching how a chargeback can legitimately follow either an
-     * 'active' or a 'refund_pending' grant.
+     * EVERY chargeback-family transition -- forward AND reversal --
+     * passes an $allowedFromStatuses list to TransactionGrantRepository::
+     * updateStatus(), independent of and in addition to the existing
+     * status_changed_at staleness check. Without a guard on the FORWARD
+     * transitions too, 'refunded' would not be a true terminal state:
+     * an indirect path (refunded -> [later] chargeback -> [later still]
+     * chargeback_reverse -> active) would still reactivate an
+     * already-finalized refund, because each hop individually passes
+     * its own occurred_at-newer-than-last check even though the
+     * reversal's own direct guard (chargeback_reverse only from
+     * 'chargeback') is satisfied by the intermediate chargeback hop.
+     * 'refunded' is therefore excluded from every chargeback-family
+     * FROM-list below, forward and reversal alike -- once a grant is
+     * 'refunded', NOTHING in this method can move it anywhere else.
+     *
+     *   chargeback:         from 'active', 'refund_pending',
+     *                        'chargeback_pending' (a warning escalating
+     *                        to a full chargeback), or 'chargeback'
+     *                        itself (idempotent redelivery/reprocessing)
+     *   chargeback_warning: from 'active' or 'refund_pending' only --
+     *                        NOT from 'chargeback_pending' (already
+     *                        warned; a redelivery is a stale/duplicate
+     *                        occurred_at now, not a fresh transition,
+     *                        so it is left to the staleness guard) and
+     *                        NOT from 'chargeback' (a warning must
+     *                        never downgrade an already-final
+     *                        chargeback)
+     *   chargeback_reverse:         ONLY from 'chargeback'
+     *   chargeback_warning_reverse: ONLY from 'chargeback_pending'
+     *
+     * refund_pending -> chargeback remains explicitly allowed (existing
+     * policy, unchanged) -- a chargeback can legitimately arrive while
+     * a refund request is still pending approval.
      *
      * Repurchase safety is structural, not logic here: transaction_grants
      * has one row per Paddle transaction, never per (user, product), so
@@ -401,8 +419,8 @@ final class PurchaseWebhookHandler
         \DateTimeImmutable $occurredAt,
     ): bool {
         [$newStatus, $allowedFromStatuses] = match ($action) {
-            self::CHARGEBACK_ACTION => ['chargeback', null],
-            self::CHARGEBACK_WARNING_ACTION => ['chargeback_pending', null],
+            self::CHARGEBACK_ACTION => ['chargeback', ['active', 'refund_pending', 'chargeback_pending', 'chargeback']],
+            self::CHARGEBACK_WARNING_ACTION => ['chargeback_pending', ['active', 'refund_pending']],
             self::CHARGEBACK_REVERSE_ACTION => ['active', ['chargeback']],
             self::CHARGEBACK_WARNING_REVERSE_ACTION => ['active', ['chargeback_pending']],
             default => [null, null],
