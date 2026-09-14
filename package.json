@@ -10,11 +10,12 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:browser-smoke": "playwright test --config=playwright.config.mjs",
-    "verify": "tsx scripts/convertStrokesvg.ts --check && node scripts/checkAccentData.mjs && npm test && npm run lint && npm run build && git diff --check",
+    "verify": "npm run check:prelive && tsx scripts/convertStrokesvg.ts --check && node scripts/checkAccentData.mjs && npm test && npm run lint && npm run build && git diff --check",
     "check-voices": "tsx scripts/checkVoiceQuality.ts",
     "voice:analyze": "tsx scripts/voicePipeline/cli.ts --analyze-only",
     "voice:split": "tsx scripts/voicePipeline/cli.ts --split-only",
-    "voice:process": "tsx scripts/voicePipeline/cli.ts"
+    "voice:process": "tsx scripts/voicePipeline/cli.ts",
+    "check:prelive": "node scripts/checkPreLiveSafety.mjs"
   },
   "dependencies": {
     "@paddle/paddle-js": "1.6.5",
