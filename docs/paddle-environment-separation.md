@@ -1,6 +1,6 @@
 # Phase H2 — Paddle Sandbox / Live environment separation
 
-Status: code complete on PR #225 (**not yet merged**), **NOT deployed to Production**, **NO Live credentials configured anywhere**. This document describes the architecture, the safe zero/near-zero-downtime Production config migration sequence, and the exact steps a future, deliberate Live cutover requires — it does not perform any of them.
+Status: code merged (PR #225, plus a rollout-compatibility follow-up fix described below), **NOT deployed to Production**, **NO Live credentials configured anywhere**. This document describes the architecture, the safe zero/near-zero-downtime Production config migration sequence, and the exact steps a future, deliberate Live cutover requires — it does not perform any of them.
 
 ## What this is and isn't
 
@@ -41,9 +41,21 @@ Each environment has its own webhook secret + price id + product id, under its o
 
 ### Superseded keys — safe, overlapping migration (not a rename)
 
-The pre-H2 unscoped keys (`PADDLE_WEBHOOK_SECRET`, `PADDLE_FULL_TAMAMIZU_PRICE_ID`, `PADDLE_FULL_TAMAMIZU_PRODUCT_ID`) are **no longer read by any code path** as of this PR — H2 code (`PaddleEnvironmentConfig`) only ever reads the `PADDLE_SANDBOX_*`/`PADDLE_LIVE_*` triplets, and the still-deployed pre-H2 `Config.php`/`paddle-webhook.php` only ever reads the old unscoped keys. Neither version reads the other's keys at all. This is a deliberate choice, not an oversight: an implicit "if the old unscoped keys are present, treat them as Sandbox" fallback was considered and rejected — it's exactly the kind of implicit environment inference this phase exists to eliminate.
+The pre-H2 unscoped keys (`PADDLE_WEBHOOK_SECRET`, `PADDLE_FULL_TAMAMIZU_PRICE_ID`, `PADDLE_FULL_TAMAMIZU_PRODUCT_ID`) are **no longer used to select or resolve any environment** as of this PR — `PaddleEnvironmentConfig::resolve()`, the sole authority for which environment/config this app actually uses, reads `PADDLE_ENVIRONMENT` plus the scoped `PADDLE_SANDBOX_*`/`PADDLE_LIVE_*` triplet **exclusively**, and has never been changed to read these three old keys under any circumstance (see `PaddleEnvironmentConfigTest.php`'s dedicated "old keys coexist but are never used" cases). An implicit "if the old unscoped keys are present, treat them as Sandbox" fallback was considered and rejected — it's exactly the kind of implicit environment inference this phase exists to eliminate.
 
-That two-sided ignorance is exactly what makes a safe **overlap migration** possible: add the new scoped keys *alongside* the old ones (never deleting or renaming them first), deploy and verify the new backend code while both key sets are present, and only then remove the old keys — so that whichever backend code version happens to be live at any single instant during the rollout, Production's webhook always has a complete, correct config to read. **A rename (delete-and-recreate in one step) is exactly what this sequence avoids**: between deleting the old keys and the new H2 code actually being live, the still-running pre-H2 `paddle-webhook.php` would find its required keys gone and fail every webhook request.
+**`Config::load()` itself, however, does keep these three old keys loadable** (`server/src/Config.php`'s `$keys` array) — this is a **rolling-deploy compatibility layer, not an environment fallback**. An earlier revision of this PR removed the old keys from `Config::load()`'s scan list entirely, which created a real Production incompatibility (found in review, before any Production deploy): `Config.php` and `paddle-webhook.php` have a mutual dependency — the still-running pre-H2 `paddle-webhook.php` reads `PADDLE_WEBHOOK_SECRET`/`PADDLE_FULL_TAMAMIZU_PRICE_ID`/`PADDLE_FULL_TAMAMIZU_PRODUCT_ID` directly, by name, with no knowledge of Phase H2 at all — so during a manual, non-atomic, multi-file Production upload, whichever of the pair landed second would find its counterpart's needed keys gone:
+
+| `Config.php` | `paddle-webhook.php` | Result |
+|---|---|---|
+| old | old | OK (current Production state) |
+| new, **without** this fix | old | **500** — old webhook reads old key names; Config no longer scans for them |
+| old | new | **500** — new webhook's `PaddleEnvironmentConfig::resolve()` needs `PADDLE_ENVIRONMENT` etc.; old Config doesn't scan for them |
+| new, **with** this fix | old | **OK** — Config still loads the old keys too, so old webhook keeps working |
+| new | new | OK (target state) |
+
+With this fix, only the `old Config.php + new paddle-webhook.php` combination can still fail — which the upload order below avoids by uploading `Config.php` and `paddle-webhook.php` back-to-back with no other file (and ideally no pause) in between. The old, pre-H2 `purchase-intent.php` reads no Paddle config key at all, so it is unaffected by `Config.php`'s version either way.
+
+That two-sided design — `Config::load()` loads both key generations; `PaddleEnvironmentConfig` reads only the new ones — is exactly what makes a safe **overlap migration** possible: add the new scoped keys *alongside* the old ones (never deleting or renaming them first), deploy and verify the new backend code while both key sets are present, and only then remove the old keys — so that whichever backend code version happens to be live at any single instant during the rollout, Production's webhook always has a complete, correct config to read. **A rename (delete-and-recreate in one step) is exactly what this sequence avoids.**
 
 **Required Production migration sequence, to run when this PR is ready to deploy (not performed as part of this PR — Production is not touched by this PR at all):**
 
@@ -56,15 +68,20 @@ That two-sided ignorance is exactly what makes a safe **overlap migration** poss
    - Leave every `PADDLE_LIVE_*` key absent/blank until an actual Live cutover is deliberately planned and reviewed, separately from this migration.
    - The old `PADDLE_WEBHOOK_SECRET` / `PADDLE_FULL_TAMAMIZU_PRICE_ID` / `PADDLE_FULL_TAMAMIZU_PRODUCT_ID` keys **remain in place, unchanged**, at this point. The still-deployed pre-H2 backend code is completely unaffected by this step — it doesn't read the new keys, so their presence is a no-op for it.
 3. **Verify the still-deployed pre-H2 backend is unaffected** by the config change (non-destructive smoke only): webhook `GET` → `405`, an unsigned `POST` → `401`, no `500` observed anywhere.
-4. **Deploy** the H2 backend runtime files (`paddle-webhook.php`, `purchase-intent.php`, and the `server/src/` files this PR changes) to Production.
+4. **Deploy the H2 backend runtime files, in this order**, to minimize the one unavoidable compatibility window (the `Config.php` ↔ `paddle-webhook.php` pair — see the matrix above):
+   1. `server/src/PaddleEnvironmentConfig.php` — new file, not yet referenced by anything live, zero risk to upload first.
+   2. `server/src/Purchase/PurchaseIntentEndpoint.php` — new file, same.
+   3. `server/src/Config.php` — safe now, *because of this fix*: the still-running old `paddle-webhook.php` keeps working against this new `Config.php`, since it still loads the old unscoped keys too.
+   4. `server/paddle-webhook.php` — upload immediately after step 3, back-to-back, no other upload or pause in between, to keep the window as tight as possible even though this fix means it's no longer a *breaking* window.
+   5. `server/purchase-intent.php` — safe any time after step 3 (needs `Config.php` already new to resolve `PADDLE_ENVIRONMENT`, and needs steps 1–2 already uploaded).
 5. **Verify the H2 backend** the same way, plus its own new surface: webhook `GET` → `405`, unsigned `POST` → `401`, auth/entitlement endpoints respond normally, an unauthenticated `purchase-intent.php` request is rejected, no `500` observed anywhere.
-6. **Only after** step 5 confirms the H2 code is genuinely working against the new scoped keys, remove the now-superseded old keys from Production's `config.php`: `PADDLE_WEBHOOK_SECRET`, `PADDLE_FULL_TAMAMIZU_PRICE_ID`, `PADDLE_FULL_TAMAMIZU_PRODUCT_ID`.
+6. **Only after** step 5 confirms the H2 code is genuinely working against the new scoped keys, remove the now-superseded old keys from Production's `config.php`: `PADDLE_WEBHOOK_SECRET`, `PADDLE_FULL_TAMAMIZU_PRICE_ID`, `PADDLE_FULL_TAMAMIZU_PRODUCT_ID`. (Safe to also delete them from `Config::load()`'s `$keys` array in a later, separate cleanup PR once Production has fully cut over and this rolling-deploy compatibility layer is no longer needed anywhere — not done as part of this fix, to keep this change minimal.)
 7. **Re-run the same smoke checks** from step 5 once more after the removal, to confirm the H2 code was never actually depending on the old keys still being present.
 
-At every point in this sequence, whichever backend code is actually live has a complete, correct config to read — there is no window where a currently-running webhook handler is missing a key it needs. This is a config-migration ordering fix, not a code change: no fallback logic is added anywhere:
-- H2 code (`PaddleEnvironmentConfig`) reads `PADDLE_SANDBOX_*`/`PADDLE_LIVE_*` **only**, exactly as already implemented — nothing here changes that.
-- Pre-H2 code reads the old unscoped keys **only**, exactly as it does today — nothing here changes that either.
-- The overlap (steps 2–6) is a property of the *config file*, not of either code version's logic.
+At every point in this sequence, whichever backend code is actually live has a complete, correct config to read — there is no window where a currently-running webhook handler is missing a key it needs. This is a config-loading/deploy-ordering fix, not an environment-selection change:
+- `PaddleEnvironmentConfig` reads `PADDLE_SANDBOX_*`/`PADDLE_LIVE_*` (plus `PADDLE_ENVIRONMENT` to choose between them) **only** — unchanged by this fix, and re-proven by tests that deliberately give the old keys *different* values from the new ones to catch any accidental leak.
+- `Config::load()` now loads the old keys too, purely so old, still-deployed *code* that reads them directly keeps working during the overlap window — this is `Config`'s loading behavior, not `PaddleEnvironmentConfig`'s selection logic.
+- The overlap (steps 2–6) is a property of the *config file and the upload sequence*, not of either code version's environment-selection logic.
 
 ### No DB schema change
 
@@ -97,7 +114,8 @@ Confirmed during the H2 read-only audit: environment separation is entirely serv
 
 ## Tests
 
-- `server/tests/PaddleEnvironmentConfigTest.php` (12 cases): valid resolution for each environment, missing/unknown environment, missing individual keys per environment, and the core anti-mixing guarantee — selecting one environment with only the OTHER environment's keys present throws, and selecting one environment with BOTH triplets present resolves to that environment's values only.
+- `server/tests/ConfigTest.php`: extended to prove `Config::load()` still reads the old, pre-H2 unscoped Paddle keys (rolling-deploy compatibility), and reads the new H2 scoped keys correctly when both generations are present at once.
+- `server/tests/PaddleEnvironmentConfigTest.php` (15 cases): valid resolution for each environment, missing/unknown environment, missing individual keys per environment, the core anti-mixing guarantee — selecting one environment with only the OTHER environment's keys present throws, and selecting one environment with BOTH triplets present resolves to that environment's values only — plus dedicated rolling-deploy-overlap cases: the old unscoped keys coexisting (with deliberately different values) never leak into a `sandbox`- or `live`-resolved result, and a config carrying *only* the old keys (no `PADDLE_ENVIRONMENT`/scoped keys at all) still fails closed rather than implicitly resolving to Sandbox.
 - `server/tests/Purchase/PurchaseIntentEndpointTest.php` (8 cases, SQLite-backed): every server/client environment pairing (create on match, `409`/zero-rows on mismatch, `400`/zero-rows on missing/malformed client environment), plus a mismatch never leaking into a later matching request.
 - `server/tests/PurchaseIntentEnvironmentWiringTest.php` (4 source-inspection cases): proves the entrypoint's fail-closed ordering — `PaddleEnvironmentConfig::resolve()` runs, and can throw, strictly before `PurchaseIntentEndpoint` is ever constructed.
 - `src/lib/paddle/sandboxConfig.test.ts`: extended for dual-environment validation, including mismatched environment/token-prefix pairs failing closed.

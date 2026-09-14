@@ -57,6 +57,24 @@ return [
     'PADDLE_LIVE_FULL_TAMAMIZU_PRICE_ID' => '',
     'PADDLE_LIVE_FULL_TAMAMIZU_PRODUCT_ID' => '',
 
+    // Rolling-deploy compatibility ONLY -- not part of a fresh setup, and
+    // NOT an environment fallback. Config::load() keeps these three old,
+    // pre-H2, unscoped keys loadable (see server/src/Config.php) purely
+    // so that a still-running OLD paddle-webhook.php keeps working the
+    // instant a NEW Config.php lands during a manual multi-file
+    // Production upload, before the NEW paddle-webhook.php has been
+    // uploaded yet. PaddleEnvironmentConfig::resolve() -- the sole
+    // authority for which environment/config this app actually uses --
+    // never reads these three keys under any circumstance. Leave unset
+    // on a fresh deployment; only Production's existing, already-
+    // populated config.php carries real values here during a Phase H2
+    // rollout, and they are removed once that rollout's smoke tests
+    // confirm the new scoped keys are working -- see
+    // docs/paddle-environment-separation.md's "Superseded keys" section.
+    // 'PADDLE_WEBHOOK_SECRET' => '',
+    // 'PADDLE_FULL_TAMAMIZU_PRICE_ID' => '',
+    // 'PADDLE_FULL_TAMAMIZU_PRODUCT_ID' => '',
+
     // Comma-separated list of exact origins allowed to call
     // entitlement.php via CORS (see server/src/Cors.php). No wildcards.
     // Example for local development + the deployed GitHub Pages app:
