@@ -104,24 +104,53 @@ Each item is tagged:
       works as Paddle provides it (Paddle-hosted, not custom-built here
       unless the repo already implements a portal link).
 
-## 5a. Webhook response timing (SHOULD FIX — design decision needed)
+## 5a. Webhook response timing (KEEP SYNC FOR LIVE — launch acceptable)
 
-- [ ] **Human required** — `server/paddle-webhook.php` verifies the Paddle
-      signature and then performs its DB work (event claim, grant
+- [x] **AI-verifiable** — Investigated: `server/paddle-webhook.php` verifies
+      the Paddle signature and then performs its DB work (event claim, grant
       create/update, entitlement recompute) synchronously, inside the same
       request, before returning the HTTP response. Paddle's own guidance is
       to acknowledge the webhook quickly and do heavier processing after
-      responding, so that slow internal work doesn't risk the delivery
-      being treated as failed and retried. The current MariaDB-backed
-      transaction is fast in practice and every operation is already
-      idempotent (event claim, single-use purchase_ref consume, `FOR
-      UPDATE` grant locking), so a duplicate delivery caused by a slow
-      response would self-heal rather than corrupt state — this is a
-      latency/retry-noise risk, not a correctness defect. Whether to
-      restructure to a queue-and-ack pattern (added complexity) or accept
-      the current synchronous design (simpler, already idempotent) is an
-      architecture tradeoff, not something to change unilaterally without
-      confirming actual observed webhook latency in Production.
+      responding — but this is a documented **recommendation for scale
+      protection**, not a hard requirement; the only hard requirement is
+      responding within Paddle's 5s deadline.
+
+      Evidence for keeping the current synchronous design at launch:
+      - The runtime path (`PurchaseWebhookHandler::handle()`) has no
+        external network I/O — every step is local MariaDB work inside one
+        transaction.
+      - Every operation is already idempotent (event claim, single-use
+        `purchase_ref` consume, `FOR UPDATE` grant locking), so a duplicate
+        delivery caused by a slow response self-heals rather than
+        corrupting state — this is a latency/retry-noise risk, not a
+        correctness defect.
+      - A MariaDB 10.5/10.11 CI concurrency benchmark (`server/tests/mariadb-concurrency`,
+        see PR #234) measured response-path timing across normal,
+        duplicate, refund, refund+reconciliation, and contended/repurchase
+        scenarios: medians of 4-6ms, worst observed max 415.97ms (a
+        contended same-user refund on 10.5) — still a **~12x margin**
+        under the 5s deadline, with other scenarios at 460-700x margin.
+
+      **Decision: KEEP SYNC FOR LIVE.** The current synchronous design is
+      acceptable to launch with. Restructuring to a durable async
+      queue-and-ack pattern is an **OPTIONAL post-launch improvement**, not
+      a Live blocker.
+
+      Caveats carried forward:
+      - CI latency is not Production latency — the benchmark numbers are
+        evidence of structural margin, not a Production SLA measurement.
+      - If Live webhook 5xx responses, elevated Paddle retry volume, or
+        anomalous latency are observed after launch, re-evaluate this
+        decision against real Production numbers.
+      - A "respond then continue processing in the same PHP process"
+        approach (e.g. `fastcgi_finish_request`-style) must **not** be
+        adopted as a shortcut: a process crash after the response is sent
+        means Paddle already saw success and will not retry, silently
+        dropping the event. It is unsafe as a naive implementation and is
+        rejected as an option.
+      - If async processing is adopted in the future, it must use a
+        durable, crash-safe queue (e.g. a DB-backed queue table drained by
+        a worker/cron step), not the fire-and-continue pattern above.
 
 ## 6. Observability
 
