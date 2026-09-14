@@ -78,7 +78,7 @@ function scenarioVerify(PDO $pdo, array $args, Barrier $barrier, int $workerId):
  * bootstrap.php), against this worker's own PDO.
  *
  * @param array{body: string, signature: string} $args
- * @return array{status: ?int, message: ?string, exception_class: ?string, sqlstate: ?string}
+ * @return array{status: ?int, message: ?string, exception_class: ?string, sqlstate: ?string, duration_ms: float}
  */
 function scenarioWebhook(PDO $pdo, array $args, Barrier $barrier, int $workerId): array
 {
@@ -86,21 +86,34 @@ function scenarioWebhook(PDO $pdo, array $args, Barrier $barrier, int $workerId)
 
     $barrier->signalReadyAndWaitForGo($workerId);
 
+    // Timing-only instrumentation for the pre-Live sync-vs-async webhook
+    // response-time investigation (see docs/pre-live-launch-checklist.md
+    // item 5a). Measures ONLY the handler's own DB-bound processing time
+    // (post-signature-verification and post-barrier-release), the same
+    // work paddle-webhook.php does synchronously before responding to
+    // Paddle. Never affects the invariant assertions above/below --
+    // purely additive.
+    $start = microtime(true);
     try {
         $result = $handler->handle($args['body'], $args['signature']);
+        $durationMs = (microtime(true) - $start) * 1000.0;
 
         return [
             'status' => $result->statusCode,
             'message' => $result->message,
             'exception_class' => null,
             'sqlstate' => null,
+            'duration_ms' => $durationMs,
         ];
     } catch (\Throwable $e) {
+        $durationMs = (microtime(true) - $start) * 1000.0;
+
         return [
             'status' => null,
             'message' => null,
             'exception_class' => get_class($e),
             'sqlstate' => $e instanceof \PDOException ? ($e->errorInfo[0] ?? null) : null,
+            'duration_ms' => $durationMs,
         ];
     }
 }
