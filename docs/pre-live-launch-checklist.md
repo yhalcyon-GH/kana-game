@@ -49,7 +49,11 @@ Each item is tagged:
       three is missing, `request-link.php` silently falls back to a no-op
       mailer and logs `request-link: mailer_unconfigured` — treat that log
       line appearing on Production as a go-live blocker, not routine noise
-      (see `docs/observability.md`).
+      (see `docs/observability.md`). Run `php server/ops/auth-readiness-check.php`
+      on the Production server (against the real deployed `config.php`) as a
+      mechanical check — exit code 0 means not misconfigured, exit code 1
+      means cookie auth is on with no real mailer configured. Prints only
+      booleans, never secret values.
 - [ ] **Human required** — Confirm the real path `error_log` writes to on
       this XServer plan, and that it is being watched/rotated. (Not
       independently verifiable from the repo; do not guess a path.)
