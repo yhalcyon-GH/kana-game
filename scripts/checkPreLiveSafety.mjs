@@ -1,5 +1,6 @@
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { execFileSync } from 'node:child_process'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { join } from 'node:path'
 
 const root = process.cwd()
 const failures = []
@@ -10,6 +11,18 @@ function fail(message) {
 
 function read(relativePath) {
   return readFileSync(join(root, relativePath), 'utf8')
+}
+
+function isTracked(relativePath) {
+  try {
+    execFileSync('git', ['ls-files', '--error-unmatch', '--', relativePath], {
+      cwd: root,
+      stdio: 'ignore',
+    })
+    return true
+  } catch {
+    return false
+  }
 }
 
 function walk(relativePath, files = []) {
@@ -35,8 +48,8 @@ function assertEmptyConfigValue(source, key) {
 }
 
 for (const path of ['server/config.php', '.env', '.env.local']) {
-  if (existsSync(join(root, path))) {
-    fail(`${path} must not be committed or present in CI.`)
+  if (isTracked(path)) {
+    fail(`${path} must not be committed.`)
   }
 }
 
@@ -54,11 +67,15 @@ for (const key of [
 }
 
 const envExample = read('.env.example')
+if (!/^VITE_PADDLE_ENVIRONMENT=sandbox$/m.test(envExample)) {
+  fail('VITE_PADDLE_ENVIRONMENT in .env.example must stay sandbox.')
+}
 for (const key of [
-  'VITE_PADDLE_ENVIRONMENT',
   'VITE_PADDLE_CLIENT_TOKEN',
   'VITE_PADDLE_PRICE_ID',
-  'VITE_PRODUCTION_AUTH_API_BASE',
+  'VITE_PADDLE_ENTITLEMENT_API_URL',
+  'VITE_PADDLE_AUTH_API_BASE_URL',
+  'VITE_PRODUCTION_AUTH_API_BASE_URL',
 ]) {
   if (!new RegExp('^' + key + '=$', 'm').test(envExample)) {
     fail(`Expected ${key} to be blank in .env.example.`)
@@ -69,7 +86,7 @@ const aiEndpointPattern = /(?:api\\.openai\\.com|api\\.anthropic\\.com|generativ
 for (const path of walk('src')) {
   if (!/\\.(?:[cm]?[jt]sx?|css|json)$/i.test(path)) continue
   if (aiEndpointPattern.test(read(path))) {
-    fail(`Runtime AI endpoint found in ${relative(root, join(root, path))}.`)
+    fail(`Runtime AI endpoint found in ${path}.`)
   }
 }
 
@@ -79,4 +96,4 @@ if (failures.length > 0) {
   process.exit(1)
 }
 
-console.log('Pre-Live Safety passed: AI_REACHABLE=0 for shipped runtime source; example and local secret config are blank.')
+console.log('Pre-Live Safety passed: AI_REACHABLE=0 for shipped runtime source; tracked secret config is absent and examples are safe.')
