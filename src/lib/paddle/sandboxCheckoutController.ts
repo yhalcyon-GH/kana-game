@@ -1,13 +1,26 @@
 import type { initializePaddle, Paddle, PaddleEventData } from '@paddle/paddle-js'
+import type { PaddleCheckoutEnvironment } from './sandboxConfig'
 
 export type SandboxCheckoutEvent =
   | { kind: 'preparing' | 'ready' | 'opening' | 'open' | 'loaded' | 'completed' | 'closed' | 'unavailable' }
   | { kind: 'mismatch'; phase: 'loaded' | 'completed'; transactionMatches: boolean; purchaseRefMatches: boolean }
 
 export type SandboxCheckoutOptions = {
-  config: { token: string; priceId: string }
+  config: { environment: PaddleCheckoutEnvironment; token: string; priceId: string }
   onEvent: (event: SandboxCheckoutEvent) => void
   loadPaddle?: () => Promise<{ initializePaddle: typeof initializePaddle }>
+}
+
+// Paddle's own SDK environment enum is 'sandbox' | 'production' (there is
+// no 'live' value at the SDK level) -- confirmed against the installed
+// @paddle/paddle-js package's own type definitions
+// (node_modules/@paddle/paddle-js/types/index.d.ts: `Environments =
+// 'production' | 'sandbox'`). This app's config-level environment name
+// ('live', matching Paddle's own dashboard/workspace terminology and this
+// project's config keys) is mapped to the SDK's 'production' only at this
+// one call site -- never anywhere else.
+function toSdkEnvironment(environment: PaddleCheckoutEnvironment): 'sandbox' | 'production' {
+  return environment === 'live' ? 'production' : 'sandbox'
 }
 
 /** Owns sensitive correlation in memory; consumers receive semantic events only. */
@@ -108,7 +121,7 @@ export function createSandboxCheckoutController({ config, onEvent, loadPaddle = 
     try {
       if (!initialization) {
         const pending = loadPaddle().then(({ initializePaddle }) => initializePaddle({
-          environment: 'sandbox', token: config.token, eventCallback,
+          environment: toSdkEnvironment(config.environment), token: config.token, eventCallback,
         })).then((instance) => {
           if (!instance?.Initialized) throw new Error('Paddle unavailable')
           return instance

@@ -49,9 +49,18 @@ final class Config
             'DB_NAME',
             'DB_USER',
             'DB_PASSWORD',
-            'PADDLE_WEBHOOK_SECRET',
-            'PADDLE_FULL_TAMAMIZU_PRICE_ID',
-            'PADDLE_FULL_TAMAMIZU_PRODUCT_ID',
+            // Phase H2 -- see server/src/PaddleEnvironmentConfig.php. Which
+            // ONE of the two scoped triplets below actually gets used is
+            // decided entirely by PaddleEnvironmentConfig::resolve(), never
+            // by this class -- Config only loads whatever keys are present,
+            // it does not interpret PADDLE_ENVIRONMENT itself.
+            'PADDLE_ENVIRONMENT',
+            'PADDLE_SANDBOX_WEBHOOK_SECRET',
+            'PADDLE_SANDBOX_FULL_TAMAMIZU_PRICE_ID',
+            'PADDLE_SANDBOX_FULL_TAMAMIZU_PRODUCT_ID',
+            'PADDLE_LIVE_WEBHOOK_SECRET',
+            'PADDLE_LIVE_FULL_TAMAMIZU_PRICE_ID',
+            'PADDLE_LIVE_FULL_TAMAMIZU_PRODUCT_ID',
             'ALLOWED_ORIGINS',
             'RATE_LIMIT_PEPPER',
             'RATE_LIMIT_EMAIL_PER_HOUR',

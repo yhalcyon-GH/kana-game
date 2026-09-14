@@ -54,6 +54,7 @@ export default function AccountTestPage() {
   const [loadingUser, setLoadingUser] = useState(true)
   const [checkoutEvent, setCheckoutEvent] = useState<SandboxCheckoutEvent | null>(null)
   const controller = useRef<SandboxCheckoutController | null>(null)
+  const environment = 'error' in sandboxConfig ? 'sandbox' : sandboxConfig.environment
   const token = 'error' in sandboxConfig ? '' : sandboxConfig.token
   const priceId = 'error' in sandboxConfig ? '' : sandboxConfig.priceId
   const checkoutActive = checkoutEvent?.kind === 'preparing' || checkoutEvent?.kind === 'opening' ||
@@ -63,7 +64,7 @@ export default function AccountTestPage() {
 
   useEffect(() => {
     const instance = createSandboxCheckoutController({
-      config: { token, priceId },
+      config: { environment, token, priceId },
       onEvent: (event) => {
         if (event.kind === 'preparing') setHasIntent(false)
         if (event.kind === 'ready') setHasIntent(true)
@@ -75,7 +76,7 @@ export default function AccountTestPage() {
       instance.dispose()
       controller.current = null
     }
-  }, [token, priceId])
+  }, [environment, token, priceId])
 
   const refreshCurrentUser = useCallback(async () => {
     if (!apiBase) {
@@ -125,7 +126,7 @@ export default function AccountTestPage() {
 
   async function handleCreatePurchaseIntent() {
     if (!apiBase) return
-    await controller.current?.prepare(() => createPurchaseIntent(apiBase))
+    await controller.current?.prepare(() => createPurchaseIntent(apiBase, environment))
   }
 
   async function openPhase3Checkout() {

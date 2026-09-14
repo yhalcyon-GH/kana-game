@@ -24,21 +24,38 @@ return [
     'DB_USER' => '',
     'DB_PASSWORD' => '',
 
-    // From Paddle Sandbox dashboard -> Developer tools -> Notifications ->
-    // (your destination) -> shown ONCE at creation time, prefixed
-    // pdl_ntfset_... See docs/paddle-webhook-poc.md's setup steps. If lost,
-    // rotate the destination's secret in the dashboard rather than
-    // guessing/reusing an old value.
-    'PADDLE_WEBHOOK_SECRET' => '',
+    // --- Phase H2: explicit Paddle environment separation ---
+    // See docs/paddle-environment-separation.md and
+    // server/src/PaddleEnvironmentConfig.php. Must be the EXACT string
+    // 'sandbox' or 'live' -- no other value, and no default, is
+    // accepted; paddle-webhook.php fails closed (500, Paddle retries)
+    // rather than guessing. Only the triplet below matching THIS value
+    // is ever read -- the other environment's triplet can be left
+    // entirely blank/absent with no effect on which one is used.
+    'PADDLE_ENVIRONMENT' => '',
 
-    // The existing Full Tamamizu Sandbox price/product ids from PR #211's
-    // Sandbox catalog (pri_... / pro_...). Used to verify a
+    // From Paddle's SANDBOX dashboard -> Developer tools -> Notifications
+    // -> (your destination) -> shown ONCE at creation time, prefixed
+    // pdl_ntfset_... See docs/paddle-webhook-poc.md's setup steps. If
+    // lost, rotate the destination's secret in the dashboard rather than
+    // guessing/reusing an old value.
+    'PADDLE_SANDBOX_WEBHOOK_SECRET' => '',
+    // The Full Tamamizu Sandbox price/product ids (pri_... / pro_...)
+    // from PR #211's Sandbox catalog. Used to verify a
     // transaction.completed event is for the expected offer before
-    // activating any entitlement — see server/src/WebhookHandler.php.
-    // These are not secrets, but keeping them in server config (not
-    // hardcoded) avoids ever mixing up a Sandbox id with a future Live id.
-    'PADDLE_FULL_TAMAMIZU_PRICE_ID' => '',
-    'PADDLE_FULL_TAMAMIZU_PRODUCT_ID' => '',
+    // activating any entitlement.
+    'PADDLE_SANDBOX_FULL_TAMAMIZU_PRICE_ID' => '',
+    'PADDLE_SANDBOX_FULL_TAMAMIZU_PRODUCT_ID' => '',
+
+    // From Paddle's LIVE dashboard -- same shape as the Sandbox triplet
+    // above, but from the separate Live workspace/catalog. Real money
+    // moves once these are populated AND PADDLE_ENVIRONMENT is set to
+    // 'live' AND this deployment is actually pointed at by a Live
+    // Paddle notification destination -- do not populate these outside
+    // a deliberate, reviewed Live cutover.
+    'PADDLE_LIVE_WEBHOOK_SECRET' => '',
+    'PADDLE_LIVE_FULL_TAMAMIZU_PRICE_ID' => '',
+    'PADDLE_LIVE_FULL_TAMAMIZU_PRODUCT_ID' => '',
 
     // Comma-separated list of exact origins allowed to call
     // entitlement.php via CORS (see server/src/Cors.php). No wildcards.

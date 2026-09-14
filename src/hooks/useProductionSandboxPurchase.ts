@@ -109,7 +109,15 @@ export function useProductionSandboxPurchase() {
         invalidate()
         const attempt = generation
         const prepared = await controller.prepare(async () => {
-          const result = await createPurchaseIntent(apiBase)
+          // Phase H2: asserts this build's own configured environment;
+          // the server checks it against its own authoritative
+          // PADDLE_ENVIRONMENT and rejects on any disagreement. A
+          // 'environment-mismatch' result falls through to `null` below,
+          // same as 'unavailable' -- the controller's own prepare()
+          // already fails closed on a falsy result (no purchase_ref
+          // stored, checkout never opens, state becomes 'unavailable'),
+          // so no separate handling is needed here.
+          const result = await createPurchaseIntent(apiBase, config.environment)
           if (!isCurrent(attempt)) return null
           if (result.kind === 'signed-out') {
             invalidate()
@@ -135,5 +143,10 @@ export function useProductionSandboxPurchase() {
   const start = useCallback(async () => { await actions.current?.start() }, [])
   const retry = useCallback(() => actions.current?.retry(), [])
   const invalidate = useCallback(() => actions.current?.invalidate(), [])
-  return { status, configured: !('error' in config) && !!apiBase, start, retry, cancel: invalidate, invalidate }
+  // Phase H2: exposes which environment (sandbox/live) this build is
+  // configured for, so Account UI copy can be environment-aware (test-
+  // purchase language in Sandbox, ordinary purchase language in Live) --
+  // null only when config itself is invalid/absent, matching `configured`.
+  const environment = 'error' in config ? null : config.environment
+  return { status, configured: !('error' in config) && !!apiBase, environment, start, retry, cancel: invalidate, invalidate }
 }

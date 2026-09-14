@@ -13,7 +13,7 @@ function event(name: string, ref = 'private-ref', transaction = 'txn_1'): Paddle
   return { name, data: { id: 'che_fixture', transaction_id: transaction, custom_data: { purchase_ref: ref } } } as PaddleEventData
 }
 
-function fixture() {
+function fixture(environment: 'sandbox' | 'live' = 'sandbox', token = 'test_fixture') {
   const callbacks: Array<(event: PaddleEventData) => void> = []
   const events: SandboxCheckoutEvent[] = []
   const open = vi.fn()
@@ -25,7 +25,7 @@ function fixture() {
     return paddle
   })
   const loadPaddle = vi.fn(async () => ({ initializePaddle: initialize }))
-  const controller = createSandboxCheckoutController({ config: { token: 'test_fixture', priceId: 'pri_fixture' }, loadPaddle, onEvent: (value) => events.push(value) })
+  const controller = createSandboxCheckoutController({ config: { environment, token, priceId: 'pri_fixture' }, loadPaddle, onEvent: (value) => events.push(value) })
   const prepare = (ref = 'private-ref') => controller.prepare(async () => ref)
   const emit = (name: string, ref?: string, transaction?: string) => callbacks.at(-1)?.(event(name, ref, transaction))
   return { controller, prepare, emit, callbacks, events, open, close, update, initialize, loadPaddle, paddle }
@@ -214,5 +214,21 @@ describe('Sandbox checkout controller', () => {
     await f.controller.open()
     expect(f.loadPaddle).not.toHaveBeenCalled()
     expect(f.events.at(-1)).toEqual({ kind: 'unavailable' })
+  })
+
+  // -- Phase H2: environment mapping at the Paddle SDK boundary --
+
+  it('maps the live config environment to the SDK\'s "production" value -- Paddle\'s own SDK has no "live" value', async () => {
+    const f = fixture('live', 'live_fixture')
+    await f.prepare()
+    await f.controller.open()
+    expect(f.initialize).toHaveBeenCalledExactlyOnceWith({ environment: 'production', token: 'live_fixture', eventCallback: expect.any(Function) })
+  })
+
+  it('keeps the sandbox config environment mapped to the SDK\'s "sandbox" value', async () => {
+    const f = fixture('sandbox', 'test_fixture')
+    await f.prepare()
+    await f.controller.open()
+    expect(f.initialize).toHaveBeenCalledExactlyOnceWith({ environment: 'sandbox', token: 'test_fixture', eventCallback: expect.any(Function) })
   })
 })

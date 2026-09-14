@@ -69,7 +69,7 @@ beforeEach(() => {
     const url = String(input)
     if (url.endsWith('/auth/me.php')) return json({ user_id: 'u1', email_normalized: 'learner@example.com' }, userStatus)
     if (url.endsWith('/entitlement-me.php')) return json(entitlement)
-    if (url.endsWith('/purchase-intent.php')) return json({ purchase_ref: privateRef })
+    if (url.endsWith('/purchase-intent.php')) return json({ purchase_ref: privateRef, environment: 'sandbox' })
     if (url.endsWith('/auth/logout.php')) return json({ ok: true })
     throw new Error('Unexpected request')
   })
@@ -98,17 +98,53 @@ describe('production Account purchase UI', () => {
   })
 
   it.each([
+    // 'live' with beforeEach's unchanged test_-prefixed token is still an
+    // environment/token mismatch under Phase H2 -- 'live' alone is now a
+    // VALID environment value, so this case is here to prove the config
+    // is still correctly rejected for the RIGHT reason (mismatched
+    // token), not because 'live' itself is disallowed.
     ['VITE_PADDLE_ENVIRONMENT', ''], ['VITE_PADDLE_ENVIRONMENT', 'live'],
     ['VITE_PADDLE_ENVIRONMENT', 'production'], ['VITE_PADDLE_CLIENT_TOKEN', 'live_bad'],
     ['VITE_PADDLE_PRICE_ID', 'invalid'], ['VITE_PADDLE_CLIENT_TOKEN', ''], ['VITE_PADDLE_PRICE_ID', ''],
   ])('disables checkout and explains unavailable config for %s=%s', async (key, value) => {
     vi.stubEnv(key, value)
     await renderAccount()
-    expect(screen.getByText('Sandbox configuration unavailable')).toBeInTheDocument()
-    const button = screen.getByRole('button', { name: 'Sandbox test purchase' })
+    // Config is invalid, so the resolved environment is unknown -- the UI
+    // must show the generic (non-Sandbox-specific) copy, never guess Sandbox.
+    expect(screen.getByText('Purchase unavailable')).toBeInTheDocument()
+    const button = screen.getByRole('button', { name: 'Buy Full Tamamizu' })
     expect(button).toBeDisabled()
     fireEvent.click(button)
     expect(requestCount('/purchase-intent.php')).toBe(0)
+    expect(sdk.initialize).not.toHaveBeenCalled()
+  })
+
+  it('offers Full Tamamizu with ordinary purchase labeling (no Sandbox/Test Mode text) when configured for live', async () => {
+    vi.stubEnv('VITE_PADDLE_ENVIRONMENT', 'live')
+    vi.stubEnv('VITE_PADDLE_CLIENT_TOKEN', 'live_fixture')
+    await renderAccount()
+    expect(screen.getByText('Full Tamamizu')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Buy Full Tamamizu' })).toBeEnabled()
+    expect(document.body.textContent).not.toMatch(/sandbox|test mode/i)
+  })
+
+  // -- Phase H2: server-asserted environment mismatch fails closed --
+
+  it('a 409 environment-mismatch response fails closed to unavailable -- checkout never opens, no confirmation polling starts', async () => {
+    await renderAccount()
+    fetchMock.mockReturnValueOnce(Promise.resolve(json({ error: 'environment mismatch' }, 409)))
+    await start()
+    expect(screen.getByRole('button', { name: 'Sandbox test purchase' })).toBeEnabled()
+    expect(screen.getByText('Couldn’t open Sandbox Checkout. Please try again.')).toBeInTheDocument()
+    expect(sdk.open).not.toHaveBeenCalled()
+    expect(sdk.initialize).not.toHaveBeenCalled()
+  })
+
+  it('a 200 response echoing a DIFFERENT environment than configured is rejected locally -- checkout never opens even though the server said 200', async () => {
+    await renderAccount()
+    fetchMock.mockReturnValueOnce(Promise.resolve(json({ purchase_ref: privateRef, environment: 'live' })))
+    await start()
+    expect(sdk.open).not.toHaveBeenCalled()
     expect(sdk.initialize).not.toHaveBeenCalled()
   })
 
@@ -139,8 +175,12 @@ describe('production Account purchase UI', () => {
     await start()
     expect(screen.getByRole('button', { name: 'Sandbox test purchase' })).toBeDisabled()
     fireEvent.click(screen.getByRole('button', { name: 'Sandbox test purchase' }))
-    expect(fetchMock.mock.calls.at(-1)).toEqual(['https://api.example.com/purchase-intent.php', { method: 'POST', credentials: 'include' }])
-    await act(async () => { pending.resolve(json({ purchase_ref: privateRef })) })
+    expect(fetchMock.mock.calls.at(-1)).toEqual(['https://api.example.com/purchase-intent.php', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ environment: 'sandbox' }),
+    }])
+    await act(async () => { pending.resolve(json({ purchase_ref: privateRef, environment: 'sandbox' })) })
     expect(screen.getByRole('button', { name: 'Sandbox test purchase' })).toBeDisabled()
     expect(sdk.open).toHaveBeenCalledOnce()
     expect(requestCount('/purchase-intent.php')).toBe(1)

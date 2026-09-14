@@ -72,7 +72,7 @@ describe('production Sandbox purchase orchestration', () => {
     let start!: Promise<void>
     act(() => { start = f.result.current.start(); void f.result.current.start() })
     expect(f.result.current.status).toBe('preparing')
-    expect(createPurchaseIntent).toHaveBeenCalledExactlyOnceWith('https://api.example.com')
+    expect(createPurchaseIntent).toHaveBeenCalledExactlyOnceWith('https://api.example.com', 'sandbox')
     expect(sdk.open).not.toHaveBeenCalled()
     await act(async () => { pending.resolve({ kind: 'created', purchaseRef: 'private-purchase-ref' }); await start })
     expect(f.result.current.status).toBe('open')
@@ -81,7 +81,29 @@ describe('production Sandbox purchase orchestration', () => {
       customData: { purchase_ref: 'private-purchase-ref' },
     })
     expect(sdk.initialize).toHaveBeenCalledWith(expect.objectContaining({ environment: 'sandbox' }))
+    expect(f.result.current.environment).toBe('sandbox')
     expect(f.refresh).not.toHaveBeenCalled()
+  })
+
+  it('exposes the live environment and maps it to the SDK\'s "production" value, per configured live credentials', async () => {
+    vi.stubEnv('VITE_PADDLE_ENVIRONMENT', 'live')
+    vi.stubEnv('VITE_PADDLE_CLIENT_TOKEN', 'live_fixture')
+    const f = fixture()
+    expect(f.result.current.environment).toBe('live')
+    expect(f.result.current.configured).toBe(true)
+    await f.start()
+    expect(createPurchaseIntent).toHaveBeenCalledWith('https://api.example.com', 'live')
+    expect(sdk.initialize).toHaveBeenCalledWith(expect.objectContaining({ environment: 'production', token: 'live_fixture' }))
+  })
+
+  it('a live environment paired with a sandbox-prefixed token fails closed -- environment is null, not guessed', async () => {
+    vi.stubEnv('VITE_PADDLE_ENVIRONMENT', 'live')
+    // VITE_PADDLE_CLIENT_TOKEN stays 'test_fixture' from beforeEach -- mismatched for 'live'.
+    const f = fixture()
+    expect(f.result.current.configured).toBe(false)
+    expect(f.result.current.environment).toBe(null)
+    await f.start()
+    expect(sdk.initialize).not.toHaveBeenCalled()
   })
 
   it.each(['signed-out', 'active', 'loading', 'unavailable'] as const)('rejects purchase attempts while %s', async (status) => {
@@ -115,6 +137,25 @@ describe('production Sandbox purchase orchestration', () => {
     await f.start()
     expect(f.result.current.status).toBe('unavailable')
     expect(sdk.open).not.toHaveBeenCalled()
+    await f.start()
+    expect(f.result.current.status).toBe('open')
+    expect(createPurchaseIntent).toHaveBeenCalledTimes(2)
+  })
+
+  it('a server-asserted environment mismatch fails closed to unavailable -- checkout never opens, no purchase_ref is stored', async () => {
+    vi.mocked(createPurchaseIntent).mockResolvedValueOnce({ kind: 'environment-mismatch' })
+    const f = fixture()
+    await f.start()
+    expect(f.result.current.status).toBe('unavailable')
+    expect(sdk.open).not.toHaveBeenCalled()
+    expect(sdk.initialize).not.toHaveBeenCalled()
+  })
+
+  it('an environment mismatch is recoverable with a fresh purchase attempt, matching the unavailable-intent behavior', async () => {
+    vi.mocked(createPurchaseIntent).mockResolvedValueOnce({ kind: 'environment-mismatch' })
+    const f = fixture()
+    await f.start()
+    expect(f.result.current.status).toBe('unavailable')
     await f.start()
     expect(f.result.current.status).toBe('open')
     expect(createPurchaseIntent).toHaveBeenCalledTimes(2)
