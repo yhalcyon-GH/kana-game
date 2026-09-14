@@ -41,15 +41,15 @@ function walk(relativePath, files = []) {
 }
 
 function assertEmptyConfigValue(source, key) {
-  const expression = new RegExp("\\'" + key + "\\'\\s*=>\\s*\\'\\'")
+  const expression = new RegExp("'" + key + "'\\s*=>\\s*''")
   if (!expression.test(source)) {
-    fail(`Expected ${key} to be blank in server/config.example.php.`)
+    fail('Expected ' + key + ' to be blank in server/config.example.php.')
   }
 }
 
 for (const path of ['server/config.php', '.env', '.env.local']) {
   if (isTracked(path)) {
-    fail(`${path} must not be committed.`)
+    fail(path + ' must not be committed.')
   }
 }
 
@@ -78,21 +78,32 @@ for (const key of [
   'VITE_PRODUCTION_AUTH_API_BASE_URL',
 ]) {
   if (!new RegExp('^' + key + '=$', 'm').test(envExample)) {
-    fail(`Expected ${key} to be blank in .env.example.`)
+    fail('Expected ' + key + ' to be blank in .env.example.')
   }
 }
 
-const aiEndpointPattern = /(?:api\\.openai\\.com|api\\.anthropic\\.com|generativelanguage\\.googleapis\\.com|api\\.elevenlabs\\.io)/i
+const aiEndpointPattern = /(?:api\.openai\.com|api\.anthropic\.com|generativelanguage\.googleapis\.com|api\.elevenlabs\.io)/i
+const sourceFilePattern = /\.(?:[cm]?[jt]sx?|css|json)$/i
+
+// A regression here would make the scan silently vacuous. Keep these
+// self-checks in the executable guard instead of relying on review alone.
+if (!aiEndpointPattern.test('https://api.openai.com/v1')) {
+  fail('Internal regression: AI endpoint matcher is not active.')
+}
+if (!sourceFilePattern.test('src/example.ts')) {
+  fail('Internal regression: runtime source-file matcher is not active.')
+}
+
 for (const path of walk('src')) {
-  if (!/\\.(?:[cm]?[jt]sx?|css|json)$/i.test(path)) continue
+  if (!sourceFilePattern.test(path)) continue
   if (aiEndpointPattern.test(read(path))) {
-    fail(`Runtime AI endpoint found in ${path}.`)
+    fail('Runtime AI endpoint found in ' + path + '.')
   }
 }
 
 if (failures.length > 0) {
   console.error('Pre-Live Safety check failed:')
-  for (const failure of failures) console.error(`- ${failure}`)
+  for (const failure of failures) console.error('- ' + failure)
   process.exit(1)
 }
 
