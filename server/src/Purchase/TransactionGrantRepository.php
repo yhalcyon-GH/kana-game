@@ -14,9 +14,8 @@ use PDO;
  * transaction's grant for the same user/product.
  *
  * Entitlement-bearing statuses: 'active', 'refund_pending'.
- * Non-entitlement-bearing: 'refunded'. Chargeback statuses are reserved
- * in the schema but never written by this class in PR B — chargeback/
- * dispute handling remains explicitly deferred.
+ * Non-entitlement-bearing: 'refunded', 'chargeback', 'chargeback_pending'
+ * (Phase H1-3 — see PurchaseWebhookHandler's chargeback-family handling).
  *
  * updateStatus() discards a stale (older occurred_at) transition so a
  * late-arriving out-of-order event can never undo a newer one.
@@ -75,21 +74,54 @@ final class TransactionGrantRepository
      * the grant's current status_changed_at — a stale out-of-order
      * event is discarded (returns false) rather than overwriting a
      * newer status. Returns false for an unknown transaction id.
+     *
+     * Phase H1-3: $allowedFromStatuses, when given, adds a second,
+     * INDEPENDENT guard alongside the occurred_at staleness check: the
+     * transition is only applied if the grant's CURRENT status is one
+     * of the listed values. This is what makes chargeback_reverse and
+     * chargeback_warning_reverse safe -- without it, an occurred_at
+     * that merely postdates a *previous* status_changed_at would be
+     * enough to blindly restore 'active' from ANY current status,
+     * including an already-finalized 'refunded' grant. With it, e.g.
+     * chargeback_reverse can only ever fire from 'chargeback' (never
+     * from 'refunded', never from 'chargeback_pending' -- that pairs
+     * exclusively with chargeback_warning_reverse). Omitted (null,
+     * the default) for the existing refund transitions, which are
+     * unrestricted by source status, preserving their current
+     * behavior exactly.
+     *
+     * @param list<string>|null $allowedFromStatuses
      */
-    public function updateStatus(string $paddleTransactionId, string $newStatus, \DateTimeImmutable $occurredAt): bool
-    {
-        $statement = $this->pdo->prepare(
-            'UPDATE transaction_grants
-             SET status = :status, status_changed_at = :occurred_at
-             WHERE paddle_transaction_id = :txn_id AND status_changed_at <= :occurred_at2',
-        );
+    public function updateStatus(
+        string $paddleTransactionId,
+        string $newStatus,
+        \DateTimeImmutable $occurredAt,
+        ?array $allowedFromStatuses = null,
+    ): bool {
         $occurredAtStr = $occurredAt->format('Y-m-d H:i:s');
-        $statement->execute([
+        $params = [
             'status' => $newStatus,
             'occurred_at' => $occurredAtStr,
             'txn_id' => $paddleTransactionId,
             'occurred_at2' => $occurredAtStr,
-        ]);
+        ];
+
+        $sql = 'UPDATE transaction_grants
+                SET status = :status, status_changed_at = :occurred_at
+                WHERE paddle_transaction_id = :txn_id AND status_changed_at <= :occurred_at2';
+
+        if ($allowedFromStatuses !== null) {
+            $placeholders = [];
+            foreach (array_values($allowedFromStatuses) as $index => $fromStatus) {
+                $key = "from_status_{$index}";
+                $placeholders[] = ":{$key}";
+                $params[$key] = $fromStatus;
+            }
+            $sql .= ' AND status IN (' . implode(',', $placeholders) . ')';
+        }
+
+        $statement = $this->pdo->prepare($sql);
+        $statement->execute($params);
 
         return $statement->rowCount() === 1;
     }

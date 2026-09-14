@@ -122,6 +122,59 @@ function transactionGrantRepositoryTests(): array
             assertFalse($repo->updateStatus('txn_never_existed', 'refunded', new \DateTimeImmutable()), 'an unknown transaction id should return false, not throw');
         },
 
+        // -- Phase H1-3: $allowedFromStatuses guard --
+
+        '$allowedFromStatuses restricts a transition to grants currently in one of the listed statuses' => function () {
+            $pdo = makeTransactionGrantsTestDb();
+            $repo = new TransactionGrantRepository($pdo);
+            $repo->create('txn_1', 'user-1', 'full_tamamizu', 1, new \DateTimeImmutable('2026-01-01 00:00:00'));
+            // Current status is 'active' (default from create()).
+
+            $applied = $repo->updateStatus('txn_1', 'active', new \DateTimeImmutable('2026-01-02 00:00:00'), ['chargeback']);
+            assertFalse($applied, 'the transition must be refused -- current status "active" is not in the allowed-from list ["chargeback"]');
+
+            $status = $pdo->query("SELECT status FROM transaction_grants WHERE paddle_transaction_id = 'txn_1'")->fetchColumn();
+            assertSame('active', $status, 'status must be unchanged after a refused transition');
+        },
+
+        '$allowedFromStatuses permits a transition when the current status matches' => function () {
+            $pdo = makeTransactionGrantsTestDb();
+            $repo = new TransactionGrantRepository($pdo);
+            $repo->create('txn_1', 'user-1', 'full_tamamizu', 1, new \DateTimeImmutable('2026-01-01 00:00:00'));
+            $repo->updateStatus('txn_1', 'chargeback', new \DateTimeImmutable('2026-01-02 00:00:00'));
+
+            $applied = $repo->updateStatus('txn_1', 'active', new \DateTimeImmutable('2026-01-03 00:00:00'), ['chargeback']);
+            assertTrue($applied, 'the transition must be applied -- current status "chargeback" is in the allowed-from list');
+
+            $status = $pdo->query("SELECT status FROM transaction_grants WHERE paddle_transaction_id = 'txn_1'")->fetchColumn();
+            assertSame('active', $status, 'status should now be active');
+        },
+
+        '$allowedFromStatuses is checked in addition to, not instead of, the occurred_at staleness guard' => function () {
+            $pdo = makeTransactionGrantsTestDb();
+            $repo = new TransactionGrantRepository($pdo);
+            $repo->create('txn_1', 'user-1', 'full_tamamizu', 1, new \DateTimeImmutable('2026-01-01 00:00:00'));
+            $repo->updateStatus('txn_1', 'chargeback', new \DateTimeImmutable('2026-01-05 00:00:00'));
+
+            // Current status IS in the allowed-from list, but occurred_at
+            // is older than the grant's current status_changed_at.
+            $applied = $repo->updateStatus('txn_1', 'active', new \DateTimeImmutable('2026-01-02 00:00:00'), ['chargeback']);
+            assertFalse($applied, 'a stale event must still be discarded even when the allowed-from-status check alone would pass');
+        },
+
+        'omitting $allowedFromStatuses (null) leaves refund transitions unrestricted by source status, as before Phase H1-3' => function () {
+            $pdo = makeTransactionGrantsTestDb();
+            $repo = new TransactionGrantRepository($pdo);
+            $repo->create('txn_1', 'user-1', 'full_tamamizu', 1, new \DateTimeImmutable('2026-01-01 00:00:00'));
+            $repo->updateStatus('txn_1', 'refunded', new \DateTimeImmutable('2026-01-02 00:00:00'));
+
+            // A "rejected" refund transition back to active must still
+            // work from ANY prior status when no allow-list is given --
+            // exactly the existing refund lifecycle.
+            $applied = $repo->updateStatus('txn_1', 'active', new \DateTimeImmutable('2026-01-03 00:00:00'));
+            assertTrue($applied, 'refund transitions must remain unrestricted by source status');
+        },
+
         'findByTransactionId() returns the grant row for a known transaction' => function () {
             $repo = new TransactionGrantRepository(makeTransactionGrantsTestDb());
             $occurredAt = new \DateTimeImmutable('2026-01-01 00:00:00');
