@@ -79,6 +79,12 @@ most one checkout with that reference. `customData` contains only
 it does not update entitlement. A mismatch, stale event, close, or cancellation
 cannot produce a completion signal.
 
+`checkout.closed` before a strictly correlated `checkout.completed` invalidates
+the attempt. Once that correlated completion has occurred, checkout correlation
+is terminally cleared and a later close from the completed overlay is stale: it
+cannot cancel server confirmation. The explicit Account `Cancel confirmation`
+action may still invalidate that confirmation polling.
+
 Paddle.js is loaded lazily only after a valid configuration and authenticated
 purchase attempt. Initialization always receives `environment: 'sandbox'`.
 
@@ -132,7 +138,7 @@ The current attempt is invalidated on:
 
 - logout;
 - component unmount;
-- checkout close/cancel;
+- checkout close before correlated completion, or explicit Account cancellation;
 - start of a new purchase attempt; and
 - any transition of the authenticated session to signed-out.
 

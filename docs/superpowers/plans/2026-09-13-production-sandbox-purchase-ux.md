@@ -17,7 +17,7 @@
 - E1A/E1B policy, gates, progression, SRS, mastery, Recommended Path, and learning storage remain unchanged.
 - Raw `purchase_ref` exists only in controller memory and Paddle `customData`.
 - No production deploy or GitHub repository Variable value mutation.
-- Stale callbacks/responses are invalidated on logout, unmount, close, new attempt, and signed-out transition.
+- Stale callbacks/responses are invalidated on logout, unmount, pre-completion checkout close, explicit Account cancellation, new attempt, and signed-out transition; a post-completion overlay close is stale and cannot cancel server confirmation.
 
 ### Task 1: Production-capable Sandbox config and Pages wiring
 
