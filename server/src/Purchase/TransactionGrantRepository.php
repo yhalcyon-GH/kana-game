@@ -126,14 +126,31 @@ final class TransactionGrantRepository
         return $statement->rowCount() === 1;
     }
 
+    /**
+     * Callers MUST hold the caller's per-user serialization lock (see
+     * PurchaseWebhookHandler::lockUserForEntitlementUpdate()) before
+     * calling this, and this is the only entitlement-affecting read
+     * that should follow it. On MariaDB this is a locking/current read
+     * (FOR UPDATE): even after waiting for the per-user lock, this
+     * transaction's own REPEATABLE READ snapshot -- established by an
+     * earlier read, before the lock wait -- would otherwise still miss
+     * a grant status change another transaction just committed while
+     * this one was waiting. FOR UPDATE bypasses that snapshot and reads
+     * the latest committed rows. SQLite has no comparable snapshot/
+     * locking-read distinction for this codebase's usage and remains a
+     * plain SELECT.
+     */
     public function hasEntitlementBearingGrant(string $userId, string $productKey): bool
     {
+        $driver = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
         $placeholders = implode(',', array_fill(0, count(self::ENTITLEMENT_BEARING_STATUSES), '?'));
-        $statement = $this->pdo->prepare(
-            "SELECT 1 FROM transaction_grants
+        $sql = "SELECT 1 FROM transaction_grants
              WHERE user_id = ? AND product_key = ? AND status IN ({$placeholders})
-             LIMIT 1",
-        );
+             LIMIT 1";
+        if ($driver !== 'sqlite') {
+            $sql .= ' FOR UPDATE';
+        }
+        $statement = $this->pdo->prepare($sql);
         $statement->execute([$userId, $productKey, ...self::ENTITLEMENT_BEARING_STATUSES]);
 
         return $statement->fetchColumn() !== false;
