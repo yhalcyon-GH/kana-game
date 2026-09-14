@@ -61,6 +61,27 @@ final class Config
             'PADDLE_LIVE_WEBHOOK_SECRET',
             'PADDLE_LIVE_FULL_TAMAMIZU_PRICE_ID',
             'PADDLE_LIVE_FULL_TAMAMIZU_PRODUCT_ID',
+            // Rolling-deploy compatibility ONLY -- NOT an environment
+            // fallback. PaddleEnvironmentConfig::resolve() never reads
+            // these three keys; it reads PADDLE_ENVIRONMENT plus the
+            // scoped PADDLE_SANDBOX_*/PADDLE_LIVE_* triplet above,
+            // exclusively, exactly as before. These old, unscoped keys
+            // are kept LOADABLE here (not deleted from this array) purely
+            // so that during a manual multi-file Production upload, the
+            // still-running OLD paddle-webhook.php -- which reads these
+            // three keys directly, by name, with no knowledge of Phase H2
+            // -- keeps working against the NEW Config.php the instant it
+            // lands, before the NEW paddle-webhook.php has been uploaded
+            // yet. Removing this array entry (as an earlier H2 revision
+            // did) reintroduces a real Production incompatibility: see
+            // docs/paddle-environment-separation.md's "Superseded keys"
+            // section for the exact 4-combination compatibility matrix
+            // this was found to break. Safe to delete only once the old,
+            // pre-H2 paddle-webhook.php is no longer the deployed version
+            // anywhere -- i.e. after Production has fully cut over to H2.
+            'PADDLE_WEBHOOK_SECRET',
+            'PADDLE_FULL_TAMAMIZU_PRICE_ID',
+            'PADDLE_FULL_TAMAMIZU_PRODUCT_ID',
             'ALLOWED_ORIGINS',
             'RATE_LIMIT_PEPPER',
             'RATE_LIMIT_EMAIL_PER_HOUR',

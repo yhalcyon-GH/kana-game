@@ -162,5 +162,58 @@ function paddleEnvironmentConfigTests(): array
             assertSame('pri_live', $result->priceId, 'must resolve the live price id, not the sandbox one');
             assertSame('pro_live', $result->productId, 'must resolve the live product id, not the sandbox one');
         },
+
+        // -- H2 rollout compatibility fix: the old, pre-H2 unscoped keys
+        // must NEVER be read by PaddleEnvironmentConfig, even when they
+        // coexist with the new scoped keys (the exact overlap-window
+        // state a Production rollout deliberately creates -- see
+        // docs/paddle-environment-separation.md's "Superseded keys"
+        // section). Config::load() itself was fixed to keep these old
+        // keys loadable (ConfigTest.php covers that in isolation) purely
+        // for the still-running OLD paddle-webhook.php's benefit;
+        // PaddleEnvironmentConfig's own resolution logic is unchanged and
+        // is re-proven here specifically against fixtures that ALSO carry
+        // the old keys, with deliberately DIFFERENT values from the new
+        // ones, so a real leak (not just a coincidental match) would be
+        // caught.
+
+        'sandbox selected, with the old unscoped keys ALSO present carrying deliberately different values, resolves to the sandbox triplet only' => function () {
+            $values = PEC_SANDBOX_VALUES + [
+                'PADDLE_WEBHOOK_SECRET' => 'LEGACY-value-must-never-be-used',
+                'PADDLE_FULL_TAMAMIZU_PRICE_ID' => 'pri_LEGACY_must_never_be_used',
+                'PADDLE_FULL_TAMAMIZU_PRODUCT_ID' => 'pro_LEGACY_must_never_be_used',
+            ];
+            $result = PaddleEnvironmentConfig::resolve(Config::fromArray($values));
+            assertSame('sandbox-secret', $result->webhookSecret, 'must resolve the new scoped sandbox secret, never the coexisting legacy value');
+            assertSame('pri_sandbox', $result->priceId, 'must resolve the new scoped sandbox price id, never the coexisting legacy value');
+            assertSame('pro_sandbox', $result->productId, 'must resolve the new scoped sandbox product id, never the coexisting legacy value');
+        },
+
+        'live selected, with the old unscoped keys ALSO present carrying deliberately different values, resolves to the live triplet only' => function () {
+            $values = PEC_LIVE_VALUES + [
+                'PADDLE_WEBHOOK_SECRET' => 'LEGACY-value-must-never-be-used',
+                'PADDLE_FULL_TAMAMIZU_PRICE_ID' => 'pri_LEGACY_must_never_be_used',
+                'PADDLE_FULL_TAMAMIZU_PRODUCT_ID' => 'pro_LEGACY_must_never_be_used',
+            ];
+            $result = PaddleEnvironmentConfig::resolve(Config::fromArray($values));
+            assertSame('live-secret', $result->webhookSecret, 'must resolve the new scoped live secret, never the coexisting legacy value');
+            assertSame('pri_live', $result->priceId, 'must resolve the new scoped live price id, never the coexisting legacy value');
+            assertSame('pro_live', $result->productId, 'must resolve the new scoped live product id, never the coexisting legacy value');
+        },
+
+        'ONLY the old unscoped keys present, with no PADDLE_ENVIRONMENT or scoped keys at all, still fails closed -- no legacy-to-sandbox fallback' => function () {
+            $values = [
+                'PADDLE_WEBHOOK_SECRET' => 'LEGACY-value-must-never-be-used',
+                'PADDLE_FULL_TAMAMIZU_PRICE_ID' => 'pri_LEGACY_must_never_be_used',
+                'PADDLE_FULL_TAMAMIZU_PRODUCT_ID' => 'pro_LEGACY_must_never_be_used',
+            ];
+            $threw = false;
+            try {
+                PaddleEnvironmentConfig::resolve(Config::fromArray($values));
+            } catch (\RuntimeException) {
+                $threw = true;
+            }
+            assertTrue($threw, 'a config carrying ONLY the old unscoped keys (e.g. before step 2 of the rollout migration has run) must fail closed, never silently treat the old keys as an implicit Sandbox environment');
+        },
     ];
 }

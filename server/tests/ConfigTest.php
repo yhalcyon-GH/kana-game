@@ -48,5 +48,60 @@ function configTests(): array
             $config = Config::fromArray([]);
             assertSame([], $config->allowedOrigins(), 'no configured origins should mean an empty list');
         },
+
+        // -- H2 rollout compatibility fix: Config::load() must keep the
+        // old, pre-H2, unscoped Paddle keys loadable (rolling-deploy
+        // compatibility only -- NOT an environment fallback; see
+        // server/src/Config.php's own comment on this array entry and
+        // PaddleEnvironmentConfigTest.php for proof that
+        // PaddleEnvironmentConfig itself never reads these three keys).
+        // load() reads real environment variables first (see its own
+        // preference-order comment), so these tests set/unset env vars
+        // directly rather than using fromArray(), which bypasses load()'s
+        // key-scanning entirely.
+        'Config::load() still reads the old, pre-H2 unscoped Paddle keys from real environment variables' => function () {
+            putenv('PADDLE_WEBHOOK_SECRET=legacy-secret-value');
+            putenv('PADDLE_FULL_TAMAMIZU_PRICE_ID=pri_legacy');
+            putenv('PADDLE_FULL_TAMAMIZU_PRODUCT_ID=pro_legacy');
+            try {
+                $config = Config::load();
+                assertSame('legacy-secret-value', $config->get('PADDLE_WEBHOOK_SECRET'), 'the old webhook secret key must still be loadable');
+                assertSame('pri_legacy', $config->get('PADDLE_FULL_TAMAMIZU_PRICE_ID'), 'the old price id key must still be loadable');
+                assertSame('pro_legacy', $config->get('PADDLE_FULL_TAMAMIZU_PRODUCT_ID'), 'the old product id key must still be loadable');
+            } finally {
+                putenv('PADDLE_WEBHOOK_SECRET');
+                putenv('PADDLE_FULL_TAMAMIZU_PRICE_ID');
+                putenv('PADDLE_FULL_TAMAMIZU_PRODUCT_ID');
+            }
+        },
+
+        'Config::load() reads the new H2 scoped Paddle keys alongside the old ones, with both present' => function () {
+            putenv('PADDLE_ENVIRONMENT=sandbox');
+            putenv('PADDLE_SANDBOX_WEBHOOK_SECRET=new-sandbox-secret');
+            putenv('PADDLE_SANDBOX_FULL_TAMAMIZU_PRICE_ID=pri_new_sandbox');
+            putenv('PADDLE_SANDBOX_FULL_TAMAMIZU_PRODUCT_ID=pro_new_sandbox');
+            putenv('PADDLE_WEBHOOK_SECRET=legacy-secret-value');
+            putenv('PADDLE_FULL_TAMAMIZU_PRICE_ID=pri_legacy');
+            putenv('PADDLE_FULL_TAMAMIZU_PRODUCT_ID=pro_legacy');
+            try {
+                $config = Config::load();
+                assertSame('sandbox', $config->get('PADDLE_ENVIRONMENT'), 'the new environment key must be loadable');
+                assertSame('new-sandbox-secret', $config->get('PADDLE_SANDBOX_WEBHOOK_SECRET'), 'the new scoped secret key must be loadable');
+                assertSame('pri_new_sandbox', $config->get('PADDLE_SANDBOX_FULL_TAMAMIZU_PRICE_ID'), 'the new scoped price id key must be loadable');
+                assertSame('pro_new_sandbox', $config->get('PADDLE_SANDBOX_FULL_TAMAMIZU_PRODUCT_ID'), 'the new scoped product id key must be loadable');
+                // Both old and new are readable at once -- this is exactly
+                // the overlap window the rolling-deploy fix requires;
+                // Config itself does no filtering/interpretation between them.
+                assertSame('legacy-secret-value', $config->get('PADDLE_WEBHOOK_SECRET'), 'the old key must remain readable at the same time as the new ones');
+            } finally {
+                putenv('PADDLE_ENVIRONMENT');
+                putenv('PADDLE_SANDBOX_WEBHOOK_SECRET');
+                putenv('PADDLE_SANDBOX_FULL_TAMAMIZU_PRICE_ID');
+                putenv('PADDLE_SANDBOX_FULL_TAMAMIZU_PRODUCT_ID');
+                putenv('PADDLE_WEBHOOK_SECRET');
+                putenv('PADDLE_FULL_TAMAMIZU_PRICE_ID');
+                putenv('PADDLE_FULL_TAMAMIZU_PRODUCT_ID');
+            }
+        },
     ];
 }
