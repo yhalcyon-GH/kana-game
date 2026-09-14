@@ -22,6 +22,7 @@ For day-to-day development, start with [`CLAUDE.md`](../CLAUDE.md) or [`AGENTS.m
 - **[paddle-auth-phase3a-pr-b.md](./paddle-auth-phase3a-pr-b.md)** — Phase 3A PR B: secure purchase attribution (purchase_ref, transaction_grants, out-of-order webhook reconciliation, refund lifecycle); not yet deployed.
 - **[paddle-auth-phase3a-pr-c.md](./paddle-auth-phase3a-pr-c.md)** — Phase 3A PR C: dev-only end-to-end auth/purchase harness (`/account-test`, `/verify`, dev-only Magic Link retrieval); not yet deployed.
 - **[observability.md](./observability.md)** — minimal pre-Live error-log tags for the Paddle webhook, auth, and entitlement endpoints: what each tag means, severity, and where the real Xserver `error_log` destination still needs confirming.
+- **[pre-live-launch-checklist.md](./pre-live-launch-checklist.md)** — human-facing Sandbox→Live/Production cutover checklist; separates AI-verifiable items from human-only and real Paddle-Live-money operations. No secrets recorded.
 - **[tamamizu-guide-scripts.md](./tamamizu-guide-scripts.md)** — approved guide copy / visual direction where still applicable.
 - **[restaurant-audio-manifest.csv](./restaurant-audio-manifest.csv)** — restaurant audio asset manifest.
 
