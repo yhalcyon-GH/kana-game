@@ -104,6 +104,25 @@ Each item is tagged:
       works as Paddle provides it (Paddle-hosted, not custom-built here
       unless the repo already implements a portal link).
 
+## 5a. Webhook response timing (SHOULD FIX — design decision needed)
+
+- [ ] **Human required** — `server/paddle-webhook.php` verifies the Paddle
+      signature and then performs its DB work (event claim, grant
+      create/update, entitlement recompute) synchronously, inside the same
+      request, before returning the HTTP response. Paddle's own guidance is
+      to acknowledge the webhook quickly and do heavier processing after
+      responding, so that slow internal work doesn't risk the delivery
+      being treated as failed and retried. The current MariaDB-backed
+      transaction is fast in practice and every operation is already
+      idempotent (event claim, single-use purchase_ref consume, `FOR
+      UPDATE` grant locking), so a duplicate delivery caused by a slow
+      response would self-heal rather than corrupt state — this is a
+      latency/retry-noise risk, not a correctness defect. Whether to
+      restructure to a queue-and-ack pattern (added complexity) or accept
+      the current synchronous design (simpler, already idempotent) is an
+      architecture tradeoff, not something to change unilaterally without
+      confirming actual observed webhook latency in Production.
+
 ## 6. Observability
 
 - [ ] **AI-verifiable** — Stage-tagged webhook logging and the
