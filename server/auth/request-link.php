@@ -133,6 +133,16 @@ try {
         $mailer = new ResendMailer($resendApiKey, $resendFromEmail, $resendFromName);
     } else {
         $mailer = $noopMailer;
+        // Falling through to the no-op mailer here means NOTHING is
+        // configured to actually deliver a magic-link email -- dev
+        // harness is off and the Resend triplet is incomplete/absent.
+        // This is indistinguishable from a working deployment to the
+        // requester (see the file-level doc comment), so it must be
+        // visible somewhere: a fixed, PII/secret-free warning tag, with
+        // no email/token/config-value content. See docs/observability.md
+        // -- this tag appearing at all means Live sign-in cannot work and
+        // must be treated as a go-live blocker, not routine noise.
+        error_log('request-link: mailer_unconfigured');
     }
 
     $currentUser = new CurrentUserService(

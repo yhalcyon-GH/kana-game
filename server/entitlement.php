@@ -63,7 +63,11 @@ try {
     $entitlements = new EntitlementRepository($pdo);
     $entitlement = $entitlements->find($userId, WebhookHandler::PRODUCT_KEY_FULL_TAMAMIZU);
 } catch (\Throwable $e) {
-    error_log('entitlement.php: lookup failure: ' . $e->getMessage());
+    // Never log $e->getMessage() -- matches every other endpoint's
+    // logging convention (see server/paddle-webhook.php,
+    // server/auth/request-link.php) since a DB exception message can
+    // itself carry connection/DSN-derived data.
+    error_log('entitlement.php: lookup failure: ' . get_class($e));
     http_response_code(500);
     echo json_encode(['error' => 'temporary server error']);
     exit;
