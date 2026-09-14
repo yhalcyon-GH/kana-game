@@ -643,7 +643,12 @@ foreach ($argv as $arg) {
 $maintPdo = connectMariadbConcurrencyTestDb();
 
 $version = $maintPdo->query('SELECT VERSION()')->fetchColumn();
-$isolation = $maintPdo->query('SELECT @@transaction_isolation')->fetchColumn();
+// MariaDB's system variable is tx_isolation (the pre-MySQL-5.7.20 name);
+// MySQL 5.7.20+/8.0 renamed it to transaction_isolation. This harness
+// targets MariaDB specifically (see README.md), so tx_isolation is
+// queried directly rather than guessing/falling back -- an unknown
+// variable name here should fail loudly, not silently report "unknown".
+$isolation = $maintPdo->query('SELECT @@tx_isolation')->fetchColumn();
 echo "MariaDB VERSION(): {$version}\n";
 echo "transaction_isolation: {$isolation}\n";
 echo "iterations per scenario: {$iterations}\n\n";
