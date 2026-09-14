@@ -20,6 +20,7 @@ use KanaGame\Paddle\Tests\TestFailure;
 $testFiles = [
     __DIR__ . '/ConfigTest.php' => 'KanaGame\\Paddle\\Tests\\configTests',
     __DIR__ . '/PaddleEnvironmentConfigTest.php' => 'KanaGame\\Paddle\\Tests\\paddleEnvironmentConfigTests',
+    __DIR__ . '/PurchaseIntentEnvironmentWiringTest.php' => 'KanaGame\\Paddle\\Tests\\purchaseIntentEnvironmentWiringTests',
     __DIR__ . '/PaddleSignatureTest.php' => 'KanaGame\\Paddle\\Tests\\paddleSignatureTests',
     __DIR__ . '/ProductMatcherTest.php' => 'KanaGame\\Paddle\\Tests\\productMatcherTests',
     __DIR__ . '/WebhookHandlerTest.php' => 'KanaGame\\Paddle\\Tests\\webhookHandlerTests',
@@ -45,6 +46,7 @@ $testFiles = [
     __DIR__ . '/Purchase/TransactionGrantRepositoryTest.php' => 'KanaGame\\Paddle\\Tests\\transactionGrantRepositoryTests',
     __DIR__ . '/Purchase/PendingAdjustmentRepositoryTest.php' => 'KanaGame\\Paddle\\Tests\\pendingAdjustmentRepositoryTests',
     __DIR__ . '/Purchase/PurchaseIntentServiceTest.php' => 'KanaGame\\Paddle\\Tests\\purchaseIntentServiceTests',
+    __DIR__ . '/Purchase/PurchaseIntentEndpointTest.php' => 'KanaGame\\Paddle\\Tests\\purchaseIntentEndpointTests',
     __DIR__ . '/Purchase/PurchaseWebhookHandlerTest.php' => 'KanaGame\\Paddle\\Tests\\purchaseWebhookHandlerTests',
     __DIR__ . '/Purchase/PurchaseWebhookHandlerIsolationTest.php' => 'KanaGame\\Paddle\\Tests\\purchaseWebhookHandlerIsolationTests',
     __DIR__ . '/Purchase/CurrentUserEntitlementServiceTest.php' => 'KanaGame\\Paddle\\Tests\\currentUserEntitlementServiceTests',

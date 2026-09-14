@@ -126,7 +126,7 @@ export default function AccountTestPage() {
 
   async function handleCreatePurchaseIntent() {
     if (!apiBase) return
-    await controller.current?.prepare(() => createPurchaseIntent(apiBase))
+    await controller.current?.prepare(() => createPurchaseIntent(apiBase, environment))
   }
 
   async function openPhase3Checkout() {

@@ -69,7 +69,7 @@ beforeEach(() => {
     const url = String(input)
     if (url.endsWith('/auth/me.php')) return json({ user_id: 'u1', email_normalized: 'learner@example.com' }, userStatus)
     if (url.endsWith('/entitlement-me.php')) return json(entitlement)
-    if (url.endsWith('/purchase-intent.php')) return json({ purchase_ref: privateRef })
+    if (url.endsWith('/purchase-intent.php')) return json({ purchase_ref: privateRef, environment: 'sandbox' })
     if (url.endsWith('/auth/logout.php')) return json({ ok: true })
     throw new Error('Unexpected request')
   })
@@ -128,6 +128,26 @@ describe('production Account purchase UI', () => {
     expect(document.body.textContent).not.toMatch(/sandbox|test mode/i)
   })
 
+  // -- Phase H2: server-asserted environment mismatch fails closed --
+
+  it('a 409 environment-mismatch response fails closed to unavailable -- checkout never opens, no confirmation polling starts', async () => {
+    await renderAccount()
+    fetchMock.mockReturnValueOnce(Promise.resolve(json({ error: 'environment mismatch' }, 409)))
+    await start()
+    expect(screen.getByRole('button', { name: 'Sandbox test purchase' })).toBeEnabled()
+    expect(screen.getByText('Couldn’t open Sandbox Checkout. Please try again.')).toBeInTheDocument()
+    expect(sdk.open).not.toHaveBeenCalled()
+    expect(sdk.initialize).not.toHaveBeenCalled()
+  })
+
+  it('a 200 response echoing a DIFFERENT environment than configured is rejected locally -- checkout never opens even though the server said 200', async () => {
+    await renderAccount()
+    fetchMock.mockReturnValueOnce(Promise.resolve(json({ purchase_ref: privateRef, environment: 'live' })))
+    await start()
+    expect(sdk.open).not.toHaveBeenCalled()
+    expect(sdk.initialize).not.toHaveBeenCalled()
+  })
+
   it('active users have no purchase CTA', async () => {
     entitlement = { active: true }
     await renderAccount()
@@ -155,8 +175,12 @@ describe('production Account purchase UI', () => {
     await start()
     expect(screen.getByRole('button', { name: 'Sandbox test purchase' })).toBeDisabled()
     fireEvent.click(screen.getByRole('button', { name: 'Sandbox test purchase' }))
-    expect(fetchMock.mock.calls.at(-1)).toEqual(['https://api.example.com/purchase-intent.php', { method: 'POST', credentials: 'include' }])
-    await act(async () => { pending.resolve(json({ purchase_ref: privateRef })) })
+    expect(fetchMock.mock.calls.at(-1)).toEqual(['https://api.example.com/purchase-intent.php', {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ environment: 'sandbox' }),
+    }])
+    await act(async () => { pending.resolve(json({ purchase_ref: privateRef, environment: 'sandbox' })) })
     expect(screen.getByRole('button', { name: 'Sandbox test purchase' })).toBeDisabled()
     expect(sdk.open).toHaveBeenCalledOnce()
     expect(requestCount('/purchase-intent.php')).toBe(1)

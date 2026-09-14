@@ -102,19 +102,28 @@ export async function fetchCurrentUser(apiBase: string): Promise<CurrentUser | n
   }
 }
 
-export async function createPurchaseIntent(apiBase: string): Promise<string | null> {
+/**
+ * `environment` is this (dev-only) caller's own configured Paddle
+ * environment -- asserted so the server can refuse a mismatch against
+ * its own authoritative PADDLE_ENVIRONMENT, matching
+ * productionAuthClient.ts's createPurchaseIntent(). See
+ * docs/paddle-environment-separation.md.
+ */
+export async function createPurchaseIntent(apiBase: string, environment: string): Promise<string | null> {
   const token = inMemorySessionTransport.getToken()
   if (!token) return null
 
   try {
     const response = await fetch(`${apiBase}/purchase-intent.php`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ environment }),
     })
     if (!response.ok) return null
 
-    const body = (await safeJson(response)) as { purchase_ref?: unknown } | null
-    return typeof body?.purchase_ref === 'string' ? body.purchase_ref : null
+    const body = (await safeJson(response)) as { purchase_ref?: unknown; environment?: unknown } | null
+    if (typeof body?.purchase_ref !== 'string' || body.environment !== environment) return null
+    return body.purchase_ref
   } catch {
     return null
   }

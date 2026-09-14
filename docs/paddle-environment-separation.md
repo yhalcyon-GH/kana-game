@@ -6,6 +6,21 @@ Status: code merged, **NOT deployed to Production**, **NO Live credentials confi
 
 This is **not** "turning on Live sales." It's the structural groundwork so that a future, deliberate Live cutover has an explicit, fail-closed config surface instead of a single flat, unscoped config that happened to hold Sandbox values. No Live product/price/webhook destination has been created in Paddle, no Live client token or API key exists in this repo or has been requested, and no real payment has been processed as part of this work.
 
+## Frontend/backend environment agreement (closed gap)
+
+The backend `PADDLE_ENVIRONMENT`/`PaddleEnvironmentConfig` split and the frontend `VITE_PADDLE_ENVIRONMENT`/`sandboxConfig.ts` split described below were initially built as two **independent** fail-closed systems, with nothing mechanically checking that they agree with each other before a checkout could open. That left a real failure mode: if a deployment's frontend build were ever configured for `live` while its backend `config.php` was still on `sandbox` (or vice versa), a customer could complete a real Live payment that this backend could never process the matching webhook for (wrong secret, wrong catalog) — charged, but never entitled.
+
+This is now closed with a server-authoritative environment assertion on `POST /api/purchase-intent.php`:
+
+- The frontend (`src/lib/auth/productionAuthClient.ts`'s `createPurchaseIntent()`, and the dev-only `src/lib/auth/authClient.ts` equivalent used by `AccountTestPage.tsx`) sends its own configured `environment` in the request body as a **claim**, never a selector.
+- `server/src/Purchase/PurchaseIntentEndpoint.php` (constructed in `server/purchase-intent.php`, after `PaddleEnvironmentConfig::resolve()` has already fixed which server-side config triplet is in effect) compares that claim against the server's own authoritative environment and rejects — **before any `purchase_intents` row is created** — on any disagreement:
+  - missing/malformed `environment` in the request body → `400`
+  - a validly-shaped but mismatched `environment` → `409`
+- The response, on success, echoes the authoritative `environment` back (`{"purchase_ref": "...", "environment": "sandbox"|"live"}`). The frontend re-checks this against its own locally configured value **even on a 200** before ever trusting `purchase_ref` — never assume agreement, always confirm.
+- On any rejection or mismatch, `useProductionSandboxPurchase.ts` falls through the exact same path as any other unrecoverable intent failure (the checkout controller's own `prepare()` already fails closed on a falsy result): no checkout opens, no `purchase_ref` is stored, state becomes `unavailable`, and a fresh `start()` is required to retry — never a silent fallback.
+
+Tests: `server/tests/Purchase/PurchaseIntentEndpointTest.php` (SQLite-backed, full behavioral coverage of every server/client environment pairing including the anti-mixing guarantee and zero-row-created-on-rejection), `server/tests/PurchaseIntentEnvironmentWiringTest.php` (source-inspection proof that the entrypoint's fail-closed ordering can't be bypassed), and extended cases in `productionAuthClient.test.ts`, `authClient.test.ts`, `useProductionSandboxPurchase.test.tsx`, and `AccountPage.test.tsx`.
+
 ## Backend
 
 ### `PADDLE_ENVIRONMENT`

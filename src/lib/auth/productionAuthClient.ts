@@ -34,6 +34,12 @@ export type PurchaseIntentResult =
   | { kind: 'created'; purchaseRef: string }
   | { kind: 'signed-out' }
   | { kind: 'unavailable' }
+  // Phase H2: the caller's configured environment (sandbox/live) did not
+  // match the server's own authoritative PADDLE_ENVIRONMENT -- either the
+  // server rejected the request outright (409/400), or the server DID
+  // return 200 but the response's own `environment` field didn't match
+  // what we asserted (defense-in-depth re-check, never trust a 200 blindly).
+  | { kind: 'environment-mismatch' }
 
 async function safeJson(response: Response): Promise<unknown> {
   try {
@@ -128,19 +134,38 @@ export async function fetchCurrentEntitlementResult(apiBase: string): Promise<Cu
   }
 }
 
-/** The server selects the user and product from its cookie-authenticated session. */
-export async function createPurchaseIntent(apiBase: string): Promise<PurchaseIntentResult> {
+/**
+ * The server selects the user and product from its cookie-authenticated
+ * session. `environment` is this caller's own configured Paddle
+ * environment ('sandbox' | 'live') -- sent as an ASSERTION the server
+ * checks against its own authoritative PADDLE_ENVIRONMENT, never as a
+ * selector. See docs/paddle-environment-separation.md and
+ * server/src/Purchase/PurchaseIntentEndpoint.php.
+ *
+ * A server-side 409 (or any non-200 the environment check could cause)
+ * surfaces as 'environment-mismatch', and even a 200 response is
+ * re-checked locally: `body.environment` must equal the `environment`
+ * we asserted before purchaseRef is ever trusted/returned. Never assume
+ * a 200 means "environments agreed" without checking -- always confirm.
+ */
+export async function createPurchaseIntent(apiBase: string, environment: string): Promise<PurchaseIntentResult> {
   try {
     const response = await fetch(`${apiBase}/purchase-intent.php`, {
       method: 'POST',
       credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ environment }),
     })
     if (response.status === 401) return { kind: 'signed-out' }
+    if (response.status === 400 || response.status === 409) return { kind: 'environment-mismatch' }
     if (!response.ok) return { kind: 'unavailable' }
 
-    const body = (await safeJson(response)) as { purchase_ref?: unknown } | null
+    const body = (await safeJson(response)) as { purchase_ref?: unknown; environment?: unknown } | null
     if (typeof body?.purchase_ref !== 'string' || body.purchase_ref.trim().length === 0) {
       return { kind: 'unavailable' }
+    }
+    if (body.environment !== environment) {
+      return { kind: 'environment-mismatch' }
     }
     return { kind: 'created', purchaseRef: body.purchase_ref }
   } catch {

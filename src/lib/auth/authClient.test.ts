@@ -93,15 +93,16 @@ describe('fetchCurrentUser', () => {
 })
 
 describe('createPurchaseIntent', () => {
-  it('sends the session token as a Bearer header and returns the raw purchase_ref', async () => {
+  it('sends the session token as a Bearer header and its own asserted environment, returning the raw purchase_ref when the server echoes the same environment', async () => {
     inMemorySessionTransport.setToken('session-abc')
-    vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ purchase_ref: 'raw-ref-value' }), { status: 200 }))
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ purchase_ref: 'raw-ref-value', environment: 'sandbox' }), { status: 200 }))
 
-    const result = await createPurchaseIntent(API_BASE)
+    const result = await createPurchaseIntent(API_BASE, 'sandbox')
 
     const [url, init] = vi.mocked(fetch).mock.calls[0]
     expect(url).toBe(`${API_BASE}/purchase-intent.php`)
     expect((init!.headers as Record<string, string>).Authorization).toBe('Bearer session-abc')
+    expect(init!.body).toBe(JSON.stringify({ environment: 'sandbox' }))
     expect(result).toBe('raw-ref-value')
   })
 
@@ -109,7 +110,23 @@ describe('createPurchaseIntent', () => {
     inMemorySessionTransport.setToken('expired-session')
     vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ error: 'unauthorized' }), { status: 401 }))
 
-    const result = await createPurchaseIntent(API_BASE)
+    const result = await createPurchaseIntent(API_BASE, 'sandbox')
+    expect(result).toBeNull()
+  })
+
+  it('returns null on a 409 environment mismatch', async () => {
+    inMemorySessionTransport.setToken('session-abc')
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ error: 'environment mismatch' }), { status: 409 }))
+
+    const result = await createPurchaseIntent(API_BASE, 'live')
+    expect(result).toBeNull()
+  })
+
+  it('returns null when a 200 response echoes a different environment than asserted', async () => {
+    inMemorySessionTransport.setToken('session-abc')
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ purchase_ref: 'raw-ref-value', environment: 'live' }), { status: 200 }))
+
+    const result = await createPurchaseIntent(API_BASE, 'sandbox')
     expect(result).toBeNull()
   })
 })

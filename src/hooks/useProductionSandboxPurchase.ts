@@ -109,7 +109,15 @@ export function useProductionSandboxPurchase() {
         invalidate()
         const attempt = generation
         const prepared = await controller.prepare(async () => {
-          const result = await createPurchaseIntent(apiBase)
+          // Phase H2: asserts this build's own configured environment;
+          // the server checks it against its own authoritative
+          // PADDLE_ENVIRONMENT and rejects on any disagreement. A
+          // 'environment-mismatch' result falls through to `null` below,
+          // same as 'unavailable' -- the controller's own prepare()
+          // already fails closed on a falsy result (no purchase_ref
+          // stored, checkout never opens, state becomes 'unavailable'),
+          // so no separate handling is needed here.
+          const result = await createPurchaseIntent(apiBase, config.environment)
           if (!isCurrent(attempt)) return null
           if (result.kind === 'signed-out') {
             invalidate()

@@ -29,35 +29,47 @@ afterEach(() => {
 })
 
 describe('productionAuthClient', () => {
-  it('creates a cookie-authenticated purchase intent with no body, identity, product, or Authorization', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({ purchase_ref: 'raw-purchase-reference' }))
-    expect(await createPurchaseIntent(API_BASE)).toEqual({ kind: 'created', purchaseRef: 'raw-purchase-reference' })
+  it('creates a cookie-authenticated purchase intent, asserting its own environment, with no identity/product/Authorization', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({ purchase_ref: 'raw-purchase-reference', environment: 'sandbox' }))
+    expect(await createPurchaseIntent(API_BASE, 'sandbox')).toEqual({ kind: 'created', purchaseRef: 'raw-purchase-reference' })
     expect(fetch).toHaveBeenCalledExactlyOnceWith(`${API_BASE}/purchase-intent.php`, {
       method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ environment: 'sandbox' }),
     })
   })
 
   it('returns signed-out for an unauthenticated purchase intent response even if it contains a reference', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({ purchase_ref: 'not-authorized' }, false, 401))
-    expect(await createPurchaseIntent(API_BASE)).toEqual({ kind: 'signed-out' })
+    expect(await createPurchaseIntent(API_BASE, 'sandbox')).toEqual({ kind: 'signed-out' })
+  })
+
+  it.each([400, 409])('returns environment-mismatch for purchase intent HTTP %s (server rejected the asserted environment)', async (status) => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({ error: 'environment mismatch' }, false, status))
+    expect(await createPurchaseIntent(API_BASE, 'live')).toEqual({ kind: 'environment-mismatch' })
   })
 
   it.each([403, 429, 500])('returns unavailable for purchase intent HTTP %s', async (status) => {
     vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({ purchase_ref: 'not-created' }, false, status))
-    expect(await createPurchaseIntent(API_BASE)).toEqual({ kind: 'unavailable' })
+    expect(await createPurchaseIntent(API_BASE, 'sandbox')).toEqual({ kind: 'unavailable' })
   })
 
   it.each([null, {}, { purchase_ref: '' }, { purchase_ref: '   ' }, { purchase_ref: 42 }, { purchase_ref: false }, { purchase_ref: [] }])('rejects malformed purchase intent response %j', async (body) => {
     vi.mocked(fetch).mockResolvedValueOnce(jsonResponse(body))
-    expect(await createPurchaseIntent(API_BASE)).toEqual({ kind: 'unavailable' })
+    expect(await createPurchaseIntent(API_BASE, 'sandbox')).toEqual({ kind: 'unavailable' })
+  })
+
+  it('returns environment-mismatch when a 200 response echoes a DIFFERENT environment than asserted -- never trust a 200 without re-checking', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({ purchase_ref: 'raw-purchase-reference', environment: 'live' }))
+    expect(await createPurchaseIntent(API_BASE, 'sandbox')).toEqual({ kind: 'environment-mismatch' })
   })
 
   it('returns unavailable for malformed JSON and network failures without exposing raw error details', async () => {
     vi.mocked(fetch)
       .mockResolvedValueOnce({ ok: true, status: 200, json: async () => { throw new Error('raw-purchase-reference') } } as unknown as Response)
       .mockRejectedValueOnce(new Error('raw-purchase-reference'))
-    expect(await createPurchaseIntent(API_BASE)).toEqual({ kind: 'unavailable' })
-    expect(await createPurchaseIntent(API_BASE)).toEqual({ kind: 'unavailable' })
+    expect(await createPurchaseIntent(API_BASE, 'sandbox')).toEqual({ kind: 'unavailable' })
+    expect(await createPurchaseIntent(API_BASE, 'sandbox')).toEqual({ kind: 'unavailable' })
   })
 
   it('requestMagicLink() posts the email as JSON, no credentials needed (no session yet)', async () => {
