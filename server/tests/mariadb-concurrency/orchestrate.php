@@ -38,6 +38,48 @@ use PDO;
 $GLOBALS['mariadbConcurrencyFailures'] = [];
 /** @var array<string, array{pass: int, fail: int}> */
 $GLOBALS['mariadbConcurrencyScenarioTally'] = [];
+/**
+ * Webhook response-time samples (ms), one per successfully-timed worker
+ * call to PurchaseWebhookHandler::handle(), keyed by scenario. Used only
+ * for the pre-Live sync-vs-async response-time investigation (see
+ * docs/pre-live-launch-checklist.md item 5a) -- never affects pass/fail.
+ *
+ * @var array<string, list<float>>
+ */
+$GLOBALS['mariadbConcurrencyWebhookTimings'] = [];
+
+function recordWebhookTimings(string $scenario, array $workerResults): void
+{
+    foreach ($workerResults as $r) {
+        if (isset($r['duration_ms']) && is_numeric($r['duration_ms'])) {
+            $GLOBALS['mariadbConcurrencyWebhookTimings'][$scenario][] = (float) $r['duration_ms'];
+        }
+    }
+}
+
+/**
+ * @param list<float> $samples
+ * @return array{count: int, median: float, p95: float, max: float}
+ */
+function summarizeTimings(array $samples): array
+{
+    if ($samples === []) {
+        return ['count' => 0, 'median' => 0.0, 'p95' => 0.0, 'max' => 0.0];
+    }
+    sort($samples);
+    $count = count($samples);
+    $percentile = static function (array $sorted, float $p) use ($count): float {
+        $index = (int) ceil($p * $count) - 1;
+        $index = max(0, min($count - 1, $index));
+        return $sorted[$index];
+    };
+    return [
+        'count' => $count,
+        'median' => $percentile($samples, 0.5),
+        'p95' => $percentile($samples, 0.95),
+        'max' => $samples[$count - 1],
+    ];
+}
 
 function rawSecretToken(): string
 {
@@ -346,6 +388,7 @@ function runScenarioC1(PDO $maintPdo, int $iterations): void
         $iterationFailures = [];
         try {
             $results = runWorkers('webhook', $dir, $workerCount);
+            recordWebhookTimings($scenario, $results);
 
             $processedCount = 0;
             $duplicateCount = 0;
@@ -414,6 +457,7 @@ function runScenarioC2(PDO $maintPdo, int $iterations): void
         $iterationFailures = [];
         try {
             $results = runWorkers('webhook', $dir, $workerCount);
+            recordWebhookTimings($scenario, $results);
 
             $processedCount = 0;
             $ignoredCount = 0;
@@ -504,6 +548,7 @@ function runScenarioC3(PDO $maintPdo, int $iterations): void
         $iterationFailures = [];
         try {
             $results = runWorkers('webhook', $dir, $workerCount);
+            recordWebhookTimings($scenario, $results);
 
             $bothProcessed = ($results[0]['message'] ?? '') === 'event processed: adjustment.updated'
                 && ($results[1]['message'] ?? '') === 'event processed: adjustment.updated';
@@ -589,6 +634,7 @@ function runScenarioC4(PDO $maintPdo, int $iterations): void
         $iterationFailures = [];
         try {
             $results = runWorkers('webhook', $dir, $workerCount);
+            recordWebhookTimings($scenario, $results);
 
             $bothProcessed = ($results[0]['message'] ?? '') === 'event processed: adjustment.updated'
                 && ($results[1]['message'] ?? '') === 'event processed: transaction.completed';
@@ -683,6 +729,25 @@ echo "MariaDB VERSION(): {$version}\n";
 echo "transaction_isolation: {$isolation}\n";
 foreach ($GLOBALS['mariadbConcurrencyScenarioTally'] as $name => $tally) {
     echo "scenario {$name}: {$tally['pass']} passed, {$tally['fail']} failed\n";
+}
+
+if ($GLOBALS['mariadbConcurrencyWebhookTimings'] !== []) {
+    echo "\n---- Webhook response-path timing (ms, PurchaseWebhookHandler::handle() only) ----\n";
+    echo "NOTE: measured in this ephemeral GitHub Actions MariaDB container, NOT Production --\n";
+    echo "absolute numbers are indicative of relative margin against the 5s Paddle deadline,\n";
+    echo "not a Production latency prediction. See docs/pre-live-launch-checklist.md item 5a.\n";
+    foreach ($GLOBALS['mariadbConcurrencyWebhookTimings'] as $name => $samples) {
+        $summary = summarizeTimings($samples);
+        printf(
+            "scenario %s: n=%d median=%.2fms p95=%.2fms max=%.2fms (5000ms deadline; max margin=%.1fx)\n",
+            $name,
+            $summary['count'],
+            $summary['median'],
+            $summary['p95'],
+            $summary['max'],
+            $summary['max'] > 0 ? 5000.0 / $summary['max'] : INF,
+        );
+    }
 }
 
 if ($GLOBALS['mariadbConcurrencyFailures'] !== []) {
