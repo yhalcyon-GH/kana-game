@@ -98,18 +98,34 @@ describe('production Account purchase UI', () => {
   })
 
   it.each([
+    // 'live' with beforeEach's unchanged test_-prefixed token is still an
+    // environment/token mismatch under Phase H2 -- 'live' alone is now a
+    // VALID environment value, so this case is here to prove the config
+    // is still correctly rejected for the RIGHT reason (mismatched
+    // token), not because 'live' itself is disallowed.
     ['VITE_PADDLE_ENVIRONMENT', ''], ['VITE_PADDLE_ENVIRONMENT', 'live'],
     ['VITE_PADDLE_ENVIRONMENT', 'production'], ['VITE_PADDLE_CLIENT_TOKEN', 'live_bad'],
     ['VITE_PADDLE_PRICE_ID', 'invalid'], ['VITE_PADDLE_CLIENT_TOKEN', ''], ['VITE_PADDLE_PRICE_ID', ''],
   ])('disables checkout and explains unavailable config for %s=%s', async (key, value) => {
     vi.stubEnv(key, value)
     await renderAccount()
-    expect(screen.getByText('Sandbox configuration unavailable')).toBeInTheDocument()
-    const button = screen.getByRole('button', { name: 'Sandbox test purchase' })
+    // Config is invalid, so the resolved environment is unknown -- the UI
+    // must show the generic (non-Sandbox-specific) copy, never guess Sandbox.
+    expect(screen.getByText('Purchase unavailable')).toBeInTheDocument()
+    const button = screen.getByRole('button', { name: 'Buy Full Tamamizu' })
     expect(button).toBeDisabled()
     fireEvent.click(button)
     expect(requestCount('/purchase-intent.php')).toBe(0)
     expect(sdk.initialize).not.toHaveBeenCalled()
+  })
+
+  it('offers Full Tamamizu with ordinary purchase labeling (no Sandbox/Test Mode text) when configured for live', async () => {
+    vi.stubEnv('VITE_PADDLE_ENVIRONMENT', 'live')
+    vi.stubEnv('VITE_PADDLE_CLIENT_TOKEN', 'live_fixture')
+    await renderAccount()
+    expect(screen.getByText('Full Tamamizu')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Buy Full Tamamizu' })).toBeEnabled()
+    expect(document.body.textContent).not.toMatch(/sandbox|test mode/i)
   })
 
   it('active users have no purchase CTA', async () => {

@@ -34,6 +34,7 @@ declare(strict_types=1);
  */
 
 require __DIR__ . '/src/Config.php';
+require __DIR__ . '/src/PaddleEnvironmentConfig.php';
 require __DIR__ . '/src/Db.php';
 require __DIR__ . '/src/WebhookResult.php';
 require __DIR__ . '/src/PaddleSignature.php';
@@ -49,6 +50,7 @@ require __DIR__ . '/src/Purchase/PurchaseWebhookHandler.php';
 use KanaGame\Paddle\Config;
 use KanaGame\Paddle\Db;
 use KanaGame\Paddle\EntitlementRepository;
+use KanaGame\Paddle\PaddleEnvironmentConfig;
 use KanaGame\Paddle\PaddleSignature;
 use KanaGame\Paddle\PaymentEventRepository;
 use KanaGame\Paddle\Purchase\PendingAdjustmentRepository;
@@ -77,9 +79,12 @@ $signatureHeader = $_SERVER['HTTP_PADDLE_SIGNATURE'] ?? null;
 
 try {
     $config = Config::load();
-    $secret = $config->require('PADDLE_WEBHOOK_SECRET');
-    $expectedPriceId = $config->require('PADDLE_FULL_TAMAMIZU_PRICE_ID');
-    $expectedProductId = $config->require('PADDLE_FULL_TAMAMIZU_PRODUCT_ID');
+    // Phase H2 -- resolves the ONE environment (sandbox or live) this
+    // deployment is configured for and its own config triplet only. See
+    // PaddleEnvironmentConfig's own doc comment: this fails closed (throws)
+    // on a missing/unknown PADDLE_ENVIRONMENT or a missing key for the
+    // selected environment -- there is no fallback and no default.
+    $environmentConfig = PaddleEnvironmentConfig::resolve($config);
     $pdo = Db::connect($config);
 } catch (\Throwable $e) {
     // Configuration/DB connectivity problems are server-side and
@@ -96,14 +101,14 @@ try {
 
 $handler = new PurchaseWebhookHandler(
     $pdo,
-    new PaddleSignature($secret),
+    new PaddleSignature($environmentConfig->webhookSecret),
     new PaymentEventRepository($pdo),
     new PurchaseIntentRepository($pdo),
     new TransactionGrantRepository($pdo),
     new PendingAdjustmentRepository($pdo),
     new EntitlementRepository($pdo),
-    $expectedPriceId,
-    $expectedProductId,
+    $environmentConfig->priceId,
+    $environmentConfig->productId,
 );
 
 try {

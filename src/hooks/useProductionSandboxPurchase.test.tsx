@@ -81,7 +81,28 @@ describe('production Sandbox purchase orchestration', () => {
       customData: { purchase_ref: 'private-purchase-ref' },
     })
     expect(sdk.initialize).toHaveBeenCalledWith(expect.objectContaining({ environment: 'sandbox' }))
+    expect(f.result.current.environment).toBe('sandbox')
     expect(f.refresh).not.toHaveBeenCalled()
+  })
+
+  it('exposes the live environment and maps it to the SDK\'s "production" value, per configured live credentials', async () => {
+    vi.stubEnv('VITE_PADDLE_ENVIRONMENT', 'live')
+    vi.stubEnv('VITE_PADDLE_CLIENT_TOKEN', 'live_fixture')
+    const f = fixture()
+    expect(f.result.current.environment).toBe('live')
+    expect(f.result.current.configured).toBe(true)
+    await f.start()
+    expect(sdk.initialize).toHaveBeenCalledWith(expect.objectContaining({ environment: 'production', token: 'live_fixture' }))
+  })
+
+  it('a live environment paired with a sandbox-prefixed token fails closed -- environment is null, not guessed', async () => {
+    vi.stubEnv('VITE_PADDLE_ENVIRONMENT', 'live')
+    // VITE_PADDLE_CLIENT_TOKEN stays 'test_fixture' from beforeEach -- mismatched for 'live'.
+    const f = fixture()
+    expect(f.result.current.configured).toBe(false)
+    expect(f.result.current.environment).toBe(null)
+    await f.start()
+    expect(sdk.initialize).not.toHaveBeenCalled()
   })
 
   it.each(['signed-out', 'active', 'loading', 'unavailable'] as const)('rejects purchase attempts while %s', async (status) => {

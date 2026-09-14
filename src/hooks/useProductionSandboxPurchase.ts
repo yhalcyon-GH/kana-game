@@ -135,5 +135,10 @@ export function useProductionSandboxPurchase() {
   const start = useCallback(async () => { await actions.current?.start() }, [])
   const retry = useCallback(() => actions.current?.retry(), [])
   const invalidate = useCallback(() => actions.current?.invalidate(), [])
-  return { status, configured: !('error' in config) && !!apiBase, start, retry, cancel: invalidate, invalidate }
+  // Phase H2: exposes which environment (sandbox/live) this build is
+  // configured for, so Account UI copy can be environment-aware (test-
+  // purchase language in Sandbox, ordinary purchase language in Live) --
+  // null only when config itself is invalid/absent, matching `configured`.
+  const environment = 'error' in config ? null : config.environment
+  return { status, configured: !('error' in config) && !!apiBase, environment, start, retry, cancel: invalidate, invalidate }
 }

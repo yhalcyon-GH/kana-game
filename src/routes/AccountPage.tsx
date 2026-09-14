@@ -7,7 +7,9 @@ import { useProductionSandboxPurchase } from '../hooks/useProductionSandboxPurch
 /**
  * Production account page — current signed-in user (resolved via the
  * HttpOnly session cookie, never a client-held credential), sign out,
- * and Sandbox purchase confirmation. See docs/adr/0001-cross-site-
+ * and purchase confirmation (Sandbox test purchase or Live purchase,
+ * depending on this build's configured Paddle environment -- see
+ * docs/paddle-environment-separation.md). See docs/adr/0001-cross-site-
  * auth-transport.md and src/lib/auth/productionAuthClient.ts.
  *
  * The app-level EntitlementProvider re-resolves the session and entitlement
@@ -50,6 +52,20 @@ export default function AccountPage() {
   const confirming = purchase.status === 'processing' || purchase.status === 'still-confirming'
   const checkoutBusy = purchase.status === 'preparing' || purchase.status === 'open'
   const buttonClass = 'w-full rounded-xl border border-neutral-400 px-5 py-3 font-semibold hover:border-blue-500 dark:border-neutral-600'
+  // Phase H2: copy is derived from the resolved config's own environment,
+  // never guessed -- Sandbox must always read as a test purchase, Live
+  // must read as an ordinary purchase with no "Sandbox"/"Test Mode" text.
+  // purchase.environment is null only when config is invalid/absent, in
+  // which case the generic (non-Sandbox-specific) copy below is used --
+  // this build is never treated as Live just because it isn't Sandbox.
+  const isSandbox = purchase.environment === 'sandbox'
+  const purchaseButtonLabel = isSandbox ? 'Sandbox test purchase' : 'Buy Full Tamamizu'
+  const unavailableConfigMessage = isSandbox ? 'Sandbox configuration unavailable' : 'Purchase unavailable'
+  const preparingMessage = isSandbox ? 'Preparing Sandbox Checkout…' : 'Preparing checkout…'
+  const openMessage = isSandbox ? 'Complete your test purchase in Paddle Checkout.' : 'Complete your purchase in Paddle Checkout.'
+  const checkoutUnavailableMessage = isSandbox
+    ? 'Couldn’t open Sandbox Checkout. Please try again.'
+    : 'Couldn’t open checkout. Please try again.'
 
   return (
     <div className="flex w-full max-w-sm flex-col items-center gap-6">
@@ -86,12 +102,12 @@ export default function AccountPage() {
             onClick={() => void purchase.start()}
             className="w-full rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Sandbox test purchase
+            {purchaseButtonLabel}
           </button>
-          {!purchase.configured && <p role="status">Sandbox configuration unavailable</p>}
-          {purchase.status === 'preparing' && <p role="status">Preparing Sandbox Checkout…</p>}
-          {purchase.status === 'open' && <p role="status">Complete your test purchase in Paddle Checkout.</p>}
-          {purchase.status === 'unavailable' && <p role="status">Couldn’t open Sandbox Checkout. Please try again.</p>}
+          {!purchase.configured && <p role="status">{unavailableConfigMessage}</p>}
+          {purchase.status === 'preparing' && <p role="status">{preparingMessage}</p>}
+          {purchase.status === 'open' && <p role="status">{openMessage}</p>}
+          {purchase.status === 'unavailable' && <p role="status">{checkoutUnavailableMessage}</p>}
           {checkoutBusy && <button type="button" onClick={purchase.cancel} className={buttonClass}>Cancel checkout</button>}
         </section>
       )}
