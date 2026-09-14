@@ -185,6 +185,7 @@ function reportIterationOutcome(string $scenario, int $iteration, array $iterati
 function runScenarioA(PDO $maintPdo, int $iterations): void
 {
     $scenario = 'A';
+    $GLOBALS['mariadbConcurrencyScenarioTally'][$scenario] = ['pass' => 0, 'fail' => 0];
     $workerCount = 3;
 
     for ($iter = 1; $iter <= $iterations; $iter++) {
@@ -251,6 +252,7 @@ function runScenarioA(PDO $maintPdo, int $iterations): void
 function runScenarioB(PDO $maintPdo, int $iterations): void
 {
     $scenario = 'B';
+    $GLOBALS['mariadbConcurrencyScenarioTally'][$scenario] = ['pass' => 0, 'fail' => 0];
     $workerCount = 2;
 
     for ($iter = 1; $iter <= $iterations; $iter++) {
@@ -327,6 +329,7 @@ function seedUserAndIntent(PDO $pdo, string $email): array
 function runScenarioC1(PDO $maintPdo, int $iterations): void
 {
     $scenario = 'C1';
+    $GLOBALS['mariadbConcurrencyScenarioTally'][$scenario] = ['pass' => 0, 'fail' => 0];
     $workerCount = 2;
 
     for ($iter = 1; $iter <= $iterations; $iter++) {
@@ -394,6 +397,7 @@ function runScenarioC1(PDO $maintPdo, int $iterations): void
 function runScenarioC2(PDO $maintPdo, int $iterations): void
 {
     $scenario = 'C2';
+    $GLOBALS['mariadbConcurrencyScenarioTally'][$scenario] = ['pass' => 0, 'fail' => 0];
     $workerCount = 2;
 
     for ($iter = 1; $iter <= $iterations; $iter++) {
@@ -460,6 +464,7 @@ function runScenarioC2(PDO $maintPdo, int $iterations): void
 function runScenarioC3(PDO $maintPdo, int $iterations): void
 {
     $scenario = 'C3';
+    $GLOBALS['mariadbConcurrencyScenarioTally'][$scenario] = ['pass' => 0, 'fail' => 0];
     $workerCount = 2;
 
     for ($iter = 1; $iter <= $iterations; $iter++) {
@@ -550,6 +555,7 @@ function runScenarioC3(PDO $maintPdo, int $iterations): void
 function runScenarioC4(PDO $maintPdo, int $iterations): void
 {
     $scenario = 'C4';
+    $GLOBALS['mariadbConcurrencyScenarioTally'][$scenario] = ['pass' => 0, 'fail' => 0];
     $workerCount = 2;
 
     for ($iter = 1; $iter <= $iterations; $iter++) {

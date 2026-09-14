@@ -221,6 +221,8 @@ final class PurchaseWebhookHandler
             return false;
         }
 
+        $this->lockUserForEntitlementUpdate($userId);
+
         $created = $this->grants->create($transactionId, $userId, $intentProductKey, $intentId, $occurredAt);
         if (!$created) {
             // A duplicate paddle_transaction_id (redelivery) or a
@@ -350,6 +352,8 @@ final class PurchaseWebhookHandler
             return $adjustmentStatus === 'approved' && !$isFullRefund;
         }
 
+        $this->lockUserForEntitlementUpdate($userId);
+
         $applied = $this->grants->updateStatus($transactionId, $newStatus, $occurredAt);
         if ($applied) {
             $this->recomputeEntitlement($userId, $productKey, $transactionId);
@@ -430,6 +434,8 @@ final class PurchaseWebhookHandler
             return false;
         }
 
+        $this->lockUserForEntitlementUpdate($userId);
+
         $applied = $this->grants->updateStatus($transactionId, $newStatus, $occurredAt, $allowedFromStatuses);
         if ($applied) {
             $this->recomputeEntitlement($userId, $productKey, $transactionId);
@@ -468,6 +474,63 @@ final class PurchaseWebhookHandler
             );
             $this->pendingAdjustments->markReconciled($pending['paddle_event_id']);
         }
+    }
+
+    /**
+     * Common serialization point for Defect C3 (write-skew on
+     * entitlements.active under concurrent grant mutations for the same
+     * user/product -- e.g. two concurrent full refunds of two active
+     * grants each independently seeing "the other grant is still
+     * active" and leaving entitlements.active = true after both
+     * refunds succeed).
+     *
+     * MUST be called after the current transaction's event claim and
+     * identity/grant lookup, and BEFORE any grant-state mutation
+     * (transaction_grants create()/updateStatus()) for this user, on
+     * EVERY code path that can mutate a grant and then recompute
+     * entitlement: handleTransactionCompleted(), applyRefundTransition(),
+     * applyChargebackTransition() (which also covers
+     * reconcilePendingAdjustments(), since it goes through
+     * applyAdjustmentTransition() -> one of those two). This fixed
+     * ordering -- event claim -> lookup -> this lock -> grant mutation
+     * -> entitlement-bearing current read -> entitlement upsert ->
+     * commit -- is identical on every path, which is what avoids
+     * deadlock: no path ever acquires this lock, or any other lock, in
+     * a different order relative to another path's locks.
+     *
+     * Locks the `users` row for $userId with a MariaDB locking read
+     * (FOR UPDATE), NOT a per-grant lock: locking transaction_grants
+     * rows directly (e.g. adding FOR UPDATE only to
+     * hasEntitlementBearingGrant()) is unsafe here, because two
+     * concurrent transactions for the same user/product can each first
+     * lock a *different* grant row (their own triggering grant) before
+     * either reaches a range-locking read across both -- a classic
+     * deadlock shape. Locking one single, always-the-same row (the
+     * user's own `users` row) first, before touching transaction_grants
+     * at all, gives a single total order and cannot deadlock against
+     * another call of this same method. This serializes entitlement-
+     * changing transactions per user, not globally; Tamamizu currently
+     * sells one product (full_tamamizu), so per-user contention is the
+     * only contention this introduces, and it is expected to be low.
+     *
+     * On SQLite (the unit-test dialect) this is a no-op: SQLite has no
+     * locking-read syntax, the existing test suite's fixtures run
+     * every statement sequentially on one connection (no real
+     * concurrency to serialize against), and several fixtures
+     * (e.g. PurchaseWebhookHandlerTest's SQLite schema) do not create a
+     * `users` table at all, by design -- only the MariaDB concurrency
+     * harness exercises this method's actual locking behavior.
+     */
+    private function lockUserForEntitlementUpdate(string $userId): void
+    {
+        $driver = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+        if ($driver === 'sqlite') {
+            return;
+        }
+
+        $statement = $this->pdo->prepare('SELECT id FROM users WHERE id = :id FOR UPDATE');
+        $statement->execute(['id' => $userId]);
+        $statement->fetch();
     }
 
     /**
