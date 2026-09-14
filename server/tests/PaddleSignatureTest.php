@@ -20,6 +20,52 @@ function paddleSignatureTests(): array
         return hash_hmac('sha256', $timestamp . ':' . $body, $secret);
     };
 
+    // Exact ±5s boundary tests are computed relative to time() and then
+    // fed straight back into verify(), which itself reads time() again
+    // internally. If the wall-clock second ticks over between those two
+    // reads, the offset the test intended (e.g. "exactly 5s old") is no
+    // longer what PaddleSignature actually evaluates, which would make
+    // the assertion flaky rather than wrong. This helper confirms
+    // time() was identical immediately before signing and immediately
+    // after verify() returned, and only asserts once that is true;
+    // otherwise it retries a few times rather than trusting a run that
+    // straddled a second boundary. No production code is touched by
+    // this — it exists only to make the test itself deterministic.
+    $assertStableBoundary = function (
+        int $offsetSeconds,
+        bool $expected,
+        string $secret,
+        callable $sign,
+        string $message,
+    ): void {
+        $maxAttempts = 5;
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            $before = time();
+            $ts = $before + $offsetSeconds;
+            $body = '{"event_id":"evt_1"}';
+            $h1 = $sign($ts, $body, $secret);
+            $verifier = new PaddleSignature($secret);
+            $result = $verifier->verify($body, "ts={$ts};h1={$h1}");
+            $after = time();
+
+            if ($before === $after) {
+                if ($expected) {
+                    assertTrue($result, $message);
+                } else {
+                    assertFalse($result, $message);
+                }
+                return;
+            }
+            // The Unix second changed mid-attempt (ts generation to
+            // verify() completion did not happen within one second) --
+            // retry rather than assert against a moving target.
+        }
+
+        throw new \RuntimeException(
+            "Could not observe a stable Unix second across {$maxAttempts} attempts for: {$message}",
+        );
+    };
+
     return [
         'accepts a validly signed payload with a fresh timestamp' => function () use ($secret, $sign) {
             $body = '{"event_id":"evt_1"}';
@@ -76,6 +122,22 @@ function paddleSignatureTests(): array
             $verifier = new PaddleSignature($secret);
 
             assertTrue($verifier->verify($body, "ts={$ts};h1={$h1}"), 'timestamp within tolerance should verify');
+        },
+
+        'accepts a timestamp exactly 5 seconds old (tolerance boundary)' => function () use ($secret, $sign, $assertStableBoundary) {
+            $assertStableBoundary(-5, true, $secret, $sign, 'timestamp exactly 5s old (inclusive boundary) should verify');
+        },
+
+        'rejects a timestamp 6 seconds old (past the tolerance boundary)' => function () use ($secret, $sign, $assertStableBoundary) {
+            $assertStableBoundary(-6, false, $secret, $sign, 'timestamp 6s old must be rejected');
+        },
+
+        'accepts a timestamp exactly 5 seconds in the future (tolerance boundary)' => function () use ($secret, $sign, $assertStableBoundary) {
+            $assertStableBoundary(5, true, $secret, $sign, 'timestamp exactly 5s in the future (inclusive boundary) should verify');
+        },
+
+        'rejects a timestamp 6 seconds in the future (past the tolerance boundary)' => function () use ($secret, $sign, $assertStableBoundary) {
+            $assertStableBoundary(6, false, $secret, $sign, 'timestamp 6s in the future must be rejected');
         },
 
         'rejects a malformed header with no h1' => function () use ($secret) {
