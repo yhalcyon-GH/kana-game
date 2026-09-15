@@ -1,18 +1,10 @@
 name: Pre-Live Safety
 
 on:
+  # This is a required ruleset check. It must report a result for every PR,
+  # including documentation-only changes, or GitHub blocks an otherwise-safe merge
+  # with the check in an expected/pending state.
   pull_request:
-    paths:
-      - '.github/workflows/**'
-      - 'scripts/checkPreLiveSafety.mjs'
-      - 'scripts/productionReadOnlySsh.mjs'
-      - 'scripts/productionReleaseIntegrity.mjs'
-      - 'server/**'
-      - 'src/**'
-      - 'vite.config.ts'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.env.example'
   push:
     branches: [main]
     paths:
