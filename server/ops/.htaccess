@@ -1,0 +1,4 @@
+# This directory contains an operator-only CLI readiness check.
+# The PHP CLI ignores this file; Apache must reject every HTTP request.
+Require all denied
+Options -Indexes
