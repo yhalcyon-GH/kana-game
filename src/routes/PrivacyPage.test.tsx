@@ -86,11 +86,12 @@ describe('PrivacyPage', () => {
     expect(text).toMatch(/school/)
   })
 
-  it('identifies the developer/operator using only public GitHub identity, no private info', () => {
+  it('identifies the developer/operator using only public GitHub identity', () => {
     render(<PrivacyPage />)
     expect(screen.getByRole('link', { name: 'yhalcyon-GH' })).toHaveAttribute('href', 'https://github.com/yhalcyon-GH')
     expect(screen.getByRole('link', { name: 'kana-game' })).toHaveAttribute('href', 'https://github.com/yhalcyon-GH/kana-game')
-    expect(screen.queryByText(/@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)).not.toBeInTheDocument()
+    const section = screen.getByRole('heading', { name: 'Developer / operator', level: 2 }).parentElement?.textContent ?? ''
+    expect(section).not.toMatch(/@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)
   })
 
   it('provides a private support email for privacy inquiries', () => {
