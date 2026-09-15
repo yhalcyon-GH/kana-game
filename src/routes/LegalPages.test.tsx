@@ -26,7 +26,7 @@ describe('RefundPage', () => {
     renderWithRouter(<RefundPage />)
     expect(screen.getByRole('heading', { name: 'Refund Policy', level: 1 })).toBeInTheDocument()
     expect(screen.getByText(/within 14 calendar days/i)).toBeInTheDocument()
-    expect(screen.getByText(/do not ask you to waive this refund period/i)).toBeInTheDocument()
+    expect(screen.getByText(/does not ask you to waive this refund period/i)).toBeInTheDocument()
     expect(screen.getByText(/does not ordinarily offer partial refunds/i)).toBeInTheDocument()
   })
 
