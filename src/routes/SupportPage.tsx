@@ -33,7 +33,8 @@ export function SupportPage() {
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Related policies</h2>
         <p>
-          See the <Link to="/refund" className="underline">Refund Policy</Link> for refund eligibility and the{' '}
+          See the <Link to="/terms" className="underline">Terms &amp; Conditions</Link> for service use, the{' '}
+          <Link to="/refund" className="underline">Refund Policy</Link> for refund eligibility, and the{' '}
           <Link to="/privacy" className="underline">Privacy Policy</Link> for data and account-deletion information.
         </p>
       </section>
