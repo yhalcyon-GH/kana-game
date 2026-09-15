@@ -6,7 +6,7 @@ const environment = {
   TAMAMIZU_PRODUCTION_SSH_PORT: '10022',
   TAMAMIZU_PRODUCTION_SSH_IDENTITY_FILE: '/secure/tamamizu-readonly',
   TAMAMIZU_PRODUCTION_KNOWN_HOSTS: '/secure/known_hosts',
-  TAMAMIZU_PRODUCTION_APP_ROOT: '/home/account/tamamizu',
+  TAMAMIZU_PRODUCTION_API_ROOT: '/home/account/tamamizu/api',
 }
 
 describe('production read-only SSH invocation', () => {
@@ -16,7 +16,7 @@ describe('production read-only SSH invocation', () => {
     expect(invocation.command).toBe('ssh')
     expect(invocation.args).toContain('StrictHostKeyChecking=yes')
     expect(invocation.args).toContain('BatchMode=yes')
-    expect(invocation.args.at(-1)).toBe('cd -- /home/account/tamamizu && php server/ops/auth-readiness-check.php')
+    expect(invocation.args.at(-1)).toBe('cd -- /home/account/tamamizu/api && php ops/auth-readiness-check.php')
     expect(invocation.args.join(' ')).not.toMatch(/mysql|mariadb|paddle|migration|config\.php/)
   })
 
@@ -36,7 +36,7 @@ describe('production read-only SSH invocation', () => {
     ['TAMAMIZU_PRODUCTION_SSH_PORT', '22; id'],
     ['TAMAMIZU_PRODUCTION_SSH_IDENTITY_FILE', '../private-key'],
     ['TAMAMIZU_PRODUCTION_SSH_IDENTITY_FILE', 'C:\\Users\\Yuki\\..\\private-key'],
-    ['TAMAMIZU_PRODUCTION_APP_ROOT', '/home/account/../other'],
+    ['TAMAMIZU_PRODUCTION_API_ROOT', '/home/account/../other'],
   ])('rejects unsafe %s values', (key, value) => {
     expect(() => buildReadOnlySshInvocation({ ...environment, [key]: value })).toThrow(/Unsafe/)
   })
