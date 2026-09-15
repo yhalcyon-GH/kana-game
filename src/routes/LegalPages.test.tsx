@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { RefundPage } from './RefundPage'
 import { SupportPage } from './SupportPage'
+import { TermsPage } from './TermsPage'
 
 function renderWithRouter(element: ReactElement) {
   render(<MemoryRouter>{element}</MemoryRouter>)
@@ -18,6 +19,7 @@ describe('SupportPage', () => {
       'mailto:tamamizu.jp@gmail.com',
     )
     expect(screen.getByText(/Do not send payment-card details/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Terms & Conditions' })).toHaveAttribute('href', '/terms')
   })
 })
 
@@ -36,5 +38,16 @@ describe('RefundPage', () => {
     expect(section).toMatch(/pending Paddle approval, paid access remains available/)
     expect(section).toMatch(/full refund is approved, Full Tamamizu access ends/)
     expect(section).toMatch(/request is rejected, paid access remains active or is restored/)
+  })
+})
+
+describe('TermsPage', () => {
+  it('publishes the decided Thai law, Thai courts, and consumer-rights savings clause', () => {
+    renderWithRouter(<TermsPage />)
+    expect(screen.getByRole('heading', { name: 'Terms & Conditions', level: 1 })).toBeInTheDocument()
+    const disputes = screen.getByRole('heading', { name: 'Governing law and disputes', level: 2 }).parentElement?.textContent ?? ''
+    expect(disputes).toMatch(/laws of Thailand/)
+    expect(disputes).toMatch(/courts of Thailand that have jurisdiction/)
+    expect(disputes).toMatch(/consumer protection right or remedy/)
   })
 })
