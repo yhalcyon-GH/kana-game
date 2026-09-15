@@ -3,6 +3,7 @@ const apiRootPattern = /^\/[a-zA-Z0-9._/-]*$/
 const posixAbsolutePathPattern = /^\/[a-zA-Z0-9._/ -]+$/
 const windowsAbsolutePathPattern = /^[a-zA-Z]:[\\/][a-zA-Z0-9._\\/ -]+$/
 const portPattern = /^[1-9][0-9]{0,4}$/
+const phpCommandPattern = /^php(?:8\.(?:1|2|3|4))?$/
 
 function required(environment, key) {
   const value = environment[key]
@@ -33,6 +34,7 @@ function buildFixedReadOnlySshInvocation(environment, remoteCommand) {
   const identityFile = assertLocalAbsolutePath(required(environment, 'TAMAMIZU_PRODUCTION_SSH_IDENTITY_FILE'), 'identity-file path')
   const knownHosts = assertLocalAbsolutePath(required(environment, 'TAMAMIZU_PRODUCTION_KNOWN_HOSTS'), 'known-hosts path')
   const apiRoot = assertMatch(required(environment, 'TAMAMIZU_PRODUCTION_API_ROOT'), apiRootPattern, 'API root path')
+  const phpCommand = assertMatch(environment.TAMAMIZU_PRODUCTION_PHP_COMMAND || 'php', phpCommandPattern, 'PHP command')
 
   return {
     command: 'ssh',
@@ -45,7 +47,7 @@ function buildFixedReadOnlySshInvocation(environment, remoteCommand) {
       '-i', identityFile,
       '-p', port,
       target,
-      `cd -- ${apiRoot} && php ${remoteCommand}`,
+      `cd -- ${apiRoot} && ${phpCommand} ${remoteCommand}`,
     ],
   }
 }
