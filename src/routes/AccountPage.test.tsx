@@ -95,6 +95,7 @@ describe('production Account purchase UI', () => {
     expect(screen.getByRole('button', { name: 'Sandbox test purchase' })).toBeEnabled()
     expect(screen.getByText(/Base price: USD 5\.00/)).toBeInTheDocument()
     expect(screen.getByText(/final price is shown at checkout/i)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Terms & Conditions' })).toHaveAttribute('href', '/terms')
     expect(screen.getByRole('link', { name: 'Refund Policy' })).toHaveAttribute('href', '/refund')
     expect(screen.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/privacy')
     expect(screen.getByRole('link', { name: 'Support & Contact' })).toHaveAttribute('href', '/support')
