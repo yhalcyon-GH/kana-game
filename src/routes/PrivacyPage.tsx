@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { isUmamiConfigured } from '../lib/analytics/umamiConfig'
 import { isFeedbackEnabled } from '../lib/feedback/config'
 
@@ -229,9 +230,9 @@ export function PrivacyPage() {
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Related policies</h2>
         <p>
-          See the <a href="#/terms" className="underline">Terms &amp; Conditions</a> for service use, the{' '}
-          <a href="#/refund" className="underline">Refund Policy</a> for refund eligibility, and{' '}
-          <a href="#/support" className="underline">Support &amp; Contact</a> for help and account-deletion requests.
+          See the <Link to="/terms" className="underline">Terms &amp; Conditions</Link> for service use, the{' '}
+          <Link to="/refund" className="underline">Refund Policy</Link> for refund eligibility, and{' '}
+          <Link to="/support" className="underline">Support &amp; Contact</Link> for help and account-deletion requests.
         </p>
       </section>
 
