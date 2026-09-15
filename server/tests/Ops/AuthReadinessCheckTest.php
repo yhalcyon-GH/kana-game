@@ -50,6 +50,7 @@ function authReadinessCheckTests(): array
         'exits 0 and prints OK when cookie auth is off (default dev/Sandbox state)' => function () {
             $result = runAuthReadinessCheck([]);
             assertTrue($result['exitCode'] === 0, 'expected exit code 0, got ' . $result['exitCode'] . ' stderr=' . $result['stderr']);
+            assertTrue(str_contains($result['stdout'], 'devHarnessEnabled=false'), 'expected disabled harness status on stdout');
             assertTrue(str_contains($result['stdout'], 'OK'), 'expected OK on stdout');
         },
 
@@ -79,6 +80,7 @@ function authReadinessCheckTests(): array
                 'DEV_HARNESS_ENABLED' => 'true',
             ]);
             assertTrue($result['exitCode'] === 0, 'expected exit code 0, got ' . $result['exitCode'] . ' stderr=' . $result['stderr']);
+            assertTrue(str_contains($result['stdout'], 'devHarnessEnabled=true'), 'expected enabled harness status on stdout');
         },
     ];
 }
