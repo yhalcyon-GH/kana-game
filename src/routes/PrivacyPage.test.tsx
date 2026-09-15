@@ -13,18 +13,19 @@ describe('PrivacyPage', () => {
     const heading = screen.getByRole('heading', { name: 'Account (optional)', level: 2 })
     const text = heading.parentElement?.textContent ?? ''
     expect(text).toMatch(/You do not need an account to use the free parts/i)
-    expect(text).toMatch(/only involved if you purchase premium content/i)
+    expect(text).toMatch(/only involved if you purchase Full Tamamizu/i)
     expect(text).toMatch(/Magic Link/)
     expect(screen.getAllByText(/local storage/i).length).toBeGreaterThan(0)
   })
 
-  it('discloses the sign-in session cookie accurately, including the no-sign-in case', () => {
+  it('discloses the sign-in session cookie accurately, including its security attributes and the no-sign-in case', () => {
     render(<PrivacyPage />)
     const heading = screen.getByRole('heading', { name: 'Cookies', level: 2 })
     const text = heading.parentElement?.textContent ?? ''
     expect(text).toMatch(/sets one cookie to keep you signed in/i)
     expect(text).toMatch(/never your email address/i)
     expect(text).toMatch(/not used for tracking or analytics/i)
+    expect(text).toMatch(/Secure, HttpOnly, and SameSite=Lax/)
     expect(text).toMatch(/If you don't\s*sign in, no cookie is set/i)
   })
 
@@ -57,6 +58,29 @@ describe('PrivacyPage', () => {
     expect(screen.getByText(/does not record, upload, or store your microphone audio/i)).toBeInTheDocument()
     const heading = screen.getByRole('heading', { name: 'Microphone / speech recognition', level: 2 })
     expect(heading.parentElement?.textContent).toMatch(/browser or platform provider's own privacy terms/)
+  })
+
+  it('discloses the separate authentication and purchase-access service, without calling the app backend-free', () => {
+    const heading = screen.getByRole('heading', { name: 'Hosting', level: 2 })
+    const text = heading.parentElement?.textContent ?? ''
+    expect(text).toMatch(/static web app/)
+    expect(text).toMatch(/separate, security-focused authentication and purchase-access service/)
+    expect(text).not.toMatch(/no backend server of its own/)
+  })
+
+  it('describes the data kept for purchases, retention, and account deletion', () => {
+    expect(screen.getByRole('heading', { name: 'Purchases and access', level: 2 })).toBeInTheDocument()
+    const retention = screen.getByRole('heading', { name: 'Retention and deletion', level: 2 }).parentElement?.textContent ?? ''
+    expect(retention).toMatch(/about 90 days/)
+    expect(retention).toMatch(/cannot be reversed/)
+    expect(retention).toMatch(/does not itself provide a refund/)
+  })
+
+  it('states the child and guardian data-minimisation policy', () => {
+    const text = screen.getByRole('heading', { name: 'Children and guardians', level: 2 }).parentElement?.textContent ?? ''
+    expect(text).toMatch(/does not set a minimum learning age/)
+    expect(text).toMatch(/date of birth/)
+    expect(text).toMatch(/school/)
   })
 
   it('identifies the developer/operator using only public GitHub identity, no private info', () => {
