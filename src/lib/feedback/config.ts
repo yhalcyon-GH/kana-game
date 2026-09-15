@@ -1,28 +1,33 @@
 import type { FeedbackContext } from './types'
 
-// Whether the Send Feedback UI should render at all. Gated purely on
-// whether a destination is configured at build time — never guessed, never
-// a hardcoded fallback URL. See docs/analytics-foundation.md.
+const TALLY_FORM_ORIGIN = 'https://tally.so'
+const TALLY_FORM_PATH = /^\/r\/[A-Za-z0-9]+\/?$/
+
+// Whether the Send Feedback UI should render at all. Feedback is deliberately
+// constrained to the reviewed Tally public-form URL shape: an HTTPS
+// https://tally.so/r/<form-id> link. This keeps the runtime behavior aligned
+// with the Privacy Policy; an accidental or unreviewed third-party URL leaves
+// the control hidden rather than opening a new data destination.
 export function isFeedbackEnabled(): boolean {
-  return Boolean(import.meta.env.VITE_FEEDBACK_URL)
+  return getFeedbackUrl() !== undefined
 }
 
 export function getFeedbackUrl(): string | undefined {
-  return import.meta.env.VITE_FEEDBACK_URL
+  const configured = import.meta.env.VITE_FEEDBACK_URL
+  if (!configured) return undefined
+
+  try {
+    const url = new URL(configured)
+    if (url.origin !== TALLY_FORM_ORIGIN || !TALLY_FORM_PATH.test(url.pathname)) return undefined
+    return url.toString()
+  } catch {
+    return undefined
+  }
 }
 
-// Builds the actual destination URL the Send Feedback button opens,
-// carrying context as generic query parameters — provider-neutral because
-// it doesn't assume any specific destination's field names (a Google Form,
-// a GitHub issue template, a Typeform, or anything else configured via
-// VITE_FEEDBACK_URL can choose to read these standard param names or
-// ignore them entirely). Returns undefined when no destination is
-// configured, matching isFeedbackEnabled().
-//
-// Never includes free-text feedback content itself — this only carries
-// reproduction context (route/build/screen size), never anything the
-// learner typed (see docs/analytics-foundation.md's "absolutely never
-// sends" list).
+// Builds the actual Tally destination URL the Send Feedback button opens.
+// It carries only reproduction context as generic query parameters; it never
+// includes free-text feedback or learner/account data.
 export function buildFeedbackDestinationUrl(context: FeedbackContext): string | undefined {
   const base = getFeedbackUrl()
   if (!base) return undefined
