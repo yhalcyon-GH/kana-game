@@ -36,6 +36,12 @@ Each item is tagged:
 
 - [ ] **Human required** — Deploy the reviewed `main` SHA to the Production
       XServer document root.
+- [ ] **Human required** — Before uploading, follow the reviewed file
+      inclusion/exclusion and rollback boundaries in
+      [xserver-api-deployment-plan.md](./xserver-api-deployment-plan.md).
+      Preserve any existing Production configuration; do not expose the
+      CLI-only `ops/` readiness directory over HTTP.
+
 - [ ] **Human required** — Enable SSH and register a dedicated public key in
       XServer's Server Panel. Keep its private key only in the approved local
       secure environment; never add it to GitHub Actions or paste it into AI.
