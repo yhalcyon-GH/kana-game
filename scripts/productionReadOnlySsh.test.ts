@@ -20,10 +20,22 @@ describe('production read-only SSH invocation', () => {
     expect(invocation.args.join(' ')).not.toMatch(/mysql|mariadb|paddle|migration|config\.php/)
   })
 
+  it('accepts safe Windows paths for local key material', () => {
+    const invocation = buildReadOnlySshInvocation({
+      ...environment,
+      TAMAMIZU_PRODUCTION_SSH_IDENTITY_FILE: 'C:\\Users\\Yuki\\tamamizu-readonly\\id_ed25519',
+      TAMAMIZU_PRODUCTION_KNOWN_HOSTS: 'C:\\Users\\Yuki\\tamamizu-readonly\\known_hosts',
+    })
+
+    expect(invocation.args).toContain('UserKnownHostsFile=C:\\Users\\Yuki\\tamamizu-readonly\\known_hosts')
+    expect(invocation.args).toContain('C:\\Users\\Yuki\\tamamizu-readonly\\id_ed25519')
+  })
+
   it.each([
     ['TAMAMIZU_PRODUCTION_SSH_TARGET', 'account@example.com; cat config.php'],
     ['TAMAMIZU_PRODUCTION_SSH_PORT', '22; id'],
     ['TAMAMIZU_PRODUCTION_SSH_IDENTITY_FILE', '../private-key'],
+    ['TAMAMIZU_PRODUCTION_SSH_IDENTITY_FILE', 'C:\\Users\\Yuki\\..\\private-key'],
     ['TAMAMIZU_PRODUCTION_APP_ROOT', '/home/account/../other'],
   ])('rejects unsafe %s values', (key, value) => {
     expect(() => buildReadOnlySshInvocation({ ...environment, [key]: value })).toThrow(/Unsafe/)

@@ -1,6 +1,7 @@
 const targetPattern = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+$/
 const appRootPattern = /^\/[a-zA-Z0-9._/-]*$/
-const absolutePathPattern = /^\/[a-zA-Z0-9._/-]+$/
+const posixAbsolutePathPattern = /^\/[a-zA-Z0-9._/ -]+$/
+const windowsAbsolutePathPattern = /^[a-zA-Z]:[\\/][a-zA-Z0-9._\\/ -]+$/
 const portPattern = /^[1-9][0-9]{0,4}$/
 
 function required(environment, key) {
@@ -16,6 +17,16 @@ function assertMatch(value, pattern, key) {
   return value
 }
 
+function assertLocalAbsolutePath(value, key) {
+  if (
+    value.includes('..')
+    || !(posixAbsolutePathPattern.test(value) || windowsAbsolutePathPattern.test(value))
+  ) {
+    throw new Error(`Unsafe ${key}.`)
+  }
+  return value
+}
+
 /**
  * Builds the only remote command this tool is permitted to execute.
  * It reads configuration through the repository's redacted readiness check;
@@ -24,8 +35,8 @@ function assertMatch(value, pattern, key) {
 export function buildReadOnlySshInvocation(environment) {
   const target = assertMatch(required(environment, 'TAMAMIZU_PRODUCTION_SSH_TARGET'), targetPattern, 'SSH target')
   const port = assertMatch(required(environment, 'TAMAMIZU_PRODUCTION_SSH_PORT'), portPattern, 'SSH port')
-  const identityFile = assertMatch(required(environment, 'TAMAMIZU_PRODUCTION_SSH_IDENTITY_FILE'), absolutePathPattern, 'identity-file path')
-  const knownHosts = assertMatch(required(environment, 'TAMAMIZU_PRODUCTION_KNOWN_HOSTS'), absolutePathPattern, 'known-hosts path')
+  const identityFile = assertLocalAbsolutePath(required(environment, 'TAMAMIZU_PRODUCTION_SSH_IDENTITY_FILE'), 'identity-file path')
+  const knownHosts = assertLocalAbsolutePath(required(environment, 'TAMAMIZU_PRODUCTION_KNOWN_HOSTS'), 'known-hosts path')
   const appRoot = assertMatch(required(environment, 'TAMAMIZU_PRODUCTION_APP_ROOT'), appRootPattern, 'app-root path')
 
   return {
