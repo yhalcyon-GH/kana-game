@@ -1,7 +1,8 @@
+import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
-import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import { buildReleaseIntegritySshInvocation, readSafeReleaseIntegrityResult } from './productionReadOnlySsh.mjs'
 
 function hashFile(path) {
@@ -35,9 +36,9 @@ export function calculateReleaseFingerprint(apiSourceRoot = join(process.cwd(), 
   return createHash('sha256').update(`${lines.join('\n')}\n`).digest('hex')
 }
 
-try {
+export function runProductionReleaseIntegrity(environment = process.env) {
   const expectedFingerprint = calculateReleaseFingerprint()
-  const invocation = buildReleaseIntegritySshInvocation(process.env)
+  const invocation = buildReleaseIntegritySshInvocation(environment)
   const result = spawnSync(invocation.command, invocation.args, {
     encoding: 'utf8',
     timeout: 20_000,
@@ -51,11 +52,16 @@ try {
   if (deployedFingerprint !== expectedFingerprint) {
     throw new Error('The deployed API release does not match this reviewed checkout. Output was intentionally redacted.')
   }
+}
 
-  console.log('Production release-integrity check passed: deployed API code matches this reviewed checkout.')
-  process.exit(0)
-} catch (error) {
-  const message = error instanceof Error ? error.message : 'Unknown failure.'
-  console.error(`Production release-integrity check refused: ${message}`)
-  process.exit(2)
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  try {
+    runProductionReleaseIntegrity()
+    console.log('Production release-integrity check passed: deployed API code matches this reviewed checkout.')
+    process.exit(0)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown failure.'
+    console.error(`Production release-integrity check refused: ${message}`)
+    process.exit(2)
+  }
 }
