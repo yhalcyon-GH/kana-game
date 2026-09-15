@@ -3,7 +3,7 @@
 This repository provides a deliberately narrow SSH runner for the first
 Production Server Human Gate. It can run exactly one remote command:
 
-    php server/ops/auth-readiness-check.php
+    cd -- "$TAMAMIZU_PRODUCTION_API_ROOT" && php ops/auth-readiness-check.php
 
 The command reads the deployed configuration only to print three booleans:
 
@@ -15,6 +15,22 @@ It does **not** print configuration values, source files, database rows,
 tokens, email addresses, or secrets. It does not execute SQL, write files,
 change configuration, send email, or contact Paddle.
 
+## Deployment layout this runner verifies
+
+The Production frontend calls the PHP API at /api. For XServer, the reviewed
+deployment layout is the **contents** of the repository's server/ directory
+copied into the served API directory:
+
+    public_html/<app-domain>/api/
+      ops/auth-readiness-check.php
+      src/Config.php
+      ...other reviewed PHP entry points and source files...
+
+Accordingly, TAMAMIZU_PRODUCTION_API_ROOT is the absolute server path to that
+deployed api/ directory — it is not the repository checkout root. The
+readiness script requires its sibling src/ directory, so both must belong to
+the same reviewed release.
+
 ## Human setup: one-time SSH access
 
 XServer requires SSH to be enabled and a public key to be registered in the
@@ -23,10 +39,9 @@ private key must remain in a user-managed secure location; never commit it,
 put it in a GitHub Action secret, paste it into chat, or upload it to the
 repository.
 
-Use a dedicated key solely for this read-only preflight. The server account
-must point at the app deployment directory. Confirm the SSH host key through
-a trusted XServer source before adding it to a local known-hosts file. The
-runner refuses unknown or changed host keys.
+Use a dedicated key solely for this read-only preflight. Confirm the SSH host
+key through a trusted XServer source before adding it to a local known-hosts
+file. The runner refuses unknown or changed host keys.
 
 Set these local environment variables only in the secure execution
 environment:
@@ -35,7 +50,7 @@ environment:
     TAMAMIZU_PRODUCTION_SSH_PORT=port
     TAMAMIZU_PRODUCTION_SSH_IDENTITY_FILE=/absolute/path/to/private-key
     TAMAMIZU_PRODUCTION_KNOWN_HOSTS=/absolute/path/to/known_hosts
-    TAMAMIZU_PRODUCTION_APP_ROOT=/absolute/path/to/deployed/kana-game
+    TAMAMIZU_PRODUCTION_API_ROOT=/absolute/path/to/deployed/api
 
 Then run:
 
@@ -48,9 +63,10 @@ Then run:
   the owner's separate explicit approval.
 - Do not use this runner for migrations, database access, file upload,
   deployment, or arbitrary commands.
-- The remote `server/ops/auth-readiness-check.php` file must already be
-  present in the deployed release. Uploading or changing Production files is
-  a separate deployment action and is not performed by this runner.
+- The remote ops/auth-readiness-check.php file and its required src/
+  directory must already be present in the deployed API release. Uploading or
+  changing Production files is a separate deployment action and is not
+  performed by this runner.
 - A successful result is only a redacted configuration check. It is not an
   authorization to perform an actual Magic Link test, Paddle Live operation,
   database write, DNS change, or production-secret change.
