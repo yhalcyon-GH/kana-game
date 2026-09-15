@@ -25,6 +25,13 @@ describe('production read-only SSH invocation', () => {
     expect(invocation.args.join(' ')).not.toMatch(/mysql|mariadb|paddle|migration|config\.php/)
   })
 
+  it('permits only an allowlisted PHP CLI command for the fixed readiness check', () => {
+    const invocation = buildReadOnlySshInvocation({ ...environment, TAMAMIZU_PRODUCTION_PHP_COMMAND: 'php8.1' })
+
+    expect(invocation.args.at(-1)).toBe('cd -- /home/account/tamamizu/api && php8.1 ops/auth-readiness-check.php')
+    expect(invocation.args.join(' ')).not.toMatch(/mysql|mariadb|paddle|migration|config\\.php/)
+  })
+
   it('permits only the fixed redacted release-integrity command', () => {
     const invocation = buildReleaseIntegritySshInvocation(environment)
 
@@ -46,6 +53,7 @@ describe('production read-only SSH invocation', () => {
   it.each([
     ['TAMAMIZU_PRODUCTION_SSH_TARGET', 'account@example.com; cat config.php'],
     ['TAMAMIZU_PRODUCTION_SSH_PORT', '22; id'],
+    ['TAMAMIZU_PRODUCTION_PHP_COMMAND', 'php8.1; id'],
     ['TAMAMIZU_PRODUCTION_SSH_IDENTITY_FILE', '../private-key'],
     ['TAMAMIZU_PRODUCTION_SSH_IDENTITY_FILE', 'C:\\Users\\Yuki\\..\\private-key'],
     ['TAMAMIZU_PRODUCTION_API_ROOT', '/home/account/../other'],
