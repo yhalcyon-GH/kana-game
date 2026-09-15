@@ -27,12 +27,7 @@ function assertLocalAbsolutePath(value, key) {
   return value
 }
 
-/**
- * Builds the only remote command this tool is permitted to execute.
- * It reads configuration through the repository's redacted readiness check;
- * it never opens a shell, displays files, or sends SQL.
- */
-export function buildReadOnlySshInvocation(environment) {
+function buildFixedReadOnlySshInvocation(environment, remoteCommand) {
   const target = assertMatch(required(environment, 'TAMAMIZU_PRODUCTION_SSH_TARGET'), targetPattern, 'SSH target')
   const port = assertMatch(required(environment, 'TAMAMIZU_PRODUCTION_SSH_PORT'), portPattern, 'SSH port')
   const identityFile = assertLocalAbsolutePath(required(environment, 'TAMAMIZU_PRODUCTION_SSH_IDENTITY_FILE'), 'identity-file path')
@@ -50,9 +45,25 @@ export function buildReadOnlySshInvocation(environment) {
       '-i', identityFile,
       '-p', port,
       target,
-      `cd -- ${apiRoot} && php ops/auth-readiness-check.php`,
+      `cd -- ${apiRoot} && php ${remoteCommand}`,
     ],
   }
+}
+
+/**
+ * Builds the fixed, redacted configuration-readiness command. It never opens
+ * a shell, displays files, or sends SQL.
+ */
+export function buildReadOnlySshInvocation(environment) {
+  return buildFixedReadOnlySshInvocation(environment, 'ops/auth-readiness-check.php')
+}
+
+/**
+ * Builds the fixed, redacted code-release fingerprint command. It reads only
+ * hashes of the reviewed, non-secret deployment files listed in its manifest.
+ */
+export function buildReleaseIntegritySshInvocation(environment) {
+  return buildFixedReadOnlySshInvocation(environment, 'ops/release-integrity-check.php')
 }
 
 export function readSafePreflightResult(status, stdout, stderr) {
@@ -78,6 +89,18 @@ export function readSafePreflightResult(status, stdout, stderr) {
     && /^MISCONFIGURED: WEB_SESSION_COOKIE_ENABLED is on but no real Magic Link mailer is configured \(RESEND_API_KEY \/ MAGIC_LINK_FROM_EMAIL \/ MAGIC_LINK_FROM_NAME incomplete\)\. Live sign-in cannot work\.\n$/.test(normalizedStderr)
   ) {
     return { ok: false, reason: 'auth-misconfigured' }
+  }
+
+  throw new Error('Remote command returned an unexpected response. Output was intentionally redacted.')
+}
+
+export function readSafeReleaseIntegrityResult(status, stdout, stderr) {
+  const normalizedStdout = stdout.replace(/\r\n/g, '\n')
+  const normalizedStderr = stderr.replace(/\r\n/g, '\n')
+  const result = /^releaseContentSha256=([a-f0-9]{64})\nOK\n?$/.exec(normalizedStdout)
+
+  if (status === 0 && result && normalizedStderr === '') {
+    return result[1]
   }
 
   throw new Error('Remote command returned an unexpected response. Output was intentionally redacted.')
