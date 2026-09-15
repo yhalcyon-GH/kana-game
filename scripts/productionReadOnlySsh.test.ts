@@ -42,6 +42,14 @@ describe('production read-only SSH invocation', () => {
     })
   })
 
+  it('treats an enabled development harness as a production blocker', () => {
+    expect(readSafePreflightResult(
+      0,
+      'webCookieAuthActive=true productionMagicLinkMailerConfigured=true devHarnessEnabled=true\nOK\n',
+      '',
+    )).toEqual({ ok: false, reason: 'dev-harness-enabled' })
+  })
+
   it('redacts unexpected remote output instead of returning it to the caller', () => {
     expect(() => readSafePreflightResult(0, 'DB_PASSWORD=never-return-this\n', '')).toThrow(/redacted/)
   })
