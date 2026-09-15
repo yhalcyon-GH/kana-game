@@ -3,8 +3,8 @@
 This repository provides two deliberately narrow, local-only SSH checks for
 the first Production Server Human Gate:
 
-    cd -- "$TAMAMIZU_PRODUCTION_API_ROOT" && "$TAMAMIZU_PRODUCTION_PHP_COMMAND" ops/auth-readiness-check.php
-    cd -- "$TAMAMIZU_PRODUCTION_API_ROOT" && "$TAMAMIZU_PRODUCTION_PHP_COMMAND" ops/release-integrity-check.php
+    cd -- "$TAMAMIZU_PRODUCTION_API_ROOT" && <allowlisted-php-cli> ops/auth-readiness-check.php
+    cd -- "$TAMAMIZU_PRODUCTION_API_ROOT" && <allowlisted-php-cli> ops/release-integrity-check.php
 
 Neither command opens a shell, displays files, accesses a database, writes
 files, changes configuration, sends email, or contacts Paddle.
