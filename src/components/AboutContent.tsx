@@ -38,6 +38,16 @@ export function AboutContent() {
             </Link>
           </li>
           <li>
+            <Link to="/refund" className="underline">
+              Refund Policy
+            </Link>
+          </li>
+          <li>
+            <Link to="/support" className="underline">
+              Support &amp; Contact
+            </Link>
+          </li>
+          <li>
             <Link to="/third-party-notices" className="underline">
               Third-Party Notices
             </Link>
