@@ -50,11 +50,14 @@ export function readSafePreflightResult(status, stdout, stderr) {
   const result = /^webCookieAuthActive=(true|false) productionMagicLinkMailerConfigured=(true|false) devHarnessEnabled=(true|false)\nOK\n?$/.exec(normalizedStdout)
 
   if (status === 0 && result && normalizedStderr === '') {
+    const devHarnessEnabled = result[3] === 'true'
+    if (devHarnessEnabled) return { ok: false, reason: 'dev-harness-enabled' }
+
     return {
       ok: true,
       webCookieAuthActive: result[1] === 'true',
       productionMagicLinkMailerConfigured: result[2] === 'true',
-      devHarnessEnabled: result[3] === 'true',
+      devHarnessEnabled,
     }
   }
 
