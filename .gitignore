@@ -53,3 +53,6 @@ public/audio/**/*.wav16k.wav
 # server/config.php. See docs/paddle-webhook-poc.md.
 /server/config.php
 /server/*.local.php
+
+# Local-only SSH connection inputs for the fixed read-only Production preflight.
+/ops/production-readonly.env

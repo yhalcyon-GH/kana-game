@@ -17,8 +17,7 @@ declare(strict_types=1);
  *   mailer is configured -- Live sign-in cannot work. Fix before treating
  *   this deployment as production-ready.
  *
- * Never prints secret values -- only the same booleans
- * ProductionAuthReadiness exposes.
+ * Never prints secret values -- only safe readiness booleans.
  */
 
 require __DIR__ . '/../src/Config.php';
@@ -33,9 +32,10 @@ $readiness = ProductionAuthReadiness::fromConfig($config);
 fwrite(
     STDOUT,
     sprintf(
-        "webCookieAuthActive=%s productionMagicLinkMailerConfigured=%s\n",
+        "webCookieAuthActive=%s productionMagicLinkMailerConfigured=%s devHarnessEnabled=%s\n",
         $readiness->webCookieAuthActive ? 'true' : 'false',
         $readiness->productionMagicLinkMailerConfigured ? 'true' : 'false',
+        $config->get('DEV_HARNESS_ENABLED') === 'true' ? 'true' : 'false',
     ),
 );
 
