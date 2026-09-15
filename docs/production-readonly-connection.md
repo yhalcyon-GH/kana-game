@@ -1,19 +1,24 @@
 # Production read-only connection
 
-This repository provides a deliberately narrow SSH runner for the first
-Production Server Human Gate. It can run exactly one remote command:
+This repository provides two deliberately narrow, local-only SSH checks for
+the first Production Server Human Gate:
 
     cd -- "$TAMAMIZU_PRODUCTION_API_ROOT" && php ops/auth-readiness-check.php
+    cd -- "$TAMAMIZU_PRODUCTION_API_ROOT" && php ops/release-integrity-check.php
 
-The command reads the deployed configuration only to print three booleans:
+Neither command opens a shell, displays files, accesses a database, writes
+files, changes configuration, sends email, or contacts Paddle.
 
-- whether web-cookie auth is enabled;
-- whether the production Magic Link mailer is completely configured; and
-- whether the development harness is enabled.
+The readiness command prints only whether web-cookie auth is enabled, whether
+the production Magic Link mailer is configured, and whether the development
+harness is enabled.
 
-It does **not** print configuration values, source files, database rows,
-tokens, email addresses, or secrets. It does not execute SQL, write files,
-change configuration, send email, or contact Paddle.
+The release-integrity command prints only one aggregate SHA-256 fingerprint
+of the non-secret API files listed in
+`ops/release-integrity-manifest.json`. The local runner calculates the same
+fingerprint from the reviewed checkout and fails on any mismatch; it never
+prints individual file names, file contents, configuration, tokens, email
+addresses, or secrets.
 
 ## Deployment layout this runner verifies
 
@@ -23,12 +28,13 @@ copied into the served API directory:
 
     public_html/<app-domain>/api/
       ops/auth-readiness-check.php
+      ops/release-integrity-check.php
       src/Config.php
       ...other reviewed PHP entry points and source files...
 
 Accordingly, TAMAMIZU_PRODUCTION_API_ROOT is the absolute server path to that
 deployed api/ directory — it is not the repository checkout root. The
-readiness script requires its sibling src/ directory, so both must belong to
+readiness scripts require their sibling src/ directory, so both must belong to
 the same reviewed release.
 
 ## Human setup: one-time SSH access
@@ -39,9 +45,9 @@ private key must remain in a user-managed secure location; never commit it,
 put it in a GitHub Action secret, paste it into chat, or upload it to the
 repository.
 
-Use a dedicated key solely for this read-only preflight. Confirm the SSH host
+Use a dedicated key solely for these read-only checks. Confirm the SSH host
 key through a trusted XServer source before adding it to a local known-hosts
-file. The runner refuses unknown or changed host keys.
+file. The runners refuse unknown or changed host keys.
 
 Set these local environment variables only in the secure execution
 environment:
@@ -52,8 +58,9 @@ environment:
     TAMAMIZU_PRODUCTION_KNOWN_HOSTS=/absolute/path/to/known_hosts
     TAMAMIZU_PRODUCTION_API_ROOT=/absolute/path/to/deployed/api
 
-Then run:
+After the owner has approved and performed the Production upload, run:
 
+    npm run production:release-integrity
     npm run production:preflight
 
 ## Explicit boundaries
@@ -61,19 +68,22 @@ Then run:
 - Do not add the private key to GitHub Actions, repository variables, or
   repository secrets. That would be a Production secret change and requires
   the owner's separate explicit approval.
-- Do not use this runner for migrations, database access, file upload,
+- Do not use these runners for migrations, database access, file upload,
   deployment, or arbitrary commands.
-- The remote ops/auth-readiness-check.php file and its required src/
-  directory must already be present in the deployed API release. Uploading or
-  changing Production files is a separate deployment action and is not
-  performed by this runner.
-- A successful result is only a redacted configuration check. It is not an
-  authorization to perform an actual Magic Link test, Paddle Live operation,
-  database write, DNS change, or production-secret change.
+- The remote ops scripts, their manifest, and the required src/ directory
+  must already be present in the deployed API release. Uploading or changing
+  Production files is a separate deployment action and is not performed by
+  these runners.
+- The committed ops/.htaccess denies every HTTP request to the CLI-only
+  scripts. Verify that denial after an approved upload; never browse a
+  readiness-check response.
+- Successful results are only redacted checks. They are not authorization to
+  perform an actual Magic Link test, Paddle Live operation, database write,
+  DNS change, or production-secret change.
 
 ## Why this is local-only
 
-The runner intentionally has no GitHub Actions workflow. A hosted workflow
-would require storing an SSH private key as a Production secret and would
-turn a human-controlled access path into unattended remote access. Keep this
-first gate local, fixed-command, and read-only.
+The runners intentionally have no GitHub Actions workflow. A hosted workflow
+would require storing an SSH private key as a Production secret and would turn
+a human-controlled access path into unattended remote access. Keep this first
+gate local, fixed-command, and read-only.
