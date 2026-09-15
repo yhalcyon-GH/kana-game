@@ -3,8 +3,8 @@
 This repository provides two deliberately narrow, local-only SSH checks for
 the first Production Server Human Gate:
 
-    cd -- "$TAMAMIZU_PRODUCTION_API_ROOT" && php ops/auth-readiness-check.php
-    cd -- "$TAMAMIZU_PRODUCTION_API_ROOT" && php ops/release-integrity-check.php
+    cd -- "$TAMAMIZU_PRODUCTION_API_ROOT" && "$TAMAMIZU_PRODUCTION_PHP_COMMAND" ops/auth-readiness-check.php
+    cd -- "$TAMAMIZU_PRODUCTION_API_ROOT" && "$TAMAMIZU_PRODUCTION_PHP_COMMAND" ops/release-integrity-check.php
 
 Neither command opens a shell, displays files, accesses a database, writes
 files, changes configuration, sends email, or contacts Paddle.
@@ -57,6 +57,16 @@ environment:
     TAMAMIZU_PRODUCTION_SSH_IDENTITY_FILE=/absolute/path/to/private-key
     TAMAMIZU_PRODUCTION_KNOWN_HOSTS=/absolute/path/to/known_hosts
     TAMAMIZU_PRODUCTION_API_ROOT=/absolute/path/to/deployed/api
+
+If the SSH account's bare `php` CLI is older than PHP 8.1, set the optional
+local-only selector to one of the explicitly allowlisted commands after a
+read-only version probe confirms it exists:
+
+    TAMAMIZU_PRODUCTION_PHP_COMMAND=php8.1
+
+The runner permits only `php`, `php8.1`, `php8.2`, `php8.3`, or `php8.4`; it
+never accepts an arbitrary command. Omit the variable only when bare `php` is
+already PHP 8.1 or newer.
 
 After the owner has approved and performed the Production upload, run:
 
