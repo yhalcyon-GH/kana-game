@@ -55,6 +55,7 @@ $testFiles = [
     __DIR__ . '/DevOnly/LastMagicLinkEntrypointTest.php' => 'KanaGame\\Paddle\\Tests\\lastMagicLinkEntrypointTests',
     __DIR__ . '/ObservabilityLoggingTest.php' => 'KanaGame\\Paddle\\Tests\\observabilityLoggingTests',
     __DIR__ . '/Ops/AuthReadinessCheckTest.php' => 'KanaGame\\Paddle\\Tests\\authReadinessCheckTests',
+    __DIR__ . '/Ops/ReleaseIntegrityCheckTest.php' => 'KanaGame\\\\Paddle\\\\Tests\\\\releaseIntegrityCheckTests',
 ];
 
 $totalPassed = 0;
