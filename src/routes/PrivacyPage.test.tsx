@@ -61,6 +61,7 @@ describe('PrivacyPage', () => {
   })
 
   it('discloses the separate authentication and purchase-access service, without calling the app backend-free', () => {
+    render(<PrivacyPage />)
     const heading = screen.getByRole('heading', { name: 'Hosting', level: 2 })
     const text = heading.parentElement?.textContent ?? ''
     expect(text).toMatch(/static web app/)
@@ -69,6 +70,7 @@ describe('PrivacyPage', () => {
   })
 
   it('describes the data kept for purchases, retention, and account deletion', () => {
+    render(<PrivacyPage />)
     expect(screen.getByRole('heading', { name: 'Purchases and access', level: 2 })).toBeInTheDocument()
     const retention = screen.getByRole('heading', { name: 'Retention and deletion', level: 2 }).parentElement?.textContent ?? ''
     expect(retention).toMatch(/about 90 days/)
@@ -77,6 +79,7 @@ describe('PrivacyPage', () => {
   })
 
   it('states the child and guardian data-minimisation policy', () => {
+    render(<PrivacyPage />)
     const text = screen.getByRole('heading', { name: 'Children and guardians', level: 2 }).parentElement?.textContent ?? ''
     expect(text).toMatch(/does not set a minimum learning age/)
     expect(text).toMatch(/date of birth/)
@@ -102,7 +105,7 @@ describe('PrivacyPage', () => {
     render(<PrivacyPage />)
     const heading = screen.getByRole('heading', { name: 'Hosting', level: 2 })
     expect(heading.parentElement?.textContent).toMatch(/hosting provider/)
-    expect(heading.parentElement?.textContent).toMatch(/provider's own privacy terms/)
+    expect(heading.parentElement?.textContent).toMatch(/under its own privacy terms/)
   })
 })
 
