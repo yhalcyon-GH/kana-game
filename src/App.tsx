@@ -32,6 +32,8 @@ import { HomePage } from './routes/HomePage'
 import { LearnPage } from './routes/LearnPage'
 import { PracticeHubPage } from './routes/PracticeHubPage'
 import { PrivacyPage } from './routes/PrivacyPage'
+import { RefundPage } from './routes/RefundPage'
+import { SupportPage } from './routes/SupportPage'
 import { ReviewMistakesPage } from './routes/ReviewMistakesPage'
 import { ReviewPage } from './routes/ReviewPage'
 import { SavedPage } from './routes/SavedPage'
@@ -264,6 +266,8 @@ function App() {
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/about" element={<AboutPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
+              <Route path="/refund" element={<RefundPage />} />
+              <Route path="/support" element={<SupportPage />} />
               <Route path="/third-party-notices" element={<ThirdPartyNoticesPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
