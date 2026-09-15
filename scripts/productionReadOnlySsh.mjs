@@ -1,5 +1,5 @@
 const targetPattern = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+$/
-const appRootPattern = /^\/[a-zA-Z0-9._/-]*$/
+const apiRootPattern = /^\/[a-zA-Z0-9._/-]*$/
 const posixAbsolutePathPattern = /^\/[a-zA-Z0-9._/ -]+$/
 const windowsAbsolutePathPattern = /^[a-zA-Z]:[\\/][a-zA-Z0-9._\\/ -]+$/
 const portPattern = /^[1-9][0-9]{0,4}$/
@@ -37,7 +37,7 @@ export function buildReadOnlySshInvocation(environment) {
   const port = assertMatch(required(environment, 'TAMAMIZU_PRODUCTION_SSH_PORT'), portPattern, 'SSH port')
   const identityFile = assertLocalAbsolutePath(required(environment, 'TAMAMIZU_PRODUCTION_SSH_IDENTITY_FILE'), 'identity-file path')
   const knownHosts = assertLocalAbsolutePath(required(environment, 'TAMAMIZU_PRODUCTION_KNOWN_HOSTS'), 'known-hosts path')
-  const appRoot = assertMatch(required(environment, 'TAMAMIZU_PRODUCTION_APP_ROOT'), appRootPattern, 'app-root path')
+  const apiRoot = assertMatch(required(environment, 'TAMAMIZU_PRODUCTION_API_ROOT'), apiRootPattern, 'API root path')
 
   return {
     command: 'ssh',
@@ -50,7 +50,7 @@ export function buildReadOnlySshInvocation(environment) {
       '-i', identityFile,
       '-p', port,
       target,
-      `cd -- ${appRoot} && php server/ops/auth-readiness-check.php`,
+      `cd -- ${apiRoot} && php ops/auth-readiness-check.php`,
     ],
   }
 }
