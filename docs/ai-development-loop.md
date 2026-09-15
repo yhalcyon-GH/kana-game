@@ -371,12 +371,23 @@ Candidate future hooks:
 
 Before adding an agent-specific hook, check that agent's current official hook/configuration specification rather than assuming another agent's mechanism applies.
 
-## Future: commercial audit script
+## Commercial-readiness audit script
 
-Not built yet. Candidate future command:
+`npm run audit:commercial` (`scripts/auditCommercialReadiness.mjs`) is part of `npm run verify`. It is deterministic
+and offline: no network, no external APIs, no account access, no production SSH, and it never reads, prints,
+creates, or modifies `server/config.php`, `.env`, `.env.local`, secrets, or other production files —
+`npm run check:prelive` remains the sole secret/AI-runtime authority; this script does not duplicate or weaken it.
 
-```text
-npm run audit:commercial
-```
+Its scope is intentionally narrow: it mechanically protects the currently declared commercial notice/provenance
+contract, nothing more. It checks that:
 
-Possible checks include leftover incompatible assets/data, required third-party notices, prohibited licenses, secrets, and asset-provenance gaps.
+- the Third-Party Notices route (`/third-party-notices`) stays registered in `src/App.tsx` and linked from the
+  in-app legal/about area (`src/components/AboutContent.tsx`);
+- every local `licenseFile` declared in `src/routes/ThirdPartyNoticesPage.tsx` exists under `public/licenses/`;
+- the strokesvg/Klee One notice path has both the checked-in vendor provenance/license source
+  (`vendor/strokesvg/LICENSE`, `vendor/strokesvg/PROVENANCE.md`) and the shipped notice file the UI links to
+  (`public/licenses/strokesvg-LICENSE.txt`).
+
+It does **not** claim exhaustive license compatibility for all dependencies/assets, does not fetch license data, and
+does not create or replace legal policy — see `scripts/auditCommercialReadiness.test.ts` for its regression coverage,
+including failing-fixture/mutation paths per check.
