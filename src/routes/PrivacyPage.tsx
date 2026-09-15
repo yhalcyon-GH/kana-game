@@ -163,8 +163,7 @@ export function PrivacyPage() {
               the build version, and a coarse screen-size category (small/medium/large, never your exact screen
               dimensions) to Tally as part of the form's web address, since that's how this app passes that context
               along. Your written feedback and the category you pick are sent separately, only if and when you
-              choose to fill in and submit the form. Neither step sends your learning progress, saved items, this
-              app's own persistent user identifiers (there aren't any — see "No accounts" above), or your name or
+              choose to fill in and submit the form. Neither step sends your learning progress, saved items, Tamamizu account identifier, or your name or
               email — this app does not ask for either, though Tally's own form fields are outside this app's
               control.
             </p>
