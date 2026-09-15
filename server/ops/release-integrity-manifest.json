@@ -1,0 +1,13 @@
+{
+  "directories": [
+    "auth",
+    "src"
+  ],
+  "files": [
+    "entitlement-me.php",
+    "purchase-intent.php",
+    "paddle-webhook.php",
+    "ops/.htaccess",
+    "ops/auth-readiness-check.php"
+  ]
+}
