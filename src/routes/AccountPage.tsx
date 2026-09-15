@@ -95,7 +95,15 @@ export default function AccountPage() {
       ) : (
         <section aria-labelledby="full-tamamizu" className="flex w-full flex-col gap-4 text-center">
           <h2 id="full-tamamizu" className="text-xl font-semibold">Full Tamamizu</h2>
-          <p>Paddle Checkout shows the price, taxes, and total.</p>
+          <p>
+            Base price: USD 5.00. Applicable taxes may be included in or added to the price depending on your
+            location. The final price is shown at checkout.
+          </p>
+          <p className="text-sm text-neutral-600 dark:text-neutral-300">
+            By continuing, review the <Link to="/refund" className="underline">Refund Policy</Link>,{' '}
+            <Link to="/privacy" className="underline">Privacy Policy</Link>, and{' '}
+            <Link to="/support" className="underline">Support &amp; Contact</Link>.
+          </p>
           <button
             type="button"
             disabled={!purchase.configured || checkoutBusy}
