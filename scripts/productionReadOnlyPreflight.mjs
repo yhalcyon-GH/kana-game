@@ -18,7 +18,10 @@ try {
 
   const report = readSafePreflightResult(result.status, result.stdout, result.stderr)
   if (!report.ok) {
-    console.error('Production read-only preflight: authentication configuration is incomplete. No secret values were displayed.')
+    const message = report.reason === 'dev-harness-enabled'
+      ? 'Production read-only preflight: the development harness is enabled. No secret values were displayed.'
+      : 'Production read-only preflight: authentication configuration is incomplete. No secret values were displayed.'
+    console.error(message)
     process.exit(1)
   }
 
