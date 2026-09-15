@@ -100,8 +100,8 @@ export default function AccountPage() {
             location. The final price is shown at checkout.
           </p>
           <p className="text-sm text-neutral-600 dark:text-neutral-300">
-            By continuing, review the <Link to="/refund" className="underline">Refund Policy</Link>,{' '}
-            <Link to="/privacy" className="underline">Privacy Policy</Link>, and{' '}
+            By continuing, review the <Link to="/terms" className="underline">Terms &amp; Conditions</Link>,{' '}
+            <Link to="/refund" className="underline">Refund Policy</Link>, <Link to="/privacy" className="underline">Privacy Policy</Link>, and{' '}
             <Link to="/support" className="underline">Support &amp; Contact</Link>.
           </p>
           <button

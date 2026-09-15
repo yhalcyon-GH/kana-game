@@ -33,6 +33,11 @@ export function AboutContent() {
         <span className="font-semibold text-neutral-700 dark:text-neutral-300">Legal</span>
         <ul className="mt-2 flex flex-col gap-1">
           <li>
+            <Link to="/terms" className="underline">
+              Terms &amp; Conditions
+            </Link>
+          </li>
+          <li>
             <Link to="/privacy" className="underline">
               Privacy Policy
             </Link>
