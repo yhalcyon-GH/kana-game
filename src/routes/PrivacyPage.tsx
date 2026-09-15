@@ -229,17 +229,12 @@ export function PrivacyPage() {
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Questions or privacy inquiries</h2>
         <p>
-          To ask a question about this policy or raise a privacy concern, open an issue on the project's public
-          GitHub repository:{' '}
-          <a
-            href="https://github.com/yhalcyon-GH/kana-game/issues"
-            target="_blank"
-            rel="noreferrer"
-            className="underline"
-          >
-            github.com/yhalcyon-GH/kana-game/issues
+          Contact Tamamizu privately at{' '}
+          <a href="mailto:tamamizu.jp@gmail.com" className="underline">
+            tamamizu.jp@gmail.com
           </a>
-          .
+          {' '}for privacy questions, account deletion requests, purchases, refunds, or support. Please do not send
+          payment card details, passwords, Magic Links, session credentials, or other secrets by email.
         </p>
       </section>
     </div>
