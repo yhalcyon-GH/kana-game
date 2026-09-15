@@ -67,7 +67,8 @@ export function RefundPage() {
       <p>
         Tamamizu may update this policy prospectively. Updates do not reduce rights that already apply to a completed
         purchase where the law says otherwise. See <Link to="/support" className="underline">Support &amp; Contact</Link>{' '}
-        and the <Link to="/privacy" className="underline">Privacy Policy</Link>.
+        the <Link to="/privacy" className="underline">Privacy Policy</Link>, and the{' '}
+        <Link to="/terms" className="underline">Terms &amp; Conditions</Link>.
       </p>
     </div>
   )
