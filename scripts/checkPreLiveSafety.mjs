@@ -66,6 +66,11 @@ for (const key of [
   assertEmptyConfigValue(configExample, key)
 }
 
+const opsHttpDenyRule = read('server/ops/.htaccess')
+if (!/^Require all denied$/m.test(opsHttpDenyRule)) {
+  fail('server/ops/.htaccess must deny HTTP access to the CLI-only readiness check.')
+}
+
 const envExample = read('.env.example')
 if (!/^VITE_PADDLE_ENVIRONMENT=sandbox$/m.test(envExample)) {
   fail('VITE_PADDLE_ENVIRONMENT in .env.example must stay sandbox.')
