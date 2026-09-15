@@ -93,11 +93,11 @@ describe('PrivacyPage', () => {
     expect(screen.queryByText(/@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)).not.toBeInTheDocument()
   })
 
-  it('provides a GitHub issues contact mechanism for privacy inquiries', () => {
+  it('provides a private support email for privacy inquiries', () => {
     render(<PrivacyPage />)
-    expect(screen.getByRole('link', { name: /github\.com\/yhalcyon-GH\/kana-game\/issues/ })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'tamamizu.jp@gmail.com' })).toHaveAttribute(
       'href',
-      'https://github.com/yhalcyon-GH/kana-game/issues',
+      'mailto:tamamizu.jp@gmail.com',
     )
   })
 
