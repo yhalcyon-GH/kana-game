@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { buildReadOnlySshInvocation, readSafePreflightResult } from './productionReadOnlySsh.mjs'
+import {
+  buildReadOnlySshInvocation,
+  buildReleaseIntegritySshInvocation,
+  readSafePreflightResult,
+  readSafeReleaseIntegrityResult,
+} from './productionReadOnlySsh.mjs'
 
 const environment = {
   TAMAMIZU_PRODUCTION_SSH_TARGET: 'account@example.xserver.jp',
@@ -18,6 +23,13 @@ describe('production read-only SSH invocation', () => {
     expect(invocation.args).toContain('BatchMode=yes')
     expect(invocation.args.at(-1)).toBe('cd -- /home/account/tamamizu/api && php ops/auth-readiness-check.php')
     expect(invocation.args.join(' ')).not.toMatch(/mysql|mariadb|paddle|migration|config\.php/)
+  })
+
+  it('permits only the fixed redacted release-integrity command', () => {
+    const invocation = buildReleaseIntegritySshInvocation(environment)
+
+    expect(invocation.args.at(-1)).toBe('cd -- /home/account/tamamizu/api && php ops/release-integrity-check.php')
+    expect(invocation.args.join(' ')).not.toMatch(/find|cat|mysql|mariadb|config\.php/)
   })
 
   it('accepts safe Windows paths for local key material', () => {
@@ -41,7 +53,7 @@ describe('production read-only SSH invocation', () => {
     expect(() => buildReadOnlySshInvocation({ ...environment, [key]: value })).toThrow(/Unsafe/)
   })
 
-  it('accepts only explicitly redacted success output', () => {
+  it('accepts only explicitly redacted readiness output', () => {
     expect(readSafePreflightResult(
       0,
       'webCookieAuthActive=true productionMagicLinkMailerConfigured=true devHarnessEnabled=false\nOK\n',
@@ -60,6 +72,12 @@ describe('production read-only SSH invocation', () => {
       'webCookieAuthActive=true productionMagicLinkMailerConfigured=true devHarnessEnabled=true\nOK\n',
       '',
     )).toEqual({ ok: false, reason: 'dev-harness-enabled' })
+  })
+
+  it('accepts only an explicitly redacted release fingerprint', () => {
+    const fingerprint = 'a'.repeat(64)
+    expect(readSafeReleaseIntegrityResult(0, `releaseContentSha256=${fingerprint}\nOK\n`, '')).toBe(fingerprint)
+    expect(() => readSafeReleaseIntegrityResult(0, 'config.php\n', '')).toThrow(/redacted/)
   })
 
   it('redacts unexpected remote output instead of returning it to the caller', () => {

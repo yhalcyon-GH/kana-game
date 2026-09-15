@@ -16,7 +16,8 @@
     "voice:split": "tsx scripts/voicePipeline/cli.ts --split-only",
     "voice:process": "tsx scripts/voicePipeline/cli.ts",
     "check:prelive": "node scripts/checkPreLiveSafety.mjs",
-    "production:preflight": "node scripts/productionReadOnlyPreflight.mjs"
+    "production:preflight": "node scripts/productionReadOnlyPreflight.mjs",
+    "production:release-integrity": "node scripts/productionReleaseIntegrity.mjs"
   },
   "dependencies": {
     "@paddle/paddle-js": "1.6.5",

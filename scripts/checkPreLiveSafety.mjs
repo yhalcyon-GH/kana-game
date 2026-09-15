@@ -133,8 +133,11 @@ for (const path of walk('src')) {
 for (const path of walk('.github/workflows')) {
   if (!/\.ya?ml$/i.test(path)) continue
   const workflow = read(path)
-  if (/TAMAMIZU_PRODUCTION_SSH_|productionReadOnlyPreflight/i.test(workflow)) {
-    fail(path + ' must not run the local-only Production SSH preflight or receive its connection inputs.')
+  if (
+    /TAMAMIZU_PRODUCTION_SSH_/i.test(workflow)
+    || (path !== '.github/workflows/pre-live-safety.yml' && /production(?:ReadOnlyPreflight|ReleaseIntegrity)\.mjs/i.test(workflow))
+  ) {
+    fail(path + ' must not run a local-only Production SSH check or receive its connection inputs.')
   }
 }
 
