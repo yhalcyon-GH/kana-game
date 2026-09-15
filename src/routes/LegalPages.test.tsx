@@ -1,9 +1,10 @@
 import { render, screen } from '@testing-library/react'
+import type { ReactElement } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { RefundPage } from './RefundPage'
 import { SupportPage } from './SupportPage'
 
-function renderWithRouter(element: React.ReactElement) {
+function renderWithRouter(element: ReactElement) {
   render(<MemoryRouter>{element}</MemoryRouter>)
 }
 
