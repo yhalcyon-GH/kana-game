@@ -36,6 +36,14 @@ Each item is tagged:
 
 - [ ] **Human required** — Deploy the reviewed `main` SHA to the Production
       XServer document root.
+- [ ] **Human required** — Enable SSH and register a dedicated public key in
+      XServer's Server Panel. Keep its private key only in the approved local
+      secure environment; never add it to GitHub Actions or paste it into AI.
+- [ ] **AI-verifiable after that one-time setup** — Run
+      `npm run production:preflight` using the fixed, local-only runner in
+      [production-readonly-connection.md](./production-readonly-connection.md).
+      It runs exactly one redacted remote readiness check and rejects an
+      enabled development harness; it cannot run arbitrary commands.
 - [ ] **Human required** — Confirm `config.php` (or equivalent env source)
       on Production has all required keys present. Do not display or paste
       key values into any AI session or doc — only confirm presence/absence.
@@ -49,11 +57,8 @@ Each item is tagged:
       three is missing, `request-link.php` silently falls back to a no-op
       mailer and logs `request-link: mailer_unconfigured` — treat that log
       line appearing on Production as a go-live blocker, not routine noise
-      (see `docs/observability.md`). Run `php server/ops/auth-readiness-check.php`
-      on the Production server (against the real deployed `config.php`) as a
-      mechanical check — exit code 0 means not misconfigured, exit code 1
-      means cookie auth is on with no real mailer configured. Prints only
-      booleans, never secret values.
+      (see `docs/observability.md`). The fixed Production preflight above
+      runs this same check and prints only redacted booleans.
 - [ ] **Human required** — Confirm the real path `error_log` writes to on
       this XServer plan, and that it is being watched/rotated. (Not
       independently verifiable from the repo; do not guess a path.)
