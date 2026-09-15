@@ -5,6 +5,8 @@ on:
     paths:
       - '.github/workflows/**'
       - 'scripts/checkPreLiveSafety.mjs'
+      - 'scripts/productionReadOnlySsh.mjs'
+      - 'scripts/productionReadOnlyPreflight.mjs'
       - 'server/**'
       - 'src/**'
       - 'vite.config.ts'
@@ -16,6 +18,8 @@ on:
     paths:
       - '.github/workflows/**'
       - 'scripts/checkPreLiveSafety.mjs'
+      - 'scripts/productionReadOnlySsh.mjs'
+      - 'scripts/productionReadOnlyPreflight.mjs'
       - 'server/**'
       - 'src/**'
       - 'vite.config.ts'
