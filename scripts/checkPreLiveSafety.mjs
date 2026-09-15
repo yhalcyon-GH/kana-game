@@ -133,7 +133,7 @@ for (const path of walk('src')) {
 for (const path of walk('.github/workflows')) {
   if (!/\.ya?ml$/i.test(path)) continue
   const workflow = read(path)
-  if (/TAMAMIZU_PRODUCTION_SSH_|productionReadOnlyPreflight/i.test(workflow)) {
+  if (/TAMAMIZU_PRODUCTION_SSH_|production(?:ReadOnlyPreflight|ReleaseIntegrity)/i.test(workflow)) {
     fail(path + ' must not run the local-only Production SSH preflight or receive its connection inputs.')
   }
 }
