@@ -4,9 +4,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import * as trackModule from '../lib/analytics/track'
 import { SendFeedback } from './SendFeedback'
 
-// VITE_FEEDBACK_URL is unset in this release (no feedback provider is
-// configured — see docs/analytics-foundation.md), so SendFeedback must
-// render nothing at all: never a broken link, never a fake submit button.
+// VITE_FEEDBACK_URL is unset in this release, so SendFeedback must render
+// nothing at all: never a broken link, never a fake submit button.
 describe('SendFeedback', () => {
   it('renders nothing when no feedback URL is configured', () => {
     const { container } = render(
@@ -25,8 +24,8 @@ describe('SendFeedback with a destination configured', () => {
     vi.restoreAllMocks()
   })
 
-  it('renders a normal link (not a window.open()-driven button) pointing at the configured destination', () => {
-    vi.stubEnv('VITE_FEEDBACK_URL', 'https://forms.example.com/kana-game-feedback')
+  it('renders a normal link (not a window.open()-driven button) pointing at the configured Tally form', () => {
+    vi.stubEnv('VITE_FEEDBACK_URL', 'https://tally.so/r/Kana123')
 
     render(
       <MemoryRouter initialEntries={['/about']}>
@@ -39,12 +38,12 @@ describe('SendFeedback with a destination configured', () => {
     expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'))
     expect(link).toHaveAttribute('rel', expect.stringContaining('noreferrer'))
     const href = link.getAttribute('href') ?? ''
-    expect(href).toContain('https://forms.example.com/kana-game-feedback')
+    expect(href).toContain('https://tally.so/r/Kana123')
     expect(href).toContain('route=%2Fabout')
   })
 
   it('records feedback_opened on click, without depending on any window.open() return value', () => {
-    vi.stubEnv('VITE_FEEDBACK_URL', 'https://forms.example.com/kana-game-feedback')
+    vi.stubEnv('VITE_FEEDBACK_URL', 'https://tally.so/r/Kana123')
     const trackSpy = vi.spyOn(trackModule, 'track')
 
     render(
