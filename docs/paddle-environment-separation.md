@@ -1,6 +1,6 @@
 # Phase H2 — Paddle Sandbox / Live environment separation
 
-Status: code merged (PR #225, plus a rollout-compatibility follow-up fix described below), **NOT deployed to Production**, **NO Live credentials configured anywhere**. This document describes the architecture, the safe zero/near-zero-downtime Production config migration sequence, and the exact steps a future, deliberate Live cutover requires — it does not perform any of them.
+Status: code merged (PR #225, plus a rollout-compatibility follow-up fix described below) and deployed as part of the reviewed Production API release `3b9c0a60bcf3b1ec4d95909464d32f5d959ed90f`; the local release-integrity check later confirmed that deployed API code matches that reviewed checkout. This is **not** a statement about Production configuration values: `config.php` was intentionally neither read nor changed, and any remaining configuration assessment/change is a Human Gate. **NO Live credentials are configured in this repository and no Live operation has been performed.** This document describes the architecture, the historical safe deployment sequence, and the exact steps a future, deliberate Live cutover requires — it does not perform any of them.
 
 ## What this is and isn't
 
@@ -57,7 +57,9 @@ With this fix, only the `old Config.php + new paddle-webhook.php` combination ca
 
 That two-sided design — `Config::load()` loads both key generations; `PaddleEnvironmentConfig` reads only the new ones — is exactly what makes a safe **overlap migration** possible: add the new scoped keys *alongside* the old ones (never deleting or renaming them first), deploy and verify the new backend code while both key sets are present, and only then remove the old keys — so that whichever backend code version happens to be live at any single instant during the rollout, Production's webhook always has a complete, correct config to read. **A rename (delete-and-recreate in one step) is exactly what this sequence avoids.**
 
-**Required Production migration sequence, to run when this PR is ready to deploy (not performed as part of this PR — Production is not touched by this PR at all):**
+**Historical Production migration sequence / remaining configuration assessment:**
+
+The code deployment described above is already complete. Do **not** repeat the upload or infer that the configuration steps below are still pending from this historical document. Before any configuration change, a human must first establish the current Production state without exposing values, take a backup, and obtain the owner's explicit approval; configuration changes, Live credentials, and all Live operations remain Human Gates.
 
 1. **Backup** Production's `server/config.php` before any change.
 2. **Add** the new Sandbox-scoped keys **alongside** the existing ones (do not remove or rename the old keys yet):
