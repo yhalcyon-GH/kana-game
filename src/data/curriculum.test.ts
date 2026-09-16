@@ -464,8 +464,13 @@ describe('Special Katakana category (curriculum data)', () => {
     }
   })
 
-  it('has exactly 13 words in session 1 and 9 in session 2 (22 total, fixed scope)', () => {
-    expect(WORDS_BY_ROW['special-katakana-fa-row']).toHaveLength(13)
+  // Updated 2026-09-16 (Issue #272, kana frequency audit): ユニフォーム
+  // added to session 1 as a deliberate, human-approved exception — it needs
+  // katakana-fo (フォ), only available once this row is reached, so it must
+  // live here even though its target character (katakana-yu) is introduced
+  // back in katakana-ya-row. See words.ts's special-katakana-fa-row comment.
+  it('has exactly 14 words in session 1 and 9 in session 2 (23 total, fixed scope + one approved addition)', () => {
+    expect(WORDS_BY_ROW['special-katakana-fa-row']).toHaveLength(14)
     expect(WORDS_BY_ROW['special-katakana-she-row']).toHaveLength(9)
   })
 
@@ -531,13 +536,15 @@ describe('Special Katakana category (curriculum data)', () => {
 
 // Vocabulary illustrations, added 2026-08-29 (see design/images/word-
 // illustrations/special-katakana-chatgpt-2026-08-29/) for all 22
-// Special Katakana words.
+// Special Katakana words. Updated 2026-09-16 (Issue #272): ユニフォーム
+// added, with its own illustration (see design/images/word-illustrations/
+// human-provided-2026-09-16/).
 describe('Special Katakana word illustrations', () => {
-  it('all 22 words have an image', () => {
+  it('all 23 words have an image', () => {
     const words = [...WORDS_BY_ROW['special-katakana-fa-row'], ...WORDS_BY_ROW['special-katakana-she-row']]
-    expect(words).toHaveLength(22)
+    expect(words).toHaveLength(23)
     const withImage = words.filter((w) => !!w.image)
-    expect(withImage).toHaveLength(22)
+    expect(withImage).toHaveLength(23)
   })
 
   it('every image path points at word-icons/<own id>.webp', () => {

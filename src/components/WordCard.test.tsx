@@ -118,11 +118,12 @@ describe('WordCard with a Special Katakana word (ファン)', () => {
   })
 })
 
-describe('WordCard — all 22 Special Katakana vocabulary words have valid accent data', () => {
+describe('WordCard — all 23 Special Katakana vocabulary words have valid accent data', () => {
   const SPECIAL_KATAKANA_WORD_IDS = Object.keys(WORDS_BY_ID).filter((id) => id.startsWith('special-katakana-'))
 
-  it('covers exactly 22 words', () => {
-    expect(SPECIAL_KATAKANA_WORD_IDS).toHaveLength(22)
+  // 23, not the original 22 — ユニフォーム was added 2026-09-16 (Issue #272).
+  it('covers exactly 23 words', () => {
+    expect(SPECIAL_KATAKANA_WORD_IDS).toHaveLength(23)
   })
 
   it.each(SPECIAL_KATAKANA_WORD_IDS)('%s has an ACCENT_PATTERNS entry and renders the accent-line svg', (id) => {
