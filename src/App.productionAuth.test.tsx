@@ -37,7 +37,7 @@ beforeEach(() => {
   vi.mocked(productionAuthClient.fetchCurrentEntitlement).mockReset()
   vi.mocked(productionAuthClient.fetchCurrentUserResult).mockReset().mockResolvedValue({ kind: 'signed-out' })
   vi.mocked(productionAuthClient.fetchCurrentEntitlementResult).mockReset()
-  vi.mocked(productionAuthClient.logout).mockReset().mockResolvedValue(undefined)
+  vi.mocked(productionAuthClient.logout).mockReset().mockResolvedValue({ kind: 'signed-out' })
 })
 
 afterEach(() => {
