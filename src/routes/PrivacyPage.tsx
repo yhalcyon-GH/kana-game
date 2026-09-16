@@ -177,14 +177,22 @@ export function PrivacyPage() {
               operates the form, independent of this app's own code.
             </p>
             <p>
-              Tamamizu reviews submitted feedback and aims to delete it within 12 months. If longer-term learning is
-              useful, only anonymous, aggregated trends are retained. Do not include names, email addresses, payment
-              details, passwords, Magic Links, or other unnecessary personal information in your feedback.
+              Tamamizu reviews submitted feedback and aims to remove it from active records within 12 months. If
+              longer-term learning is useful, only anonymous, aggregated trends are retained. Do not include names,
+              email addresses, payment details, passwords, Magic Links, or other unnecessary personal information in
+              your feedback.
             </p>
             <p>
-              For a submitted response, this app (as the form's creator) is the party responsible for that response
-              data, and Tally acts as the service that stores and processes it on this app's behalf; per Tally's own
-              documentation, form data is stored in the EU. See{' '}
+              Removing a response from active records does not mean it disappears from Tally immediately: per
+              Tally's own documentation, a deleted submission first moves to Tally's Trash, where Tally may retain it
+              for up to a further 90 days before permanently deleting it, unless it is permanently deleted sooner.
+              The 12-month point above is when Tamamizu aims to remove a response from active use, not necessarily
+              the moment of Tally's own permanent deletion.
+            </p>
+            <p>
+              For a submitted response, Tamamizu's operator — as the feedback form's creator — is the party
+              responsible for that response data, and Tally acts as the service that stores and processes it on the
+              operator's behalf; per Tally's own documentation, form data is stored in the EU. See{' '}
               <a href="https://tally.so/help/privacy-policy" target="_blank" rel="noreferrer" className="underline">
                 Tally's privacy policy
               </a>{' '}

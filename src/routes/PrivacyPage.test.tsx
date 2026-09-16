@@ -224,13 +224,28 @@ describe('PrivacyPage reflects actual build config', () => {
     expect(text).toMatch(/does not add any identifier of its own/)
   })
 
-  it('describes the form-creator/Tally data role and EU storage using only confirmed official wording', () => {
+  it('describes the operator/Tally data role and EU storage using only confirmed official wording', () => {
     vi.stubEnv('VITE_FEEDBACK_URL', 'https://tally.so/r/abc123')
     render(<PrivacyPage />)
     const heading = screen.getByRole('heading', { name: 'Feedback', level: 2 })
     const text = heading.parentElement?.textContent ?? ''
-    expect(text).toMatch(/this app \(as the form's creator\) is the party responsible for that response data/)
-    expect(text).toMatch(/Tally acts as the service that stores and processes it/)
+    expect(text).toMatch(/Tamamizu's operator.*as the feedback form's creator.*is the party responsible for that response data/)
+    expect(text).toMatch(/Tally acts as the service that stores and processes it on the operator's behalf/)
     expect(text).toMatch(/stored in the EU/)
+  })
+
+  // Issue #270: the 12-month figure describes when Tamamizu aims to remove a
+  // response from active use, not Tally's own permanent deletion — Tally
+  // retains a deleted submission in Trash for up to a further 90 days first.
+  // The wording must not imply immediate, irreversible deletion at month 12.
+  it('clarifies that Tally Trash retention follows removal from active records, not immediate permanent deletion', () => {
+    vi.stubEnv('VITE_FEEDBACK_URL', 'https://tally.so/r/abc123')
+    render(<PrivacyPage />)
+    const heading = screen.getByRole('heading', { name: 'Feedback', level: 2 })
+    const text = heading.parentElement?.textContent ?? ''
+    expect(text).toMatch(/aims to remove it from active records within 12 months/)
+    expect(text).toMatch(/moves to Tally's Trash/)
+    expect(text).toMatch(/up to a further 90 days/)
+    expect(text).toMatch(/unless it is permanently deleted sooner/)
   })
 })
