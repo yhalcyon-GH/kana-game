@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "current_main_sha": "7c060c91b2acac2286aa1c081a751d726f82398d",
+  "latest_completed_work": {
+    "kind": "merged_pull_request",
+    "number": 257,
+    "title": "Document Production API deployment status",
+    "merged_at": "2026-09-15T17:01:05Z"
+  },
+  "open_prs": [],
+  "active_work_item": {
+    "id": "work-thread-independent-resume",
+    "branch": "codex/work-thread-independent-resume",
+    "status": "in_progress",
+    "goal": "Make GitHub the durable handoff and resume control plane."
+  },
+  "next_machine_action": "Run `npm run resume` before any new action. If this work item is already merged, checkpoint the next bounded AI-completable launch task instead of repeating it.",
+  "unresolved_ai_items": [
+    "Complete and merge the repository-native resume protocol work item."
+  ],
+  "human_gates": [
+    "KYC and account verification",
+    "Final price and currency",
+    "Final legal decisions",
+    "Live cutover approval",
+    "Any real-money, Paddle Live, paid-service, production DB write, DNS, or production-secret operation"
+  ],
+  "production_live_restrictions": "NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL. Do not perform real charges or refunds, Paddle Live transactions or configuration, paid API/resource changes, production DB writes, DNS changes, or production-secret changes.",
+  "last_verified_at": "2026-09-16T01:50:42Z",
+  "last_verified_by": "GitHub REST API plus local git read-only resume preflight",
+  "known_non_blockers": [
+    "The state file is a committed checkpoint, not a live database. It may be one or more commits behind origin/main; resume must compare it with GitHub before acting.",
+    "No open pull requests existed at the recorded checkpoint.",
+    "The latest main GitHub Pages deployment recorded at the checkpoint succeeded."
+  ],
+  "optional_post_launch": [
+    "Re-evaluate a durable async webhook queue only if real Production latency or Paddle retry evidence warrants it."
+  ]
+}
