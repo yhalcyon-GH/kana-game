@@ -18,5 +18,11 @@ follow [`docs/resume-protocol.md`](docs/resume-protocol.md). GitHub is the
 durable state; [`ops/project-state.json`](ops/project-state.json) is a compact
 checkpoint that must be compared with live GitHub before any mutating action.
 
+For continuing across multiple Issues/PRs without per-task human confirmation
+(including an explicit "Overnight mode" invocation), see
+[`docs/autonomous-operations.md`](docs/autonomous-operations.md). It layers a
+multi-task loop and Stop/Human Gates on top of the workflow above; it does not
+loosen any gate.
+
 Codex-specific adapter: do not require Claude commands or mechanics; use the
 same repository paths, commands, escalation rules, and review gates directly.

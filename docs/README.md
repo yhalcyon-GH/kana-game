@@ -8,6 +8,7 @@ For day-to-day development, start with [`CLAUDE.md`](../CLAUDE.md) or [`AGENTS.m
 
 - **[ai-development-loop.md](./ai-development-loop.md)** — shared ChatGPT / Claude Code / Codex development and review workflow.
 - **[resume-protocol.md](./resume-protocol.md)** — timeout-safe, GitHub-first resume and checkpoint protocol; start a new Work session here.
+- **[autonomous-operations.md](./autonomous-operations.md)** — multi-task autonomous/"Overnight mode" loop, Stop/Human Gates, and recovery; layered on top of the docs above without loosening any gate.
 - **[definition-of-done.md](./definition-of-done.md)** — Builder completion criteria and verification expectations.
 - **[global-ai-development-charter.md](./global-ai-development-charter.md)** — project-independent AI development principles.
 - **[claude-reference.md](./claude-reference.md)** — deeper KanaGame repository reference; read only relevant sections.

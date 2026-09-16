@@ -29,6 +29,8 @@ The workflow is role-based, but the **normal cost-aware default is Claude Code a
 
 For normal implementation work, use the `/kana-task` Skill (`.claude/skills/kana-task/SKILL.md`): Explore → Plan when useful → Implement → Verify → Inspect → Fix → Commit → Push → reviewable PR, from a Goal and Acceptance Criteria. See `docs/ai-development-loop.md` for the shared role-based loop, evidence-reuse rules, review-depth policy, and verification-gap handling; see `docs/definition-of-done.md` for what Builder completion means.
 
+For continuing across multiple Issues/PRs without per-task human confirmation (including an explicit "Overnight mode" invocation), see `docs/autonomous-operations.md`. It layers a multi-task loop and Stop/Human Gates on top of the above; it does not loosen any gate.
+
 When assigned as an independent reviewer, use a fresh session/subagent or the review tooling rather than grading the same implementation in the same context. Review the current Goal/Acceptance Criteria and full diff for correctness, regressions, scope drift, and test gaps; do not modify the branch unless explicitly asked to implement accepted findings.
 
 When switching to Claude Code from Codex or another environment, refresh `origin` and verify repository, `git status`, branch, current `origin/main`, and any current task PR before continuing. Never assume another agent's checkout or branch state is current.
