@@ -38,6 +38,10 @@ It compares the compact checkpoint in `ops/project-state.json` with live GitHub
 state; follow `docs/resume-protocol.md` if they differ. GitHub is the durable
 control plane, not the previous chat thread.
 
+For unattended multi-task or "Overnight mode" work, follow
+`docs/autonomous-operations.md` for the autonomous execution loop, Stop/Human
+Gates, and morning-checkpoint expectations.
+
 ## Context and usage
 
 Context is a limited resource. Keep the main session focused on the current task.
