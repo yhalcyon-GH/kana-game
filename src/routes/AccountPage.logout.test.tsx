@@ -8,6 +8,7 @@ import AccountPage from './AccountPage'
 const mocks = vi.hoisted(() => ({
   logout: vi.fn(),
   usePurchase: vi.fn(),
+  invalidate: vi.fn(),
 }))
 
 vi.mock('../lib/auth/productionAuthClient', () => ({ logout: mocks.logout }))
@@ -35,6 +36,7 @@ function Harness() {
 
 beforeEach(() => {
   mocks.logout.mockReset()
+  mocks.invalidate.mockReset()
   mocks.usePurchase.mockReset().mockReturnValue({
     status: 'idle',
     configured: false,
@@ -42,7 +44,7 @@ beforeEach(() => {
     start: vi.fn(async () => {}),
     retry: vi.fn(),
     cancel: vi.fn(),
-    invalidate: vi.fn(),
+    invalidate: mocks.invalidate,
   })
 })
 
@@ -56,7 +58,7 @@ describe('AccountPage Production sign out', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(/couldn’t sign out.*try again/i)
     expect(screen.getByText('signed-in@example.com')).toBeInTheDocument()
     expect(screen.queryByText(/not signed in/i)).not.toBeInTheDocument()
-    expect(mocks.usePurchase.mock.results[0]?.value.invalidate).toHaveBeenCalledOnce()
+    expect(mocks.invalidate).toHaveBeenCalledOnce()
     expect(screen.getByRole('button', { name: 'Sign out' })).toBeEnabled()
   })
 
@@ -65,8 +67,7 @@ describe('AccountPage Production sign out', () => {
     mocks.logout.mockReturnValueOnce(new Promise((resolve) => { resolveLogout = resolve }))
     render(<Harness />)
 
-    const signOut = screen.getByRole('button', { name: 'Sign out' })
-    fireEvent.click(signOut)
+    fireEvent.click(screen.getByRole('button', { name: 'Sign out' }))
 
     expect(await screen.findByRole('button', { name: 'Signing out…' })).toBeDisabled()
     fireEvent.click(screen.getByRole('button', { name: 'Signing out…' }))
