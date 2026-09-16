@@ -1,38 +1,42 @@
 {
   "schema_version": 1,
-  "current_main_sha": "2ed2556e1d4d16356cb1bac733ccccfe757822d4",
+  "current_main_sha": "58463fdfbf0a8259f35dbba8915e9aa094762967",
   "latest_completed_work": {
     "kind": "merged_pull_request",
-    "number": 268,
-    "title": "Show inactive confirmation after manual entitlement refresh",
-    "merged_at": "2026-09-16T12:52:47Z"
+    "number": 287,
+    "title": "Fail closed when Production sign-out cannot be confirmed",
+    "merged_at": "2026-09-16T19:25:17Z"
   },
   "open_prs": [],
   "active_work_item": {
-    "id": "issue-269-record-live-purchase-refund-validation",
-    "issue_number": 269,
-    "branch": "claude/issue-269-20260916-1427",
+    "id": "issue-283-pwa-human-gates",
+    "issue_number": 283,
+    "branch": null,
     "pull_request_number": null,
-    "status": "implementation_complete_pr_pending",
-    "goal": "Documentation/checkpoint-only: record the human-verified Production Paddle Live purchase/refund validation from 2026-09-16 in docs/pre-live-launch-checklist.md and refresh this checkpoint. No runtime/product behavior change."
+    "status": "human_gate_waiting",
+    "goal": "AI-only PWA installability work is complete. Remaining work is human approval of final Tamamizu branding assets plus Android Chrome and iPhone Safari real-device installation QA."
   },
-  "next_machine_action": "Run `npm run resume` to obtain live GitHub state before any mutating action. Then locate or create the task PR for Issue #269 (head branch claude/issue-269-20260916-1427), fetch its exact-head CI, and complete an independent review of its diff.",
-  "unresolved_ai_items": [
-    "Create/locate the task PR for Issue #269, confirm exact-head CI, and complete an independent review of its diff."
-  ],
+  "next_machine_action": "Run `npm run resume` to compare this checkpoint with live GitHub before any mutation. If live state still has no open PRs and Issue #283 is the only open issue, do not start new implementation automatically; wait for completion of the recorded Human Gates or a new bounded task.",
+  "unresolved_ai_items": [],
   "human_gates": [
-    "Final legal decisions",
-    "Live cutover approval (only a controlled real Live test purchase and a real Live refund have been validated per docs/pre-live-launch-checklist.md §8; general go-live cutover has not been separately approved)",
-    "Any real-money, Paddle Live, paid-service, production DB write, DNS, or production-secret operation"
+    "Production real-browser Magic Link/auth and logout confirmation",
+    "Failed/cancelled checkout UX confirmation in a real Production browser",
+    "Any Production-only refund/customer-portal behavior not already deterministic from code/tests",
+    "DB backup/rollback knowledge or confirmation",
+    "Production-only config/log/CORS/cookie checks behind the intentionally paused SSH/read-only preflight; do not restart that preflight automatically",
+    "Issue #283 final Tamamizu icon/logo branding approval plus Android Chrome and iPhone Safari home-screen installation QA",
+    "Final legal review and final human GO/NO-GO decision",
+    "Any real-money, Paddle Live, paid-service, production DB write, DNS, production-secret, or email-send operation"
   ],
-  "production_live_restrictions": "NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL. Do not perform real charges or refunds, Paddle Live transactions or configuration, paid API/resource changes, production DB writes, DNS changes, or production-secret changes.",
-  "last_verified_at": "2026-09-16T14:27:00Z",
-  "last_verified_by": "GitHub connector: PR #268 (Show inactive confirmation after manual entitlement refresh) confirmed merged into main at 2ed2556e1d4d16356cb1bac733ccccfe757822d4; Issue #269 documentation/checkpoint work (recording 2026-09-16 Production Paddle Live purchase/refund validation) in progress on branch claude/issue-269-20260916-1427, PR not yet created",
+  "production_live_restrictions": "NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL. Do not perform real charges or refunds, Paddle Live transactions or configuration, paid API/resource changes, production DB writes, DNS changes, production-secret changes, or email sends.",
+  "last_verified_at": "2026-09-16T21:47:00Z",
+  "last_verified_by": "GitHub connector: final launch-blocker audit Issue #281 closed completed; PR #287 merged into main at 58463fdfbf0a8259f35dbba8915e9aa094762967 after exact-head PR Verify, Browser Smoke, and Pre-Live Safety succeeded. The verified PR HEAD and squash-merged main share Git tree 92ea3ade3a4abfb693ab053e8fb6d023e9b8677f. No additional AI-only P0/P1 finding remained in the bounded final audit.",
   "known_non_blockers": [
     "The state file is a committed checkpoint, not a live database. It may be one or more commits behind origin/main; resume must compare it with GitHub before acting.",
-    "PR #268 (Show inactive confirmation after manual entitlement refresh) is merged into main at 2ed2556e1d4d16356cb1bac733ccccfe757822d4.",
-    "Issue #261's fix (browser-smoke E2E doc correction) is confirmed present in docs/claude-reference.md on current main.",
-    "This task's PR had not been created yet as of this checkpoint; it is opened from a compare link by a human executor, so its exact head and CI must be fetched fresh rather than assumed from this checkpoint.",
+    "Issue #281 final launch-blocker audit is complete. Its only concrete P1 finding, Issue #286, was fixed and merged via PR #287.",
+    "PR #287 exact head 11ebd1d3219e149d65d91e9f8732149b5a9893c3 passed PR Verify, Browser Smoke, and Pre-Live Safety; its Git tree is identical to current main's Git tree.",
+    "Issue #283 AI-only PWA work was merged via PR #285: no installability/path defect was found, deterministic manifest/icon-path tests and real-device QA documentation are on main, and only the explicit Human Gates remain.",
+    "Local learning progress retention across entitlement active-to-inactive changes is covered by deterministic tests and was not classified as a launch blocker.",
     "Production read-only preflight remains intentionally paused after a prior redacted unexpected-response result; do not restart SSH diagnostics without new explicit instruction."
   ],
   "optional_post_launch": [
