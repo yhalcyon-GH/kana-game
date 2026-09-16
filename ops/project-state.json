@@ -7,16 +7,24 @@
     "title": "Document Production API deployment status",
     "merged_at": "2026-09-15T17:01:05Z"
   },
-  "open_prs": [],
+  "open_prs": [
+    {
+      "number": 258,
+      "head_branch": "codex/work-thread-independent-resume",
+      "base_branch": "main",
+      "status": "ci_passed_pending_independent_review"
+    }
+  ],
   "active_work_item": {
     "id": "work-thread-independent-resume",
     "branch": "codex/work-thread-independent-resume",
-    "status": "in_progress",
+    "pull_request_number": 258,
+    "status": "ci_passed_pending_independent_review",
     "goal": "Make GitHub the durable handoff and resume control plane."
   },
-  "next_machine_action": "Run `npm run resume` before any new action. If this work item is already merged, checkpoint the next bounded AI-completable launch task instead of repeating it.",
+  "next_machine_action": "Independently review PR #258 against its acceptance criteria, then apply only justified corrections. Do not merge without explicit user authorization.",
   "unresolved_ai_items": [
-    "Complete and merge the repository-native resume protocol work item."
+    "Complete independent review of PR #258."
   ],
   "human_gates": [
     "KYC and account verification",
@@ -26,12 +34,12 @@
     "Any real-money, Paddle Live, paid-service, production DB write, DNS, or production-secret operation"
   ],
   "production_live_restrictions": "NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL. Do not perform real charges or refunds, Paddle Live transactions or configuration, paid API/resource changes, production DB writes, DNS changes, or production-secret changes.",
-  "last_verified_at": "2026-09-16T01:50:42Z",
-  "last_verified_by": "GitHub REST API plus local git read-only resume preflight",
+  "last_verified_at": "2026-09-16T02:26:00Z",
+  "last_verified_by": "GitHub connector: PR #258 exact-head CI plus local full verification",
   "known_non_blockers": [
     "The state file is a committed checkpoint, not a live database. It may be one or more commits behind origin/main; resume must compare it with GitHub before acting.",
-    "No open pull requests existed at the recorded checkpoint.",
-    "The latest main GitHub Pages deployment recorded at the checkpoint succeeded."
+    "PR #258 exact-head Pre-Live Safety, Browser Smoke, and PR Verify all passed.",
+    "The latest main GitHub Pages deployment recorded at the initial checkpoint succeeded."
   ],
   "optional_post_launch": [
     "Re-evaluate a durable async webhook queue only if real Production latency or Paddle retry evidence warrants it."
