@@ -1,24 +1,24 @@
 {
   "schema_version": 1,
-  "current_main_sha": "4cf38b6acde1dae3f6594b2f42d37c0badcdceb0",
+  "current_main_sha": "4a5bc6450dede0369c7405b30bfb8ef28443fde5",
   "latest_completed_work": {
     "kind": "merged_pull_request",
-    "number": 258,
-    "title": "Add GitHub-first resume protocol",
-    "merged_at": "2026-09-16T02:39:20Z"
+    "number": 260,
+    "title": "Bound resume preflight network failures",
+    "merged_at": "2026-09-16T03:09:43Z"
   },
   "open_prs": [],
   "active_work_item": {
-    "id": "issue-259-bound-resume-preflight-network-failures",
-    "issue_number": 259,
-    "branch": "claude/issue-259-20260916-0247",
+    "id": "issue-261-correct-browser-smoke-handoff-docs",
+    "issue_number": 261,
+    "branch": "claude/issue-261-20260916-0311",
     "pull_request_number": null,
     "status": "implementation_complete_pr_pending",
-    "goal": "Bound resume preflight network failures: finite documented timeout and fail-closed exit for the GitHub API reads in scripts/resumeProject.mjs."
+    "goal": "Correct the stale no-E2E-framework statement in docs/claude-reference.md to point to the existing Playwright browser-smoke suite, note its Production-check limits, and refresh this checkpoint. Documentation and checkpoint only; no runtime/product behavior change."
   },
-  "next_machine_action": "Find the current task PR for Issue #259 (head branch claude/issue-259-20260916-0247), fetch its exact-head CI, and independently review its diff. Do not merge without explicit user authorization.",
+  "next_machine_action": "Run `npm run resume` to obtain live GitHub state before any mutating action. Then locate or create the task PR for Issue #261 (head branch claude/issue-261-20260916-0311), fetch its exact-head CI, and complete an independent review of its diff.",
   "unresolved_ai_items": [
-    "Create/locate the task PR for Issue #259, confirm exact-head CI, and complete an independent review of its diff."
+    "Create/locate the task PR for Issue #261, confirm exact-head CI, and complete an independent review of its diff."
   ],
   "human_gates": [
     "KYC and account verification",
@@ -28,11 +28,11 @@
     "Any real-money, Paddle Live, paid-service, production DB write, DNS, or production-secret operation"
   ],
   "production_live_restrictions": "NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL. Do not perform real charges or refunds, Paddle Live transactions or configuration, paid API/resource changes, production DB writes, DNS changes, or production-secret changes.",
-  "last_verified_at": "2026-09-16T02:55:00Z",
-  "last_verified_by": "GitHub connector: PR #258 confirmed merged into main; Issue #259 implementation completed on branch claude/issue-259-20260916-0247, PR not yet created",
+  "last_verified_at": "2026-09-16T03:12:22Z",
+  "last_verified_by": "GitHub connector: PR #260 confirmed merged into main at 4a5bc6450dede0369c7405b30bfb8ef28443fde5; Issue #261 documentation/checkpoint work in progress on branch claude/issue-261-20260916-0311, PR not yet created",
   "known_non_blockers": [
     "The state file is a committed checkpoint, not a live database. It may be one or more commits behind origin/main; resume must compare it with GitHub before acting.",
-    "PR #258 (GitHub-first resume protocol) is merged into main at 4cf38b6acde1dae3f6594b2f42d37c0badcdceb0.",
+    "PR #260 (Bound resume preflight network failures) is merged into main at 4a5bc6450dede0369c7405b30bfb8ef28443fde5.",
     "This task's PR had not been created yet as of this checkpoint; it is opened from a compare link by a human executor, so its exact head and CI must be fetched fresh rather than assumed from this checkpoint."
   ],
   "optional_post_launch": [

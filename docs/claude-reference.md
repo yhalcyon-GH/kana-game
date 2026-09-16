@@ -134,7 +134,7 @@ docs/            design/history/reference material
 ## Known gaps and stale-content risks
 
 - Oxlint currently uses untyped rules; `npm run build` remains the authoritative TypeScript check.
-- There is no configured E2E/browser-test framework, so rendered behavior may still require dev-server/manual verification.
+- A Playwright browser-smoke suite exists (`browser-smoke/*.e2e.js`, config `playwright.config.mjs`, run via `npm run test:browser-smoke`, wired into CI in `.github/workflows/browser-smoke.yml` on pull requests). It builds and serves the app, runs against a fixture-based signed-in auth state, and checks routing/rendering behavior (e.g. dev-only routes stay excluded from production, `/verify` renders the right page, Account fails closed with no Paddle config). It does **not** replace human Production checks for real Magic Link delivery, Paddle Live purchase/refund, Production cookies, Production logs, or cutover — those remain manual gates.
 - Provider/credit text has gone stale after audio-provider changes before; when changing providers, search About/README and related credits in the same change.
 - Category rollout/history notes can become stale; prefer current code/tests over old narrative docs when they disagree, and update the stale doc if the discrepancy matters.
 
