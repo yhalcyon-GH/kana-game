@@ -1,39 +1,38 @@
 {
   "schema_version": 1,
-  "current_main_sha": "4a5bc6450dede0369c7405b30bfb8ef28443fde5",
+  "current_main_sha": "2ed2556e1d4d16356cb1bac733ccccfe757822d4",
   "latest_completed_work": {
     "kind": "merged_pull_request",
-    "number": 260,
-    "title": "Bound resume preflight network failures",
-    "merged_at": "2026-09-16T03:09:43Z"
+    "number": 267,
+    "title": "Show inactive confirmation after manual entitlement refresh",
+    "merged_at": "2026-09-16T19:52:46+07:00"
   },
   "open_prs": [],
   "active_work_item": {
-    "id": "issue-261-correct-browser-smoke-handoff-docs",
-    "issue_number": 261,
-    "branch": "claude/issue-261-20260916-0311",
+    "id": "issue-269-record-live-purchase-refund-validation",
+    "issue_number": 269,
+    "branch": "claude/issue-269-20260916-1355",
     "pull_request_number": null,
     "status": "implementation_complete_pr_pending",
-    "goal": "Correct the stale no-E2E-framework statement in docs/claude-reference.md to point to the existing Playwright browser-smoke suite, note its Production-check limits, and refresh this checkpoint. Documentation and checkpoint only; no runtime/product behavior change."
+    "goal": "Documentation/checkpoint-only: record the 2026-09-16 human-verified Production Paddle Live purchase and refund validation in docs/pre-live-launch-checklist.md and refresh this checkpoint. No runtime/product behavior change."
   },
-  "next_machine_action": "Run `npm run resume` to obtain live GitHub state before any mutating action. Then locate or create the task PR for Issue #261 (head branch claude/issue-261-20260916-0311), fetch its exact-head CI, and complete an independent review of its diff.",
+  "next_machine_action": "Run `npm run resume` to obtain live GitHub state before any mutating action. Then locate or create the task PR for Issue #269 (head branch claude/issue-269-20260916-1355), fetch its exact-head CI, and complete an independent review of its diff.",
   "unresolved_ai_items": [
-    "Create/locate the task PR for Issue #261, confirm exact-head CI, and complete an independent review of its diff."
+    "Create/locate the task PR for Issue #269, confirm exact-head CI, and complete an independent review of its diff."
   ],
   "human_gates": [
-    "KYC and account verification",
-    "Final price and currency",
     "Final legal decisions",
-    "Live cutover approval",
+    "Live cutover approval (go/no-go for real customer traffic; see docs/pre-live-launch-checklist.md §7) — one controlled real Live purchase and one controlled real Live refund have each been separately validated in Production (2026-09-16), but general cutover to real customer traffic has not been approved",
     "Any real-money, Paddle Live, paid-service, production DB write, DNS, or production-secret operation"
   ],
   "production_live_restrictions": "NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL. Do not perform real charges or refunds, Paddle Live transactions or configuration, paid API/resource changes, production DB writes, DNS changes, or production-secret changes.",
-  "last_verified_at": "2026-09-16T03:12:22Z",
-  "last_verified_by": "GitHub connector: PR #260 confirmed merged into main at 4a5bc6450dede0369c7405b30bfb8ef28443fde5; Issue #261 documentation/checkpoint work in progress on branch claude/issue-261-20260916-0311, PR not yet created",
+  "last_verified_at": "2026-09-16T13:55:00Z",
+  "last_verified_by": "Local git checkout only (main HEAD 2ed2556e1d4d16356cb1bac733ccccfe757822d4, commit message and docs/claude-reference.md content confirmed locally); this session's Bash tool required interactive approval for network operations (git fetch, npm run resume, GitHub API) that was not available, so live GitHub API state (open PRs/issues, exact-head CI) was taken from the state already independently checked and stated in Issue #269's body rather than re-queried this session. The next executor with network access should still run `npm run resume` per protocol before any mutating action.",
   "known_non_blockers": [
     "The state file is a committed checkpoint, not a live database. It may be one or more commits behind origin/main; resume must compare it with GitHub before acting.",
-    "PR #260 (Bound resume preflight network failures) is merged into main at 4a5bc6450dede0369c7405b30bfb8ef28443fde5.",
-    "This task's PR had not been created yet as of this checkpoint; it is opened from a compare link by a human executor, so its exact head and CI must be fetched fresh rather than assumed from this checkpoint."
+    "Issue #261 (correct stale no-E2E-framework statement in docs/claude-reference.md) is resolved: the Playwright browser-smoke description is present on current main and Issue #269's body independently reports no open PRs/issues before it.",
+    "PR #267 (Show inactive confirmation after manual entitlement refresh) is on main at 2ed2556e1d4d16356cb1bac733ccccfe757822d4.",
+    "Production read-only preflight (docs/production-readonly-connection.md) remains intentionally paused after a prior redacted unexpected-response result; do not restart it as a side effect of unrelated work."
   ],
   "optional_post_launch": [
     "Re-evaluate a durable async webhook queue only if real Production latency or Paddle retry evidence warrants it."
