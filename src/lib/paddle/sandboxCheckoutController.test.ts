@@ -39,12 +39,23 @@ describe('Sandbox checkout controller', () => {
     expect(f.loadPaddle).not.toHaveBeenCalled()
     await f.controller.open()
     expect(f.initialize).toHaveBeenCalledExactlyOnceWith({ environment: 'sandbox', token: 'test_fixture', eventCallback: expect.any(Function) })
-    expect(f.open).toHaveBeenCalledExactlyOnceWith({ settings: { displayMode: 'overlay' }, items: [{ priceId: 'pri_fixture', quantity: 1 }], customData: { purchase_ref: 'private-ref' } })
+    expect(f.open).toHaveBeenCalledExactlyOnceWith({ settings: { displayMode: 'overlay', showAddDiscounts: true }, items: [{ priceId: 'pri_fixture', quantity: 1 }], customData: { purchase_ref: 'private-ref' } })
     f.controller.cancel()
     await f.prepare('private-next')
     await f.controller.open()
     expect(f.initialize).toHaveBeenCalledTimes(1)
     expect(f.loadPaddle).toHaveBeenCalledTimes(1)
+  })
+
+  it('makes promo-code entry explicit without changing or exposing correlation data', async () => {
+    const f = fixture()
+    await f.prepare('private-ref')
+    await f.controller.open()
+    const options = f.open.mock.calls[0][0]
+    expect(options.settings).toEqual({ displayMode: 'overlay', showAddDiscounts: true })
+    expect(options.customData).toEqual({ purchase_ref: 'private-ref' })
+    expect(options).not.toHaveProperty('discountCode')
+    expect(options).not.toHaveProperty('discountId')
   })
 
   it('guards duplicate preparation and open synchronously while initialization is pending', async () => {

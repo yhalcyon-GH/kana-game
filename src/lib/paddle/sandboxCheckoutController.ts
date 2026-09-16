@@ -142,7 +142,10 @@ export function createSandboxCheckoutController({ config, onEvent, loadPaddle = 
       if (!isCurrent(attempt) || !purchaseRef) return
       overlayOpen = true
       paddle.Checkout.open({
-        settings: { displayMode: 'overlay' },
+        // Keep promo-code entry explicit rather than relying on Paddle.js's
+        // current default. Paddle's Live Dashboard must separately have its
+        // checkout discount field enabled; that remains a Human Gate.
+        settings: { displayMode: 'overlay', showAddDiscounts: true },
         items: [{ priceId: config.priceId, quantity: 1 }],
         customData: { purchase_ref: purchaseRef },
       })
