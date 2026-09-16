@@ -41,6 +41,10 @@ export type PurchaseIntentResult =
   // what we asserted (defense-in-depth re-check, never trust a 200 blindly).
   | { kind: 'environment-mismatch' }
 
+export type LogoutResult =
+  | { kind: 'signed-out' }
+  | { kind: 'unavailable' }
+
 async function safeJson(response: Response): Promise<unknown> {
   try {
     return await response.json()
@@ -173,12 +177,17 @@ export async function createPurchaseIntent(apiBase: string, environment: string)
   }
 }
 
-export async function logout(apiBase: string): Promise<void> {
+/**
+ * The browser owns the Production Web credential, so the UI must not claim
+ * sign-out until the server confirms the revoke/idempotent-no-session path.
+ * In particular, logout.php intentionally returns non-2xx when it could not
+ * safely revoke the session; a network failure is equally unconfirmed.
+ */
+export async function logout(apiBase: string): Promise<LogoutResult> {
   try {
-    await fetch(`${apiBase}/auth/logout.php`, { method: 'POST', credentials: 'include' })
+    const response = await fetch(`${apiBase}/auth/logout.php`, { method: 'POST', credentials: 'include' })
+    return response.ok ? { kind: 'signed-out' } : { kind: 'unavailable' }
   } catch {
-    // Best-effort -- there is no client-held credential to clear
-    // locally regardless of whether the server request succeeded; the
-    // browser drops the (already server-expired) cookie on its own.
+    return { kind: 'unavailable' }
   }
 }
