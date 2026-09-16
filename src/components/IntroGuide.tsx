@@ -166,6 +166,13 @@ export function IntroGuide() {
         </button>
       </div>
 
+      {/* Always visible on every step, not just the last — Skip is usable
+          from step 1, so gating this disclosure on the final slide would let
+          a learner reach normal app use without ever seeing it (Issue #271). */}
+      <div className="shrink-0 text-center text-xs text-neutral-500 dark:text-neutral-400" data-testid="intro-guide-commercial-disclosure">
+        {locale.commercialDisclosure}
+      </div>
+
       {/* Slide -> small gap -> subtitle -> flexible remaining space -> button.
           The image wrapper sizes to its own content (bounded by max-h on the
           <img>, object-contain still preserves aspect ratio, never crops)

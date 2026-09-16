@@ -52,8 +52,16 @@ export const GUIDE_CATALOG: GuideCatalogEntry[] = [
   { id: 'particle', label: 'Particle', kind: 'replay', path: '/hiragana', category: 'concept' },
 ]
 
-// Settings' Tutorials list — exactly the tutorial-category entries above.
-export const TUTORIAL_CATALOG: GuideCatalogEntry[] = GUIDE_CATALOG.filter((g) => g.category === 'tutorial')
+function isTutorialReplayEntry(g: GuideCatalogEntry): g is Extract<GuideCatalogEntry, { kind: 'replay' }> {
+  return g.category === 'tutorial' && g.kind === 'replay'
+}
+
+// Settings' Tutorials list — the tutorial-category entries with an
+// in-context replay (learnTracing/practice/review). 'intro' moved to a
+// dedicated Home affordance (Issue #271) and is deliberately excluded here,
+// even though it stays in GUIDE_CATALOG as the source of truth for anything
+// that still wants to look it up (Home's own replay button included).
+export const TUTORIAL_CATALOG: Extract<GuideCatalogEntry, { kind: 'replay' }>[] = GUIDE_CATALOG.filter(isTutorialReplayEntry)
 
 // Preserved for a future PR to pull concept-guide replay info from a single
 // place (see the 'concept' comment above) — not yet used by any screen.

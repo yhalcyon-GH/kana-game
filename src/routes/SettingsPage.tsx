@@ -23,7 +23,6 @@ export function SettingsPage() {
   const setMascotVoiceVolume = useProgressStore((s) => s.setMascotVoiceVolume)
   const alwaysShowRomajiHints = useProgressStore((s) => s.alwaysShowRomajiHints)
   const setAlwaysShowRomajiHints = useProgressStore((s) => s.setAlwaysShowRomajiHints)
-  const setHasCompletedIntroGuide = useProgressStore((s) => s.setHasCompletedIntroGuide)
   const navigate = useNavigate()
 
   return (
@@ -123,10 +122,7 @@ export function SettingsPage() {
           <button
             key={guide.id}
             type="button"
-            onClick={() => {
-              if (guide.kind === 'introFlag') setHasCompletedIntroGuide(false)
-              else navigate(buildGuideReplayHref(guide.path, guide.id))
-            }}
+            onClick={() => navigate(buildGuideReplayHref(guide.path, guide.id))}
             className="flex w-full items-center justify-between rounded-xl border border-neutral-300 bg-white px-4 py-3 text-left hover:border-blue-400 dark:border-neutral-600 dark:bg-neutral-800"
           >
             <span>{guide.label}</span>

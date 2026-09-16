@@ -49,11 +49,12 @@ describe('SettingsPage "Always show romaji hints" (Issue #19)', () => {
   })
 })
 
-// "Guides" was renamed to "Tutorials" and trimmed from 7 entries to 4 —
+// "Guides" was renamed to "Tutorials" and trimmed from 7 entries to 3 —
 // Sokuon/Chōon/Yōon are hidden here (their Guide data/replay
 // infrastructure stays intact in guideCatalog.ts's CONCEPT_GUIDE_CATALOG
 // for a future "Ask Tamamizu" PR to surface from within each curriculum
-// section).
+// section), and the app-level Introduction moved to a Home replay
+// affordance instead (Issue #271) rather than staying in Settings.
 describe('SettingsPage Tutorials list', () => {
   it('renders the "Tutorials" heading, not "Guides"', () => {
     const { getByText, queryByText } = renderSettings()
@@ -61,13 +62,12 @@ describe('SettingsPage Tutorials list', () => {
     expect(queryByText('Guides')).not.toBeInTheDocument()
   })
 
-  it('lists exactly the four tutorial entries', () => {
+  it('lists exactly the three tutorial entries', () => {
     const { getByText } = renderSettings()
     for (const guide of TUTORIAL_CATALOG) {
       expect(getByText(guide.label)).toBeInTheDocument()
     }
     expect(TUTORIAL_CATALOG.map((g) => g.label)).toEqual([
-      'How does KanaGame work?',
       'How do I learn & trace?',
       'How does Practice work?',
       'How does Review work?',
@@ -81,16 +81,9 @@ describe('SettingsPage Tutorials list', () => {
     expect(queryByText('Yōon')).not.toBeInTheDocument()
   })
 
-  it('"How does KanaGame work?" replays the Introduction from step 1 via the existing flag toggle, without touching other progress', () => {
-    useProgressStore.getState().setHasCompletedIntroGuide(true)
-    useProgressStore.getState().markRowTaught('a-row')
-    const { getByText } = renderSettings()
-
-    fireEvent.click(getByText('How does KanaGame work?'))
-
-    const state = useProgressStore.getState()
-    expect(state.hasCompletedIntroGuide).toBe(false)
-    expect(state.taughtRowIds).toEqual(['a-row'])
+  it('no longer offers the app-level Introduction replay (moved to Home, Issue #271)', () => {
+    const { queryByText } = renderSettings()
+    expect(queryByText('How does KanaGame work?')).not.toBeInTheDocument()
   })
 
   it.each([

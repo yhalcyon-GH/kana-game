@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react'
+import { fireEvent, render } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { CHOUON_CATEGORY_ID, DEFAULT_CATEGORY_ID, KATAKANA_CATEGORY_ID, ROWS, SOKUON_CATEGORY_ID } from '../data/curriculum'
@@ -193,6 +193,31 @@ describe('HomePage Recommended shows row + activity (Issue #25)', () => {
     const hiraganaLink = getByRole('link', { name: /Hiragana/ })
     expect(hiraganaLink.textContent).toMatch(/あ〜お/)
     expect(hiraganaLink.textContent).toMatch(/Kana Quiz/)
+  })
+})
+
+// Issue #271: the general app-introduction replay moved from Settings to a
+// secondary, discoverable affordance on Home, reusing the existing
+// setHasCompletedIntroGuide/IntroGuide mechanism rather than a new one.
+describe('HomePage intro replay affordance (Issue #271)', () => {
+  it('offers a secondary "View introduction again" link below the curriculum cards', () => {
+    const { getByText, getByRole } = renderHome()
+    const replayLink = getByText('View introduction again')
+    const hiraganaLink = getByRole('link', { name: /Hiragana/ })
+    // DOCUMENT_POSITION_FOLLOWING (4) means replayLink comes AFTER hiraganaLink.
+    expect(hiraganaLink.compareDocumentPosition(replayLink) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('flips hasCompletedIntroGuide back to false without touching other progress', () => {
+    useProgressStore.getState().setHasCompletedIntroGuide(true)
+    useProgressStore.getState().markRowTaught('a-row')
+    const { getByText } = renderHome()
+
+    fireEvent.click(getByText('View introduction again'))
+
+    const state = useProgressStore.getState()
+    expect(state.hasCompletedIntroGuide).toBe(false)
+    expect(state.taughtRowIds).toEqual(['a-row'])
   })
 })
 
