@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildPhpVersionProbeSshInvocation,
   buildReadOnlySshInvocation,
   buildReleaseIntegritySshInvocation,
+  readSafePhpVersionProbeResult,
   readSafePreflightResult,
   readSafeReleaseIntegrityResult,
 } from './productionReadOnlySsh.mjs'
@@ -90,5 +92,48 @@ describe('production read-only SSH invocation', () => {
 
   it('redacts unexpected remote output instead of returning it to the caller', () => {
     expect(() => readSafePreflightResult(0, 'DB_PASSWORD=never-return-this\n', '')).toThrow(/redacted/)
+  })
+
+  it('permits only the fixed PHP CLI version probe with no api-root or file access', () => {
+    const invocation = buildPhpVersionProbeSshInvocation(environment)
+
+    expect(invocation.command).toBe('ssh')
+    expect(invocation.args).toContain('StrictHostKeyChecking=yes')
+    expect(invocation.args).toContain('BatchMode=yes')
+    expect(invocation.args.at(-1)).toBe('php -v')
+    expect(invocation.args.join(' ')).not.toMatch(/cd |mysql|mariadb|paddle|migration|config\.php|auth-readiness|release-integrity/)
+  })
+
+  it('permits only an allowlisted PHP CLI command for the version probe', () => {
+    const invocation = buildPhpVersionProbeSshInvocation({ ...environment, TAMAMIZU_PRODUCTION_PHP_COMMAND: 'php8.3' })
+
+    expect(invocation.args.at(-1)).toBe('php8.3 -v')
+  })
+
+  it.each([
+    ['TAMAMIZU_PRODUCTION_SSH_TARGET', 'account@example.com; cat config.php'],
+    ['TAMAMIZU_PRODUCTION_PHP_COMMAND', 'php8.1; id'],
+  ])('rejects unsafe %s values for the version probe', (key, value) => {
+    expect(() => buildPhpVersionProbeSshInvocation({ ...environment, [key]: value })).toThrow(/Unsafe/)
+  })
+
+  it('parses a normal PHP CLI version response into a normalized major.minor', () => {
+    expect(readSafePhpVersionProbeResult(
+      0,
+      'PHP 8.2.12 (cli) (built: Sep  5 2023 08:00:00) (NTS)\nCopyright (c) The PHP Group\n',
+      '',
+    )).toEqual({ ok: true, phpMajorMinor: '8.2' })
+  })
+
+  it('classifies unsupported or invalid PHP CLI output without returning raw output', () => {
+    expect(readSafePhpVersionProbeResult(127, '', 'bash: php8.5: command not found\n'))
+      .toEqual({ ok: false, reason: 'php-cli-unavailable-or-unrecognized' })
+    expect(readSafePhpVersionProbeResult(0, 'Zend Version Checker 1.0\n', ''))
+      .toEqual({ ok: false, reason: 'php-cli-unavailable-or-unrecognized' })
+  })
+
+  it('classifies an SSH-level connection failure separately from PHP CLI output', () => {
+    expect(readSafePhpVersionProbeResult(255, '', 'ssh: connect to host example.xserver.jp port 10022: Connection refused\n'))
+      .toEqual({ ok: false, reason: 'ssh-connection-failed' })
   })
 })

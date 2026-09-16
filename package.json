@@ -21,7 +21,8 @@
     "check:prelive": "node scripts/checkPreLiveSafety.mjs",
     "audit:commercial": "node scripts/auditCommercialReadiness.mjs",
     "production:preflight": "node scripts/productionReadOnlyPreflight.mjs",
-    "production:release-integrity": "node scripts/productionReleaseIntegrity.mjs"
+    "production:release-integrity": "node scripts/productionReleaseIntegrity.mjs",
+    "production:php-probe": "node scripts/productionPhpVersionProbe.mjs"
   },
   "dependencies": {
     "@paddle/paddle-js": "1.6.5",

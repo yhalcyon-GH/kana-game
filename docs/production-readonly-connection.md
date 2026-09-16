@@ -1,13 +1,14 @@
 # Production read-only connection
 
-This repository provides two deliberately narrow, local-only SSH checks for
+This repository provides three deliberately narrow, local-only SSH checks for
 the first Production Server Human Gate:
 
     cd -- "$TAMAMIZU_PRODUCTION_API_ROOT" && <allowlisted-php-cli> ops/auth-readiness-check.php
     cd -- "$TAMAMIZU_PRODUCTION_API_ROOT" && <allowlisted-php-cli> ops/release-integrity-check.php
+    <allowlisted-php-cli> -v
 
-Neither command opens a shell, displays files, accesses a database, writes
-files, changes configuration, sends email, or contacts Paddle.
+None of these commands opens a shell, displays files, accesses a database,
+writes files, changes configuration, sends email, or contacts Paddle.
 
 The readiness command prints only whether web-cookie auth is enabled, whether
 the production Magic Link mailer is configured, and whether the development
@@ -19,6 +20,10 @@ of the non-secret API files listed in
 fingerprint from the reviewed checkout and fails on any mismatch; it never
 prints individual file names, file contents, configuration, tokens, email
 addresses, or secrets.
+
+The PHP CLI version probe (`npm run production:php-probe`, documented below)
+prints only a normalized `major.minor` PHP version or a safe classification;
+it never touches the API root, a file, or a database.
 
 ## Deployment layout this runner verifies
 
@@ -72,6 +77,38 @@ After the owner has approved and performed the Production upload, run:
 
     npm run production:release-integrity
     npm run production:preflight
+
+## Diagnosing an "unexpected response" preflight failure
+
+If `npm run production:preflight` reaches SSH but refuses with `Remote
+command returned an unexpected response. Output was intentionally
+redacted.`, that single message does not by itself say whether the remote
+`php` CLI is missing/unsupported or whether `ops/auth-readiness-check.php`
+itself produced a bad output. Run the third, narrower diagnostic to isolate
+the PHP CLI itself:
+
+    npm run production:php-probe
+
+This runs only the allowlisted PHP CLI binary with its built-in `-v` flag —
+it never changes into `TAMAMIZU_PRODUCTION_API_ROOT`, reads a file, accesses
+a database, loads configuration, or writes anything. `TAMAMIZU_PRODUCTION_PHP_COMMAND`
+accepts the same allowlisted choices as above (`php`, `php8.1`, `php8.2`,
+`php8.3`, `php8.4`); no arbitrary remote command is ever accepted.
+
+It prints only one of:
+
+- a normalized `php=<major>.<minor>` version (e.g. `php=8.2`), parsed from
+  the response, never the raw remote output;
+- `the selected PHP CLI command is missing or returned an unrecognized
+  response` — the configured `TAMAMIZU_PRODUCTION_PHP_COMMAND` does not
+  exist or does not behave like a PHP CLI on the remote host; try another
+  allowlisted value;
+- `SSH could not connect` — the failure is at the SSH/network layer, not the
+  PHP CLI, so keep debugging SSH access before re-running the preflight.
+
+If this probe reports a supported PHP version, the original preflight
+failure is coming from the auth-readiness output itself, not a missing or
+unsupported remote PHP CLI.
 
 ## Explicit boundaries
 
