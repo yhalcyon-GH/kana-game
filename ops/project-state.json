@@ -1,30 +1,24 @@
 {
   "schema_version": 1,
-  "current_main_sha": "7c060c91b2acac2286aa1c081a751d726f82398d",
+  "current_main_sha": "4cf38b6acde1dae3f6594b2f42d37c0badcdceb0",
   "latest_completed_work": {
     "kind": "merged_pull_request",
-    "number": 257,
-    "title": "Document Production API deployment status",
-    "merged_at": "2026-09-15T17:01:05Z"
+    "number": 258,
+    "title": "Add GitHub-first resume protocol",
+    "merged_at": "2026-09-16T02:39:20Z"
   },
-  "open_prs": [
-    {
-      "number": 258,
-      "head_branch": "codex/work-thread-independent-resume",
-      "base_branch": "main",
-      "status": "checkpoint_commit_ci_pending"
-    }
-  ],
+  "open_prs": [],
   "active_work_item": {
-    "id": "work-thread-independent-resume",
-    "branch": "codex/work-thread-independent-resume",
-    "pull_request_number": 258,
-    "status": "checkpoint_commit_ci_pending",
-    "goal": "Make GitHub the durable handoff and resume control plane."
+    "id": "issue-259-bound-resume-preflight-network-failures",
+    "issue_number": 259,
+    "branch": "claude/issue-259-20260916-0247",
+    "pull_request_number": null,
+    "status": "implementation_complete_pr_pending",
+    "goal": "Bound resume preflight network failures: finite documented timeout and fail-closed exit for the GitHub API reads in scripts/resumeProject.mjs."
   },
-  "next_machine_action": "Fetch PR #258 exact-head CI, then independently review its current diff. Do not merge without explicit user authorization.",
+  "next_machine_action": "Find the current task PR for Issue #259 (head branch claude/issue-259-20260916-0247), fetch its exact-head CI, and independently review its diff. Do not merge without explicit user authorization.",
   "unresolved_ai_items": [
-    "Confirm exact-head CI and complete independent review of PR #258."
+    "Create/locate the task PR for Issue #259, confirm exact-head CI, and complete an independent review of its diff."
   ],
   "human_gates": [
     "KYC and account verification",
@@ -34,12 +28,12 @@
     "Any real-money, Paddle Live, paid-service, production DB write, DNS, or production-secret operation"
   ],
   "production_live_restrictions": "NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL. Do not perform real charges or refunds, Paddle Live transactions or configuration, paid API/resource changes, production DB writes, DNS changes, or production-secret changes.",
-  "last_verified_at": "2026-09-16T02:27:00Z",
-  "last_verified_by": "GitHub connector: PR #258 created; initial implementation head CI passed before the checkpoint commit",
+  "last_verified_at": "2026-09-16T02:55:00Z",
+  "last_verified_by": "GitHub connector: PR #258 confirmed merged into main; Issue #259 implementation completed on branch claude/issue-259-20260916-0247, PR not yet created",
   "known_non_blockers": [
     "The state file is a committed checkpoint, not a live database. It may be one or more commits behind origin/main; resume must compare it with GitHub before acting.",
-    "The initial implementation commit for PR #258 passed Pre-Live Safety, Browser Smoke, and PR Verify; the newer checkpoint commit must be checked separately.",
-    "The latest main GitHub Pages deployment recorded at the initial checkpoint succeeded."
+    "PR #258 (GitHub-first resume protocol) is merged into main at 4cf38b6acde1dae3f6594b2f42d37c0badcdceb0.",
+    "This task's PR had not been created yet as of this checkpoint; it is opened from a compare link by a human executor, so its exact head and CI must be fetched fresh rather than assumed from this checkpoint."
   ],
   "optional_post_launch": [
     "Re-evaluate a durable async webhook queue only if real Production latency or Paddle retry evidence warrants it."
