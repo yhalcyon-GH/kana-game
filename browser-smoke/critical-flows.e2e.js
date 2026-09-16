@@ -135,14 +135,29 @@ async function reachWordReadingQuestion(page) {
   throw new Error('Did not reach a Word Reading question')
 }
 
-test('first launch shows the Introduction and Skip reaches Home', async ({ page }) => {
+test('first launch discloses Hiragana-free/Full-Tamamizu pricing before Skip reaches Home', async ({ page }) => {
   await gotoHash(page, '/', { stable: false })
   const guide = page.getByRole('dialog', { name: 'Tamamizu Guide' })
   await expect(guide).toBeVisible()
   await expect(guide.getByRole('button', { name: 'Next' })).toBeVisible()
   await expect(guide.getByRole('button', { name: 'Back' })).toBeDisabled()
+  // Disclosure must be visible on step 1, alongside Skip — Skip is available
+  // on every step, so a learner could otherwise reach Home without seeing it.
+  await expect(guide.getByText(/Hiragana is free/)).toBeVisible()
+  await expect(guide.getByText(/USD 5\.00/)).toBeVisible()
   await guide.getByRole('button', { name: 'Skip' }).click()
   await expect(page.getByRole('heading', { name: 'Tamamizu' })).toBeVisible()
+})
+
+test('Home offers a discoverable app-introduction replay that reopens the same Introduction', async ({ page }) => {
+  await gotoHash(page, '/')
+  await expect(page.getByRole('heading', { name: 'Tamamizu' })).toBeVisible()
+
+  await page.getByRole('button', { name: 'View introduction again' }).click()
+
+  const guide = page.getByRole('dialog', { name: 'Tamamizu Guide' })
+  await expect(guide).toBeVisible()
+  await expect(guide.getByText(/Hiragana is free/)).toBeVisible()
 })
 
 test('Final pending Home recommendation is clear and fits at 320px', async ({ page }) => {

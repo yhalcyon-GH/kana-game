@@ -166,6 +166,14 @@ export function IntroGuide() {
         </button>
       </div>
 
+      {/* Rendered on every step, outside the scrollable slide area, so Skip
+          (available from step 1) can never be used to reach normal app use
+          without this having been shown — see introGuideContent.ts's
+          commercialDisclosure field for why this isn't only on the last slide. */}
+      <p className="mb-2 shrink-0 text-center text-xs text-neutral-500 dark:text-neutral-400">
+        {locale.commercialDisclosure}
+      </p>
+
       {/* Slide -> small gap -> subtitle -> flexible remaining space -> button.
           The image wrapper sizes to its own content (bounded by max-h on the
           <img>, object-contain still preserves aspect ratio, never crops)
@@ -185,7 +193,7 @@ export function IntroGuide() {
             }}
           />
         </div>
-        <p className="mt-3 max-w-sm shrink-0 text-center text-lg whitespace-pre-line sm:text-xl">{stepContent.subtitle}</p>
+        <p data-testid="intro-guide-subtitle" className="mt-3 max-w-sm shrink-0 text-center text-lg whitespace-pre-line sm:text-xl">{stepContent.subtitle}</p>
         {playbackFailed && audioEnabled && (
           <button
             type="button"

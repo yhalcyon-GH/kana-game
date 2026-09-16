@@ -61,13 +61,12 @@ describe('SettingsPage Tutorials list', () => {
     expect(queryByText('Guides')).not.toBeInTheDocument()
   })
 
-  it('lists exactly the four tutorial entries', () => {
+  it('lists exactly the three tutorial entries (Issue #271: intro moved to Home)', () => {
     const { getByText } = renderSettings()
     for (const guide of TUTORIAL_CATALOG) {
       expect(getByText(guide.label)).toBeInTheDocument()
     }
     expect(TUTORIAL_CATALOG.map((g) => g.label)).toEqual([
-      'How does KanaGame work?',
       'How do I learn & trace?',
       'How does Practice work?',
       'How does Review work?',
@@ -81,16 +80,9 @@ describe('SettingsPage Tutorials list', () => {
     expect(queryByText('Yōon')).not.toBeInTheDocument()
   })
 
-  it('"How does KanaGame work?" replays the Introduction from step 1 via the existing flag toggle, without touching other progress', () => {
-    useProgressStore.getState().setHasCompletedIntroGuide(true)
-    useProgressStore.getState().markRowTaught('a-row')
-    const { getByText } = renderSettings()
-
-    fireEvent.click(getByText('How does KanaGame work?'))
-
-    const state = useProgressStore.getState()
-    expect(state.hasCompletedIntroGuide).toBe(false)
-    expect(state.taughtRowIds).toEqual(['a-row'])
+  it('no longer offers the app-level intro replay here (Issue #271: moved to Home)', () => {
+    const { queryByText } = renderSettings()
+    expect(queryByText('How does KanaGame work?')).not.toBeInTheDocument()
   })
 
   it.each([

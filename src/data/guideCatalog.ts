@@ -28,6 +28,11 @@ import { YOUON_GUIDE } from './youonGuide'
 //   surface each one from within its own curriculum section instead. Their
 //   Guide data, replay ids, target paths, and useGuideReplay support all
 //   stay fully intact here in the meantime.
+//
+// The 'intro' entry (Issue #271) moved from Settings to a dedicated Home
+// replay affordance — it's still 'category: tutorial' here (it IS a
+// general-purpose, non-concept Guide) but TUTORIAL_CATALOG below excludes it
+// from what Settings renders, since 'introFlag' is unique to this one entry.
 export type GuideCatalogEntry =
   | { id: 'intro'; label: string; kind: 'introFlag'; category: 'tutorial' }
   | { id: 'learnTracing' | 'practice' | 'review'; label: string; kind: 'replay'; path: string; category: 'tutorial' }
@@ -52,8 +57,13 @@ export const GUIDE_CATALOG: GuideCatalogEntry[] = [
   { id: 'particle', label: 'Particle', kind: 'replay', path: '/hiragana', category: 'concept' },
 ]
 
-// Settings' Tutorials list — exactly the tutorial-category entries above.
-export const TUTORIAL_CATALOG: GuideCatalogEntry[] = GUIDE_CATALOG.filter((g) => g.category === 'tutorial')
+// Settings' Tutorials list — the tutorial-category entries above, minus
+// 'intro' (Issue #271: its replay now lives on Home instead of Settings).
+// Narrowed to the 'replay' variant via a type predicate so callers can read
+// `.path` directly, same as the pre-#271 introFlag-branching call site did.
+export const TUTORIAL_CATALOG: Extract<GuideCatalogEntry, { kind: 'replay' }>[] = GUIDE_CATALOG.filter(
+  (g): g is Extract<GuideCatalogEntry, { kind: 'replay' }> => g.category === 'tutorial' && g.kind === 'replay',
+)
 
 // Preserved for a future PR to pull concept-guide replay info from a single
 // place (see the 'concept' comment above) — not yet used by any screen.

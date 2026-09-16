@@ -100,7 +100,7 @@ describe('IntroGuide (Issue #29/#31)', () => {
 
   it('Next advances through every step in order, ending on "Let\'s go!"', () => {
     const { getByText } = render(<IntroGuide />)
-    const subtitleText = () => document.querySelector('p')?.textContent
+    const subtitleText = () => document.querySelector('[data-testid="intro-guide-subtitle"]')?.textContent
     for (let i = 0; i < INTRO_GUIDE_STEPS.length - 1; i++) {
       const step = INTRO_GUIDE_STEPS[i]
       expect(subtitleText()).toBe(locale.steps[step.id].subtitle)
@@ -177,6 +177,39 @@ describe('IntroGuide (Issue #29/#31)', () => {
     expect(state.characters).toEqual({})
     expect(state.words).toEqual({})
     expect(state.unlockedRowIds).toEqual(['a-row'])
+  })
+})
+
+// Issue #271: Skip is available on every step, so the commercial disclosure
+// must be visible from the very first render, not gated behind reaching the
+// final slide (where the Codex pre-review note flagged it as a "would not
+// satisfy the acceptance criterion" placement).
+describe('IntroGuide commercial disclosure (Issue #271)', () => {
+  it('is visible on the first render, alongside Skip, before any Next click', () => {
+    const { getByText } = render(<IntroGuide />)
+    expect(getByText(locale.commercialDisclosure)).toBeInTheDocument()
+    expect(getByText(locale.skipLabel)).toBeInTheDocument()
+  })
+
+  it('states Hiragana is free and Full Tamamizu is a one-time USD 5.00 + tax purchase, not a subscription', () => {
+    expect(locale.commercialDisclosure).toMatch(/Hiragana is free/)
+    expect(locale.commercialDisclosure).toMatch(/USD 5\.00/)
+    expect(locale.commercialDisclosure).toMatch(/not a subscription/)
+  })
+
+  it('remains visible after advancing to a later step, not just on step 1', () => {
+    const { getByText } = render(<IntroGuide />)
+    fireEvent.click(getByText(locale.nextLabel))
+    expect(getByText(locale.commercialDisclosure)).toBeInTheDocument()
+  })
+
+  it('is still visible on the final step, immediately before the completing button', () => {
+    const { getByText } = render(<IntroGuide />)
+    for (let i = 0; i < INTRO_GUIDE_STEPS.length - 1; i++) {
+      fireEvent.click(getByText(locale.nextLabel))
+    }
+    expect(getByText(locale.commercialDisclosure)).toBeInTheDocument()
+    expect(getByText(locale.finalLabel)).toBeInTheDocument()
   })
 })
 

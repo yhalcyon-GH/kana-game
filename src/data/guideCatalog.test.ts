@@ -21,14 +21,18 @@ describe('GUIDE_CATALOG (Issue #46/#50/Chōon Guide/Tutorials)', () => {
     ])
   })
 
-  it('TUTORIAL_CATALOG holds exactly the 4 Settings-visible tutorial entries', () => {
-    expect(TUTORIAL_CATALOG.map((g) => g.id)).toEqual(['intro', 'learnTracing', 'practice', 'review'])
+  it('TUTORIAL_CATALOG holds exactly the 3 Settings-visible tutorial entries (Issue #271: intro moved to Home)', () => {
+    expect(TUTORIAL_CATALOG.map((g) => g.id)).toEqual(['learnTracing', 'practice', 'review'])
     expect(TUTORIAL_CATALOG.map((g) => g.label)).toEqual([
-      'How does KanaGame work?',
       'How do I learn & trace?',
       'How does Practice work?',
       'How does Review work?',
     ])
+  })
+
+  it('excludes the intro entry from TUTORIAL_CATALOG despite it being category: tutorial in GUIDE_CATALOG', () => {
+    expect(GUIDE_CATALOG.find((g) => g.id === 'intro')?.category).toBe('tutorial')
+    expect(TUTORIAL_CATALOG.map((g) => g.id)).not.toContain('intro')
   })
 
   it('CONCEPT_GUIDE_CATALOG preserves Sokuon/Chōon/Yōon/Special Katakana/Particle replay info intact, unsurfaced in Settings', () => {

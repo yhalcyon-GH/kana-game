@@ -38,6 +38,29 @@ function ContinueCard() {
   )
 }
 
+// Secondary, discoverable app-introduction replay (Issue #271) — moved here
+// from Settings' Tutorials list, kept visually smaller than the curriculum
+// cards above it. Reuses the same setHasCompletedIntroGuide(false) toggle
+// Settings used to call; IntroGuide itself (always mounted in App.tsx)
+// reappears the moment the flag flips, exactly as it did for Settings.
+function IntroReplayLink() {
+  const setHasCompletedIntroGuide = useProgressStore((s) => s.setHasCompletedIntroGuide)
+  return (
+    <div className="flex flex-col items-center gap-1 text-center">
+      <span className="text-xs font-semibold tracking-wide text-neutral-400 uppercase dark:text-neutral-500">
+        How Tamamizu works
+      </span>
+      <button
+        type="button"
+        onClick={() => setHasCompletedIntroGuide(false)}
+        className="text-sm font-semibold text-blue-600 underline hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+      >
+        View introduction again
+      </button>
+    </div>
+  )
+}
+
 export function HomePage() {
   const { recommendedCategoryId, globalRecommendedTarget } = useCurriculum()
   const graduated = useProgressStore((s) => s.graduation.graduated)
@@ -94,6 +117,7 @@ export function HomePage() {
           )
         })}
       </div>
+      <IntroReplayLink />
     </div>
   )
 }

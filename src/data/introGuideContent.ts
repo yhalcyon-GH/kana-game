@@ -15,6 +15,12 @@ export type IntroGuideLocaleContent = {
   nextLabel: string
   skipLabel: string
   finalLabel: string
+  // Commercial disclosure (Issue #271): rendered on every step, not just the
+  // final one — Skip is available from step 1, so gating this on the last
+  // slide would let a learner reach normal app use without ever seeing it.
+  // Keep in sync in spirit with AccountPage.tsx / TermsPage.tsx's pricing
+  // copy (same price/terms, phrased concisely for a first-run overlay).
+  commercialDisclosure: string
 }
 
 const EN: IntroGuideLocaleContent = {
@@ -48,6 +54,8 @@ const EN: IntroGuideLocaleContent = {
   nextLabel: 'Next',
   skipLabel: 'Skip',
   finalLabel: "Let's go!",
+  commercialDisclosure:
+    'Hiragana is free. Full Tamamizu (Katakana and beyond) is a one-time purchase — USD 5.00 + applicable tax, not a subscription. The final total is shown at checkout.',
 }
 
 export const INTRO_GUIDE_CONTENT: Record<string, IntroGuideLocaleContent> = { en: EN }
