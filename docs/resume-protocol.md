@@ -18,9 +18,13 @@ requests through GitHub, and compares that live state with
 [`ops/project-state.json`](../ops/project-state.json). It only reads state;
 it never creates branches, pull requests, deployments, or configuration.
 
-If GitHub is temporarily unreachable, do not retry a potentially mutating
-operation. Stop with the recorded checkpoint and retry the read-only resume
-preflight later.
+Each GitHub API read `npm run resume` performs is bounded by a finite,
+documented timeout (`GITHUB_API_TIMEOUT_MS` in `scripts/resumeProject.mjs`).
+If GitHub is temporarily unreachable — timeout, network failure, or an API
+error response — the command fails closed: it exits non-zero with a concise
+message confirming no mutating action was attempted, and does not retry.
+Stop with the recorded checkpoint and retry the read-only resume preflight
+later.
 
 ## Required decision order
 
