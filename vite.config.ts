@@ -61,6 +61,25 @@ export function resolveBasePath(env: Record<string, string | undefined> = proces
   return env.VITE_BASE_PATH || '/kana-game/'
 }
 
+// Icon `src` values here are intentionally base-relative (no leading '/'):
+// the manifest itself is served from the same base path as the app (see
+// resolveBasePath above), so a relative path resolves correctly under
+// either '/kana-game/manifest.webmanifest' or '/manifest.webmanifest'
+// without needing its own env-aware logic.
+export const PWA_MANIFEST = {
+  name: 'Tamamizu: Hiragana & Katakana',
+  short_name: 'Tamamizu',
+  description: 'Learn hiragana and katakana one row at a time, paired with real everyday words.',
+  theme_color: '#ffffff',
+  background_color: '#ffffff',
+  display: 'standalone' as const,
+  icons: [
+    { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+    { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+    { src: 'icons/maskable-icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' as const },
+  ],
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   base: resolveBasePath(),
@@ -69,19 +88,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      manifest: {
-        name: 'Tamamizu: Hiragana & Katakana',
-        short_name: 'Tamamizu',
-        description: 'Learn hiragana and katakana one row at a time, paired with real everyday words.',
-        theme_color: '#ffffff',
-        background_color: '#ffffff',
-        display: 'standalone',
-        icons: [
-          { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
-          { src: 'icons/maskable-icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
-        ],
-      },
+      manifest: PWA_MANIFEST,
       workbox: {
         // Only the app shell (JS/CSS/HTML/fonts) is precached on install —
         // deliberately excludes public/audio, word-icons, and mascot
