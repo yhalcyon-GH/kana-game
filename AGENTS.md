@@ -13,5 +13,10 @@ unless the user explicitly instructs you to merge the current PR. When
 explicitly instructed, confirm the live PR HEAD, mergeability, required
 exact-HEAD CI, and applicable review gates before merging.
 
+At the beginning of any resumed or new Work session, run `npm run resume` and
+follow [`docs/resume-protocol.md`](docs/resume-protocol.md). GitHub is the
+durable state; [`ops/project-state.json`](ops/project-state.json) is a compact
+checkpoint that must be compared with live GitHub before any mutating action.
+
 Codex-specific adapter: do not require Claude commands or mechanics; use the
 same repository paths, commands, escalation rules, and review gates directly.

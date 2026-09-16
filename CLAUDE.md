@@ -33,6 +33,11 @@ When assigned as an independent reviewer, use a fresh session/subagent or the re
 
 When switching to Claude Code from Codex or another environment, refresh `origin` and verify repository, `git status`, branch, current `origin/main`, and any current task PR before continuing. Never assume another agent's checkout or branch state is current.
 
+For any new or resumed session, run `npm run resume` before a mutating action.
+It compares the compact checkpoint in `ops/project-state.json` with live GitHub
+state; follow `docs/resume-protocol.md` if they differ. GitHub is the durable
+control plane, not the previous chat thread.
+
 ## Context and usage
 
 Context is a limited resource. Keep the main session focused on the current task.

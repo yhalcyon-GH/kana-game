@@ -7,6 +7,7 @@ For day-to-day development, start with [`CLAUDE.md`](../CLAUDE.md) or [`AGENTS.m
 ## Current guidance
 
 - **[ai-development-loop.md](./ai-development-loop.md)** — shared ChatGPT / Claude Code / Codex development and review workflow.
+- **[resume-protocol.md](./resume-protocol.md)** — timeout-safe, GitHub-first resume and checkpoint protocol; start a new Work session here.
 - **[definition-of-done.md](./definition-of-done.md)** — Builder completion criteria and verification expectations.
 - **[global-ai-development-charter.md](./global-ai-development-charter.md)** — project-independent AI development principles.
 - **[claude-reference.md](./claude-reference.md)** — deeper KanaGame repository reference; read only relevant sections.
