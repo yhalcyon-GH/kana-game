@@ -12,19 +12,19 @@
       "number": 258,
       "head_branch": "codex/work-thread-independent-resume",
       "base_branch": "main",
-      "status": "ci_passed_pending_independent_review"
+      "status": "checkpoint_commit_ci_pending"
     }
   ],
   "active_work_item": {
     "id": "work-thread-independent-resume",
     "branch": "codex/work-thread-independent-resume",
     "pull_request_number": 258,
-    "status": "ci_passed_pending_independent_review",
+    "status": "checkpoint_commit_ci_pending",
     "goal": "Make GitHub the durable handoff and resume control plane."
   },
-  "next_machine_action": "Independently review PR #258 against its acceptance criteria, then apply only justified corrections. Do not merge without explicit user authorization.",
+  "next_machine_action": "Fetch PR #258 exact-head CI, then independently review its current diff. Do not merge without explicit user authorization.",
   "unresolved_ai_items": [
-    "Complete independent review of PR #258."
+    "Confirm exact-head CI and complete independent review of PR #258."
   ],
   "human_gates": [
     "KYC and account verification",
@@ -34,11 +34,11 @@
     "Any real-money, Paddle Live, paid-service, production DB write, DNS, or production-secret operation"
   ],
   "production_live_restrictions": "NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL. Do not perform real charges or refunds, Paddle Live transactions or configuration, paid API/resource changes, production DB writes, DNS changes, or production-secret changes.",
-  "last_verified_at": "2026-09-16T02:26:00Z",
-  "last_verified_by": "GitHub connector: PR #258 exact-head CI plus local full verification",
+  "last_verified_at": "2026-09-16T02:27:00Z",
+  "last_verified_by": "GitHub connector: PR #258 created; initial implementation head CI passed before the checkpoint commit",
   "known_non_blockers": [
     "The state file is a committed checkpoint, not a live database. It may be one or more commits behind origin/main; resume must compare it with GitHub before acting.",
-    "PR #258 exact-head Pre-Live Safety, Browser Smoke, and PR Verify all passed.",
+    "The initial implementation commit for PR #258 passed Pre-Live Safety, Browser Smoke, and PR Verify; the newer checkpoint commit must be checked separately.",
     "The latest main GitHub Pages deployment recorded at the initial checkpoint succeeded."
   ],
   "optional_post_launch": [
