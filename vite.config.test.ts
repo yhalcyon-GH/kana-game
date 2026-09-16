@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { PWA_RUNTIME_CACHING, resolveBasePath } from './vite.config'
+import { PWA_MANIFEST, PWA_RUNTIME_CACHING, resolveBasePath } from './vite.config'
 
 describe('resolveBasePath', () => {
   it('defaults to the current GitHub Pages project path when VITE_BASE_PATH is unset (existing deploy workflow behavior, unchanged)', () => {
@@ -99,6 +99,33 @@ describe('PWA audio runtime cache', () => {
     expect(await (await onlineResponse).text()).toBe('new-audio')
     await onlineDone
     expect(await (await legacyCache.match(requestUrl))?.text()).toBe('new-audio')
+  })
+})
+
+describe('PWA manifest installability essentials', () => {
+  it('declares name, short_name, and standalone display mode', () => {
+    expect(PWA_MANIFEST.name).toBe('Tamamizu: Hiragana & Katakana')
+    expect(PWA_MANIFEST.short_name).toBe('Tamamizu')
+    expect(PWA_MANIFEST.display).toBe('standalone')
+  })
+
+  it('includes a 192x192 icon, a 512x512 icon, and a maskable 512x512 icon', () => {
+    const icon192 = PWA_MANIFEST.icons.find((icon) => icon.sizes === '192x192' && !('purpose' in icon))
+    const icon512 = PWA_MANIFEST.icons.find((icon) => icon.sizes === '512x512' && !('purpose' in icon))
+    const maskable512 = PWA_MANIFEST.icons.find(
+      (icon) => icon.sizes === '512x512' && 'purpose' in icon && icon.purpose === 'maskable',
+    )
+
+    expect(icon192).toBeTruthy()
+    expect(icon512).toBeTruthy()
+    expect(maskable512).toBeTruthy()
+  })
+
+  it('references icon paths relative to the manifest (no leading slash, no absolute origin) so they resolve under either base path', () => {
+    for (const icon of PWA_MANIFEST.icons) {
+      expect(icon.src).not.toMatch(/^\//)
+      expect(icon.src).not.toMatch(/^https?:\/\//)
+    }
   })
 })
 
