@@ -277,6 +277,44 @@ describe('production Account purchase UI', () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 
+  // -- Issue #267: manual "Check entitlement" refresh feedback --
+
+  it('shows no success notice before any manual refresh', async () => {
+    await renderAccount()
+    expect(screen.queryByText(/Access checked/)).not.toBeInTheDocument()
+  })
+
+  it('shows a concise inactive confirmation after a manual refresh resolves to inactive', async () => {
+    await renderAccount()
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Check entitlement' })) })
+    expect(screen.getByText('Access checked — Full Tamamizu is not active yet.')).toBeInTheDocument()
+    expect(document.body.textContent).not.toContain(privateRef)
+  })
+
+  it('does not show the inactive notice for active accounts', async () => {
+    await renderAccount()
+    entitlement = { active: true }
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Check entitlement' })) })
+    expect(screen.getByText('Full Tamamizu: Active')).toBeInTheDocument()
+    expect(screen.queryByText(/Access checked/)).not.toBeInTheDocument()
+  })
+
+  it('does not show a success notice when a manual refresh fails/is unavailable', async () => {
+    await renderAccount()
+    fetchMock.mockReturnValueOnce(Promise.resolve(json({}, 503)))
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Check entitlement' })) })
+    expect(screen.getByText('Couldn’t verify access')).toBeInTheDocument()
+    expect(screen.queryByText(/Access checked/)).not.toBeInTheDocument()
+  })
+
+  it('replaces a stale success notice on a later refresh instead of accumulating it', async () => {
+    await renderAccount()
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Check entitlement' })) })
+    expect(screen.getAllByText('Access checked — Full Tamamizu is not active yet.')).toHaveLength(1)
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Check entitlement' })) })
+    expect(screen.getAllByText('Access checked — Full Tamamizu is not active yet.')).toHaveLength(1)
+  })
+
   it('keeps raw purchase_ref out of DOM, URL, storage, IndexedDB, console and outgoing auth requests', async () => {
     const storageWrite = vi.spyOn(Storage.prototype, 'setItem')
     const push = vi.spyOn(history, 'pushState')

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useEntitlement } from '../components/EntitlementContext'
 import { logout } from '../lib/auth/productionAuthClient'
@@ -20,11 +21,21 @@ export default function AccountPage() {
   const apiBase = readProductionAuthApiBase()
   const { state, refresh, markSignedOut } = useEntitlement()
   const purchase = useProductionSandboxPurchase()
+  // Manual-refresh-only confirmation: never shown on initial load (the
+  // provider's own startup/focus refreshes never touch this), and always
+  // replaced -- never accumulated -- by the next manual refresh's outcome.
+  const [inactiveRefreshNotice, setInactiveRefreshNotice] = useState(false)
 
   async function handleLogout() {
     purchase.invalidate()
     markSignedOut()
     if (apiBase) await logout(apiBase)
+  }
+
+  async function handleCheckEntitlement() {
+    setInactiveRefreshNotice(false)
+    const result = await refresh()
+    setInactiveRefreshNotice(result.kind === 'applied' && result.state.status === 'inactive')
   }
 
   if (state.status === 'loading') {
@@ -121,7 +132,12 @@ export default function AccountPage() {
       )}
 
       {!confirming && !checkoutBusy && state.status !== 'unavailable' && (
-        <button type="button" onClick={() => void refresh()} className={buttonClass}>Check entitlement</button>
+        <>
+          <button type="button" onClick={() => void handleCheckEntitlement()} className={buttonClass}>Check entitlement</button>
+          {inactiveRefreshNotice && (
+            <p role="status">Access checked — Full Tamamizu is not active yet.</p>
+          )}
+        </>
       )}
       {(currentUser || confirming) && (
         <button type="button" onClick={() => void handleLogout()} className={buttonClass}>Sign out</button>
