@@ -52,8 +52,13 @@ preflight later.
 
 Update `ops/project-state.json` and commit it in the same PR when one of these
 events changes the next safe action: a PR is created or merged, `main` changes
-materially, exact-HEAD CI completes, a blocker is resolved, or work reaches a
-Human Gate. Do not rewrite it for routine conversation turns.
+materially, a blocker is resolved, or work reaches a Human Gate. Do not rewrite
+it for routine conversation turns.
+
+Exact-HEAD CI is durable GitHub Actions/PR metadata. Do **not** create a
+state-only commit merely to record a passing CI result: that would create a new
+head whose CI has not run yet. Instead, preserve the CI outcome in the PR
+timeline or Issue and have every executor fetch the current head's checks.
 
 The state file deliberately records the SHA verified *before its own PR is
 merged*, so it can become stale by one merge commit. That is expected and is
