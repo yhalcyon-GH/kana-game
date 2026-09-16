@@ -20,6 +20,7 @@
     "voice:process": "tsx scripts/voicePipeline/cli.ts",
     "check:prelive": "node scripts/checkPreLiveSafety.mjs",
     "audit:commercial": "node scripts/auditCommercialReadiness.mjs",
+    "audit:kana-frequency": "tsx scripts/kanaFrequencyAudit.ts",
     "production:preflight": "node scripts/productionReadOnlyPreflight.mjs",
     "production:release-integrity": "node scripts/productionReleaseIntegrity.mjs",
     "production:php-probe": "node scripts/productionPhpVersionProbe.mjs"
