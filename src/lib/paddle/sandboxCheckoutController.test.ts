@@ -13,6 +13,20 @@ function event(name: string, ref = 'private-ref', transaction = 'txn_1'): Paddle
   return { name, data: { id: 'che_fixture', transaction_id: transaction, custom_data: { purchase_ref: ref } } } as PaddleEventData
 }
 
+/** A checkout.completed event as Paddle sends it once a discount code was applied in the overlay. */
+function discountedEvent(ref = 'private-ref', transaction = 'txn_1'): PaddleEventData {
+  return {
+    name: 'checkout.completed',
+    data: {
+      id: 'che_fixture',
+      transaction_id: transaction,
+      custom_data: { purchase_ref: ref },
+      discount: { code: 'sensitive-giveaway-code', id: 'dsc_sensitive_giveaway_code' },
+      totals: { discount: 500, subtotal: 500, tax: 0, total: 0 },
+    },
+  } as PaddleEventData
+}
+
 function fixture(environment: 'sandbox' | 'live' = 'sandbox', token = 'test_fixture') {
   const callbacks: Array<(event: PaddleEventData) => void> = []
   const events: SandboxCheckoutEvent[] = []
@@ -39,7 +53,7 @@ describe('Sandbox checkout controller', () => {
     expect(f.loadPaddle).not.toHaveBeenCalled()
     await f.controller.open()
     expect(f.initialize).toHaveBeenCalledExactlyOnceWith({ environment: 'sandbox', token: 'test_fixture', eventCallback: expect.any(Function) })
-    expect(f.open).toHaveBeenCalledExactlyOnceWith({ settings: { displayMode: 'overlay' }, items: [{ priceId: 'pri_fixture', quantity: 1 }], customData: { purchase_ref: 'private-ref' } })
+    expect(f.open).toHaveBeenCalledExactlyOnceWith({ settings: { displayMode: 'overlay', showAddDiscounts: true }, items: [{ priceId: 'pri_fixture', quantity: 1 }], customData: { purchase_ref: 'private-ref' } })
     f.controller.cancel()
     await f.prepare('private-next')
     await f.controller.open()
@@ -78,6 +92,17 @@ describe('Sandbox checkout controller', () => {
     await f.controller.open()
     expect(f.events.filter((value) => value.kind === 'completed')).toHaveLength(1)
     expect(f.open).toHaveBeenCalledTimes(1)
+  })
+
+  it('a discount applied in the overlay (Issue #273) completes through the identical correlation check and never leaks the discount id/totals', async () => {
+    const f = fixture()
+    await f.prepare()
+    await f.controller.open()
+    expect(f.open).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ settings: { displayMode: 'overlay', showAddDiscounts: true } }))
+    f.emit('checkout.loaded')
+    f.callbacks.at(-1)!(discountedEvent())
+    expect(f.events.at(-1)).toEqual({ kind: 'completed' })
+    expect(JSON.stringify(f.events)).not.toMatch(/dsc_sensitive_giveaway_code|discount|totals/i)
   })
 
   it.each([

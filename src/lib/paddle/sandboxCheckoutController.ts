@@ -142,7 +142,12 @@ export function createSandboxCheckoutController({ config, onEvent, loadPaddle = 
       if (!isCurrent(attempt) || !purchaseRef) return
       overlayOpen = true
       paddle.Checkout.open({
-        settings: { displayMode: 'overlay' },
+        // Explicit, not the SDK default: the customer's own "Add discount"
+        // affordance must stay visible so Paddle standard discount codes
+        // (including 100%-off promotions) remain a checkout-side, no-deploy
+        // mechanism. This never widens what data leaves the client -- only
+        // purchase_ref is still sent as customData.
+        settings: { displayMode: 'overlay', showAddDiscounts: true },
         items: [{ priceId: config.priceId, quantity: 1 }],
         customData: { purchase_ref: purchaseRef },
       })

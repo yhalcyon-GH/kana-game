@@ -208,6 +208,40 @@ function purchaseWebhookHandlerTests(): array
             assertTrue($found !== null && $found['active'], 'user-1 should now be entitled');
         },
 
+        'a 100%-off discount transaction (zero total) grants entitlement through the identical path as a paid one' => function () {
+            // Issue #273: the entitlement path must be amount-agnostic so
+            // a Paddle standard 100% discount can complete a giveaway
+            // through the normal transaction.completed webhook, with no
+            // separate free/direct entitlement code path. This mirrors
+            // Paddle's real zero-value transaction shape (totals.total =
+            // "0", a discount id/amount present) -- handleTransactionCompleted()
+            // and ProductMatcher never read totals/amount at all, so this
+            // asserts that behavior at the source level rather than
+            // relying on a manual Live test to prove it.
+            $pdo = makePurchaseWebhookTestDb();
+            $intents = new PurchaseIntentRepository($pdo);
+            $intents->create('user-1', 'full_tamamizu', 'raw-ref-giveaway', new \DateTimeImmutable('+30 minutes'));
+            $handler = makePurchaseWebhookHandler($pdo);
+
+            $body = pwhTransactionCompletedPayload('evt_giveaway', 'txn_giveaway', 'raw-ref-giveaway', overridesData: [
+                'discount_id' => 'dsc_giveaway_test',
+                'details' => [
+                    'totals' => [
+                        'subtotal' => '500',
+                        'discount' => '500',
+                        'tax' => '0',
+                        'total' => '0',
+                    ],
+                ],
+            ]);
+            $result = $handler->handle($body, pwhSign($body));
+
+            assertSame(200, $result->statusCode, 'a zero-value completed transaction should be processed with 200');
+            $entitlements = new EntitlementRepository($pdo);
+            $found = $entitlements->find('user-1', 'full_tamamizu');
+            assertTrue($found !== null && $found['active'], 'a $0 100%-off transaction must grant entitlement identically to a paid one');
+        },
+
         'a browser-supplied internal_user_id field is ignored -- no code path reads it' => function () {
             $pdo = makePurchaseWebhookTestDb();
             $intents = new PurchaseIntentRepository($pdo);

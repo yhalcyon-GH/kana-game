@@ -77,7 +77,7 @@ describe('production Sandbox purchase orchestration', () => {
     await act(async () => { pending.resolve({ kind: 'created', purchaseRef: 'private-purchase-ref' }); await start })
     expect(f.result.current.status).toBe('open')
     expect(sdk.open).toHaveBeenCalledExactlyOnceWith({
-      settings: { displayMode: 'overlay' }, items: [{ priceId: 'pri_fixture', quantity: 1 }],
+      settings: { displayMode: 'overlay', showAddDiscounts: true }, items: [{ priceId: 'pri_fixture', quantity: 1 }],
       customData: { purchase_ref: 'private-purchase-ref' },
     })
     expect(sdk.initialize).toHaveBeenCalledWith(expect.objectContaining({ environment: 'sandbox' }))
