@@ -77,11 +77,15 @@ Each item is tagged:
 
 ## 4. Magic Link auth (end-to-end, real browser, Production)
 
-- [ ] **Human required** — Request a magic link against the Production
+- [x] **Human required** — Request a magic link against the Production
       endpoint with a real inbox and confirm the email actually arrives.
-- [ ] **Human required** — Click the link, confirm session cookie is set,
-      confirm `auth/me` reflects the logged-in user.
-- [ ] **Human required** — Confirm `auth/logout` clears the session.
+      Confirmed 2026-09-16 (see §8): real Production Magic Link
+      delivery/login succeeded.
+- [x] **Human required** — Click the link, confirm session cookie is set,
+      confirm `auth/me` reflects the logged-in user. Confirmed 2026-09-16
+      (see §8).
+- [ ] **Human required** — Confirm `auth/logout` clears the session. Not
+      covered by the 2026-09-16 validation pass; still open.
 
 ## 5. Purchase / entitlement flow
 
@@ -90,30 +94,53 @@ Each item is tagged:
       refund/adjustment-before-transaction handling are covered by
       automated tests on `main` (see `server/tests/` and
       `server/src/Purchase/PurchaseWebhookHandler.php`).
-- [ ] **Human required** — Confirm Paddle environment consistency: the
+- [x] **Human required** — Confirm Paddle environment consistency: the
       Production deployment's Paddle client token, price/product IDs, and
       webhook secret are all the **Live** set, not Sandbox, and that none of
-      Sandbox and Live values are mixed.
-- [ ] **Live operation** — Create/verify the Live product and price in the
-      Paddle Dashboard.
-- [ ] **Live operation** — Point the Paddle Live webhook destination at the
+      Sandbox and Live values are mixed. Confirmed 2026-09-16 (see §8): Live
+      client token, Live product/price, and Live webhook destination are
+      configured, and a real Live purchase + real Live refund both
+      round-tripped correctly end to end, which is not possible with mixed
+      Sandbox/Live values.
+- [x] **Live operation** — Create/verify the Live product and price in the
+      Paddle Dashboard. Confirmed 2026-09-16 (see §8): `Full Tamamizu`
+      exists as a Live one-time product at USD 5.00.
+- [x] **Live operation** — Point the Paddle Live webhook destination at the
       real Production webhook URL and set the Live webhook secret in
       Production config (not in any repo file, not in any AI session).
-- [ ] **Live operation** — Run one real low-value test purchase against
+      Confirmed 2026-09-16 (see §8): Live webhook destination is
+      `https://tamamizu.giganihongo.com/api/paddle-webhook.php` for
+      `transaction.completed`, `adjustment.created`, and
+      `adjustment.updated`; the secret itself remains Production-side only
+      and was never shared with any AI session.
+- [x] **Live operation** — Run one real low-value test purchase against
       Paddle Live, confirm the webhook is received, signature verifies,
       `entitlement-me` reflects the grant, and the in-app UI unlocks
-      correctly.
+      correctly. Confirmed 2026-09-16 (see §8): one authorized real Live
+      purchase completed, entitlement became `Full Tamamizu: Active` and
+      stayed active across reload and sign-out/re-login, and paid content
+      unlocked.
 - [ ] **Live operation** — Run one real refund against that test purchase,
       confirm the adjustment webhook revokes entitlement and that any
       locally-stored learning progress is retained per the intended
       refund-vs-progress policy (business decision, not a repo default to
-      infer).
+      infer). **Partially confirmed 2026-09-16** (see §8): one authorized
+      real refund completed with no manual DB edit and no webhook replay,
+      and entitlement correctly went inactive with content re-locked on
+      reload, confirming the real refund webhook path revokes access. Left
+      unchecked because the refund-vs-progress retention policy itself was
+      not exercised/verified in this pass.
 - [ ] **Human required** — Confirm the failed/cancelled checkout UX (user
       closes or cancels Paddle Checkout without completing) leaves the app
-      in a sane, non-broken state.
+      in a sane, non-broken state. Not covered by the 2026-09-16 validation
+      pass; still open.
 - [ ] **Human required** — Confirm receipt/invoice/customer-portal access
       works as Paddle provides it (Paddle-hosted, not custom-built here
-      unless the repo already implements a portal link).
+      unless the repo already implements a portal link). **Partially
+      confirmed 2026-09-16** (see §8): the purchase email and tax invoice
+      were received and correctly showed USD 5.00 + Thailand VAT USD 0.35 =
+      USD 5.35 with no seller home address exposed. Left unchecked because
+      the Paddle customer-portal link itself was not exercised.
 
 ## 5a. Webhook response timing (KEEP SYNC FOR LIVE — launch acceptable)
 
@@ -181,6 +208,60 @@ Each item is tagged:
 - [ ] **Human required** — Go/no-go: only proceed to real customer traffic
       once every Live-operation item above has been completed successfully
       and rolled back cleanly at least once in a rehearsal, if practical.
+
+## 8. 2026-09-16 Production validation log
+
+Human-verified Production facts recorded by the AI session for Issue #269,
+from direct human report (no AI access to Production, Paddle Dashboard, or
+any secret). Only facts that fit existing repo conventions are recorded
+here; no secrets, transaction IDs, email addresses, account numbers, or
+other personal identifiers are included.
+
+- Paddle KYC/account verification completed.
+- Production app domain is `https://app.tamamizu.giganihongo.com/`;
+  DNS/HTTPS were already confirmed.
+- Live product `Full Tamamizu` exists at USD 5.00 one-time; Live client
+  token and Live webhook destination are configured.
+- Live webhook destination is
+  `https://tamamizu.giganihongo.com/api/paddle-webhook.php` for
+  `transaction.completed`, `adjustment.created`, and `adjustment.updated`.
+- Live webhook secret/product/price configuration remains Production-side
+  only; no secrets were copied into GitHub.
+- GitHub Pages was redeployed with Live public Paddle variables; `Default
+  payment link` was found blank during validation, then set to
+  `https://app.tamamizu.giganihongo.com/` by a human, after which Live
+  Checkout opened normally.
+- Real Production Magic Link delivery/login had already succeeded.
+- Account page product/price/legal links/Buy/Check entitlement UI
+  confirmed in Production.
+- One authorized real Live purchase completed successfully. Paddle purchase
+  email and tax invoice were received. Checkout showed USD 5.00 + Thailand
+  VAT USD 0.35 = USD 5.35. Invoice exposed no seller home address.
+- Entitlement became `Full Tamamizu: Active`, stayed active after reload
+  and sign-out/re-login, and paid content unlocked.
+- One separately authorized full refund of USD 5.35 completed successfully.
+  No manual DB edit and no webhook replay were used. On page reload,
+  entitlement was inactive and paid content was re-locked, confirming the
+  real refund webhook path revoked access.
+- Paddle payout details were configured by the human.
+- Production read-only preflight remains intentionally paused after its
+  prior redacted unexpected-response result; this pass did **not** restart
+  SSH diagnostics or any other Production read-only check.
+
+**Not covered by this pass** — still genuinely open, not to be inferred as
+done:
+
+- `auth/logout` session clearing (§4).
+- Refund-vs-progress retention policy verification (§5).
+- Paddle customer-portal link itself (§5) — only the emailed
+  receipt/invoice was confirmed.
+- Failed/cancelled checkout UX (§5).
+- Production server/SSH/config items gated on the paused read-only preflight
+  (§3): `error_log` path/rotation, CORS allowed-origins, session cookie
+  settings in a real browser, `config.php` key presence, `DEV_HARNESS_ENABLED`
+  off, real-mailer env vars.
+- DB backup and rollback-rehearsal (§2, §7).
+- Final go/no-go decision (§7).
 
 ## Notes
 
