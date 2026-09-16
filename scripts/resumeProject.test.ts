@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { GitHubUnreachableError, githubJson, runResumePreflight } from './resumeProject.mjs'
+import { GitHubUnreachableError, fetchOriginMain, githubJson, runResumePreflight } from './resumeProject.mjs'
 
 const VALID_STATE = {
   schema_version: 1,
@@ -45,6 +45,39 @@ describe('githubJson', () => {
     const fetchImpl = () => Promise.resolve({ ok: true, json: () => Promise.resolve({ hello: 'world' }) })
 
     await expect(githubJson('/repos/example/example/pulls', { fetchImpl })).resolves.toEqual({ hello: 'world' })
+  })
+})
+
+describe('fetchOriginMain', () => {
+  it('wraps a timed-out git fetch in GitHubUnreachableError without performing a real git/network operation', () => {
+    const execFileSyncImpl = () => {
+      const error: NodeJS.ErrnoException & { killed?: boolean; signal?: string } = new Error(
+        'Command failed: git fetch --quiet origin main',
+      )
+      error.killed = true
+      error.signal = 'SIGTERM'
+      throw error
+    }
+
+    expect(() => fetchOriginMain('/repo', { timeoutMs: 5, execFileSyncImpl })).toThrow(GitHubUnreachableError)
+    expect(() => fetchOriginMain('/repo', { timeoutMs: 5, execFileSyncImpl })).toThrow(/timed out after 5ms/)
+  })
+
+  it('wraps a git fetch network/DNS failure in GitHubUnreachableError', () => {
+    const execFileSyncImpl = () => {
+      const error: NodeJS.ErrnoException & { stderr?: Buffer } = new Error('Command failed: git fetch --quiet origin main')
+      error.stderr = Buffer.from('fatal: Could not resolve host: github.com')
+      throw error
+    }
+
+    expect(() => fetchOriginMain('/repo', { execFileSyncImpl })).toThrow(GitHubUnreachableError)
+    expect(() => fetchOriginMain('/repo', { execFileSyncImpl })).toThrow(/Could not resolve host/)
+  })
+
+  it('does not throw when the fetch succeeds', () => {
+    const execFileSyncImpl = () => ''
+
+    expect(() => fetchOriginMain('/repo', { execFileSyncImpl })).not.toThrow()
   })
 })
 

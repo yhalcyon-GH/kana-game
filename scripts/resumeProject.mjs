@@ -42,6 +42,31 @@ function git(args, root) {
   return execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
 }
 
+// Bounds the read-only `git fetch origin main` the same way githubJson bounds
+// REST reads, so a network/DNS/hang failure on the fetch also fails closed
+// instead of blocking `npm run resume` indefinitely.
+export function fetchOriginMain(
+  root,
+  { timeoutMs = GITHUB_API_TIMEOUT_MS, execFileSyncImpl = execFileSync } = {},
+) {
+  try {
+    execFileSyncImpl('git', ['fetch', '--quiet', 'origin', 'main'], {
+      cwd: root,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: timeoutMs,
+    })
+  } catch (error) {
+    if (error?.killed || error?.signal) {
+      throw new GitHubUnreachableError(`git fetch origin main timed out after ${timeoutMs}ms`, { cause: error })
+    }
+    throw new GitHubUnreachableError(
+      `git fetch origin main failed: ${error?.stderr?.toString?.().trim() || error?.message || error}`,
+      { cause: error },
+    )
+  }
+}
+
 export async function githubJson(path, { token, timeoutMs = GITHUB_API_TIMEOUT_MS, fetchImpl = fetch } = {}) {
   let response
   try {
@@ -65,8 +90,12 @@ export async function githubJson(path, { token, timeoutMs = GITHUB_API_TIMEOUT_M
   return response.json()
 }
 
-export async function readLiveGitHubState(root = process.cwd(), token = process.env.GITHUB_TOKEN, { timeoutMs, fetchImpl } = {}) {
-  git(['fetch', '--quiet', 'origin', 'main'], root)
+export async function readLiveGitHubState(
+  root = process.cwd(),
+  token = process.env.GITHUB_TOKEN,
+  { timeoutMs, fetchImpl, execFileSyncImpl } = {},
+) {
+  fetchOriginMain(root, { timeoutMs, execFileSyncImpl })
   const originMainSha = git(['rev-parse', 'origin/main'], root)
   const remoteUrl = git(['remote', 'get-url', 'origin'], root)
   const { owner, repo } = parseGitHubRepository(remoteUrl)

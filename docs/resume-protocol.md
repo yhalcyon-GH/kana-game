@@ -18,8 +18,9 @@ requests through GitHub, and compares that live state with
 [`ops/project-state.json`](../ops/project-state.json). It only reads state;
 it never creates branches, pull requests, deployments, or configuration.
 
-Each GitHub API read `npm run resume` performs has a 10-second timeout
-(`GITHUB_API_TIMEOUT_MS` in `scripts/resumeProject.mjs`). If GitHub is
+Each network operation `npm run resume` performs — the initial
+`git fetch origin main` and every GitHub API read — has the same 10-second
+timeout (`GITHUB_API_TIMEOUT_MS` in `scripts/resumeProject.mjs`). If GitHub is
 unreachable — timeout, DNS/network failure, or an API error response —
 `npm run resume` fails closed: it exits non-zero with a message stating that
 no mutating action was attempted and to retry the read-only resume preflight
