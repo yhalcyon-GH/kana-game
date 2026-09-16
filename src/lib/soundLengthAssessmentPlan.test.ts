@@ -7,7 +7,10 @@ describe('sound-length assessment plan', () => {
 
   function questionsAcrossSeeds() {
     const byWordId = new Map<string, ReturnType<typeof buildSoundLengthAssessmentPlan>['questions'][number]>()
-    for (let seed = 0; seed < 250 && byWordId.size < words.length; seed++) {
+    // 500 (raised from 250 for Issue #272's new sokuon-domain word, which
+    // shifted the deterministic RNG sequence enough that full coverage now
+    // needs seed 251 — a sampling-budget bump, not a data/logic change).
+    for (let seed = 0; seed < 500 && byWordId.size < words.length; seed++) {
       for (const question of buildSoundLengthAssessmentPlan(words, createSoundLengthRng(seed)).questions) {
         byWordId.set(question.word.id, question)
       }

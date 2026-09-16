@@ -8,8 +8,9 @@ import { hashAccentTable } from '../../scripts/accentBaselineHash.mjs'
 // duplicated here (not imported from the script, which is a standalone
 // .mjs entrypoint, not a module meant to export its own constants) so this
 // test fails loudly if that script's pinned hash and this test's ever
-// diverge, same as the 298-count duplication below.
-const APPROVED_TABLE_HASH = '1a292b0884b39469ab381d5491a509fec86e0d615a8793e2082ad46c2e2e7dc2'
+// diverge, same as the 306-count duplication below. Updated 2026-09-16
+// (Issue #272): 8 new words added, see docs/pitch-accent-provenance.md.
+const APPROVED_TABLE_HASH = 'cde4cf39edae6d13ca0154bada872a46ea46f532f4a9bad6710b860dea116b39'
 
 // Focused check for the こんにちは/こんばんは greetings (moved from the
 // deleted wa-row into the final combined ra-row — Issue #155): both are
@@ -60,8 +61,8 @@ describe('accents: ra-mizu-wo-nomu', () => {
 // in-suite guard that npm test alone still catches an accidental bulk
 // change to the table.
 describe('accents: approved table size', () => {
-  it('has exactly 298 entries (the 2026-09 commercial-release audit baseline)', () => {
-    expect(Object.keys(ACCENT_PATTERNS)).toHaveLength(298)
+  it('has exactly 306 entries (the 2026-09 commercial-release audit baseline, plus Issue #272\'s 8 new words)', () => {
+    expect(Object.keys(ACCENT_PATTERNS)).toHaveLength(306)
   })
 })
 

@@ -99,6 +99,10 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'ha-nihon', kana: 'にほん', romaji: 'nihon', meaning: 'Japan', image: 'word-icons/ha-nihon.webp', characterIds: ['ni', 'ho', 'n'], audioText: '日本。' },
     { id: 'ha-kanpai', kana: 'かんぱい', romaji: 'kanpai', meaning: 'cheers', image: 'word-icons/ha-kanpai.webp', characterIds: ['ka', 'n', 'pa', 'i'], audioText: '乾杯。' },
     { id: 'ha-nihongo', kana: 'にほんご', romaji: 'nihongo', meaning: 'Japanese (language)', image: 'word-icons/ha-nihongo.webp', characterIds: ['ni', 'ho', 'n', 'go'], audioText: '日本語' },
+    // Added for Issue #272 (kana frequency audit) — べ/ぴ (dakuten/handakuten
+    // ha-row members) had accidental scarcity elsewhere in the curriculum.
+    { id: 'ha-nabe', kana: 'なべ', romaji: 'nabe', meaning: 'pot (hot pot)', image: 'word-icons/ha-nabe.webp', characterIds: ['na', 'be'], audioText: '鍋' },
+    { id: 'ha-enpitsu', kana: 'えんぴつ', romaji: 'enpitsu', meaning: 'pencil', image: 'word-icons/ha-enpitsu.webp', characterIds: ['e', 'n', 'pi', 'tsu'], audioText: '鉛筆' },
   ],
   'ma-row': [
     { id: 'ma-mizu', kana: 'みず', romaji: 'mizu', meaning: 'water', image: 'word-icons/ma-mizu.webp', characterIds: ['mi', 'zu'], audioText: '水' },
@@ -161,6 +165,8 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     // comment in particleGuide.ts.
     { id: 'ra-konnichiwa', kana: 'こんにちは', romaji: 'konnichiwa', meaning: 'hello / good afternoon', image: 'word-icons/ra-konnichiwa.webp', characterIds: ['ko', 'n', 'ni', 'chi', 'ha'], audioText: 'こんにちは。' },
     { id: 'ra-konbanwa', kana: 'こんばんは', romaji: 'konbanwa', meaning: 'good evening', image: 'word-icons/ra-konbanwa.webp', characterIds: ['ko', 'n', 'ba', 'n', 'ha'], audioText: 'こんばんは。' },
+    // Added for Issue #272 (kana frequency audit) — れ had accidental scarcity.
+    { id: 'ra-kore', kana: 'これ', romaji: 'kore', meaning: 'this', image: 'word-icons/ra-kore.webp', characterIds: ['ko', 're'] },
   ],
 
   // ===== カタカナ (katakana) vocabulary =====
@@ -258,6 +264,8 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'katakana-na-sauna', kana: 'サウナ', romaji: 'sauna', meaning: 'sauna', image: 'word-icons/katakana-na-sauna.webp', characterIds: ['katakana-sa', 'katakana-u', 'katakana-na'] },
     { id: 'katakana-na-doonatsu', kana: 'ドーナツ', romaji: 'doonatsu', meaning: 'donut', image: 'word-icons/katakana-na-doonatsu.webp', characterIds: ['katakana-do', 'katakana-chouon', 'katakana-na', 'katakana-tsu'] },
     { id: 'katakana-na-kanuu', kana: 'カヌー', romaji: 'kanuu', meaning: 'canoe', image: 'word-icons/katakana-na-kanuu.webp', characterIds: ['katakana-ka', 'katakana-nu', 'katakana-chouon'] },
+    // Added for Issue #272 (kana frequency audit) — ネ had accidental scarcity.
+    { id: 'katakana-na-nekutai', kana: 'ネクタイ', romaji: 'nekutai', meaning: 'necktie', image: 'word-icons/katakana-na-nekutai.webp', characterIds: ['katakana-ne', 'katakana-ku', 'katakana-ta', 'katakana-i'] },
   ],
   'katakana-ha-row': [
     { id: 'katakana-ha-pan', kana: 'パン', romaji: 'pan', meaning: 'bread', image: 'word-icons/katakana-ha-pan.webp', characterIds: ['katakana-pa', 'katakana-n'] },
@@ -271,6 +279,8 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'katakana-ha-piano', kana: 'ピアノ', romaji: 'piano', meaning: 'piano', image: 'word-icons/katakana-ha-piano.webp', characterIds: ['katakana-pi', 'katakana-a', 'katakana-no'] },
     { id: 'katakana-ha-pinku', kana: 'ピンク', romaji: 'pinku', meaning: 'pink', image: 'word-icons/katakana-ha-pinku.webp', characterIds: ['katakana-pi', 'katakana-n', 'katakana-ku'] },
     { id: 'katakana-ha-konbini', kana: 'コンビニ', romaji: 'konbini', meaning: 'convenience store', image: 'word-icons/katakana-ha-konbini.webp', characterIds: ['katakana-ko', 'katakana-n', 'katakana-bi', 'katakana-ni'] },
+    // Added for Issue #272 (kana frequency audit) — ペ had accidental scarcity.
+    { id: 'katakana-ha-pen', kana: 'ペン', romaji: 'pen', meaning: 'pen', image: 'word-icons/katakana-ha-pen.webp', characterIds: ['katakana-pe', 'katakana-n'] },
   ],
   'katakana-ma-row': [
     { id: 'katakana-ma-mama', kana: 'ママ', romaji: 'mama', meaning: 'mom', image: 'word-icons/katakana-ma-mama.webp', characterIds: ['katakana-ma', 'katakana-ma'] },
@@ -307,6 +317,11 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'katakana-ra-booru', kana: 'ボール', romaji: 'booru', meaning: 'ball', image: 'word-icons/katakana-ra-booru.webp', characterIds: ['katakana-bo', 'katakana-chouon', 'katakana-ru'] },
     { id: 'katakana-ra-toire', kana: 'トイレ', romaji: 'toire', meaning: 'toilet / restroom', image: 'word-icons/katakana-ra-toire.webp', characterIds: ['katakana-to', 'katakana-i', 'katakana-re'] },
     { id: 'katakana-ra-resutoran', kana: 'レストラン', romaji: 'resutoran', meaning: 'restaurant', image: 'word-icons/katakana-ra-resutoran.webp', characterIds: ['katakana-re', 'katakana-su', 'katakana-to', 'katakana-ra', 'katakana-n'] },
+    // Added for Issue #272 (kana frequency audit) — ゼ had accidental scarcity.
+    // Placed here (not katakana-sa-row, where ゼ is introduced) because ロ
+    // isn't available until this row — see curriculum.test.ts's "only uses
+    // characters introduced at or before its row" invariant.
+    { id: 'katakana-ra-zero', kana: 'ゼロ', romaji: 'zero', meaning: 'zero', image: 'word-icons/katakana-ra-zero.webp', characterIds: ['katakana-ze', 'katakana-ro'] },
   ],
 
   // ===== 促音 (sokuon) vocabulary =====
@@ -345,6 +360,11 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     // audioText to keep the contrast visually obvious.
     { id: 'sokuon-machi', kana: 'まち', romaji: 'machi', meaning: 'town', image: 'word-icons/sokuon-machi.webp', characterIds: ['ma', 'chi'] },
     { id: 'sokuon-katakana-macchi', kana: 'マッチ', romaji: 'macchi', meaning: 'match (for lighting)', image: 'word-icons/sokuon-katakana-macchi.webp', characterIds: ['katakana-ma', 'katakana-sokuon', 'katakana-chi'] },
+    // Added for Issue #272 (kana frequency audit) — ポ had accidental
+    // scarcity. Placed here (not katakana-ha-row, where ポ is introduced)
+    // because it needs katakana-sokuon (ッ), only available once this
+    // category's row is reached.
+    { id: 'sokuon-katakana-poketto', kana: 'ポケット', romaji: 'poketto', meaning: 'pocket', image: 'word-icons/sokuon-katakana-poketto.webp', characterIds: ['katakana-po', 'katakana-ke', 'katakana-sokuon', 'katakana-to'] },
   ],
 
   // ===== 長音 (chōon) vocabulary =====
@@ -580,6 +600,11 @@ export const WORDS_BY_ROW: Record<string, AnchorWord[]> = {
     { id: 'special-katakana-fa-mirukutii', kana: 'ミルクティー', romaji: 'mirukutī', meaning: 'milk tea', image: 'word-icons/special-katakana-fa-mirukutii.webp', characterIds: ['katakana-mi', 'katakana-ru', 'katakana-ku', 'katakana-ti', 'katakana-chouon'] },
     { id: 'special-katakana-fa-dinaa', kana: 'ディナー', romaji: 'dinā', meaning: 'dinner', image: 'word-icons/special-katakana-fa-dinaa.webp', characterIds: ['katakana-di', 'katakana-na', 'katakana-chouon'] },
     { id: 'special-katakana-fa-kyandii', kana: 'キャンディー', romaji: 'kyandī', meaning: 'candy', image: 'word-icons/special-katakana-fa-kyandii.webp', characterIds: ['katakana-kya', 'katakana-n', 'katakana-di', 'katakana-chouon'] },
+    // Added for Issue #272 (kana frequency audit) — ユ had accidental
+    // scarcity. Placed here (not katakana-ya-row, where ユ is introduced)
+    // because it needs katakana-fo (フォ), only available once this
+    // Special Katakana row is reached.
+    { id: 'special-katakana-fa-yunifoomu', kana: 'ユニフォーム', romaji: 'yunifōmu', meaning: 'uniform', image: 'word-icons/special-katakana-fa-yunifoomu.webp', characterIds: ['katakana-yu', 'katakana-ni', 'katakana-fo', 'katakana-chouon', 'katakana-mu'] },
   ],
   'special-katakana-she-row': [
     { id: 'special-katakana-she-shefu', kana: 'シェフ', romaji: 'shefu', meaning: 'chef', image: 'word-icons/special-katakana-she-shefu.webp', characterIds: ['katakana-she', 'katakana-fu'] },

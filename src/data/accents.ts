@@ -60,6 +60,7 @@ export const ACCENT_PATTERNS: Record<string, string> = {
   'chouon-u-suuji': 'LHH', // すうじ (suuji)
   'chouon-u-yuuki': 'HLL', // ゆうき (yuuki)
   'ha-buta': 'LH', // ぶた (buta)
+  'ha-enpitsu': 'LHHH', // えんぴつ (enpitsu) — [0] heiban
   'ha-fuku': 'LH', // ふく (fuku)
   'ha-fune': 'HL', // ふね (fune)
   'ha-hako': 'LH', // はこ (hako)
@@ -70,6 +71,7 @@ export const ACCENT_PATTERNS: Record<string, string> = {
   'ha-hoshi': 'LH', // ほし (hoshi)
   'ha-kanpai': 'LHHH', // かんぱい (kanpai)
   'ha-kutsushita': 'LHLL', // くつした (kutsushita)
+  'ha-nabe': 'HL', // なべ (nabe) — [1] atamadaka
   'ha-nihon': 'LHL', // にほん (nihon)
   'ha-nihongo': 'LHHH', // にほんご (nihongo)
   'ha-soba': 'HL', // そば (soba)
@@ -102,6 +104,7 @@ export const ACCENT_PATTERNS: Record<string, string> = {
   'katakana-ha-panda': 'HLL', // パンダ (panda)
   'katakana-ha-papa': 'HL', // パパ (papa)
   'katakana-ha-pasuta': 'HLL', // パスタ (pasuta)
+  'katakana-ha-pen': 'HL', // ペン (pen) — [1] atamadaka
   'katakana-ha-piano': 'LHH', // ピアノ (piano)
   'katakana-ha-pinku': 'HLL', // ピンク (pinku)
   'katakana-ha-piza': 'HL', // ピザ (piza)
@@ -120,6 +123,7 @@ export const ACCENT_PATTERNS: Record<string, string> = {
   'katakana-na-kani': 'LH', // カニ (kani)
   'katakana-na-kanuu': 'HLL', // カヌー (kanuu)
   'katakana-na-nasu': 'HL', // ナス (nasu)
+  'katakana-na-nekutai': 'HLLL', // ネクタイ (nekutai) — [1] atamadaka
   'katakana-na-nooto': 'HLL', // ノート (nooto)
   'katakana-na-sauna': 'HLL', // サウナ (sauna)
   'katakana-na-tenisu': 'HLL', // テニス (tenisu)
@@ -134,6 +138,7 @@ export const ACCENT_PATTERNS: Record<string, string> = {
   'katakana-ra-toire': 'HLL', // トイレ (toire)
   'katakana-ra-tora': 'LH', // トラ (tora)
   'katakana-ra-wani': 'HL', // ワニ (wani)
+  'katakana-ra-zero': 'HL', // ゼロ (zero) — [1] atamadaka
   'katakana-sa-aisu': 'HLL', // アイス (aisu)
   'katakana-sa-keesu': 'HLL', // ケース (keesu)
   'katakana-sa-kuizu': 'HLL', // クイズ (kuizu)
@@ -184,6 +189,7 @@ export const ACCENT_PATTERNS: Record<string, string> = {
   'ra-karaage': 'LHHH', // からあげ (karaage)
   'ra-konbanwa': 'LHHHH', // こんばんは (konbanwa)
   'ra-konnichiwa': 'LHHHH', // こんにちは (konnichiwa)
+  'ra-kore': 'LH', // これ (kore) — [0] heiban
   'ra-kuruma': 'LHH', // くるま (kuruma)
   'ra-misoshiru': 'LHHL', // みそしる (misoshiru)
   'ra-mizu-wo-nomu': 'LHHHL', // みずをのむ (mizu wo nomu)
@@ -212,6 +218,7 @@ export const ACCENT_PATTERNS: Record<string, string> = {
   'sokuon-katakana-baggu': 'HLL', // バッグ (baggu)
   'sokuon-katakana-bagu': 'HL', // バグ (bagu)
   'sokuon-katakana-macchi': 'HLL', // マッチ (macchi)
+  'sokuon-katakana-poketto': 'LHLL', // ポケット (poketto) — [2] nakadaka
   'sokuon-kite': 'HL', // きて (kite)
   'sokuon-kitte': 'LHH', // きって (kitte)
   'sokuon-machi': 'LH', // まち (machi)
@@ -234,6 +241,7 @@ export const ACCENT_PATTERNS: Record<string, string> = {
   'special-katakana-fa-paatii': 'HLLL', // パーティー (pātī)
   'special-katakana-fa-sofa': 'HL', // ソファ (sofa)
   'special-katakana-fa-tisshu': 'HLL', // ティッシュ (tisshu)
+  'special-katakana-fa-yunifoomu': 'HLLLL', // ユニフォーム (yunifōmu) — [1] atamadaka, human-confirmed
   'special-katakana-she-chekku': 'HLL', // チェック (chekku)
   'special-katakana-she-chesu': 'HL', // チェス (chesu)
   'special-katakana-she-harowin': 'HLLL', // ハロウィン (harowin)

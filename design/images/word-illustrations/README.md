@@ -6,6 +6,8 @@ Backups/sources for the vocabulary illustrations shipped at `public/word-icons/<
 
 - **`special-katakana-chatgpt-2026-08-29/`** — all 22 Special Katakana words' illustrations (see `curriculum.ts`'s `SPECIAL_KATAKANA_CATEGORY_ID`), sourced via ChatGPT the same way as the 2026-08-19 batch above. `images/` holds the 22 finished per-word PNGs, named by romaji (e.g. `fan.png`, `dhina-.png` for ディナー) rather than word id. 21 were supplied first; `shea.png` (シェア) followed as a same-batch same-day addition once its illustration was supplied.
 
+- **`human-provided-2026-09-16/`** — the 8 kana-frequency-audit vocabulary additions from Issue #272 (なべ/ネクタイ/ペン/ポケット/ユニフォーム/ゼロ/えんぴつ/これ). `images/` holds the 8 source PNGs supplied directly by the human (named by romaji, e.g. `nabe.png`, `pocket.png`), converted 1:1 to `public/word-icons/<word-id>.webp` at the standard 256×256.
+
 `still-live-legacy/` no longer exists — it briefly held the couple of pre-2026-08-19 icons this batch hadn't covered (`wa-mizu-wo-nomu`, `youon-ka-gyuuniku`), but both have since gotten their own individual replacements added to `chatgpt-batch-2026-08-19/images/` above, so nothing pre-2026-08-19 is live anymore.
 
 `pending-review/` (gitignored, created on demand) is where `scripts/generateWordIcons.mjs` writes a fresh batch for review before it gets a permanent named folder here.

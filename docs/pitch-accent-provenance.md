@@ -129,7 +129,8 @@ without any network access:
   every multi-mora word present);
 - no stale entries left over for words that no longer exist;
 - every value is H/L-only and matches its word's real mora count;
-- the approved entry count (298) has not silently changed;
+- the approved entry count (306, updated 2026-09-16 for Issue #272's 8
+  new words) has not silently changed;
 - a **SHA-256 hash of the entire approved table** (every id:accent pair,
   sorted by id — see `scripts/accentBaselineHash.mjs`) matches a hardcoded
   baseline hash. This is the mechanism that actually pins all 298 values,

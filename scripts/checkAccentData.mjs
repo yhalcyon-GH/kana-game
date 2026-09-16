@@ -89,8 +89,12 @@ for (const [id, accent] of Object.entries(accents)) {
 // "fixed" by recomputing the hash from the current accents.ts without that
 // review (see accentBaselineHash.mjs's own doc comment for how the hash is
 // computed, if a reviewed change ever needs a new one recorded here).
-const APPROVED_ENTRY_COUNT = 298
-const APPROVED_TABLE_HASH = '1a292b0884b39469ab381d5491a509fec86e0d615a8793e2082ad46c2e2e7dc2'
+// Updated 2026-09-16 (Issue #272): 8 new words added, each with a
+// human-researched/approved accent (なべ/ネクタイ/ペン/ポケット/ユニフォーム/
+// ゼロ/えんぴつ/これ) — see the issue's accent-decision comments and
+// docs/pitch-accent-provenance.md.
+const APPROVED_ENTRY_COUNT = 306
+const APPROVED_TABLE_HASH = 'cde4cf39edae6d13ca0154bada872a46ea46f532f4a9bad6710b860dea116b39'
 const actualCount = Object.keys(accents).length
 if (actualCount !== APPROVED_ENTRY_COUNT) {
   errors.push(`expected ${APPROVED_ENTRY_COUNT} approved accent entries, found ${actualCount}`)

@@ -1,0 +1,58 @@
+[
+  {
+    "word": "鉛筆",
+    "filename": "enpitsu.mp3",
+    "start_ms": 0,
+    "end_ms": 940,
+    "duration_ms": 940
+  },
+  {
+    "word": "これ",
+    "filename": "kore.mp3",
+    "start_ms": 1530,
+    "end_ms": 2030,
+    "duration_ms": 500
+  },
+  {
+    "word": "鍋",
+    "filename": "nabe.mp3",
+    "start_ms": 2505,
+    "end_ms": 3065,
+    "duration_ms": 560
+  },
+  {
+    "word": "ネクタイ",
+    "filename": "nekutai.mp3",
+    "start_ms": 3670,
+    "end_ms": 4450,
+    "duration_ms": 780
+  },
+  {
+    "word": "ペン",
+    "filename": "pen.mp3",
+    "start_ms": 5040,
+    "end_ms": 5490,
+    "duration_ms": 450
+  },
+  {
+    "word": "ポケット",
+    "filename": "poketto.mp3",
+    "start_ms": 6165,
+    "end_ms": 6975,
+    "duration_ms": 810
+  },
+  {
+    "word": "ユニフォーム",
+    "filename": "yunifoomu.mp3",
+    "start_ms": 7585,
+    "end_ms": 8535,
+    "duration_ms": 950
+  },
+  {
+    "word": "ゼロ",
+    "filename": "zero.mp3",
+    "start_ms": 9085,
+    "end_ms": 9561,
+    "duration_ms": 476
+  }
+]

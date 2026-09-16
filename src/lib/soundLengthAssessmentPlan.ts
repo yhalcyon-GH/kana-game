@@ -61,6 +61,9 @@ const SOUND_LENGTH_QUESTION_SPECS: Record<string, SoundLengthQuestionSpec> = {
   'sokuon-ikki': { domain: 'sokuon', blankIndex: 1, correct: 'っ' },
   'sokuon-machi': { domain: 'no-insertion', blankIndex: 1, correct: '×', contrast: 'sokuon' },
   'sokuon-katakana-macchi': { domain: 'sokuon', blankIndex: 1, correct: 'ッ' },
+  // Added for Issue #272 (kana frequency audit) — ポケット (poketto);
+  // ポ(0)ケ(1)ッ(2)ト(3), so the ッ blank is at index 2.
+  'sokuon-katakana-poketto': { domain: 'sokuon', blankIndex: 2, correct: 'ッ' },
   'chouon-a-obasan': { domain: 'no-insertion', blankIndex: 2, correct: '×', contrast: 'chouon', confusable: ['あ'] },
   'chouon-a-obaasan': { domain: 'long-vowel', blankIndex: 2, correct: 'あ' },
   'chouon-a-okaasan': { domain: 'long-vowel', blankIndex: 2, correct: 'あ' },
