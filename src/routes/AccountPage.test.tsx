@@ -227,7 +227,7 @@ describe('production Account purchase UI', () => {
     expect(sdk.open).toHaveBeenCalledOnce()
   })
 
-  it('logout invalidates access and pending confirmation before awaiting its HTTP response', async () => {
+  it('logout invalidates pending confirmation immediately, but only signs out after the server confirms', async () => {
     await renderAccount()
     await start()
     const pendingEntitlement = deferred<Response>()
@@ -238,8 +238,12 @@ describe('production Account purchase UI', () => {
     const oldCallback = callbacks.at(-1)!
     fetchMock.mockReturnValueOnce(pendingLogout.promise)
     fireEvent.click(screen.getByRole('button', { name: 'Sign out' }))
-    expect(screen.getByText('Not signed in.')).toBeInTheDocument()
-    expect(screen.getByLabelText('Server access')).toHaveTextContent('signed-out')
+    // The HttpOnly cookie session is unaffected until logout.php confirms,
+    // so the UI must not claim signed-out yet -- only the in-memory purchase
+    // correlation is invalidated up front.
+    expect(screen.queryByText('Not signed in.')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Server access')).not.toHaveTextContent('signed-out')
+    expect(screen.getByRole('button', { name: 'Signing out…' })).toBeDisabled()
     expect(sdk.close).toHaveBeenCalledOnce()
     expect(requestCount('/auth/logout.php')).toBe(1)
     await act(async () => {
@@ -247,9 +251,10 @@ describe('production Account purchase UI', () => {
       oldCallback({ name: 'checkout.completed', data: { transaction_id: 'txn_1', custom_data: { purchase_ref: privateRef } } } as PaddleEventData)
       await vi.advanceTimersByTimeAsync(60_000)
     })
-    expect(screen.getByLabelText('Server access')).toHaveTextContent('signed-out')
-    expect(screen.queryByText('Full Tamamizu: Active')).not.toBeInTheDocument()
+    expect(screen.queryByText('Not signed in.')).not.toBeInTheDocument()
     await act(async () => { pendingLogout.resolve(json({ ok: true })) })
+    expect(screen.getByText('Not signed in.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Server access')).toHaveTextContent('signed-out')
   })
 
   it.each(['unmount', 'cancel'] as const)('%s prevents a pending poll from applying active to the still-mounted Provider', async (action) => {

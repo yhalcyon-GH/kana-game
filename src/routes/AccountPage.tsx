@@ -25,11 +25,28 @@ export default function AccountPage() {
   // provider's own startup/focus refreshes never touch this), and always
   // replaced -- never accumulated -- by the next manual refresh's outcome.
   const [inactiveRefreshNotice, setInactiveRefreshNotice] = useState(false)
+  const [logoutStatus, setLogoutStatus] = useState<'idle' | 'signing-out' | 'failed'>('idle')
 
   async function handleLogout() {
+    if (logoutStatus === 'signing-out') return
+    // Sensitive purchase correlation is local/in-memory and should be cleared
+    // immediately even if the server-side session revoke later fails.
     purchase.invalidate()
-    markSignedOut()
-    if (apiBase) await logout(apiBase)
+    setLogoutStatus('signing-out')
+    if (!apiBase) {
+      setLogoutStatus('failed')
+      return
+    }
+    const result = await logout(apiBase)
+    if (result.kind === 'signed-out') {
+      markSignedOut()
+      setLogoutStatus('idle')
+      return
+    }
+    // Keep the server-backed authenticated presentation on an unconfirmed
+    // revoke. The HttpOnly cookie is not writable by this JavaScript, so
+    // pretending to sign out here would leave the real session live.
+    setLogoutStatus('failed')
   }
 
   async function handleCheckEntitlement() {
@@ -140,7 +157,19 @@ export default function AccountPage() {
         </>
       )}
       {(currentUser || confirming) && (
-        <button type="button" onClick={() => void handleLogout()} className={buttonClass}>Sign out</button>
+        <button
+          type="button"
+          disabled={logoutStatus === 'signing-out'}
+          onClick={() => void handleLogout()}
+          className={`${buttonClass} disabled:cursor-not-allowed disabled:opacity-50`}
+        >
+          {logoutStatus === 'signing-out' ? 'Signing out…' : 'Sign out'}
+        </button>
+      )}
+      {logoutStatus === 'failed' && (
+        <p role="alert" className="rounded-xl border border-amber-500 p-4 text-center">
+          Couldn’t sign out. Please try again.
+        </p>
       )}
     </div>
   )

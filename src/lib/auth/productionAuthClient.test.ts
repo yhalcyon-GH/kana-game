@@ -173,17 +173,22 @@ describe('productionAuthClient', () => {
     expect(await fetchCurrentEntitlementResult(API_BASE)).toEqual({ kind: 'unavailable' })
   })
 
-  it('logout() posts with credentials: "include" and no Authorization header', async () => {
+  it('logout() posts with credentials: "include", no Authorization header, and confirms success', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({ status: 'ok' }))
-    await logout(API_BASE)
+    const result = await logout(API_BASE)
 
     const [, init] = vi.mocked(fetch).mock.calls[0]
     expect(init).toMatchObject({ method: 'POST', credentials: 'include' })
     expect((init?.headers as Record<string, string> | undefined)?.['Authorization']).toBeUndefined()
+    expect(result).toEqual({ kind: 'signed-out' })
   })
 
-  it('logout() never throws on a network failure', async () => {
-    vi.mocked(fetch).mockRejectedValueOnce(new Error('network down'))
-    await expect(logout(API_BASE)).resolves.toBeUndefined()
+  it('logout() reports unavailable instead of pretending success on HTTP or network failure', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(jsonResponse({ error: 'temporary server error' }, false, 500))
+      .mockRejectedValueOnce(new Error('network down'))
+
+    await expect(logout(API_BASE)).resolves.toEqual({ kind: 'unavailable' })
+    await expect(logout(API_BASE)).resolves.toEqual({ kind: 'unavailable' })
   })
 })
