@@ -107,3 +107,53 @@ export function readSafeReleaseIntegrityResult(status, stdout, stderr) {
 
   throw new Error('Remote command returned an unexpected response. Output was intentionally redacted.')
 }
+
+/**
+ * Builds the fixed PHP CLI version probe. It never changes directory into
+ * the API root, reads a file, accesses a database, or accepts an arbitrary
+ * remote command — only the allowlisted PHP CLI binary itself is invoked
+ * with the built-in `-v` flag.
+ */
+export function buildPhpVersionProbeSshInvocation(environment) {
+  const target = assertMatch(required(environment, 'TAMAMIZU_PRODUCTION_SSH_TARGET'), targetPattern, 'SSH target')
+  const port = assertMatch(required(environment, 'TAMAMIZU_PRODUCTION_SSH_PORT'), portPattern, 'SSH port')
+  const identityFile = assertLocalAbsolutePath(required(environment, 'TAMAMIZU_PRODUCTION_SSH_IDENTITY_FILE'), 'identity-file path')
+  const knownHosts = assertLocalAbsolutePath(required(environment, 'TAMAMIZU_PRODUCTION_KNOWN_HOSTS'), 'known-hosts path')
+  const phpCommand = assertMatch(environment.TAMAMIZU_PRODUCTION_PHP_COMMAND || 'php', phpCommandPattern, 'PHP command')
+
+  return {
+    command: 'ssh',
+    args: [
+      '-T',
+      '-o', 'BatchMode=yes',
+      '-o', 'IdentitiesOnly=yes',
+      '-o', 'StrictHostKeyChecking=yes',
+      '-o', `UserKnownHostsFile=${knownHosts}`,
+      '-i', identityFile,
+      '-p', port,
+      target,
+      `${phpCommand} -v`,
+    ],
+  }
+}
+
+/**
+ * Parses the PHP CLI version probe response into only a normalized
+ * major.minor version or a safe classification. It never returns raw
+ * remote stdout/stderr to the caller.
+ */
+export function readSafePhpVersionProbeResult(status, stdout, stderr) {
+  const normalizedStdout = stdout.replace(/\r\n/g, '\n')
+  const normalizedStderr = stderr.replace(/\r\n/g, '\n')
+
+  if (status === 255) {
+    return { ok: false, reason: 'ssh-connection-failed' }
+  }
+
+  const versionMatch = /^PHP (\d{1,2})\.(\d{1,2})\.\d+/.exec(normalizedStdout)
+  if (status === 0 && versionMatch && normalizedStderr === '') {
+    return { ok: true, phpMajorMinor: `${versionMatch[1]}.${versionMatch[2]}` }
+  }
+
+  return { ok: false, reason: 'php-cli-unavailable-or-unrecognized' }
+}
