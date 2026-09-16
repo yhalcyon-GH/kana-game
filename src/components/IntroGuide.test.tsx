@@ -180,6 +180,36 @@ describe('IntroGuide (Issue #29/#31)', () => {
   })
 })
 
+// Issue #271: the commercial disclosure must be visible on every step, not
+// just the final slide, because Skip is available from step 1 and can reach
+// normal app use before a learner would ever see a "last slide only" notice.
+describe('IntroGuide commercial disclosure (Issue #271)', () => {
+  it('is visible on step 1 alongside Skip, before any interaction', () => {
+    const { getByText, getByTestId } = render(<IntroGuide />)
+    expect(getByText(locale.skipLabel)).toBeInTheDocument()
+    expect(getByTestId('intro-guide-commercial-disclosure')).toHaveTextContent(locale.commercialDisclosure)
+  })
+
+  it('states Hiragana is free and Full Tamamizu is a one-time USD 5.00 + tax purchase, not a subscription, with the total shown at Paddle Checkout', () => {
+    const { getByTestId } = render(<IntroGuide />)
+    const disclosure = getByTestId('intro-guide-commercial-disclosure').textContent
+    expect(disclosure).toMatch(/Hiragana is free/)
+    expect(disclosure).toMatch(/USD 5\.00/)
+    expect(disclosure).toMatch(/not a subscription/)
+    expect(disclosure).toMatch(/Paddle Checkout/)
+  })
+
+  it('stays visible across every step, including the final one', () => {
+    const { getByText, getByTestId } = render(<IntroGuide />)
+    for (let i = 0; i < INTRO_GUIDE_STEPS.length - 1; i++) {
+      expect(getByTestId('intro-guide-commercial-disclosure')).toHaveTextContent(locale.commercialDisclosure)
+      fireEvent.click(getByText(locale.nextLabel))
+    }
+    expect(getByTestId('intro-guide-commercial-disclosure')).toHaveTextContent(locale.commercialDisclosure)
+    expect(getByText(locale.finalLabel)).toBeInTheDocument()
+  })
+})
+
 describe('IntroGuide Back navigation', () => {
   it('Next then Back returns to the previous step', () => {
     const { getByText } = render(<IntroGuide />)

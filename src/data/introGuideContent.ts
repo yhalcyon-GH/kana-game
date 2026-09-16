@@ -15,6 +15,10 @@ export type IntroGuideLocaleContent = {
   nextLabel: string
   skipLabel: string
   finalLabel: string
+  // Commercial disclosure (Issue #271) — shown on every step, not just the
+  // last, because Skip is available from step 1 and can reach normal app
+  // use before a learner ever sees a final slide.
+  commercialDisclosure: string
 }
 
 const EN: IntroGuideLocaleContent = {
@@ -48,6 +52,8 @@ const EN: IntroGuideLocaleContent = {
   nextLabel: 'Next',
   skipLabel: 'Skip',
   finalLabel: "Let's go!",
+  commercialDisclosure:
+    'Hiragana is free. Full Tamamizu (Katakana and beyond) is a one-time purchase — USD 5.00 + applicable tax, not a subscription. The final total is shown at Paddle Checkout.',
 }
 
 export const INTRO_GUIDE_CONTENT: Record<string, IntroGuideLocaleContent> = { en: EN }

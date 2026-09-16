@@ -15,6 +15,24 @@ import { useProgressStore } from '../store/progressStore'
 // The large standalone Saved card that used to sit below the categories was
 // removed (Saved is now reachable from the top nav on every screen — see
 // NavBar) rather than duplicated here.
+// Secondary, discoverable replay for the general app-level introduction
+// (Issue #271) — moved here from Settings so a learner doesn't have to dig
+// for it. Reuses the existing IntroGuide/flag mechanism rather than a new
+// tutorial implementation; deliberately not commercial-gated.
+function IntroReplayLink() {
+  const setHasCompletedIntroGuide = useProgressStore((s) => s.setHasCompletedIntroGuide)
+  return (
+    <button
+      type="button"
+      onClick={() => setHasCompletedIntroGuide(false)}
+      className="flex flex-col items-center gap-0.5 text-center text-sm text-neutral-500 hover:text-blue-600 dark:text-neutral-400 dark:hover:text-blue-400"
+    >
+      <span className="font-semibold">How Tamamizu works</span>
+      <span>View introduction again</span>
+    </button>
+  )
+}
+
 function ContinueCard() {
   const lastStudied = useProgressStore((s) => s.lastStudied)
   if (!lastStudied) return null
@@ -94,6 +112,7 @@ export function HomePage() {
           )
         })}
       </div>
+      <IntroReplayLink />
     </div>
   )
 }

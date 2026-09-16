@@ -145,6 +145,29 @@ test('first launch shows the Introduction and Skip reaches Home', async ({ page 
   await expect(page.getByRole('heading', { name: 'Tamamizu' })).toBeVisible()
 })
 
+// Issue #271: pricing must be disclosed before a learner can Skip into
+// normal app use — Skip is available from step 1, so the disclosure must
+// already be visible there, not only on a final slide.
+test('first-launch Introduction discloses free/paid pricing before Skip can be used', async ({ page }) => {
+  await gotoHash(page, '/', { stable: false })
+  const guide = page.getByRole('dialog', { name: 'Tamamizu Guide' })
+  await expect(guide).toBeVisible()
+  await expect(guide.getByRole('button', { name: 'Skip' })).toBeVisible()
+  await expect(guide).toContainText('Hiragana is free')
+  await expect(guide).toContainText('USD 5.00')
+  await expect(guide).toContainText('not a subscription')
+})
+
+// Issue #271: the app-level Introduction replay moved from Settings to Home.
+test('Home\'s "View introduction again" reopens the same Introduction', async ({ page }) => {
+  await gotoHash(page, '/')
+  await expect(page.getByRole('heading', { name: 'Tamamizu' })).toBeVisible()
+  await page.getByText('View introduction again').click()
+  const guide = page.getByRole('dialog', { name: 'Tamamizu Guide' })
+  await expect(guide).toBeVisible()
+  await expect(guide).toContainText('Hiragana is free')
+})
+
 test('Final pending Home recommendation is clear and fits at 320px', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 800 })
   await seedProgressState(page, {
