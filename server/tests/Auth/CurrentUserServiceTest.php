@@ -6,6 +6,7 @@ namespace KanaGame\Paddle\Tests;
 
 use KanaGame\Paddle\Auth\CurrentUserService;
 use KanaGame\Paddle\Auth\PersistentSessionRepository;
+use KanaGame\Paddle\Auth\SessionCredentialResolver;
 use KanaGame\Paddle\Auth\SessionRepository;
 use KanaGame\Paddle\Auth\UserRepository;
 use PDO;
@@ -13,6 +14,7 @@ use PDO;
 require_once __DIR__ . '/../TestCase.php';
 require_once __DIR__ . '/../../src/Auth/CurrentUserService.php';
 require_once __DIR__ . '/../../src/Auth/PersistentSessionRepository.php';
+require_once __DIR__ . '/../../src/Auth/SessionCredentialResolver.php';
 require_once __DIR__ . '/../../src/Auth/SessionRepository.php';
 require_once __DIR__ . '/../../src/Auth/UserRepository.php';
 require_once __DIR__ . '/../../src/Uuid.php';
@@ -172,6 +174,43 @@ function currentUserServiceTests(): array
 
             assertTrue($result['user'] === null, 'a revoked persistent credential must not resolve a user');
             assertTrue($result['refreshed_session_token'] === null, 'a revoked persistent credential must not mint a session');
+        },
+
+        // me.php's actual request path feeds SessionCredentialResolver::resolve()'s
+        // output straight into resolveOrRefresh(). ADR 0001's property is
+        // that an ambiguous Bearer/cookie pair -- both otherwise-valid,
+        // real sessions for two DIFFERENT users -- must never authenticate
+        // as either disputed identity. Existing coverage proves this by
+        // construction (resolve()'s ambiguous() case always carries a null
+        // token) and unit-tests resolveOrRefresh(null, ...) in isolation,
+        // but nothing before this composed the two through real tokens.
+        'resolve()\'s ambiguous result, composed into resolveOrRefresh(), never authenticates as either disputed user -- proves the me.php wiring, not either unit alone' => function () {
+            $pdo = makeCurrentUserServiceTestDb();
+            $users = new UserRepository($pdo);
+            $sessions = new SessionRepository($pdo);
+            $persistentSessions = new PersistentSessionRepository($pdo);
+            $service = new CurrentUserService($users, $sessions, 24, $persistentSessions);
+
+            $userA = $users->findOrCreateByEmail('ambiguous-a@example.com');
+            $userB = $users->findOrCreateByEmail('ambiguous-b@example.com');
+            $rawSessionA = $service->createSession($userA['id']);
+            $rawSessionB = $service->createSession($userB['id']);
+
+            // Both tokens are real, currently-valid sessions for two
+            // different users -- an attacker-controlled Bearer header
+            // paired with a victim's session cookie (or vice versa), not
+            // a garbage/missing credential.
+            assertTrue($service->resolve($rawSessionA) !== null, 'sanity check: session A must resolve on its own');
+            assertTrue($service->resolve($rawSessionB) !== null, 'sanity check: session B must resolve on its own');
+
+            $credential = SessionCredentialResolver::resolve($rawSessionA, $rawSessionB);
+            assertSame(null, $credential->token, 'a Bearer/cookie pair for two different, otherwise-valid sessions must resolve to a null token');
+            assertTrue($credential->ambiguous, 'the resolver must flag this pair as ambiguous');
+
+            $result = $service->resolveOrRefresh($credential->token, null);
+
+            assertSame(null, $result['user'], 'an ambiguous credential pair must never authenticate as either disputed user, even though both tokens are independently valid');
+            assertSame(null, $result['refreshed_session_token'], 'an ambiguous credential pair must never mint a refreshed session');
         },
 
         'resolveOrRefresh() with no PersistentSessionRepository wired (legacy 3-arg construction) never throws, just falls back to no-user' => function () {
