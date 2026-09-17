@@ -90,7 +90,8 @@ function resetTables(PDO $pdo): void
 {
     $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
     foreach ([
-        'sessions', 'magic_link_tokens', 'dev_harness_magic_links', 'rate_limits',
+        'sessions', 'magic_link_tokens', 'dev_harness_magic_links',
+        'persistent_sessions', 'email_login_challenges', 'rate_limits',
         'pending_adjustments', 'transaction_grants', 'purchase_intents',
         'payment_events', 'entitlements', 'users',
     ] as $table) {
@@ -677,6 +678,172 @@ function runScenarioC4(PDO $maintPdo, int $iterations): void
     }
 }
 
+// --------------------------------------------------------------------
+// Scenario D: same OTP challenge + correct code, N=3 concurrent
+// verifyCode() calls -- exactly one must succeed (mirrors scenario A's
+// shape for Magic Link, for the OTP path).
+// --------------------------------------------------------------------
+function runScenarioD(PDO $maintPdo, int $iterations): void
+{
+    $scenario = 'D';
+    $GLOBALS['mariadbConcurrencyScenarioTally'][$scenario] = ['pass' => 0, 'fail' => 0];
+    $workerCount = 3;
+
+    for ($iter = 1; $iter <= $iterations; $iter++) {
+        resetTables($maintPdo);
+
+        $rawChallengeToken = rawSecretToken();
+        $code = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        (new \KanaGame\Paddle\Auth\EmailLoginChallengeRepository($maintPdo))->issue(
+            'race-d@example.invalid',
+            $rawChallengeToken,
+            $code,
+            'mariadb-concurrency-login-code-pepper',
+            new \DateTimeImmutable('+10 minutes'),
+        );
+
+        $dir = makeBarrierDir($scenario, $iter);
+        for ($i = 0; $i < $workerCount; $i++) {
+            writeArgsFile($dir, $i, ['raw_challenge_token' => $rawChallengeToken, 'code' => $code]);
+        }
+
+        $iterationFailures = [];
+        try {
+            $results = runWorkers('otp_verify', $dir, $workerCount);
+
+            $successCount = 0;
+            $exceptionWorkers = [];
+            foreach ($results as $i => $r) {
+                if ($r['success']) {
+                    $successCount++;
+                }
+                if ($r['exception_class'] !== null) {
+                    $exceptionWorkers[] = ['worker' => $i, 'class' => $r['exception_class'], 'sqlstate' => $r['sqlstate']];
+                }
+            }
+
+            checkInvariant($scenario, $iter, 'exactly one success', $successCount === 1, ['success_count' => $successCount], $iterationFailures);
+            checkInvariant($scenario, $iter, 'no uncaught DB exception surfaced from any worker', $exceptionWorkers === [], ['exception_workers' => $exceptionWorkers], $iterationFailures);
+
+            $verifyPdo = connectMariadbConcurrencyTestDb();
+            $userCount = (int) $verifyPdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
+            $persistentCount = (int) $verifyPdo->query('SELECT COUNT(*) FROM persistent_sessions')->fetchColumn();
+            $sessionCount = (int) $verifyPdo->query('SELECT COUNT(*) FROM sessions')->fetchColumn();
+            $tokenHash = hash('sha256', $rawChallengeToken);
+            $challengeRow = $verifyPdo->prepare('SELECT used_at, attempts FROM email_login_challenges WHERE challenge_token_hash = ?');
+            $challengeRow->execute([$tokenHash]);
+            $challenge = $challengeRow->fetch(PDO::FETCH_ASSOC);
+
+            checkInvariant($scenario, $iter, 'users row count == 1', $userCount === 1, ['user_count' => $userCount], $iterationFailures);
+            checkInvariant($scenario, $iter, 'persistent_sessions row count == 1 (exactly one successful login minted exactly one persistent session)', $persistentCount === 1, ['persistent_count' => $persistentCount], $iterationFailures);
+            checkInvariant($scenario, $iter, 'sessions row count == 1', $sessionCount === 1, ['session_count' => $sessionCount], $iterationFailures);
+            checkInvariant($scenario, $iter, 'the challenge is used', $challenge !== false && $challenge['used_at'] !== null, ['challenge_found' => $challenge !== false], $iterationFailures);
+
+            reportIterationOutcome($scenario, $iter, $iterationFailures, $results, []);
+        } finally {
+            cleanupBarrierDir($dir);
+        }
+    }
+}
+
+// --------------------------------------------------------------------
+// Scenario E: a user already at the 3-persistent-session cap, N=2
+// concurrent 4th-login verifyCode() calls (two DISTINCT challenges,
+// each with its own correct code) -- both logins must succeed (login is
+// NEVER blocked by the cap), the active-persistent-session count must
+// never exceed 3 at any settled point, and no duplicate-eviction /
+// double-revoke corruption may occur under the race.
+// --------------------------------------------------------------------
+function runScenarioE(PDO $maintPdo, int $iterations): void
+{
+    $scenario = 'E';
+    $GLOBALS['mariadbConcurrencyScenarioTally'][$scenario] = ['pass' => 0, 'fail' => 0];
+    $workerCount = 2;
+
+    for ($iter = 1; $iter <= $iterations; $iter++) {
+        resetTables($maintPdo);
+
+        $pepper = 'mariadb-concurrency-login-code-pepper';
+        $userId = (new UserRepository($maintPdo))->findOrCreateByEmail('race-e@example.invalid')['id'];
+        $persistentRepo = new \KanaGame\Paddle\Auth\PersistentSessionRepository($maintPdo);
+        // Seed exactly 3 pre-existing active persistent sessions (the
+        // cap) through the real repository, at 3 DISTINCT last_seen_at
+        // values so LRU has an unambiguous oldest row to evict.
+        $seededIds = [];
+        for ($s = 0; $s < 3; $s++) {
+            $seededIds[] = $persistentRepo->create($userId, rawSecretToken(), new \DateTimeImmutable('+90 days'));
+        }
+        foreach ($seededIds as $offset => $id) {
+            $maintPdo->prepare('UPDATE persistent_sessions SET last_seen_at = ? WHERE id = ?')
+                ->execute([(new \DateTimeImmutable("2020-01-0" . ($offset + 1) . " 00:00:00"))->format('Y-m-d H:i:s'), $id]);
+        }
+        $oldestSeededId = $seededIds[0];
+
+        $challenges = new \KanaGame\Paddle\Auth\EmailLoginChallengeRepository($maintPdo);
+        $rawChallengeA = rawSecretToken();
+        $rawChallengeB = rawSecretToken();
+        $codeA = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $codeB = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        // Both challenges resolve to the SAME email/user -- two distinct
+        // valid codes for the same user racing to be the "4th login."
+        $challenges->issue('race-e@example.invalid', $rawChallengeA, $codeA, $pepper, new \DateTimeImmutable('+10 minutes'));
+        $challenges->issue('race-e@example.invalid', $rawChallengeB, $codeB, $pepper, new \DateTimeImmutable('+10 minutes'));
+
+        $dir = makeBarrierDir($scenario, $iter);
+        writeArgsFile($dir, 0, ['raw_challenge_token' => $rawChallengeA, 'code' => $codeA]);
+        writeArgsFile($dir, 1, ['raw_challenge_token' => $rawChallengeB, 'code' => $codeB]);
+
+        $iterationFailures = [];
+        try {
+            $results = runWorkers('otp_verify', $dir, $workerCount);
+
+            $bothSucceeded = $results[0]['success'] && $results[1]['success'];
+            $exceptionWorkers = [];
+            foreach ($results as $i => $r) {
+                if ($r['exception_class'] !== null) {
+                    $exceptionWorkers[] = ['worker' => $i, 'class' => $r['exception_class'], 'sqlstate' => $r['sqlstate']];
+                }
+            }
+
+            checkInvariant($scenario, $iter, 'both concurrent 4th/5th-login attempts succeed -- login is never blocked by the cap', $bothSucceeded, ['results' => $results], $iterationFailures);
+            checkInvariant($scenario, $iter, 'no uncaught DB exception surfaced from either worker', $exceptionWorkers === [], ['exception_workers' => $exceptionWorkers], $iterationFailures);
+
+            $verifyPdo = connectMariadbConcurrencyTestDb();
+            $activeCount = (int) (function () use ($verifyPdo, $userId) {
+                $stmt = $verifyPdo->prepare('SELECT COUNT(*) FROM persistent_sessions WHERE user_id = ? AND revoked_at IS NULL AND expires_at > NOW()');
+                $stmt->execute([$userId]);
+                return $stmt->fetchColumn();
+            })();
+            $revokedOldestRow = $verifyPdo->prepare('SELECT revoked_at FROM persistent_sessions WHERE id = ?');
+            $revokedOldestRow->execute([$oldestSeededId]);
+            $revokedOldest = $revokedOldestRow->fetchColumn();
+            $totalEverCreated = (int) (function () use ($verifyPdo, $userId) {
+                $stmt = $verifyPdo->prepare('SELECT COUNT(*) FROM persistent_sessions WHERE user_id = ?');
+                $stmt->execute([$userId]);
+                return $stmt->fetchColumn();
+            })();
+            // Both logins together attempted 2 evictions against a
+            // starting count of 3 -- the CORRECT post-race active count
+            // depends on ordering (each verifyCode() call independently
+            // re-checks countActiveForUser() >= cap right before
+            // evicting), so the invariant this scenario actually proves
+            // is the SAFETY bound: active count must never exceed the
+            // cap (3) at rest, and total rows created must be exactly
+            // seeded(3) + this iteration's 2 new logins = 5, with the
+            // difference (5 - active) all showing revoked_at set --
+            // i.e. no row is ever "lost" (neither double-counted as
+            // active nor silently dropped without a revoked_at stamp).
+            checkInvariant($scenario, $iter, 'active persistent_sessions count for this user never exceeds the cap (3) after the race settles', $activeCount <= 3, ['active_count' => $activeCount], $iterationFailures);
+            checkInvariant($scenario, $iter, 'the originally-oldest seeded row is revoked (LRU eviction picked it, not an arbitrary row)', $revokedOldest !== null, ['revoked_oldest' => $revokedOldest], $iterationFailures);
+            checkInvariant($scenario, $iter, 'exactly 5 persistent_sessions rows exist in total for this user (3 seeded + 2 new logins, none lost)', $totalEverCreated === 5, ['total_ever_created' => $totalEverCreated], $iterationFailures);
+
+            reportIterationOutcome($scenario, $iter, $iterationFailures, $results, ['seeded_ids' => $seededIds]);
+        } finally {
+            cleanupBarrierDir($dir);
+        }
+    }
+}
+
 // ========================================================================
 // Main
 // ========================================================================
@@ -712,6 +879,8 @@ $allScenarios = [
     'C2' => fn () => runScenarioC2($maintPdo, $iterations),
     'C3' => fn () => runScenarioC3($maintPdo, $iterations),
     'C4' => fn () => runScenarioC4($maintPdo, $iterations),
+    'D' => fn () => runScenarioD($maintPdo, $iterations),
+    'E' => fn () => runScenarioE($maintPdo, $iterations),
 ];
 
 foreach ($allScenarios as $name => $runner) {

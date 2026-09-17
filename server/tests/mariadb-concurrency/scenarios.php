@@ -117,3 +117,43 @@ function scenarioWebhook(PDO $pdo, array $args, Barrier $barrier, int $workerId)
         ];
     }
 }
+
+/**
+ * Scenarios D and E: a full OtpAuthService::verifyCode() call, wired
+ * exactly like makeOtpAuthServiceHarness() in OtpAuthServiceTest.php
+ * (reused, not duplicated), against this worker's own PDO.
+ *
+ * @param array{raw_challenge_token: string, code: string} $args
+ * @return array{success: bool, user_id: ?string, persistent_token_hash: ?string, exception_class: ?string, sqlstate: ?string}
+ */
+function scenarioOtpVerify(PDO $pdo, array $args, Barrier $barrier, int $workerId): array
+{
+    $h = \KanaGame\Paddle\Tests\makeOtpAuthServiceHarness($pdo);
+
+    $barrier->signalReadyAndWaitForGo($workerId);
+
+    try {
+        $result = $h['service']->verifyCode($args['raw_challenge_token'], $args['code']);
+
+        return [
+            'success' => $result->success,
+            'user_id' => $result->user['id'] ?? null,
+            // Never returns the raw persistent token (secret-free result
+            // shape, per this file's own doc comment) -- only its hash,
+            // which is enough for the orchestrator to correlate "which
+            // worker's login produced which persistent_sessions row"
+            // without ever writing a real credential to a CI result file.
+            'persistent_token_hash' => $result->persistentToken !== null ? hash('sha256', $result->persistentToken) : null,
+            'exception_class' => null,
+            'sqlstate' => null,
+        ];
+    } catch (\Throwable $e) {
+        return [
+            'success' => false,
+            'user_id' => null,
+            'persistent_token_hash' => null,
+            'exception_class' => get_class($e),
+            'sqlstate' => $e instanceof \PDOException ? ($e->errorInfo[0] ?? null) : null,
+        ];
+    }
+}

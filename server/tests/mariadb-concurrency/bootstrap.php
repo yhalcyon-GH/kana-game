@@ -33,6 +33,9 @@ require_once __DIR__ . '/../../src/Auth/MagicLinkTokenRepository.php';
 require_once __DIR__ . '/../../src/Auth/MagicLinkUrlBuilder.php';
 require_once __DIR__ . '/../../src/Auth/RateLimiter.php';
 require_once __DIR__ . '/../../src/Auth/MagicLinkAuthService.php';
+require_once __DIR__ . '/../../src/Auth/EmailLoginChallengeRepository.php';
+require_once __DIR__ . '/../../src/Auth/OtpAuthService.php';
+require_once __DIR__ . '/../../src/Auth/PersistentSessionRepository.php';
 require_once __DIR__ . '/../../src/Purchase/PurchaseIntentRepository.php';
 require_once __DIR__ . '/../../src/Purchase/TransactionGrantRepository.php';
 require_once __DIR__ . '/../../src/Purchase/PendingAdjustmentRepository.php';
@@ -49,6 +52,7 @@ require_once __DIR__ . '/../../src/Purchase/PurchaseWebhookHandler.php';
 // simply never called from this harness.
 require_once __DIR__ . '/../Auth/FakeMailer.php';
 require_once __DIR__ . '/../Auth/MagicLinkAuthServiceTest.php';
+require_once __DIR__ . '/../Auth/OtpAuthServiceTest.php';
 require_once __DIR__ . '/../Purchase/PurchaseWebhookHandlerTest.php';
 
 use KanaGame\Paddle\Config;
