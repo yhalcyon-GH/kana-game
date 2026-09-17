@@ -21,6 +21,7 @@ function makeSessionsTestDb(): PDO
             user_id TEXT NOT NULL,
             expires_at TEXT NOT NULL,
             revoked_at TEXT NULL,
+            persistent_session_id INTEGER NULL,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )',
@@ -79,6 +80,28 @@ function sessionRepositoryTests(): array
                     'the raw session token must never appear in a persisted column',
                 );
             }
+        },
+
+        'create() with a persistentSessionId links the session, and revokeByPersistentSessionId() revokes every session linked to it' => function () {
+            $pdo = makeSessionsTestDb();
+            $repo = new SessionRepository($pdo);
+            $repo->create('user-1', 'raw-session-a', new \DateTimeImmutable('+24 hours'), 42);
+            $repo->create('user-1', 'raw-session-b', new \DateTimeImmutable('+24 hours'), 42);
+            $repo->create('user-1', 'raw-session-c', new \DateTimeImmutable('+24 hours'), null);
+
+            $repo->revokeByPersistentSessionId(42);
+
+            assertTrue($repo->findActiveUserIdForRawToken('raw-session-a') === null, 'session linked to the persistent session must be revoked');
+            assertTrue($repo->findActiveUserIdForRawToken('raw-session-b') === null, 'session linked to the persistent session must be revoked');
+            assertTrue($repo->findActiveUserIdForRawToken('raw-session-c') !== null, 'a session with no persistent_session_id link must be untouched');
+        },
+
+        'create() without a persistentSessionId still works exactly as before (backward compatibility)' => function () {
+            $pdo = makeSessionsTestDb();
+            $repo = new SessionRepository($pdo);
+            $repo->create('user-2', 'raw-session-plain', new \DateTimeImmutable('+24 hours'));
+
+            assertTrue($repo->findActiveUserIdForRawToken('raw-session-plain') === 'user-2', 'create() without persistentSessionId should work as before');
         },
     ];
 }
