@@ -31,6 +31,7 @@ $testFiles = [
     __DIR__ . '/Auth/MagicLinkTokenRepositoryTest.php' => 'KanaGame\\Paddle\\Tests\\magicLinkTokenRepositoryTests',
     __DIR__ . '/Auth/SessionRepositoryTest.php' => 'KanaGame\\Paddle\\Tests\\sessionRepositoryTests',
     __DIR__ . '/Auth/RateLimiterTest.php' => 'KanaGame\\Paddle\\Tests\\rateLimiterTests',
+    __DIR__ . '/Auth/EmailLoginChallengeRepositoryTest.php' => 'KanaGame\\Paddle\\Tests\\emailLoginChallengeRepositoryTests',
     __DIR__ . '/Auth/EmailNormalizerTest.php' => 'KanaGame\\Paddle\\Tests\\emailNormalizerTests',
     __DIR__ . '/Auth/EmailValidatorTest.php' => 'KanaGame\\Paddle\\Tests\\emailValidatorTests',
     __DIR__ . '/Auth/CurrentUserServiceTest.php' => 'KanaGame\\Paddle\\Tests\\currentUserServiceTests',
