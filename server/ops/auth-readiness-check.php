@@ -49,5 +49,31 @@ if ($readiness->isMisconfigured()) {
     exit(1);
 }
 
+$loginCodePepper = $config->get('LOGIN_CODE_PEPPER');
+
+if ($config->get('EMAIL_CODE_AUTH_ENABLED') === 'true' && ($loginCodePepper === null || $loginCodePepper === '')) {
+    fwrite(
+        STDERR,
+        "MISCONFIGURED: EMAIL_CODE_AUTH_ENABLED is on but LOGIN_CODE_PEPPER is not " .
+        "configured. Email OTP login cannot work.\n",
+    );
+    exit(1);
+}
+
+$rateLimitPepper = $config->get('RATE_LIMIT_PEPPER');
+
+if (
+    $loginCodePepper !== null && $loginCodePepper !== ''
+    && $rateLimitPepper !== null && $rateLimitPepper !== ''
+    && $loginCodePepper === $rateLimitPepper
+) {
+    fwrite(
+        STDERR,
+        "MISCONFIGURED: LOGIN_CODE_PEPPER and RATE_LIMIT_PEPPER must be distinct " .
+        "secrets, but are set to the same value.\n",
+    );
+    exit(1);
+}
+
 fwrite(STDOUT, "OK\n");
 exit(0);
