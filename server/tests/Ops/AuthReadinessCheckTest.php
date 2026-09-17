@@ -82,5 +82,53 @@ function authReadinessCheckTests(): array
             assertTrue($result['exitCode'] === 0, 'expected exit code 0, got ' . $result['exitCode'] . ' stderr=' . $result['stderr']);
             assertTrue(str_contains($result['stdout'], 'devHarnessEnabled=true'), 'expected enabled harness status on stdout');
         },
+
+        'exits 1 when EMAIL_CODE_AUTH_ENABLED is on but LOGIN_CODE_PEPPER is missing' => function () {
+            $result = runAuthReadinessCheck([
+                'EMAIL_CODE_AUTH_ENABLED' => 'true',
+            ]);
+            assertTrue($result['exitCode'] === 1, 'expected exit code 1, got ' . $result['exitCode']);
+            assertTrue(str_contains($result['stderr'], 'MISCONFIGURED'), 'expected a MISCONFIGURED message on stderr');
+            assertTrue(str_contains($result['stderr'], 'LOGIN_CODE_PEPPER'), 'expected the error to name the missing secret');
+        },
+
+        'exits 0 when EMAIL_CODE_AUTH_ENABLED is on and LOGIN_CODE_PEPPER is configured (and distinct from RATE_LIMIT_PEPPER)' => function () {
+            $result = runAuthReadinessCheck([
+                'EMAIL_CODE_AUTH_ENABLED' => 'true',
+                'LOGIN_CODE_PEPPER' => 'login-code-pepper-value',
+                'RATE_LIMIT_PEPPER' => 'rate-limit-pepper-value',
+            ]);
+            assertTrue($result['exitCode'] === 0, 'expected exit code 0, got ' . $result['exitCode'] . ' stderr=' . $result['stderr']);
+        },
+
+        'exits 1 when LOGIN_CODE_PEPPER and RATE_LIMIT_PEPPER are set to the same value' => function () {
+            $result = runAuthReadinessCheck([
+                'EMAIL_CODE_AUTH_ENABLED' => 'true',
+                'LOGIN_CODE_PEPPER' => 'shared-pepper-value',
+                'RATE_LIMIT_PEPPER' => 'shared-pepper-value',
+            ]);
+            assertTrue($result['exitCode'] === 1, 'expected exit code 1, got ' . $result['exitCode']);
+            assertTrue(str_contains($result['stderr'], 'MISCONFIGURED'), 'expected a MISCONFIGURED message on stderr');
+            assertTrue(str_contains($result['stderr'], 'distinct'), 'expected the error to explain the peppers must be distinct');
+            assertTrue(!str_contains($result['stderr'], 'shared-pepper-value'), 'must never print the raw secret value');
+        },
+
+        'exits 1 when WEB_SESSION_COOKIE_NAME and PERSISTENT_LOGIN_COOKIE_NAME are set to the same value' => function () {
+            $result = runAuthReadinessCheck([
+                'WEB_SESSION_COOKIE_NAME' => '__Host-shared_cookie',
+                'PERSISTENT_LOGIN_COOKIE_NAME' => '__Host-shared_cookie',
+            ]);
+            assertTrue($result['exitCode'] === 1, 'expected exit code 1, got ' . $result['exitCode']);
+            assertTrue(str_contains($result['stderr'], 'MISCONFIGURED'), 'expected a MISCONFIGURED message on stderr');
+            assertTrue(str_contains($result['stderr'], 'distinct'), 'expected the error to explain the cookie names must be distinct');
+        },
+
+        'exits 0 when WEB_SESSION_COOKIE_NAME and PERSISTENT_LOGIN_COOKIE_NAME are distinct' => function () {
+            $result = runAuthReadinessCheck([
+                'WEB_SESSION_COOKIE_NAME' => '__Host-tamamizu_session',
+                'PERSISTENT_LOGIN_COOKIE_NAME' => '__Host-tamamizu_remember',
+            ]);
+            assertTrue($result['exitCode'] === 0, 'expected exit code 0, got ' . $result['exitCode'] . ' stderr=' . $result['stderr']);
+        },
     ];
 }

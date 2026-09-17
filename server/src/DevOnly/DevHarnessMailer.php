@@ -44,4 +44,23 @@ final class DevHarnessMailer implements Mailer
 
         $this->store->store($emailNormalized, $magicLinkUrl, new \DateTimeImmutable("+{$this->linkExpiryMinutes} minutes"));
     }
+
+    /**
+     * Compile-fix stub only -- this task (Task 7) does not wire OTP
+     * login-code sending through the dev harness. Follow-up: if the dev
+     * harness needs to surface OTP codes the way it does magic links, add
+     * a sibling dev-only store (e.g. DevHarnessLoginCodeStore) rather than
+     * overloading DevHarnessMagicLinkStore, which is magic-link-shaped
+     * (stores a URL, not a bare code). Until then this safely no-ops,
+     * matching "disabled" behavior above -- but unlike a genuinely
+     * disabled feature, request-code.php still issues a real challenge
+     * and reports success, so this MUST log a fixed, non-interpolated
+     * warning (never the email or the code) so the sign-in flow doesn't
+     * silently appear to work while delivering no code anywhere. This
+     * mirrors request-link.php's mailer_unconfigured warning.
+     */
+    public function sendLoginCode(string $emailNormalized, string $code): void
+    {
+        error_log('DevHarnessMailer: dev_harness_mailer_cannot_deliver_login_codes');
+    }
 }

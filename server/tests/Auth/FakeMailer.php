@@ -29,8 +29,16 @@ final class FakeMailer implements Mailer
     /** @var list<array{email: string, url: string}> */
     public array $sent = [];
 
+    /** @var list<array{email: string, code: string}> */
+    public array $sentCodes = [];
+
     public function sendMagicLink(string $emailNormalized, string $magicLinkUrl): void
     {
         $this->sent[] = ['email' => $emailNormalized, 'url' => $magicLinkUrl];
+    }
+
+    public function sendLoginCode(string $emailNormalized, string $code): void
+    {
+        $this->sentCodes[] = ['email' => $emailNormalized, 'code' => $code];
     }
 }

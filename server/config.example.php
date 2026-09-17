@@ -160,4 +160,46 @@ return [
     // independent layer of protection alongside excluding
     // server/dev-only/ from the production deployment manifest.
     'DEV_HARNESS_ENABLED' => '',
+
+    // --- Email OTP + persistent login ("remember this browser") ---
+    // See docs/superpowers/specs/2026-09-17-email-otp-persistent-login-design.md.
+
+    // HMAC pepper for the OTP code MAC (server/src/Auth/EmailLoginChallengeRepository.php).
+    // MUST be a DIFFERENT value from RATE_LIMIT_PEPPER -- see that key's
+    // own comment above and RateLimiter.php's doc comment for why the two
+    // must never be the same secret. Required once EMAIL_CODE_AUTH_ENABLED
+    // is 'true'. Rotating this invalidates every currently-open (not yet
+    // verified) OTP challenge -- it does NOT invalidate any existing
+    // session or persistent_sessions row.
+    'LOGIN_CODE_PEPPER' => '',
+
+    // Must be the EXACT string 'true' to expose request-code.php/
+    // verify-code.php and to make capabilities.php report
+    // {"email_code_auth": true}. Default OFF (unset/anything else) --
+    // Magic Link remains the only sign-in method until this is
+    // deliberately enabled. See capabilities.php's own doc comment for
+    // why the frontend falls back to Magic Link whenever this reports
+    // false/is unreachable.
+    'EMAIL_CODE_AUTH_ENABLED' => '',
+
+    // Optional -- defaults to 10 minutes, 5 attempts, 3/hour (email),
+    // 10/hour (IP) if unset or non-numeric (see Config::intWithDefault()).
+    'LOGIN_CODE_TTL_MINUTES' => '',
+    'LOGIN_CODE_MAX_ATTEMPTS' => '',
+    'LOGIN_CODE_EMAIL_PER_HOUR' => '',
+    'LOGIN_CODE_IP_PER_HOUR' => '',
+
+    // Optional -- defaults to 90 days (persistent credential absolute
+    // expiry) and 3 (max concurrent persistent_sessions rows per user,
+    // LRU-evicted on a 4th login -- see PersistentSessionRepository::
+    // evictLruForUser()) if unset or non-numeric.
+    'PERSISTENT_LOGIN_DAYS' => '',
+    'MAX_PERSISTENT_SESSIONS' => '',
+
+    // Optional -- defaults to '__Host-tamamizu_remember' if unset (see
+    // verify-code.php/me.php/logout.php/sign-out-others.php, all of which
+    // construct a second WebSessionCookie instance with this name). Same
+    // __Host- prefix requirements as WEB_SESSION_COOKIE_NAME -- see that
+    // key's own comment above and docs/adr/0001-cross-site-auth-transport.md.
+    'PERSISTENT_LOGIN_COOKIE_NAME' => '',
 ];

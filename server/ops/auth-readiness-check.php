@@ -49,5 +49,49 @@ if ($readiness->isMisconfigured()) {
     exit(1);
 }
 
+$loginCodePepper = $config->get('LOGIN_CODE_PEPPER');
+
+if ($config->get('EMAIL_CODE_AUTH_ENABLED') === 'true' && ($loginCodePepper === null || $loginCodePepper === '')) {
+    fwrite(
+        STDERR,
+        "MISCONFIGURED: EMAIL_CODE_AUTH_ENABLED is on but LOGIN_CODE_PEPPER is not " .
+        "configured. Email OTP login cannot work.\n",
+    );
+    exit(1);
+}
+
+$rateLimitPepper = $config->get('RATE_LIMIT_PEPPER');
+
+if (
+    $loginCodePepper !== null && $loginCodePepper !== ''
+    && $rateLimitPepper !== null && $rateLimitPepper !== ''
+    && $loginCodePepper === $rateLimitPepper
+) {
+    fwrite(
+        STDERR,
+        "MISCONFIGURED: LOGIN_CODE_PEPPER and RATE_LIMIT_PEPPER must be distinct " .
+        "secrets, but are set to the same value.\n",
+    );
+    exit(1);
+}
+
+$webSessionCookieName = $config->get('WEB_SESSION_COOKIE_NAME');
+$rememberCookieName = $config->get('PERSISTENT_LOGIN_COOKIE_NAME');
+
+if (
+    $webSessionCookieName !== null && $webSessionCookieName !== ''
+    && $rememberCookieName !== null && $rememberCookieName !== ''
+    && $webSessionCookieName === $rememberCookieName
+) {
+    fwrite(
+        STDERR,
+        "MISCONFIGURED: WEB_SESSION_COOKIE_NAME and PERSISTENT_LOGIN_COOKIE_NAME " .
+        "must be distinct cookie names, but are set to the same value -- verify-code.php " .
+        "would emit two conflicting Set-Cookie headers for one name, corrupting both " .
+        "the normal session and the remember-this-browser credential.\n",
+    );
+    exit(1);
+}
+
 fwrite(STDOUT, "OK\n");
 exit(0);

@@ -74,6 +74,43 @@ function assertOriginCheckedForCookieCredential(string $relativePath): void
     assertTrue($originCheckPos < $resolvePos, 'the Origin check must run before SessionCredentialResolver::resolve()');
 }
 
+/**
+ * Same CSRF-defense-in-depth property as assertOriginCheckedForCookieCredential(),
+ * but for entrypoints (logout.php, sign-out-others.php) that can also
+ * authenticate/act purely from the persistent "remember this browser"
+ * cookie -- the Origin check on those entrypoints must therefore gate
+ * on EITHER cookie being present, not just the session cookie, or a
+ * remember-cookie-only request bypasses the CSRF defense entirely
+ * (security-review finding, PR #298).
+ */
+function assertOriginCheckedForCookieOrRememberCredential(string $relativePath): void
+{
+    $source = loadServerSource($relativePath);
+
+    assertTrue(
+        str_contains($source, '$cookieToken = $webSessionCookie->readToken($_COOKIE);'),
+        "{$relativePath} must capture the session cookie token in a named variable to check its presence before resolving",
+    );
+    assertTrue(
+        str_contains($source, '$rememberToken = $rememberCookie->readToken($_COOKIE);'),
+        "{$relativePath} must capture the remember cookie token in a named variable to check its presence before resolving",
+    );
+    assertTrue(
+        (bool) preg_match(
+            "/if \\(\\(\\\$cookieToken !== null \\|\\| \\\$rememberToken !== null\\) && !\\\$cors->isOriginAllowed\\(\\\$_SERVER\\['HTTP_ORIGIN'\\] \\?\\? null\\)\\)/",
+            $source,
+        ),
+        "{$relativePath} must reject a request authenticated by EITHER cookie from a non-allowlisted Origin, as CSRF defense-in-depth beyond SameSite=Lax",
+    );
+
+    // The remember-cookie token must be read BEFORE the Origin check
+    // runs, or the check above can never see it.
+    $rememberReadPos = strpos($source, '$rememberToken = $rememberCookie->readToken($_COOKIE);');
+    $originCheckPos = strpos($source, 'isOriginAllowed(');
+    assertTrue($rememberReadPos !== false && $originCheckPos !== false, 'expected both a remember-token read and an Origin check');
+    assertTrue($rememberReadPos < $originCheckPos, 'the remember token must be read before the Origin check runs');
+}
+
 function assertUsesCredentialResolver(string $relativePath): void
 {
     $source = loadServerSource($relativePath);
@@ -188,8 +225,12 @@ function webSessionCookieWiringTests(): array
             }
         },
 
-        'auth/logout.php rejects a cookie-authenticated request from a non-allowlisted Origin before session lookup' => function () {
-            assertOriginCheckedForCookieCredential('auth/logout.php');
+        'auth/logout.php rejects a request authenticated by either the session or remember cookie from a non-allowlisted Origin before session/persistent lookup' => function () {
+            assertOriginCheckedForCookieOrRememberCredential('auth/logout.php');
+        },
+
+        'auth/sign-out-others.php rejects a request authenticated by either the session or remember cookie from a non-allowlisted Origin before session/persistent lookup' => function () {
+            assertOriginCheckedForCookieOrRememberCredential('auth/sign-out-others.php');
         },
 
         'purchase-intent.php rejects a cookie-authenticated request from a non-allowlisted Origin before session lookup' => function () {
@@ -292,8 +333,8 @@ function webSessionCookieWiringTests(): array
             assertTrue($ambiguousPos < $logoutCallPos, 'the ambiguous check must run before any revoke attempt');
         },
 
-        'auth/me.php, entitlement-me.php, and purchase-intent.php treat an ambiguous credential as unauthorized via the same null-token check as a missing credential' => function () {
-            foreach (['auth/me.php', 'entitlement-me.php', 'purchase-intent.php'] as $path) {
+        'entitlement-me.php and purchase-intent.php treat an ambiguous credential as unauthorized via the same null-token check as a missing credential' => function () {
+            foreach (['entitlement-me.php', 'purchase-intent.php'] as $path) {
                 $source = loadServerSource($path);
                 assertTrue(
                     str_contains($source, 'if ($credential->token === null) {'),
@@ -304,8 +345,29 @@ function webSessionCookieWiringTests(): array
                 // ambiguous credential correctly collapsing to the same
                 // 401 as a missing one is safe and intentional here, so
                 // (unlike logout.php) there is no separate ->ambiguous
-                // branch expected in these three files.
+                // branch expected in these files.
             }
+        },
+
+        // Task 12: auth/me.php no longer has its own standalone
+        // "$credential->token === null" early-exit -- $credential->token
+        // (null for both missing and ambiguous credentials, per
+        // SessionCredentialResolver's contract) is now passed straight
+        // into CurrentUserService::resolveOrRefresh(), which folds a
+        // failed/absent session credential into the same "maybe refresh
+        // from the remember cookie, else 401" path. This subsumes the
+        // old null-token short-circuit rather than duplicating it.
+        'me.php calls CurrentUserService::resolveOrRefresh(), not just resolve(), so a valid remember cookie can silently refresh an expired session' => function () {
+            $source = loadServerSource('auth/me.php');
+            assertTrue(str_contains($source, '->resolveOrRefresh('), 'me.php must use the persistent-refresh-aware resolver');
+        },
+
+        'me.php reissues the session Set-Cookie only when resolveOrRefresh() actually minted a new session token' => function () {
+            $source = loadServerSource('auth/me.php');
+            $refreshedTokenCheckPos = strpos($source, "'refreshed_session_token'");
+            $setCookiePos = strpos($source, 'Set-Cookie:');
+            assertTrue($refreshedTokenCheckPos !== false && $setCookiePos !== false, 'expected both a refreshed_session_token check and a Set-Cookie header');
+            assertTrue($refreshedTokenCheckPos < $setCookiePos, 'must check refreshed_session_token before issuing a new Set-Cookie header');
         },
     ];
 }

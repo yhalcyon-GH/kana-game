@@ -30,6 +30,7 @@ require __DIR__ . '/../src/Config.php';
 require __DIR__ . '/../src/Db.php';
 require __DIR__ . '/../src/Cors.php';
 require __DIR__ . '/../src/Auth/CurrentUserService.php';
+require __DIR__ . '/../src/Auth/PersistentSessionRepository.php';
 require __DIR__ . '/../src/Auth/SessionCredentialResolver.php';
 require __DIR__ . '/../src/Auth/SessionRepository.php';
 require __DIR__ . '/../src/Auth/UserRepository.php';
@@ -37,6 +38,7 @@ require __DIR__ . '/../src/Auth/WebSessionCookie.php';
 require __DIR__ . '/../src/Uuid.php';
 
 use KanaGame\Paddle\Auth\CurrentUserService;
+use KanaGame\Paddle\Auth\PersistentSessionRepository;
 use KanaGame\Paddle\Auth\SessionCredentialResolver;
 use KanaGame\Paddle\Auth\SessionRepository;
 use KanaGame\Paddle\Auth\UserRepository;
@@ -67,17 +69,27 @@ $webSessionCookie = new WebSessionCookie(
     $config->get('WEB_SESSION_COOKIE_ENABLED') === 'true',
     $config->get('WEB_SESSION_COOKIE_NAME') ?? WebSessionCookie::DEFAULT_NAME,
 );
+$rememberCookie = new WebSessionCookie(
+    $config->get('WEB_SESSION_COOKIE_ENABLED') === 'true',
+    $config->get('PERSISTENT_LOGIN_COOKIE_NAME') ?? '__Host-tamamizu_remember',
+);
 $cookieToken = $webSessionCookie->readToken($_COOKIE);
+$rememberToken = $rememberCookie->readToken($_COOKIE);
 
 // CSRF defense-in-depth for the cookie transport: SameSite=Lax already
 // blocks this cookie from being sent on most cross-site POSTs, but this
 // must not be the ONLY defense (see docs/adr/0001-cross-site-auth-
 // transport.md and the Phase 3B CORS/CSRF design) — a state-changing
-// request that DID carry the session cookie must also come from an
-// allowlisted Origin, or it is rejected outright, before any session
-// lookup happens. A Bearer-only caller (no cookie at all) is entirely
-// unaffected by this check.
-if ($cookieToken !== null && !$cors->isOriginAllowed($_SERVER['HTTP_ORIGIN'] ?? null)) {
+// request that carried EITHER the session cookie OR the remember
+// cookie must also come from an allowlisted Origin, or it is rejected
+// outright, before any session/persistent-credential lookup happens.
+// This must check both cookies, not just the session cookie: the
+// remember-cookie-only path below (no session credential, but a still-
+// valid remember cookie) revokes a real 90-day credential on its own,
+// so it needs the same Origin defense as the credentialed path does. A
+// Bearer-only caller (no cookie at all) is entirely unaffected by this
+// check.
+if (($cookieToken !== null || $rememberToken !== null) && !$cors->isOriginAllowed($_SERVER['HTTP_ORIGIN'] ?? null)) {
     http_response_code(403);
     echo json_encode(['error' => 'forbidden']);
     exit;
@@ -100,7 +112,7 @@ if ($credential->ambiguous) {
     // The session cookie is deliberately left UNTOUCHED here (no
     // cookie-deletion header is sent), unlike the genuinely-no-
     // credential path below: this request is being rejected as invalid, not honored --
-    // sending a Set-Cookie deletion as a side effect of a REJECTED
+    // sending a cookie-deletion header as a side effect of a REJECTED
     // request would itself be a state change (effectively a forced
     // logout) triggered by an untrusted/malformed credential pair,
     // which this endpoint has no basis to treat as an intentional
@@ -112,12 +124,37 @@ if ($credential->ambiguous) {
 
 if ($credential->token === null) {
     // Reaching here (past the ambiguous check above) means genuinely
-    // NO credential was supplied at all — nothing to revoke, not an
-    // error. Still clear the cookie when cookie mode is enabled:
-    // idempotent, and unconditionally safe here since there was no
-    // disagreeing credential in play.
+    // NO session credential was supplied at all — nothing to revoke via
+    // the session path, not an error. A caller might still hold a
+    // valid remember cookie with an expired/missing session credential;
+    // "log out" should mean "forget this browser entirely" when a
+    // remember cookie exists, not silently leave it able to silently
+    // re-auth on the next me.php call, so revoke it too when present.
+    // Wrapped like the credentialed path below: a DB failure while
+    // revoking the remember-cookie-only credential must produce a 500,
+    // not a 200 that lies about the revoke having happened.
+    try {
+        if ($rememberToken !== null) {
+            $pdo = Db::connect($config);
+            $persistentSessions = new PersistentSessionRepository($pdo);
+            $ownPersistentSession = $persistentSessions->findActiveByRawToken($rememberToken);
+            if ($ownPersistentSession !== null) {
+                $persistentSessions->revoke($ownPersistentSession['id']);
+                (new SessionRepository($pdo))->revokeByPersistentSessionId($ownPersistentSession['id']);
+            }
+        }
+    } catch (\Throwable $e) {
+        error_log('logout.php: ' . get_class($e));
+        http_response_code(500);
+        echo json_encode(['error' => 'temporary server error']);
+        exit;
+    }
+    // Still clear the cookies when cookie mode is enabled: idempotent,
+    // and unconditionally safe here since there was no disagreeing
+    // credential in play.
     if ($webSessionCookie->isEnabled()) {
         header('Set-Cookie: ' . $webSessionCookie->deleteHeader(), false);
+        header('Set-Cookie: ' . $rememberCookie->deleteHeader(), false);
     }
     echo json_encode(['status' => 'ok']);
     exit;
@@ -126,10 +163,12 @@ $rawSessionToken = $credential->token;
 
 try {
     $pdo = Db::connect($config);
+    $persistentSessions = new PersistentSessionRepository($pdo);
     $currentUser = new CurrentUserService(
         new UserRepository($pdo),
         new SessionRepository($pdo),
         $config->intWithDefault('SESSION_EXPIRY_HOURS', 24),
+        $persistentSessions,
     );
     // SessionRepository::revoke() is itself a safe no-op for an
     // unknown/already-revoked token — if this call returns normally,
@@ -137,6 +176,14 @@ try {
     // Only a THROWN exception here (a real DB failure) reaches the
     // catch block below and produces a 500.
     $currentUser->logout($rawSessionToken);
+
+    if ($rememberToken !== null) {
+        $ownPersistentSession = $persistentSessions->findActiveByRawToken($rememberToken);
+        if ($ownPersistentSession !== null) {
+            $persistentSessions->revoke($ownPersistentSession['id']);
+            (new SessionRepository($pdo))->revokeByPersistentSessionId($ownPersistentSession['id']);
+        }
+    }
 } catch (\Throwable $e) {
     error_log('logout.php: ' . get_class($e));
     http_response_code(500);
@@ -146,5 +193,6 @@ try {
 
 if ($webSessionCookie->isEnabled()) {
     header('Set-Cookie: ' . $webSessionCookie->deleteHeader(), false);
+    header('Set-Cookie: ' . $rememberCookie->deleteHeader(), false);
 }
 echo json_encode(['status' => 'ok']);

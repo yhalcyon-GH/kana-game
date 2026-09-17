@@ -80,6 +80,44 @@ final class ResendMailer implements Mailer
     }
 
     /**
+     * Same request-building shape as sendMagicLink() above (same
+     * throw-on-failure/never-log-raw-content contract), but the body
+     * states the plaintext 6-digit sign-in code instead of a magic-link
+     * URL.
+     */
+    public function sendLoginCode(string $emailNormalized, string $code): void
+    {
+        $subject = 'Your Tamamizu sign-in code';
+        $text = "Your Tamamizu sign-in code is:\n\n{$code}\n\nNever share this code. Tamamizu will never ask you for it.\n\nIf you didn't request this, you can safely ignore this email.";
+        $html = '<p>Your Tamamizu sign-in code is:</p>'
+            . '<p><strong>' . htmlspecialchars($code, ENT_QUOTES) . '</strong></p>'
+            . '<p>Never share this code. Tamamizu will never ask you for it.</p>'
+            . '<p>If you didn\'t request this, you can safely ignore this email.</p>';
+
+        $payload = json_encode([
+            'from' => sprintf('%s <%s>', $this->fromName, $this->fromEmail),
+            'to' => [$emailNormalized],
+            'subject' => $subject,
+            'text' => $text,
+            'html' => $html,
+        ]);
+        if ($payload === false) {
+            throw new \RuntimeException('ResendMailer: failed to encode request payload');
+        }
+
+        $headers = [
+            'Authorization: Bearer ' . $this->apiKey,
+            'Content-Type: application/json',
+        ];
+
+        $result = ($this->httpPost)(self::API_URL, $headers, $payload, $this->timeoutSeconds);
+
+        if ($result['status'] < 200 || $result['status'] >= 300) {
+            throw new \RuntimeException('ResendMailer: send failed with HTTP ' . $result['status']);
+        }
+    }
+
+    /**
      * @param list<string> $headers
      * @return array{status: int, body: string}
      */
