@@ -82,6 +82,39 @@ function emailLoginChallengeRepositoryTests(): array
             assertSame('attempts_exhausted', $final->reason, 'reason should be attempts_exhausted after the limit is reached');
         },
 
+        'consumeAttempt() never accepts more than maxAttempts wrong-code increments, even when attempts is already at the cap before the call' => function () {
+            // Approximates (single-threaded) the race the atomic
+            // "WHERE ... AND attempts < :maxAttempts" guard exists for:
+            // a request that reaches this method when `attempts` has
+            // ALREADY settled at the cap (as it would once a concurrent
+            // sibling request's own conditional UPDATE has committed)
+            // must be rejected as attempts_exhausted and must NOT
+            // increment `attempts` past the cap. The real concurrent
+            // case -- many wrong guesses racing in at once, all reading
+            // attempts < cap before any of them commit -- is NOT
+            // reproducible in a single PHP process/single DB connection;
+            // it is proven against real MariaDB by mariadb-concurrency
+            // scenario F, not by this test.
+            $pdo = makeEmailLoginChallengeRepositoryTestDb();
+            $repo = new EmailLoginChallengeRepository($pdo);
+            $rawToken = 'raw-challenge-token-cap-preset';
+            $repo->issue('cap-preset@example.com', $rawToken, '777777', ELC_TEST_PEPPER, new \DateTimeImmutable('+10 minutes'));
+            $tokenHash = hash('sha256', $rawToken);
+            $pdo->prepare('UPDATE email_login_challenges SET attempts = 5 WHERE challenge_token_hash = ?')
+                ->execute([$tokenHash]);
+
+            $wrong = $repo->consumeAttempt($rawToken, '000000', ELC_TEST_PEPPER, 5);
+            assertFalse($wrong->success, 'a wrong guess against an already-exhausted challenge must fail');
+            assertSame('attempts_exhausted', $wrong->reason, 'reason should be attempts_exhausted, not incorrect_code, once the cap is already reached');
+
+            $attemptsAfter = (int) $pdo->query("SELECT attempts FROM email_login_challenges WHERE challenge_token_hash = '{$tokenHash}'")->fetchColumn();
+            assertSame(5, $attemptsAfter, 'attempts must not be incremented past the configured cap');
+
+            $correct = $repo->consumeAttempt($rawToken, '777777', ELC_TEST_PEPPER, 5);
+            assertFalse($correct->success, 'the correct code must not succeed once the attempt budget is exhausted');
+            assertSame('attempts_exhausted', $correct->reason, 'a correct-code consume after the cap must also report attempts_exhausted, not succeed');
+        },
+
         'consumeAttempt() fails for an expired challenge' => function () {
             $pdo = makeEmailLoginChallengeRepositoryTestDb();
             $repo = new EmailLoginChallengeRepository($pdo);

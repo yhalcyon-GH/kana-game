@@ -157,3 +157,48 @@ function scenarioOtpVerify(PDO $pdo, array $args, Barrier $barrier, int $workerI
         ];
     }
 }
+
+/**
+ * Scenario F: N concurrent wrong-code guesses against the SAME
+ * challenge, each worker calling EmailLoginChallengeRepository::
+ * consumeAttempt() directly (not the full OtpAuthService::verifyCode()
+ * -- consumeAttempt()'s 'reason' field, which distinguishes
+ * incorrect_code from attempts_exhausted, is exactly what this
+ * scenario needs to observe, and OtpVerifyResult does not surface it).
+ * Every code supplied is guaranteed wrong by construction, so success
+ * must always be false; what this proves is that no more than
+ * maxAttempts of the N concurrent guesses are ever ACCEPTED (reason
+ * incorrect_code) -- the rest must be rejected as attempts_exhausted
+ * without ever being evaluated against the real code_mac, and the
+ * `attempts` column must never exceed maxAttempts.
+ */
+function scenarioOtpAttemptRace(PDO $pdo, array $args, Barrier $barrier, int $workerId): array
+{
+    require_once __DIR__ . '/../../src/Auth/EmailLoginChallengeRepository.php';
+    $repo = new \KanaGame\Paddle\Auth\EmailLoginChallengeRepository($pdo);
+
+    $barrier->signalReadyAndWaitForGo($workerId);
+
+    try {
+        $result = $repo->consumeAttempt(
+            $args['raw_challenge_token'],
+            $args['wrong_code'],
+            \KanaGame\Paddle\Tests\OTP_TEST_PEPPER,
+            $args['max_attempts'],
+        );
+
+        return [
+            'success' => $result->success,
+            'reason' => $result->reason,
+            'exception_class' => null,
+            'sqlstate' => null,
+        ];
+    } catch (\Throwable $e) {
+        return [
+            'success' => false,
+            'reason' => null,
+            'exception_class' => get_class($e),
+            'sqlstate' => $e instanceof \PDOException ? ($e->errorInfo[0] ?? null) : null,
+        ];
+    }
+}

@@ -853,6 +853,116 @@ function runScenarioE(PDO $maintPdo, int $iterations): void
     }
 }
 
+// --------------------------------------------------------------------
+// Scenario F: LOGIN_CODE_MAX_ATTEMPTS enforcement under concurrency.
+// $workerCount (8) concurrent WRONG-code guesses race against the SAME
+// challenge, with maxAttempts=5 -- fewer than $workerCount, so this
+// scenario only proves something if the cap is genuinely enforced.
+// EmailLoginChallengeRepository::consumeAttempt()'s atomic
+// "WHERE ... AND attempts < :maxAttempts" conditional UPDATE (added
+// specifically for this requirement) must ensure that no more than
+// exactly maxAttempts of the concurrent guesses are ever ACCEPTED
+// (reason 'incorrect_code'); the rest must be rejected as
+// 'attempts_exhausted' without ever mutating `attempts` further, and a
+// correct-code consume submitted AFTER the race must still fail.
+// --------------------------------------------------------------------
+function runScenarioF(PDO $maintPdo, int $iterations): void
+{
+    $scenario = 'F';
+    $GLOBALS['mariadbConcurrencyScenarioTally'][$scenario] = ['pass' => 0, 'fail' => 0];
+    $workerCount = 8;
+    $maxAttempts = 5;
+
+    for ($iter = 1; $iter <= $iterations; $iter++) {
+        resetTables($maintPdo);
+
+        $rawChallengeToken = rawSecretToken();
+        $realCode = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        (new \KanaGame\Paddle\Auth\EmailLoginChallengeRepository($maintPdo))->issue(
+            'race-f@example.invalid',
+            $rawChallengeToken,
+            $realCode,
+            \KanaGame\Paddle\Tests\OTP_TEST_PEPPER,
+            new \DateTimeImmutable('+10 minutes'),
+        );
+
+        $dir = makeBarrierDir($scenario, $iter);
+        for ($i = 0; $i < $workerCount; $i++) {
+            // Guaranteed wrong: differs from $realCode by construction
+            // (six digits, offset by worker id mod 10 on the last
+            // digit, never equal to $realCode since $realCode is fixed
+            // and these are all distinct from each other too).
+            $lastDigit = (int) $realCode[5];
+            $wrongLastDigit = ($lastDigit + 1 + $i) % 10;
+            $wrongCode = substr($realCode, 0, 5) . (string) $wrongLastDigit;
+            writeArgsFile($dir, $i, [
+                'raw_challenge_token' => $rawChallengeToken,
+                'wrong_code' => $wrongCode,
+                'max_attempts' => $maxAttempts,
+            ]);
+        }
+
+        $iterationFailures = [];
+        try {
+            $results = runWorkers('otp_attempt_race', $dir, $workerCount);
+
+            $successCount = 0;
+            $incorrectCount = 0;
+            $exhaustedCount = 0;
+            $otherReasons = [];
+            $exceptionWorkers = [];
+            foreach ($results as $i => $r) {
+                if ($r['success']) {
+                    $successCount++;
+                }
+                if (($r['reason'] ?? null) === 'incorrect_code') {
+                    $incorrectCount++;
+                } elseif (($r['reason'] ?? null) === 'attempts_exhausted') {
+                    $exhaustedCount++;
+                } elseif ($r['reason'] !== null) {
+                    $otherReasons[] = ['worker' => $i, 'reason' => $r['reason']];
+                }
+                if ($r['exception_class'] !== null) {
+                    $exceptionWorkers[] = ['worker' => $i, 'class' => $r['exception_class'], 'sqlstate' => $r['sqlstate']];
+                }
+            }
+
+            checkInvariant($scenario, $iter, 'no wrong-code guess ever succeeds', $successCount === 0, ['success_count' => $successCount], $iterationFailures);
+            checkInvariant($scenario, $iter, 'no uncaught DB exception surfaced from any worker', $exceptionWorkers === [], ['exception_workers' => $exceptionWorkers], $iterationFailures);
+            checkInvariant($scenario, $iter, 'no worker reports an unexpected reason (only incorrect_code or attempts_exhausted)', $otherReasons === [], ['other_reasons' => $otherReasons], $iterationFailures);
+            // The core property this scenario exists to prove: EXACTLY
+            // maxAttempts (5) of the workerCount (8) concurrent guesses
+            // are accepted as incorrect_code -- never more, regardless
+            // of how many raced in simultaneously.
+            checkInvariant($scenario, $iter, "exactly {$maxAttempts} of {$workerCount} concurrent wrong guesses are accepted (incorrect_code), never more", $incorrectCount === $maxAttempts, ['incorrect_count' => $incorrectCount, 'exhausted_count' => $exhaustedCount], $iterationFailures);
+            checkInvariant($scenario, $iter, 'the remaining guesses are rejected as attempts_exhausted, not silently dropped or double-counted', $exhaustedCount === ($workerCount - $maxAttempts), ['exhausted_count' => $exhaustedCount], $iterationFailures);
+
+            $verifyPdo = connectMariadbConcurrencyTestDb();
+            $tokenHash = hash('sha256', $rawChallengeToken);
+            $attemptsRow = $verifyPdo->prepare('SELECT attempts, used_at FROM email_login_challenges WHERE challenge_token_hash = ?');
+            $attemptsRow->execute([$tokenHash]);
+            $challengeState = $attemptsRow->fetch(PDO::FETCH_ASSOC);
+            $attemptsFinal = $challengeState !== false ? (int) $challengeState['attempts'] : null;
+
+            checkInvariant($scenario, $iter, 'the attempts column never exceeds maxAttempts, however many guesses raced in', $attemptsFinal === $maxAttempts, ['attempts_final' => $attemptsFinal], $iterationFailures);
+            checkInvariant($scenario, $iter, 'the challenge remains unused after an all-wrong-guess race', $challengeState !== false && $challengeState['used_at'] === null, ['used_at' => $challengeState['used_at'] ?? null], $iterationFailures);
+
+            // Sequential follow-up check (not part of the race): the
+            // budget is exhausted, so even the CORRECT code must now
+            // fail -- proves the cap is a real, persistent lock-out, not
+            // just a per-call rejection that a later correct guess could
+            // still slip past.
+            $repo = new \KanaGame\Paddle\Auth\EmailLoginChallengeRepository($verifyPdo);
+            $afterRace = $repo->consumeAttempt($rawChallengeToken, $realCode, \KanaGame\Paddle\Tests\OTP_TEST_PEPPER, $maxAttempts);
+            checkInvariant($scenario, $iter, 'the correct code no longer succeeds once the attempt budget is exhausted', !$afterRace->success && $afterRace->reason === 'attempts_exhausted', ['reason' => $afterRace->reason], $iterationFailures);
+
+            reportIterationOutcome($scenario, $iter, $iterationFailures, $results, ['real_code_length' => strlen($realCode)]);
+        } finally {
+            cleanupBarrierDir($dir);
+        }
+    }
+}
+
 // ========================================================================
 // Main
 // ========================================================================
@@ -890,6 +1000,7 @@ $allScenarios = [
     'C4' => fn () => runScenarioC4($maintPdo, $iterations),
     'D' => fn () => runScenarioD($maintPdo, $iterations),
     'E' => fn () => runScenarioE($maintPdo, $iterations),
+    'F' => fn () => runScenarioF($maintPdo, $iterations),
 ];
 
 foreach ($allScenarios as $name => $runner) {

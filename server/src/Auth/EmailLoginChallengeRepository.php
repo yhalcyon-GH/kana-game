@@ -135,12 +135,27 @@ final class EmailLoginChallengeRepository
         $tokenHash = hash('sha256', $rawChallengeToken);
         $nowExpression = $this->nowExpression();
 
+        // This initial SELECT is intentionally non-locking. It only reads
+        // fields that are either immutable once set (code_mac, expires_at)
+        // or monotonic/settled once true (used_at, invalidated_at) -- none
+        // of these can be raced back into a "not yet" state by a
+        // concurrent request, so a stale read here can only ever make us
+        // MORE conservative (return early with 'invalid'), never less.
+        // `attempts` is the one field that genuinely races under
+        // concurrent guesses; it is deliberately NOT gated on here --
+        // both branches below re-check it as part of an atomic conditional
+        // UPDATE instead (see the WHERE ... AND attempts < :maxAttempts
+        // clauses), so no more than $maxAttempts increments (successful or
+        // not) can ever be accepted against one challenge, regardless of
+        // how many requests race in concurrently. See mariadb-concurrency
+        // scenario F, which exercises exactly this race with real
+        // MariaDB.
         $select = $this->pdo->prepare(
-            "SELECT code_mac, attempts, used_at, invalidated_at, expires_at FROM email_login_challenges
-             WHERE challenge_token_hash = :hash LIMIT 1",
+            'SELECT code_mac, used_at, invalidated_at, expires_at FROM email_login_challenges
+             WHERE challenge_token_hash = :hash LIMIT 1',
         );
         $select->execute(['hash' => $tokenHash]);
-        /** @var array{code_mac: string, attempts: int, used_at: ?string, invalidated_at: ?string, expires_at: string}|false $row */
+        /** @var array{code_mac: string, used_at: ?string, invalidated_at: ?string, expires_at: string}|false $row */
         $row = $select->fetch();
 
         if ($row === false) {
@@ -152,36 +167,78 @@ final class EmailLoginChallengeRepository
         if (new \DateTimeImmutable($row['expires_at']) <= new \DateTimeImmutable('now')) {
             return EmailLoginChallengeConsumeResult::invalid();
         }
-        if ((int) $row['attempts'] >= $maxAttempts) {
-            return EmailLoginChallengeConsumeResult::attemptsExhausted();
-        }
 
         $expectedMac = $this->computeCodeMac($rawChallengeToken, $code, $pepper);
 
         if (hash_equals($row['code_mac'], $expectedMac)) {
+            // Atomic: a correct-code consume only succeeds if the row is
+            // STILL open (single-use, matching MagicLinkTokenRepository::
+            // consume()'s pattern) AND still under the attempt budget at
+            // the moment MariaDB evaluates this UPDATE's WHERE clause --
+            // not at the moment of the SELECT above. Concurrent wrong-code
+            // UPDATEs on this same row serialize against this one via
+            // ordinary InnoDB row locking, so whichever of them commits
+            // first is the value this WHERE clause actually sees.
             $consume = $this->pdo->prepare(
                 "UPDATE email_login_challenges
                  SET used_at = {$nowExpression}
-                 WHERE challenge_token_hash = :hash AND used_at IS NULL AND invalidated_at IS NULL",
+                 WHERE challenge_token_hash = :hash AND used_at IS NULL AND invalidated_at IS NULL
+                   AND attempts < :maxAttempts",
             );
-            $consume->execute(['hash' => $tokenHash]);
+            $consume->execute(['hash' => $tokenHash, 'maxAttempts' => $maxAttempts]);
 
             if ($consume->rowCount() === 1) {
                 return EmailLoginChallengeConsumeResult::ok();
             }
-            // Lost the race to a concurrent successful consumeAttempt() on
-            // the same challenge -- see mariadb-concurrency scenario D.
+            // Lost the race to a concurrent successful consumeAttempt()
+            // (used_at got set first -- see mariadb-concurrency scenario
+            // D), or the attempt budget was exhausted by concurrent
+            // wrong-code guesses before this UPDATE's row lock was
+            // granted. Re-read to report the correct reason rather than
+            // guessing from the stale pre-image.
+            $recheck = $this->pdo->prepare(
+                'SELECT attempts FROM email_login_challenges WHERE challenge_token_hash = :hash LIMIT 1',
+            );
+            $recheck->execute(['hash' => $tokenHash]);
+            $attemptsNow = $recheck->fetchColumn();
+            if ($attemptsNow !== false && (int) $attemptsNow >= $maxAttempts) {
+                return EmailLoginChallengeConsumeResult::attemptsExhausted();
+            }
             return EmailLoginChallengeConsumeResult::invalid();
         }
 
+        // Same atomic guard as the success path: this increment is only
+        // accepted (rowCount() === 1) while attempts is still under the
+        // cap AT UPDATE TIME. No more than $maxAttempts total increments
+        // (across this branch and the success branch's own failed-race
+        // path never increments) can ever be accepted against one
+        // challenge, however many wrong guesses race in concurrently --
+        // the (maxAttempts+1)th and later concurrent UPDATEs all see
+        // attempts already >= maxAttempts once they acquire the row lock
+        // and affect zero rows.
         $increment = $this->pdo->prepare(
             'UPDATE email_login_challenges
              SET attempts = attempts + 1
-             WHERE challenge_token_hash = :hash AND used_at IS NULL AND invalidated_at IS NULL',
+             WHERE challenge_token_hash = :hash AND used_at IS NULL AND invalidated_at IS NULL
+               AND attempts < :maxAttempts',
         );
-        $increment->execute(['hash' => $tokenHash]);
+        $increment->execute(['hash' => $tokenHash, 'maxAttempts' => $maxAttempts]);
 
-        return EmailLoginChallengeConsumeResult::incorrectCode();
+        if ($increment->rowCount() === 1) {
+            return EmailLoginChallengeConsumeResult::incorrectCode();
+        }
+        // Either already used/invalidated by a concurrent successful
+        // consume (re-check to report 'invalid' rather than a misleading
+        // 'attempts_exhausted'), or the budget was already spent.
+        $recheck = $this->pdo->prepare(
+            'SELECT used_at, invalidated_at FROM email_login_challenges WHERE challenge_token_hash = :hash LIMIT 1',
+        );
+        $recheck->execute(['hash' => $tokenHash]);
+        $settledRow = $recheck->fetch();
+        if ($settledRow !== false && ($settledRow['used_at'] !== null || $settledRow['invalidated_at'] !== null)) {
+            return EmailLoginChallengeConsumeResult::invalid();
+        }
+        return EmailLoginChallengeConsumeResult::attemptsExhausted();
     }
 
     private function computeCodeMac(string $rawChallengeToken, string $code, string $pepper): string
