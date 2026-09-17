@@ -88,9 +88,10 @@ final class ResendMailer implements Mailer
     public function sendLoginCode(string $emailNormalized, string $code): void
     {
         $subject = 'Your Tamamizu sign-in code';
-        $text = "Your Tamamizu sign-in code is:\n\n{$code}\n\nIf you didn't request this, you can safely ignore this email.";
+        $text = "Your Tamamizu sign-in code is:\n\n{$code}\n\nNever share this code. Tamamizu will never ask you for it.\n\nIf you didn't request this, you can safely ignore this email.";
         $html = '<p>Your Tamamizu sign-in code is:</p>'
             . '<p><strong>' . htmlspecialchars($code, ENT_QUOTES) . '</strong></p>'
+            . '<p>Never share this code. Tamamizu will never ask you for it.</p>'
             . '<p>If you didn\'t request this, you can safely ignore this email.</p>';
 
         $payload = json_encode([

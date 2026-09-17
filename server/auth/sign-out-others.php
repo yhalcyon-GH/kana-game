@@ -65,8 +65,16 @@ $rememberCookie = new WebSessionCookie(
     $config->get('PERSISTENT_LOGIN_COOKIE_NAME') ?? '__Host-tamamizu_remember',
 );
 $cookieToken = $webSessionCookie->readToken($_COOKIE);
+$rememberToken = $rememberCookie->readToken($_COOKIE);
 
-if ($cookieToken !== null && !$cors->isOriginAllowed($_SERVER['HTTP_ORIGIN'] ?? null)) {
+// CSRF defense-in-depth for the cookie transport (see logout.php's
+// comment on this same check for the full rationale). This endpoint
+// authenticates via resolveOrRefresh(), which can succeed from the
+// remember cookie ALONE (session cookie missing/expired) and then
+// revokes every OTHER active persistent credential for the user --
+// a state change that must be Origin-checked regardless of which of
+// the two cookies is present, not just the session cookie.
+if (($cookieToken !== null || $rememberToken !== null) && !$cors->isOriginAllowed($_SERVER['HTTP_ORIGIN'] ?? null)) {
     http_response_code(403);
     echo json_encode(['error' => 'forbidden']);
     exit;
@@ -76,7 +84,6 @@ $credential = SessionCredentialResolver::resolve(
     SessionCredentialResolver::extractBearerToken($_SERVER['HTTP_AUTHORIZATION'] ?? null),
     $cookieToken,
 );
-$rememberToken = $rememberCookie->readToken($_COOKIE);
 
 try {
     $pdo = Db::connect($config);

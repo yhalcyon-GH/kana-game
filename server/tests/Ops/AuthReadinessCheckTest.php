@@ -112,5 +112,23 @@ function authReadinessCheckTests(): array
             assertTrue(str_contains($result['stderr'], 'distinct'), 'expected the error to explain the peppers must be distinct');
             assertTrue(!str_contains($result['stderr'], 'shared-pepper-value'), 'must never print the raw secret value');
         },
+
+        'exits 1 when WEB_SESSION_COOKIE_NAME and PERSISTENT_LOGIN_COOKIE_NAME are set to the same value' => function () {
+            $result = runAuthReadinessCheck([
+                'WEB_SESSION_COOKIE_NAME' => '__Host-shared_cookie',
+                'PERSISTENT_LOGIN_COOKIE_NAME' => '__Host-shared_cookie',
+            ]);
+            assertTrue($result['exitCode'] === 1, 'expected exit code 1, got ' . $result['exitCode']);
+            assertTrue(str_contains($result['stderr'], 'MISCONFIGURED'), 'expected a MISCONFIGURED message on stderr');
+            assertTrue(str_contains($result['stderr'], 'distinct'), 'expected the error to explain the cookie names must be distinct');
+        },
+
+        'exits 0 when WEB_SESSION_COOKIE_NAME and PERSISTENT_LOGIN_COOKIE_NAME are distinct' => function () {
+            $result = runAuthReadinessCheck([
+                'WEB_SESSION_COOKIE_NAME' => '__Host-tamamizu_session',
+                'PERSISTENT_LOGIN_COOKIE_NAME' => '__Host-tamamizu_remember',
+            ]);
+            assertTrue($result['exitCode'] === 0, 'expected exit code 0, got ' . $result['exitCode'] . ' stderr=' . $result['stderr']);
+        },
     ];
 }

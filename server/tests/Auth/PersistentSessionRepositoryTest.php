@@ -114,6 +114,67 @@ function persistentSessionRepositoryTests(): array
             assertTrue($repo->evictLruForUser('nobody') === null, 'a user with no active rows has nothing to evict');
         },
 
+        'evictLruForUserIfAtCap() does nothing and returns null when the user is under the cap' => function () {
+            $pdo = makePersistentSessionRepositoryTestDb();
+            $repo = new PersistentSessionRepository($pdo);
+            $repo->create('user-cap-1', 'raw-a', new \DateTimeImmutable('+90 days'));
+            $repo->create('user-cap-1', 'raw-b', new \DateTimeImmutable('+90 days'));
+
+            $result = $repo->evictLruForUserIfAtCap('user-cap-1', 3);
+
+            assertTrue($result === null, 'no eviction should happen when active count (2) is under the cap (3)');
+            assertSame(2, $repo->countActiveForUser('user-cap-1'), 'both rows must remain active');
+        },
+
+        'evictLruForUserIfAtCap() evicts exactly the least-recently-used row when the user is AT the cap' => function () {
+            $pdo = makePersistentSessionRepositoryTestDb();
+            $repo = new PersistentSessionRepository($pdo);
+            $oldest = $repo->create('user-cap-2', 'raw-oldest', new \DateTimeImmutable('+90 days'));
+            $middle = $repo->create('user-cap-2', 'raw-middle', new \DateTimeImmutable('+90 days'));
+            $newest = $repo->create('user-cap-2', 'raw-newest', new \DateTimeImmutable('+90 days'));
+            $pdo->exec("UPDATE persistent_sessions SET last_seen_at = '2020-01-01 00:00:00' WHERE id = {$oldest}");
+            $pdo->exec("UPDATE persistent_sessions SET last_seen_at = '2021-01-01 00:00:00' WHERE id = {$middle}");
+            $pdo->exec("UPDATE persistent_sessions SET last_seen_at = '2022-01-01 00:00:00' WHERE id = {$newest}");
+
+            $evicted = $repo->evictLruForUserIfAtCap('user-cap-2', 3);
+
+            assertSame($oldest, $evicted, 'the row with the oldest last_seen_at must be the one evicted');
+            assertSame(2, $repo->countActiveForUser('user-cap-2'), 'exactly one row should have been revoked');
+            assertTrue($repo->findActiveByRawToken('raw-oldest') === null, 'the evicted row must no longer resolve');
+        },
+
+        'evictLruForUserIfAtCap() called again while still at cap evicts the NEW oldest row -- proves it is a single-shot, re-runnable check, not stateful' => function () {
+            // Simulates (at the unit level, in a single connection --
+            // the real cross-transaction proof is mariadb-concurrency
+            // scenario E) what a second, later verifyCode() call for the
+            // same user would see if a first call evicted one row but
+            // no replacement had been created yet: the cap is still met
+            // by the remaining rows, so a second call must evict again
+            // rather than treating "already ran once" as done.
+            $pdo = makePersistentSessionRepositoryTestDb();
+            $repo = new PersistentSessionRepository($pdo);
+            $oldest = $repo->create('user-cap-3', 'raw-oldest', new \DateTimeImmutable('+90 days'));
+            $middle = $repo->create('user-cap-3', 'raw-middle', new \DateTimeImmutable('+90 days'));
+            $newest = $repo->create('user-cap-3', 'raw-newest', new \DateTimeImmutable('+90 days'));
+            $pdo->exec("UPDATE persistent_sessions SET last_seen_at = '2020-01-01 00:00:00' WHERE id = {$oldest}");
+            $pdo->exec("UPDATE persistent_sessions SET last_seen_at = '2021-01-01 00:00:00' WHERE id = {$middle}");
+            $pdo->exec("UPDATE persistent_sessions SET last_seen_at = '2022-01-01 00:00:00' WHERE id = {$newest}");
+
+            $first = $repo->evictLruForUserIfAtCap('user-cap-3', 3);
+            assertSame($oldest, $first, 'first call evicts the oldest row');
+            assertSame(2, $repo->countActiveForUser('user-cap-3'), 'now under cap (2 active)');
+
+            $second = $repo->evictLruForUserIfAtCap('user-cap-3', 3);
+            assertTrue($second === null, 'second call must NOT evict again: 2 active rows is under the cap of 3');
+            assertSame(2, $repo->countActiveForUser('user-cap-3'), 'still 2 active -- no further eviction should have happened');
+        },
+
+        'evictLruForUserIfAtCap() returns null for a user with no active rows' => function () {
+            $pdo = makePersistentSessionRepositoryTestDb();
+            $repo = new PersistentSessionRepository($pdo);
+            assertTrue($repo->evictLruForUserIfAtCap('nobody', 3) === null, 'a user with 0 active rows is under any positive cap');
+        },
+
         'revokeAllForUserExcept() revokes every active row for the user except the kept id, and returns the revoked ids' => function () {
             $pdo = makePersistentSessionRepositoryTestDb();
             $repo = new PersistentSessionRepository($pdo);

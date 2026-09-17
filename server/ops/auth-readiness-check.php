@@ -75,5 +75,23 @@ if (
     exit(1);
 }
 
+$webSessionCookieName = $config->get('WEB_SESSION_COOKIE_NAME');
+$rememberCookieName = $config->get('PERSISTENT_LOGIN_COOKIE_NAME');
+
+if (
+    $webSessionCookieName !== null && $webSessionCookieName !== ''
+    && $rememberCookieName !== null && $rememberCookieName !== ''
+    && $webSessionCookieName === $rememberCookieName
+) {
+    fwrite(
+        STDERR,
+        "MISCONFIGURED: WEB_SESSION_COOKIE_NAME and PERSISTENT_LOGIN_COOKIE_NAME " .
+        "must be distinct cookie names, but are set to the same value -- verify-code.php " .
+        "would emit two conflicting Set-Cookie headers for one name, corrupting both " .
+        "the normal session and the remember-this-browser credential.\n",
+    );
+    exit(1);
+}
+
 fwrite(STDOUT, "OK\n");
 exit(0);

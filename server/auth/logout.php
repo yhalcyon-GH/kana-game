@@ -80,11 +80,16 @@ $rememberToken = $rememberCookie->readToken($_COOKIE);
 // blocks this cookie from being sent on most cross-site POSTs, but this
 // must not be the ONLY defense (see docs/adr/0001-cross-site-auth-
 // transport.md and the Phase 3B CORS/CSRF design) — a state-changing
-// request that DID carry the session cookie must also come from an
-// allowlisted Origin, or it is rejected outright, before any session
-// lookup happens. A Bearer-only caller (no cookie at all) is entirely
-// unaffected by this check.
-if ($cookieToken !== null && !$cors->isOriginAllowed($_SERVER['HTTP_ORIGIN'] ?? null)) {
+// request that carried EITHER the session cookie OR the remember
+// cookie must also come from an allowlisted Origin, or it is rejected
+// outright, before any session/persistent-credential lookup happens.
+// This must check both cookies, not just the session cookie: the
+// remember-cookie-only path below (no session credential, but a still-
+// valid remember cookie) revokes a real 90-day credential on its own,
+// so it needs the same Origin defense as the credentialed path does. A
+// Bearer-only caller (no cookie at all) is entirely unaffected by this
+// check.
+if (($cookieToken !== null || $rememberToken !== null) && !$cors->isOriginAllowed($_SERVER['HTTP_ORIGIN'] ?? null)) {
     http_response_code(403);
     echo json_encode(['error' => 'forbidden']);
     exit;

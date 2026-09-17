@@ -74,6 +74,43 @@ function assertOriginCheckedForCookieCredential(string $relativePath): void
     assertTrue($originCheckPos < $resolvePos, 'the Origin check must run before SessionCredentialResolver::resolve()');
 }
 
+/**
+ * Same CSRF-defense-in-depth property as assertOriginCheckedForCookieCredential(),
+ * but for entrypoints (logout.php, sign-out-others.php) that can also
+ * authenticate/act purely from the persistent "remember this browser"
+ * cookie -- the Origin check on those entrypoints must therefore gate
+ * on EITHER cookie being present, not just the session cookie, or a
+ * remember-cookie-only request bypasses the CSRF defense entirely
+ * (security-review finding, PR #298).
+ */
+function assertOriginCheckedForCookieOrRememberCredential(string $relativePath): void
+{
+    $source = loadServerSource($relativePath);
+
+    assertTrue(
+        str_contains($source, '$cookieToken = $webSessionCookie->readToken($_COOKIE);'),
+        "{$relativePath} must capture the session cookie token in a named variable to check its presence before resolving",
+    );
+    assertTrue(
+        str_contains($source, '$rememberToken = $rememberCookie->readToken($_COOKIE);'),
+        "{$relativePath} must capture the remember cookie token in a named variable to check its presence before resolving",
+    );
+    assertTrue(
+        (bool) preg_match(
+            "/if \\(\\(\\\$cookieToken !== null \\|\\| \\\$rememberToken !== null\\) && !\\\$cors->isOriginAllowed\\(\\\$_SERVER\\['HTTP_ORIGIN'\\] \\?\\? null\\)\\)/",
+            $source,
+        ),
+        "{$relativePath} must reject a request authenticated by EITHER cookie from a non-allowlisted Origin, as CSRF defense-in-depth beyond SameSite=Lax",
+    );
+
+    // The remember-cookie token must be read BEFORE the Origin check
+    // runs, or the check above can never see it.
+    $rememberReadPos = strpos($source, '$rememberToken = $rememberCookie->readToken($_COOKIE);');
+    $originCheckPos = strpos($source, 'isOriginAllowed(');
+    assertTrue($rememberReadPos !== false && $originCheckPos !== false, 'expected both a remember-token read and an Origin check');
+    assertTrue($rememberReadPos < $originCheckPos, 'the remember token must be read before the Origin check runs');
+}
+
 function assertUsesCredentialResolver(string $relativePath): void
 {
     $source = loadServerSource($relativePath);
@@ -188,8 +225,12 @@ function webSessionCookieWiringTests(): array
             }
         },
 
-        'auth/logout.php rejects a cookie-authenticated request from a non-allowlisted Origin before session lookup' => function () {
-            assertOriginCheckedForCookieCredential('auth/logout.php');
+        'auth/logout.php rejects a request authenticated by either the session or remember cookie from a non-allowlisted Origin before session/persistent lookup' => function () {
+            assertOriginCheckedForCookieOrRememberCredential('auth/logout.php');
+        },
+
+        'auth/sign-out-others.php rejects a request authenticated by either the session or remember cookie from a non-allowlisted Origin before session/persistent lookup' => function () {
+            assertOriginCheckedForCookieOrRememberCredential('auth/sign-out-others.php');
         },
 
         'purchase-intent.php rejects a cookie-authenticated request from a non-allowlisted Origin before session lookup' => function () {
