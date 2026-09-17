@@ -42,9 +42,13 @@ jobs:
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
-          # This is an optional setting that allows Claude to read CI results on PRs
+          # Request only the extra GitHub App permissions needed beyond the
+          # action defaults. `workflows: write` is required for agentic-workflow
+          # authoring under .github/workflows and is granted by the installed
+          # Claude GitHub App for this repository.
           additional_permissions: |
             actions: read
+            workflows: write
 
           # Keep shell access limited to dependency installation, project verification,
           # PR operations required by repository tasks, and GitHub Agentic Workflows
