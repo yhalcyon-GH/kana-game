@@ -9,6 +9,8 @@ description: |
 on:
   pull_request:
     types: [opened, ready_for_review]
+  roles: [admin, maintainer, write]
+  bots: ["claude[bot]"]
 
 if: ${{ github.event.pull_request.draft == false }}
 
