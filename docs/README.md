@@ -7,6 +7,8 @@ For day-to-day development, start with [`CLAUDE.md`](../CLAUDE.md) or [`AGENTS.m
 ## Current guidance
 
 - **[ai-development-loop.md](./ai-development-loop.md)** — shared ChatGPT / Claude Code / Codex development and review workflow.
+- **[agentic-workflows-bootstrap.md](./agentic-workflows-bootstrap.md)** — scope of the `gh aw` authoring/compile bootstrap for the Claude GitHub Action.
+- **[agentic-workflows-codex-review-and-ci-investigator.md](./agentic-workflows-codex-review-and-ci-investigator.md)** — the Codex independent PR review and `PR Verify` failure investigator Agentic Workflows: triggers, permissions, safe-outputs, and the required engine secret.
 - **[resume-protocol.md](./resume-protocol.md)** — timeout-safe, GitHub-first resume and checkpoint protocol; start a new Work session here.
 - **[autonomous-operations.md](./autonomous-operations.md)** — autonomous/overnight AI operating protocol: source of truth, roles, the multi-task autonomous execution loop, Stop/Human Gates, "Overnight mode", priority/severity, review/merge standard, and recovery.
 - **[definition-of-done.md](./definition-of-done.md)** — Builder completion criteria and verification expectations.
