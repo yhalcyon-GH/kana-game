@@ -12,9 +12,10 @@ describe('INTRO_GUIDE_STEPS (Issue #31)', () => {
     }
   })
 
-  it('has exactly the 6 expected steps, in order', () => {
+  it('has exactly the 7 expected steps, in order, with the "Before using Tamamizu" slide right after Welcome', () => {
     expect(INTRO_GUIDE_STEPS.map((s) => s.id)).toEqual([
       'intro.welcome',
+      'intro.beforeUse',
       'intro.writingSystems',
       'intro.kanaSounds',
       'intro.kanaUsage',

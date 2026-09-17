@@ -11,6 +11,7 @@
 // slide).
 export type IntroGuideStepId =
   | 'intro.welcome'
+  | 'intro.beforeUse'
   | 'intro.writingSystems'
   | 'intro.kanaSounds'
   | 'intro.kanaUsage'
@@ -25,6 +26,16 @@ export type IntroGuideStep = {
 
 export const INTRO_GUIDE_STEPS: IntroGuideStep[] = [
   { id: 'intro.welcome', slideAsset: 'guide/slide-welcome.webp' },
+  // Human-approved "Before using Tamamizu" slide (pricing/AI-content/usage-
+  // data disclosure as one image + narrated audio) — inserted right after
+  // the welcome slide and before the writing-systems explainer, so every
+  // path through the guide (first launch or "View introduction again")
+  // passes through it. Uses the exact same step machinery (audio
+  // autoplay-attempt/replay/stop-on-advance) as every other step; only
+  // IntroGuide.tsx's render treats this one id specially, to always show an
+  // explicit Play/Replay control for its longer human narration instead of
+  // only on autoplay failure. See introGuideContent.ts for its caption text.
+  { id: 'intro.beforeUse', slideAsset: 'guide/slide-before-use.webp' },
   { id: 'intro.writingSystems', slideAsset: 'guide/slide-writing-systems.webp' },
   { id: 'intro.kanaSounds', slideAsset: 'guide/slide-kana-sounds.webp' },
   { id: 'intro.kanaUsage', slideAsset: 'guide/slide-kana-usage.webp' },

@@ -111,6 +111,7 @@ export function IntroGuide() {
   if (completed) return null
 
   const isLast = stepIndex === INTRO_GUIDE_STEPS.length - 1
+  const isBeforeUseSlide = step.id === 'intro.beforeUse'
 
   const advance = () => {
     stop()
@@ -184,7 +185,17 @@ export function IntroGuide() {
           <img
             src={`${import.meta.env.BASE_URL}${step.slideAsset}`}
             alt=""
-            className="w-full h-auto max-w-full object-contain sm:w-auto sm:max-h-[60vh]"
+            // The "Before using Tamamizu" slide is a dense, text-heavy
+            // human-authored image (pricing/AI-content/usage-data
+            // disclosure) rather than a short illustrative caption slide —
+            // give it more vertical room than the other slides get so its
+            // text stays legible instead of being squeezed by the same 60vh
+            // cap that suits the lighter illustration-only slides.
+            className={
+              isBeforeUseSlide
+                ? 'w-full h-auto max-w-full object-contain sm:w-auto sm:max-h-[75vh]'
+                : 'w-full h-auto max-w-full object-contain sm:w-auto sm:max-h-[60vh]'
+            }
             // Degrade safely if the asset isn't shipped yet — never a
             // broken-image icon (see Issue #29's "missing assets" note).
             onError={(e) => {
@@ -193,7 +204,24 @@ export function IntroGuide() {
           />
         </div>
         <p className="mt-3 max-w-sm shrink-0 text-center text-lg whitespace-pre-line sm:text-xl">{stepContent.subtitle}</p>
-        {playbackFailed && audioEnabled && (
+        {/* The "Before using Tamamizu" slide always shows an explicit
+            Play/Replay control for its longer human narration, rather than
+            only surfacing a control on autoplay failure like every other
+            step's short caption narration — see introGuide.ts's step
+            comment. Reuses the exact same playStep/stop plumbing (single
+            shared StaticFileProvider instance), so it can't overlap with
+            any other clip and still stops when the guide is dismissed or
+            the user navigates to another step. */}
+        {isBeforeUseSlide && audioEnabled && (
+          <button
+            type="button"
+            onClick={retryPlayback}
+            className="mt-2 shrink-0 rounded-full border border-neutral-300 px-4 py-1.5 text-sm text-neutral-600 hover:bg-neutral-100 dark:border-neutral-600 dark:text-neutral-300 dark:hover:bg-neutral-800"
+          >
+            {playbackFailed ? '🔊 Play narration' : '🔁 Replay narration'}
+          </button>
+        )}
+        {!isBeforeUseSlide && playbackFailed && audioEnabled && (
           <button
             type="button"
             onClick={retryPlayback}
@@ -217,7 +245,7 @@ export function IntroGuide() {
         <button
           type="button"
           onClick={advance}
-          className="flex-1 rounded-full bg-blue-600 px-6 py-3 text-center font-semibold text-white hover:bg-blue-700"
+          className="flex-1 rounded-full bg-blue-600 px-6 py-3 text-center text-lg font-semibold text-white hover:bg-blue-700"
         >
           {isLast ? locale.finalLabel : locale.nextLabel}
         </button>
