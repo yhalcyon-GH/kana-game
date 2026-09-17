@@ -44,6 +44,7 @@ $testFiles = [
     __DIR__ . '/Auth/WebSessionCookieWiringTest.php' => 'KanaGame\\Paddle\\Tests\\webSessionCookieWiringTests',
     __DIR__ . '/Auth/ResendMailerTest.php' => 'KanaGame\\Paddle\\Tests\\resendMailerTests',
     __DIR__ . '/Auth/RequestLinkMailerWiringTest.php' => 'KanaGame\\Paddle\\Tests\\requestLinkMailerWiringTests',
+    __DIR__ . '/Auth/RequestCodeWiringTest.php' => 'KanaGame\\Paddle\\Tests\\requestCodeWiringTests',
     __DIR__ . '/Auth/ProductionAuthReadinessTest.php' => 'KanaGame\\Paddle\\Tests\\productionAuthReadinessTests',
     __DIR__ . '/Purchase/PurchaseIntentRepositoryTest.php' => 'KanaGame\\Paddle\\Tests\\purchaseIntentRepositoryTests',
     __DIR__ . '/Purchase/TransactionGrantRepositoryTest.php' => 'KanaGame\\Paddle\\Tests\\transactionGrantRepositoryTests',
