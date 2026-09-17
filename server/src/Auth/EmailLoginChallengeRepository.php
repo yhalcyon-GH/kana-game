@@ -59,12 +59,14 @@ final class EmailLoginChallengeConsumeResult
  * consume() for the SUCCESS path, so concurrent verify-code calls with
  * the correct code against the same challenge resolve to exactly one
  * success (see the mariadb-concurrency scenario D added in Task 17). The
- * FAILURE path (wrong code) does a best-effort attempts increment --
- * losing an attempts++ race under concurrency only makes the limit
- * marginally more permissive, never less safe, and is not itself a
- * security boundary (LOGIN_CODE_MAX_ATTEMPTS is a UX/anti-bruteforce
- * throttle on top of the code's own 1-in-a-million guess space, not the
- * sole defense).
+ * FAILURE path (wrong code) uses the SAME atomic-conditional-UPDATE
+ * pattern, gated on "attempts < maxAttempts" in the WHERE clause: no
+ * more than LOGIN_CODE_MAX_ATTEMPTS guesses (successful or not) can ever
+ * be accepted against one challenge, however many race in concurrently
+ * -- MariaDB's ordinary row-level locking on UPDATE serializes them, so
+ * whichever request's UPDATE actually commits is evaluated against the
+ * row's true, up-to-date attempts count, not a stale pre-read (see
+ * mariadb-concurrency scenario F, added specifically to prove this).
  */
 final class EmailLoginChallengeRepository
 {
