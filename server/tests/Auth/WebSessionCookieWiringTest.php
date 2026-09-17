@@ -292,8 +292,8 @@ function webSessionCookieWiringTests(): array
             assertTrue($ambiguousPos < $logoutCallPos, 'the ambiguous check must run before any revoke attempt');
         },
 
-        'auth/me.php, entitlement-me.php, and purchase-intent.php treat an ambiguous credential as unauthorized via the same null-token check as a missing credential' => function () {
-            foreach (['auth/me.php', 'entitlement-me.php', 'purchase-intent.php'] as $path) {
+        'entitlement-me.php and purchase-intent.php treat an ambiguous credential as unauthorized via the same null-token check as a missing credential' => function () {
+            foreach (['entitlement-me.php', 'purchase-intent.php'] as $path) {
                 $source = loadServerSource($path);
                 assertTrue(
                     str_contains($source, 'if ($credential->token === null) {'),
@@ -304,8 +304,29 @@ function webSessionCookieWiringTests(): array
                 // ambiguous credential correctly collapsing to the same
                 // 401 as a missing one is safe and intentional here, so
                 // (unlike logout.php) there is no separate ->ambiguous
-                // branch expected in these three files.
+                // branch expected in these files.
             }
+        },
+
+        // Task 12: auth/me.php no longer has its own standalone
+        // "$credential->token === null" early-exit -- $credential->token
+        // (null for both missing and ambiguous credentials, per
+        // SessionCredentialResolver's contract) is now passed straight
+        // into CurrentUserService::resolveOrRefresh(), which folds a
+        // failed/absent session credential into the same "maybe refresh
+        // from the remember cookie, else 401" path. This subsumes the
+        // old null-token short-circuit rather than duplicating it.
+        'me.php calls CurrentUserService::resolveOrRefresh(), not just resolve(), so a valid remember cookie can silently refresh an expired session' => function () {
+            $source = loadServerSource('auth/me.php');
+            assertTrue(str_contains($source, '->resolveOrRefresh('), 'me.php must use the persistent-refresh-aware resolver');
+        },
+
+        'me.php reissues the session Set-Cookie only when resolveOrRefresh() actually minted a new session token' => function () {
+            $source = loadServerSource('auth/me.php');
+            $refreshedTokenCheckPos = strpos($source, "'refreshed_session_token'");
+            $setCookiePos = strpos($source, 'Set-Cookie:');
+            assertTrue($refreshedTokenCheckPos !== false && $setCookiePos !== false, 'expected both a refreshed_session_token check and a Set-Cookie header');
+            assertTrue($refreshedTokenCheckPos < $setCookiePos, 'must check refreshed_session_token before issuing a new Set-Cookie header');
         },
     ];
 }
