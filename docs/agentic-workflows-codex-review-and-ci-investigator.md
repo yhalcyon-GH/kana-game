@@ -7,6 +7,18 @@ workflows; the existing owner-gated `@claude` workflow
 (`.github/workflows/claude.yml`) and the opt-in Claude PR review
 (`.github/workflows/claude-code-review.yml`) are unchanged.
 
+**Pending manual step:** the two workflow source files
+(`codex-pr-review.md`, `pr-verify-failure-investigator.md`) and their
+compiled `.lock.yml` files are authored and pass `gh aw compile --strict
+--validate` plus actionlint/shellcheck/poutine, but this PR does not contain
+them under `.github/workflows/`. The GitHub App installation used to author
+this change does not hold the `workflows` permission GitHub requires to
+create or update files in that directory, so the push was rejected. The
+full source content is included in the associated PR description; a
+maintainer (or an agent/token with `workflows` write access) needs to add
+those two files verbatim and run `gh aw compile --strict --approve` to
+(re)generate the `.lock.yml` files identically, then commit and push.
+
 ## Workflow A — Codex independent PR review
 
 - Source: `.github/workflows/codex-pr-review.md`; compiled:
@@ -62,8 +74,9 @@ Both workflows were compiled with the official `gh aw` CLI (`v0.88.7`):
   must come from the compiler and must not be hand-edited, this is left as a
   known upstream gh-aw/zizmor interaction rather than patched.
 
-Compilation also produced supporting official tooling files, committed
-alongside the workflows: `.gitattributes` (marks `*.lock.yml` as generated),
+Compilation also produced supporting official tooling files, committed in
+this PR ahead of the workflow files themselves: `.gitattributes` (marks
+`*.lock.yml` as generated),
 `.github/aw/actions-lock.json` (pinned action SHAs used by the compiled
 workflows), `.github/skills/agentic-workflows/SKILL.md` (the `gh aw`
 authoring/debugging dispatcher skill), and `.poutine.yml` (poutine scanner
