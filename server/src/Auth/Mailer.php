@@ -16,4 +16,12 @@ namespace KanaGame\Paddle\Auth;
 interface Mailer
 {
     public function sendMagicLink(string $emailNormalized, string $magicLinkUrl): void;
+
+    /**
+     * Sends the 6-digit OTP sign-in code, plaintext, to the given email.
+     * The code itself is never logged anywhere in this codebase outside
+     * this one call boundary -- see OtpAuthService::requestCode()'s doc
+     * comment.
+     */
+    public function sendLoginCode(string $emailNormalized, string $code): void;
 }

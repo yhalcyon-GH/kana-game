@@ -95,6 +95,10 @@ $noopMailer = new class implements Mailer {
     public function sendMagicLink(string $emailNormalized, string $magicLinkUrl): void
     {
     }
+
+    public function sendLoginCode(string $emailNormalized, string $code): void
+    {
+    }
 };
 
 try {
