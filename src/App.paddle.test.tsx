@@ -20,7 +20,7 @@ function renderTestRoute() {
 describe('Paddle PoC route isolation', () => {
   it('allows direct development access without adding navigation links', async () => {
     renderTestRoute()
-    expect(await screen.findByRole('heading', { name: 'Full Tamamizu' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Full Access' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Open Paddle Sandbox Checkout' })).toBeDisabled()
     expect(screen.queryAllByRole('link').some((link) => link.getAttribute('href') === '/paddle-test')).toBe(false)
   })

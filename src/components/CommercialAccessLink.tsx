@@ -36,7 +36,7 @@ export function CommercialAccessLink({ target, to, children, className, ...attri
         <span className="block w-full break-words text-xs font-semibold text-neutral-600 dark:text-neutral-300">🔒 Full Access</span>
       </button>
       {expanded && (
-        <div id={panelId} role="region" aria-label="Full Tamamizu access" className="mt-2 flex w-full min-w-0 justify-center rounded-xl border border-neutral-300 bg-white p-3 text-sm dark:border-neutral-600 dark:bg-neutral-800">
+        <div id={panelId} role="region" aria-label="Full Access" className="mt-2 flex w-full min-w-0 justify-center rounded-xl border border-neutral-300 bg-white p-3 text-sm dark:border-neutral-600 dark:bg-neutral-800">
           <CommercialAccessGate target={target}>{null}</CommercialAccessGate>
         </div>
       )}

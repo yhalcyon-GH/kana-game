@@ -11,7 +11,7 @@ export function TermsPage() {
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">About these Terms</h2>
         <p>
           These Terms govern your use of Tamamizu: Hiragana &amp; Katakana, including its free learning content and
-          the paid Full Tamamizu content. By using the service or purchasing Full Tamamizu, you agree to these Terms.
+          the paid Full Access content. By using the service or purchasing Full Access, you agree to these Terms.
           If you do not agree, do not use the service or make a purchase.
         </p>
       </section>
@@ -19,7 +19,7 @@ export function TermsPage() {
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Free and paid content</h2>
         <p>
-          Hiragana learning content is available without payment. Full Tamamizu is a one-time purchase that unlocks
+          Hiragana learning content is available without payment. Full Access is a one-time purchase that unlocks
           additional paid content; it is not a subscription. The base price is USD 5.00. Applicable taxes may be
           included in or added to the price depending on your location, and the final price is shown at Paddle Checkout.
         </p>
@@ -28,7 +28,7 @@ export function TermsPage() {
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Account and licence</h2>
         <p>
-          Full Tamamizu requires an account so the purchase can be recognized. You receive a personal, non-exclusive,
+          Full Access requires an account so the purchase can be recognized. You receive a personal, non-exclusive,
           non-transferable licence to use the paid content. One purchase is for one learner. The same learner may use
           the service on more than one device, but a licence may not be shared with family members or friends. A parent
           or legal guardian may purchase and manage an account for a minor learner.

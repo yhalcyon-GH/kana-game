@@ -36,7 +36,7 @@ describe('RefundPage', () => {
     renderWithRouter(<RefundPage />)
     const section = screen.getByRole('heading', { name: 'Processing and paid access', level: 2 }).parentElement?.textContent ?? ''
     expect(section).toMatch(/pending Paddle approval, paid access remains available/)
-    expect(section).toMatch(/full refund is approved, Full Tamamizu access ends/)
+    expect(section).toMatch(/full refund is approved, Full Access ends/)
     expect(section).toMatch(/request is rejected, paid access remains active or is restored/)
   })
 })

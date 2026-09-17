@@ -102,7 +102,7 @@ describe('commercial navigation', () => {
     expect(screen.getByRole('link', { name: /Hiragana/ })).toHaveAttribute('href', '/hiragana')
     fireEvent.click(resume)
     expect(screen.getByTestId('location')).toHaveTextContent(/^\/$/)
-    expect(screen.getByRole('region', { name: 'Full Tamamizu access' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Full Access' })).toBeInTheDocument()
     if (state.status === 'unavailable') {
       fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
       expect(refresh).toHaveBeenCalledOnce()

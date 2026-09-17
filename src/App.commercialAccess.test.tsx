@@ -101,7 +101,7 @@ describe('commercial access on direct routes', () => {
   it.each([
     ['loading', 'Checking access…'],
     ['signed-out', 'Sign in to unlock'],
-    ['inactive', 'Full Tamamizu required'],
+    ['inactive', 'Full Access required'],
     ['unavailable', 'Couldn’t verify access'],
   ] as const)('denies a paid route while entitlement is %s', async (fixture, message) => {
     renderAt('/practice/katakana/katakana-a-row', fixture)

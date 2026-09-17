@@ -6,7 +6,7 @@ export function RefundPage() {
       <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">Refund Policy</h1>
 
       <p>
-        This policy applies to one-time purchases of Full Tamamizu made through Paddle. It does not apply to any
+        This policy applies to one-time purchases of Full Access made through Paddle. It does not apply to any
         future purchase made through another app store or platform, which may have its own refund process.
       </p>
 
@@ -38,7 +38,7 @@ export function RefundPage() {
           Approved refunds are processed through Paddle. A full refund normally includes applicable taxes as handled
           by Paddle and is returned to the original payment method; the payment provider may take several days to make
           the funds available. While a refund request is pending Paddle approval, paid access remains available. Once
-          a full refund is approved, Full Tamamizu access ends. If a request is rejected, paid access remains active
+          a full refund is approved, Full Access ends. If a request is rejected, paid access remains active
           or is restored.
         </p>
       </section>

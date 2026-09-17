@@ -131,7 +131,7 @@ export default function PaddleTestPage() {
   return (
     <div className="flex w-full max-w-xl flex-col gap-5">
       <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">Development only · Sandbox Checkout PoC</p>
-      <h1 className="text-3xl font-bold">Full Tamamizu</h1>
+      <h1 className="text-3xl font-bold">Full Access</h1>
       <p className="text-xl font-semibold">$4.99 one-time</p>
       <p className="text-sm text-neutral-600 dark:text-neutral-400">
         Test payment only. Confirm the product, USD price, quantity and any tax in Paddle before paying.

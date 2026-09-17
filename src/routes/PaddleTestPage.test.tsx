@@ -67,7 +67,7 @@ describe('Paddle Sandbox checkout page', () => {
 
   it('initializes sandbox only on click and opens the configured price once with quantity 1', async () => {
     render(<StrictMode><PaddleTestPage /></StrictMode>)
-    expect(screen.getByRole('heading', { name: 'Full Tamamizu' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Full Access' })).toBeInTheDocument()
     expect(screen.getByText('$4.99 one-time')).toBeInTheDocument()
     expect(initializePaddle).not.toHaveBeenCalled()
     fireEvent.click(button())
