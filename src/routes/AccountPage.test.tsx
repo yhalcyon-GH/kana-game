@@ -89,9 +89,9 @@ describe('production Account purchase UI', () => {
     expect(requestCount('/purchase-intent.php')).toBe(0)
   })
 
-  it('offers Full Tamamizu with Sandbox labeling, price/tax disclosure, and policy links', async () => {
+  it('offers Full Access with Sandbox labeling, price/tax disclosure, and policy links', async () => {
     await renderAccount()
-    expect(screen.getByText('Full Tamamizu')).toBeInTheDocument()
+    expect(screen.getByText('Full Access')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Sandbox test purchase' })).toBeEnabled()
     expect(screen.getByText(/Base price: USD 5\.00/)).toBeInTheDocument()
     expect(screen.getByText(/final price is shown at checkout/i)).toBeInTheDocument()
@@ -116,19 +116,19 @@ describe('production Account purchase UI', () => {
     // Config is invalid, so the resolved environment is unknown -- the UI
     // must show the generic (non-Sandbox-specific) copy, never guess Sandbox.
     expect(screen.getByText('Purchase unavailable')).toBeInTheDocument()
-    const button = screen.getByRole('button', { name: 'Buy Full Tamamizu' })
+    const button = screen.getByRole('button', { name: 'Buy Full Access' })
     expect(button).toBeDisabled()
     fireEvent.click(button)
     expect(requestCount('/purchase-intent.php')).toBe(0)
     expect(sdk.initialize).not.toHaveBeenCalled()
   })
 
-  it('offers Full Tamamizu with ordinary purchase labeling (no Sandbox/Test Mode text) when configured for live', async () => {
+  it('offers Full Access with ordinary purchase labeling (no Sandbox/Test Mode text) when configured for live', async () => {
     vi.stubEnv('VITE_PADDLE_ENVIRONMENT', 'live')
     vi.stubEnv('VITE_PADDLE_CLIENT_TOKEN', 'live_fixture')
     await renderAccount()
-    expect(screen.getByText('Full Tamamizu')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Buy Full Tamamizu' })).toBeEnabled()
+    expect(screen.getByText('Full Access')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Buy Full Access' })).toBeEnabled()
     expect(document.body.textContent).not.toMatch(/sandbox|test mode/i)
   })
 
@@ -155,7 +155,7 @@ describe('production Account purchase UI', () => {
   it('active users have no purchase CTA', async () => {
     entitlement = { active: true }
     await renderAccount()
-    expect(screen.getByText('Full Tamamizu: Active')).toBeInTheDocument()
+    expect(screen.getByText('Full Access: Active')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /purchase/i })).not.toBeInTheDocument()
   })
 
@@ -168,7 +168,7 @@ describe('production Account purchase UI', () => {
     userStatus = 200
     entitlement = { active: true }
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Retry' })) })
-    expect(screen.getByText('Full Tamamizu: Active')).toBeInTheDocument()
+    expect(screen.getByText('Full Access: Active')).toBeInTheDocument()
     expect(requestCount('/purchase-intent.php')).toBe(0)
   })
 
@@ -196,7 +196,7 @@ describe('production Account purchase UI', () => {
     expect(requestCount('/entitlement-me.php')).toBe(2)
     entitlement = { active: true }
     await act(async () => { await vi.advanceTimersByTimeAsync(1000) })
-    expect(screen.getByText('Full Tamamizu: Active')).toBeInTheDocument()
+    expect(screen.getByText('Full Access: Active')).toBeInTheDocument()
     expect(requestCount('/auth/me.php')).toBe(3)
     expect(requestCount('/entitlement-me.php')).toBe(3)
     await act(async () => { await vi.advanceTimersByTimeAsync(60_000) })
@@ -221,7 +221,7 @@ describe('production Account purchase UI', () => {
     expect(requestCount('/entitlement-me.php')).toBe(7)
     entitlement = { active: true }
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Retry' })) })
-    expect(screen.getByText('Full Tamamizu: Active')).toBeInTheDocument()
+    expect(screen.getByText('Full Access: Active')).toBeInTheDocument()
     expect(requestCount('/entitlement-me.php')).toBe(8)
     expect(requestCount('/purchase-intent.php')).toBe(1)
     expect(sdk.open).toHaveBeenCalledOnce()
@@ -292,7 +292,7 @@ describe('production Account purchase UI', () => {
   it('shows a concise inactive confirmation after a manual refresh resolves to inactive', async () => {
     await renderAccount()
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Check entitlement' })) })
-    expect(screen.getByText('Access checked — Full Tamamizu is not active yet.')).toBeInTheDocument()
+    expect(screen.getByText('Access checked — Full Access is not active yet.')).toBeInTheDocument()
     expect(document.body.textContent).not.toContain(privateRef)
   })
 
@@ -300,7 +300,7 @@ describe('production Account purchase UI', () => {
     await renderAccount()
     entitlement = { active: true }
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Check entitlement' })) })
-    expect(screen.getByText('Full Tamamizu: Active')).toBeInTheDocument()
+    expect(screen.getByText('Full Access: Active')).toBeInTheDocument()
     expect(screen.queryByText(/Access checked/)).not.toBeInTheDocument()
   })
 
@@ -315,9 +315,9 @@ describe('production Account purchase UI', () => {
   it('replaces a stale success notice on a later refresh instead of accumulating it', async () => {
     await renderAccount()
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Check entitlement' })) })
-    expect(screen.getAllByText('Access checked — Full Tamamizu is not active yet.')).toHaveLength(1)
+    expect(screen.getAllByText('Access checked — Full Access is not active yet.')).toHaveLength(1)
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Check entitlement' })) })
-    expect(screen.getAllByText('Access checked — Full Tamamizu is not active yet.')).toHaveLength(1)
+    expect(screen.getAllByText('Access checked — Full Access is not active yet.')).toHaveLength(1)
   })
 
   it('keeps raw purchase_ref out of DOM, URL, storage, IndexedDB, console and outgoing auth requests', async () => {

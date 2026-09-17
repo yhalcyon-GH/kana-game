@@ -60,7 +60,12 @@ export function NavBar() {
         </NavLink>
 
         <NavLink to="/account" aria-label="Account" title="Account" className={itemClass}>
-          <span className="text-lg leading-none" aria-hidden="true">👤</span>
+          <img
+            src={`${import.meta.env.BASE_URL}nav-icons/account.webp`}
+            alt=""
+            aria-hidden="true"
+            className="h-5 w-5"
+          />
         </NavLink>
 
         <NavLink to="/settings" aria-label="Settings" className={itemClass}>

@@ -31,6 +31,12 @@ describe('NavBar top row', () => {
     expect(account).toHaveAttribute('title', 'Account')
     expect(account.closest('nav')).toHaveClass('flex-nowrap')
   })
+  it('renders the human-provided account icon image instead of an emoji glyph', () => {
+    renderNav()
+    const account = screen.getByRole('link', { name: 'Account' })
+    const icon = account.querySelector('img')
+    expect(icon).toHaveAttribute('src', expect.stringContaining('nav-icons/account.webp'))
+  })
   it('renders Home, Review, and Saved as icon+label links', () => {
     renderNav()
     expect(screen.getByRole('link', { name: /Home/ })).toHaveAttribute('href', '/')

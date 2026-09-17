@@ -101,8 +101,8 @@ Confirmed during the H2 read-only audit: environment separation is entirely serv
 
 `AccountPage.tsx` (the real Production purchase page) derives its copy from the resolved config's own `environment` field — never guessed:
 - **Sandbox:** "Sandbox test purchase" button, "Preparing Sandbox Checkout…", explicit test-purchase language throughout.
-- **Live:** "Buy Full Tamamizu" button, ordinary checkout language, no "Sandbox"/"Test Mode" text anywhere.
-- **Invalid/absent config:** generic copy ("Purchase unavailable" / "Buy Full Tamamizu", disabled), since the environment can't be determined — never assumed to be Sandbox by default.
+- **Live:** "Buy Full Access" button, ordinary checkout language, no "Sandbox"/"Test Mode" text anywhere.
+- **Invalid/absent config:** generic copy ("Purchase unavailable" / "Buy Full Access", disabled), since the environment can't be determined — never assumed to be Sandbox by default.
 
 `src/routes/PaddleTestPage.tsx` (the Phase 2 dev-only fixed-Sandbox-user PoC harness, excluded from production builds) was **not** touched — it's explicitly, permanently Sandbox-only by design and unrelated to the real purchase path this phase covers.
 

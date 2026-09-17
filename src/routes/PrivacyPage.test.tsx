@@ -13,7 +13,7 @@ describe('PrivacyPage', () => {
     const heading = screen.getByRole('heading', { name: 'Account (optional)', level: 2 })
     const text = heading.parentElement?.textContent ?? ''
     expect(text).toMatch(/You do not need an account to use the free parts/i)
-    expect(text).toMatch(/only involved if you purchase Full Tamamizu/i)
+    expect(text).toMatch(/only involved if you purchase Full Access/i)
     expect(text).toMatch(/Magic Link/)
     expect(screen.getAllByText(/local storage/i).length).toBeGreaterThan(0)
   })

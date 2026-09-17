@@ -87,7 +87,7 @@ export default function AccountPage() {
   // which case the generic (non-Sandbox-specific) copy below is used --
   // this build is never treated as Live just because it isn't Sandbox.
   const isSandbox = purchase.environment === 'sandbox'
-  const purchaseButtonLabel = isSandbox ? 'Sandbox test purchase' : 'Buy Full Tamamizu'
+  const purchaseButtonLabel = isSandbox ? 'Sandbox test purchase' : 'Buy Full Access'
   const unavailableConfigMessage = isSandbox ? 'Sandbox configuration unavailable' : 'Purchase unavailable'
   const preparingMessage = isSandbox ? 'Preparing Sandbox Checkout…' : 'Preparing checkout…'
   const openMessage = isSandbox ? 'Complete your test purchase in Paddle Checkout.' : 'Complete your purchase in Paddle Checkout.'
@@ -106,7 +106,7 @@ export default function AccountPage() {
       )}
 
       {state.status === 'active' ? (
-        <p role="status">Full Tamamizu: Active</p>
+        <p role="status">Full Access: Active</p>
       ) : confirming ? (
         <>
           <p role="status">{purchase.status === 'processing' ? 'Processing purchase…' : 'Still confirming your purchase'}</p>
@@ -122,7 +122,7 @@ export default function AccountPage() {
         </>
       ) : (
         <section aria-labelledby="full-tamamizu" className="flex w-full flex-col gap-4 text-center">
-          <h2 id="full-tamamizu" className="text-xl font-semibold">Full Tamamizu</h2>
+          <h2 id="full-tamamizu" className="text-xl font-semibold">Full Access</h2>
           <p>
             Base price: USD 5.00. Applicable taxes may be included in or added to the price depending on your
             location. The final price is shown at checkout.
@@ -152,7 +152,7 @@ export default function AccountPage() {
         <>
           <button type="button" onClick={() => void handleCheckEntitlement()} className={buttonClass}>Check entitlement</button>
           {inactiveRefreshNotice && (
-            <p role="status">Access checked — Full Tamamizu is not active yet.</p>
+            <p role="status">Access checked — Full Access is not active yet.</p>
           )}
         </>
       )}

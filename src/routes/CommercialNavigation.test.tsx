@@ -95,14 +95,14 @@ describe('commercial navigation', () => {
     const view = render(fixture(<HomePage />, state))
     const recommendation = screen.getByRole('button', { name: /Katakana.*Recommended/ })
     expect(recommendation).toHaveTextContent('ア〜オ・カ〜ゴ・ン・ー · Learn')
-    expect(recommendation).toHaveTextContent('Full Tamamizu')
-    expect(screen.getAllByRole('button', { name: /Full Tamamizu/ })).toHaveLength(4)
+    expect(recommendation).toHaveTextContent('Full Access')
+    expect(screen.getAllByRole('button', { name: /Full Access/ })).toHaveLength(4)
     const resume = screen.getByRole('button', { name: /Katakana.*Continue/ })
     expect(resume).toHaveTextContent('ア〜オ')
     expect(screen.getByRole('link', { name: /Hiragana/ })).toHaveAttribute('href', '/hiragana')
     fireEvent.click(resume)
     expect(screen.getByTestId('location')).toHaveTextContent(/^\/$/)
-    expect(screen.getByRole('region', { name: 'Full Tamamizu access' })).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Full Access' })).toBeInTheDocument()
     if (state.status === 'unavailable') {
       fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
       expect(refresh).toHaveBeenCalledOnce()
@@ -118,13 +118,13 @@ describe('commercial navigation', () => {
     const page = <CategoryRowsPage title="Katakana" description="" categoryIds={['katakana']} />
     const view = render(fixture(page, state))
     expect(screen.queryByRole('link', { name: /ア〜オ/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /ア〜オ.*Full Tamamizu/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /📋 ア〜ン.*Full Tamamizu/ })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Similar Letters.*Full Tamamizu/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /ア〜オ.*Full Access/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /📋 ア〜ン.*Full Access/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Similar Letters.*Full Access/ })).toBeInTheDocument()
     const controls = [...screen.getAllByTestId('restaurant-cta'), screen.getByTestId('cafe-cta'), screen.getByTestId('assessment-card-katakana')]
     for (const control of controls) {
       expect(control.tagName).toBe('BUTTON')
-      expect(control).toHaveTextContent('Full Tamamizu')
+      expect(control).toHaveTextContent('Full Access')
       fireEvent.click(control)
       expect(screen.getByTestId('location')).toHaveTextContent(/^\/$/)
     }
@@ -140,7 +140,7 @@ describe('commercial navigation', () => {
     expect(screen.getByRole('link', { name: /あ〜お/ })).toHaveAttribute('href', '/practice/hiragana/a-row')
     expect(screen.getByTestId('assessment-card-hiragana')).toHaveAttribute('href', '/assessment/hiragana')
     const checkpoint = screen.getAllByTestId('restaurant-cta')[0]
-    expect(within(checkpoint).queryByText('Full Tamamizu')).not.toBeInTheDocument()
+    expect(within(checkpoint).queryByText('Full Access')).not.toBeInTheDocument()
     fireEvent.click(checkpoint)
     expect(screen.getByTestId('location')).toHaveTextContent('/restaurant/na-row')
   })

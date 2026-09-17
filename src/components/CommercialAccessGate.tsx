@@ -60,7 +60,7 @@ export function CommercialAccessGate({ target, children }: CommercialAccessGateP
 
   return (
     <GateLayout>
-      <h1 className="text-2xl font-bold">{state.status === 'inactive' ? 'Full Tamamizu required' : 'Content locked'}</h1>
+      <h1 className="text-2xl font-bold">{state.status === 'inactive' ? 'Full Access required' : 'Content locked'}</h1>
       <p role="status">This lesson is not available for your account.</p>
       <Link to="/account" className="w-full rounded-xl border border-neutral-400 px-5 py-3 font-semibold hover:border-blue-500 dark:border-neutral-600">Account</Link>
     </GateLayout>

@@ -53,7 +53,7 @@ describe('CommercialAccessGate', () => {
 
   it('links inactive learners to their account', () => {
     renderGate({ kind: 'row', rowId: 'katakana-a-row' }, { status: 'inactive', user: signedInUser })
-    expect(screen.getByRole('heading', { name: 'Full Tamamizu required' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Full Access required' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Account' })).toHaveAttribute('href', '/account')
   })
 

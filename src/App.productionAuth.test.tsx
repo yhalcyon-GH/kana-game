@@ -117,7 +117,7 @@ describe('Production Web auth (Phase 3B)', () => {
       fireEvent.click(screen.getByRole('button', { name: /check entitlement/i }))
     })
 
-    expect(await screen.findByText('Full Tamamizu: Active')).toBeInTheDocument()
+    expect(await screen.findByText('Full Access: Active')).toBeInTheDocument()
     expect(productionAuthClient.fetchCurrentEntitlementResult).toHaveBeenCalledTimes(2)
   })
 

@@ -18,7 +18,7 @@ export function PrivacyPage() {
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Account (optional)</h2>
         <p>
           You do not need an account to use the free parts of this app — those work entirely from local storage on
-          your device, as described below. An account is only involved if you purchase Full Tamamizu, so that your
+          your device, as described below. An account is only involved if you purchase Full Access, so that your
           purchase can be recognized on your devices. Signing in does not use a password: you enter your email
           address and receive a one-time Magic Link to that address, which signs you in when you open it. Tamamizu
           processes the email address you choose to provide, a minimum account identifier, and the session information
@@ -85,7 +85,7 @@ export function PrivacyPage() {
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Purchases and access</h2>
         <p>
-          Full Tamamizu is sold through Paddle. Tamamizu stores only the identifiers and status information needed to
+          Full Access is sold through Paddle. Tamamizu stores only the identifiers and status information needed to
           confirm a purchase and provide or revoke paid access, such as a Paddle customer or transaction reference,
           purchase date, and refund status. Payment card details, complete billing details, and tax data are handled by
           Paddle and are not copied into Tamamizu&apos;s systems unless a record is strictly necessary for legal,
