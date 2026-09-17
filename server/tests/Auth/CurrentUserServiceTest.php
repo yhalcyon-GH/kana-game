@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace KanaGame\Paddle\Tests;
 
 use KanaGame\Paddle\Auth\CurrentUserService;
+use KanaGame\Paddle\Auth\PersistentSessionRepository;
 use KanaGame\Paddle\Auth\SessionRepository;
 use KanaGame\Paddle\Auth\UserRepository;
 use PDO;
 
 require_once __DIR__ . '/../TestCase.php';
 require_once __DIR__ . '/../../src/Auth/CurrentUserService.php';
+require_once __DIR__ . '/../../src/Auth/PersistentSessionRepository.php';
 require_once __DIR__ . '/../../src/Auth/SessionRepository.php';
 require_once __DIR__ . '/../../src/Auth/UserRepository.php';
 require_once __DIR__ . '/../../src/Uuid.php';
@@ -35,6 +37,17 @@ function makeCurrentUserServiceTestDb(): PDO
             expires_at TEXT NOT NULL,
             revoked_at TEXT NULL,
             persistent_session_id INTEGER NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )',
+    );
+    $pdo->exec(
+        'CREATE TABLE persistent_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            token_hash TEXT NOT NULL UNIQUE,
+            user_id TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            revoked_at TEXT NULL,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )',
@@ -96,6 +109,79 @@ function currentUserServiceTests(): array
             assertFalse($first === $second, 'two calls should not produce the same raw token');
             assertTrue($service->resolve($first) !== null, 'first session should still resolve');
             assertTrue($service->resolve($second) !== null, 'second session should also resolve');
+        },
+
+        'resolveOrRefresh() with a valid session token resolves normally and requests no refresh' => function () {
+            $pdo = makeCurrentUserServiceTestDb();
+            $users = new UserRepository($pdo);
+            $sessions = new SessionRepository($pdo);
+            $persistentSessions = new PersistentSessionRepository($pdo);
+            $service = new CurrentUserService($users, $sessions, 24, $persistentSessions);
+            $user = $users->findOrCreateByEmail('refresh-valid@example.com');
+            $rawSession = $service->createSession($user['id']);
+
+            $result = $service->resolveOrRefresh($rawSession, null);
+
+            assertSame($user['id'], $result['user']['user_id'], 'resolved user_id should match');
+            assertTrue($result['refreshed_session_token'] === null, 'a still-valid session must never be silently replaced');
+        },
+
+        'resolveOrRefresh() with no session token but a valid persistent token mints a fresh session' => function () {
+            $pdo = makeCurrentUserServiceTestDb();
+            $users = new UserRepository($pdo);
+            $sessions = new SessionRepository($pdo);
+            $persistentSessions = new PersistentSessionRepository($pdo);
+            $service = new CurrentUserService($users, $sessions, 24, $persistentSessions);
+            $user = $users->findOrCreateByEmail('refresh-persistent@example.com');
+            $persistentId = $persistentSessions->create($user['id'], 'raw-remember', new \DateTimeImmutable('+90 days'));
+
+            $result = $service->resolveOrRefresh(null, 'raw-remember');
+
+            assertSame($user['id'], $result['user']['user_id'], 'resolved user_id should match');
+            assertTrue($result['refreshed_session_token'] !== null, 'a valid persistent credential with no session must mint a fresh session token');
+            assertTrue($service->resolve($result['refreshed_session_token']) !== null, 'the newly minted session token must itself resolve');
+
+            $newSession = $pdo->query("SELECT persistent_session_id FROM sessions WHERE token_hash = '" . hash('sha256', $result['refreshed_session_token']) . "'")->fetch();
+            assertSame($persistentId, (int) $newSession['persistent_session_id'], 'the newly minted session must be linked back to the persistent session that authorized it');
+        },
+
+        'resolveOrRefresh() with an expired session and no persistent token resolves to no user' => function () {
+            $pdo = makeCurrentUserServiceTestDb();
+            $users = new UserRepository($pdo);
+            $sessions = new SessionRepository($pdo);
+            $persistentSessions = new PersistentSessionRepository($pdo);
+            $service = new CurrentUserService($users, $sessions, 24, $persistentSessions);
+
+            $result = $service->resolveOrRefresh('never-issued-session', null);
+
+            assertTrue($result['user'] === null, 'no user should resolve when neither credential is valid');
+            assertTrue($result['refreshed_session_token'] === null, 'no refresh should be issued when neither credential is valid');
+        },
+
+        'resolveOrRefresh() with a revoked persistent token resolves to no user (no refresh)' => function () {
+            $pdo = makeCurrentUserServiceTestDb();
+            $users = new UserRepository($pdo);
+            $sessions = new SessionRepository($pdo);
+            $persistentSessions = new PersistentSessionRepository($pdo);
+            $service = new CurrentUserService($users, $sessions, 24, $persistentSessions);
+            $user = $users->findOrCreateByEmail('refresh-revoked@example.com');
+            $persistentId = $persistentSessions->create($user['id'], 'raw-revoked-remember', new \DateTimeImmutable('+90 days'));
+            $persistentSessions->revoke($persistentId);
+
+            $result = $service->resolveOrRefresh(null, 'raw-revoked-remember');
+
+            assertTrue($result['user'] === null, 'a revoked persistent credential must not resolve a user');
+            assertTrue($result['refreshed_session_token'] === null, 'a revoked persistent credential must not mint a session');
+        },
+
+        'resolveOrRefresh() with no PersistentSessionRepository wired (legacy 3-arg construction) never throws, just falls back to no-user' => function () {
+            $pdo = makeCurrentUserServiceTestDb();
+            $service = new CurrentUserService(new UserRepository($pdo), new SessionRepository($pdo), 24);
+
+            $result = $service->resolveOrRefresh(null, 'raw-anything');
+
+            assertTrue($result['user'] === null, 'legacy 3-arg construction must fall back to no-user rather than throw');
+            assertTrue($result['refreshed_session_token'] === null, 'legacy 3-arg construction must not mint a session');
         },
     ];
 }
