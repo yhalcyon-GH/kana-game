@@ -698,7 +698,13 @@ function runScenarioD(PDO $maintPdo, int $iterations): void
             'race-d@example.invalid',
             $rawChallengeToken,
             $code,
-            'mariadb-concurrency-login-code-pepper',
+            // Must match the pepper makeOtpAuthServiceHarness() wires into
+            // the OtpAuthService each worker constructs (scenarios.php's
+            // scenarioOtpVerify) -- a mismatch here makes every code_mac
+            // check fail, so verifyCode() returns success=false for every
+            // worker with no exception thrown at all (not a real race
+            // finding, just a fixture bug).
+            \KanaGame\Paddle\Tests\OTP_TEST_PEPPER,
             new \DateTimeImmutable('+10 minutes'),
         );
 
@@ -763,7 +769,10 @@ function runScenarioE(PDO $maintPdo, int $iterations): void
     for ($iter = 1; $iter <= $iterations; $iter++) {
         resetTables($maintPdo);
 
-        $pepper = 'mariadb-concurrency-login-code-pepper';
+        // Must match the pepper makeOtpAuthServiceHarness() wires into the
+        // OtpAuthService each worker constructs -- see runScenarioD's
+        // comment on this same requirement.
+        $pepper = \KanaGame\Paddle\Tests\OTP_TEST_PEPPER;
         $userId = (new UserRepository($maintPdo))->findOrCreateByEmail('race-e@example.invalid')['id'];
         $persistentRepo = new \KanaGame\Paddle\Auth\PersistentSessionRepository($maintPdo);
         // Seed exactly 3 pre-existing active persistent sessions (the
