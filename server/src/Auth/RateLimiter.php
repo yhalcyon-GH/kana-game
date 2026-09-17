@@ -34,6 +34,8 @@ final class RateLimiter
 {
     private const BUCKET_EMAIL = 'magic_link_email';
     private const BUCKET_IP = 'magic_link_ip';
+    private const BUCKET_LOGIN_CODE_EMAIL = 'login_code_email';
+    private const BUCKET_LOGIN_CODE_IP = 'login_code_ip';
     private const WINDOW_SECONDS = 3600;
 
     public function __construct(
@@ -41,6 +43,12 @@ final class RateLimiter
         private readonly string $pepper,
         private readonly int $emailLimitPerHour,
         private readonly int $ipLimitPerHour,
+        // Optional -- appended so every existing constructor call site
+        // (request-link.php, verify.php, test harnesses, the mariadb-
+        // concurrency scenarios) keeps compiling unmodified. Only
+        // OtpAuthService's wiring (Task 7) passes these explicitly.
+        private readonly int $loginCodeEmailLimitPerHour = 3,
+        private readonly int $loginCodeIpLimitPerHour = 10,
     ) {
     }
 
@@ -52,6 +60,16 @@ final class RateLimiter
     public function checkAndRecordIp(string $rawIp): bool
     {
         return $this->checkAndRecord(self::BUCKET_IP, $rawIp, $this->ipLimitPerHour);
+    }
+
+    public function checkAndRecordLoginCodeEmail(string $emailNormalized): bool
+    {
+        return $this->checkAndRecord(self::BUCKET_LOGIN_CODE_EMAIL, $emailNormalized, $this->loginCodeEmailLimitPerHour);
+    }
+
+    public function checkAndRecordLoginCodeIp(string $rawIp): bool
+    {
+        return $this->checkAndRecord(self::BUCKET_LOGIN_CODE_IP, $rawIp, $this->loginCodeIpLimitPerHour);
     }
 
     private function checkAndRecord(string $bucket, string $rawValue, int $limitPerHour): bool
