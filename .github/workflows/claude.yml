@@ -47,7 +47,10 @@ jobs:
             actions: read
 
           # Keep shell access limited to dependency installation, project verification,
-          # and the PR operations required by repository tasks.
+          # PR operations required by repository tasks, and GitHub Agentic Workflows
+          # authoring/compilation. gh-aw is intentionally limited to setup/validation/
+          # compile operations; workflow execution and arbitrary extension management
+          # remain disallowed.
           claude_args: >-
             --allowed-tools
             "Bash(npm ci),
@@ -57,4 +60,10 @@ jobs:
             Bash(npm run verify),
             Bash(gh pr create:*),
             Bash(gh pr edit:*),
-            Bash(gh pr ready:*)"
+            Bash(gh pr ready:*),
+            Bash(gh extension install github/gh-aw:*),
+            Bash(gh aw version),
+            Bash(gh aw doctor:*),
+            Bash(gh aw init:*),
+            Bash(gh aw add:*),
+            Bash(gh aw compile:*)"
