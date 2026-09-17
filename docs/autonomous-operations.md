@@ -76,6 +76,31 @@ approved and bounded by repo procedure
 The previously paused complex Production SSH/preflight diagnosis must remain
 paused unless separately re-authorized.
 
+## Cost gate
+
+Before introducing or enabling any new API, external service, hosted agent,
+paid resource, or automation that may incur charges, verify its cost model
+first. Determine whether it is truly free for the intended use, whether any
+free tier is sufficient, whether billing is fixed or usage-based, what event
+starts billing, and how usage can be capped or stopped.
+
+If the proposed path may create any additional charge — including usage-based
+AI inference — stop before implementation or activation and present the human
+with the cost model and a free alternative when one exists. Do not assume an
+existing subscription covers API or automation usage unless that has been
+verified for the exact integration. Enabling a paid path requires explicit
+human approval.
+
+## Human fast path
+
+AI-first remains the default. However, if the AI path is blocked by a genuine
+tool/capability limit (not a permission denial or policy guardrail), repeatedly
+fails, or requires a brittle workaround, and a small human action would clearly
+reduce total completion time, ask for that action early instead of spending
+substantial time on circumvention. Explain the exact blocker and give the
+smallest concrete human step needed. A permission/guardrail denial remains a
+policy decision or harness issue; do not reframe it as a time-saving request.
+
 ## Overnight mode
 
 `Overnight mode` means:
