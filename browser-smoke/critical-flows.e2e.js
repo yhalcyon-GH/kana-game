@@ -145,27 +145,43 @@ test('first launch shows the Introduction and Skip reaches Home', async ({ page 
   await expect(page.getByRole('heading', { name: 'Tamamizu' })).toBeVisible()
 })
 
-// Issue #271: pricing must be disclosed before a learner can Skip into
-// normal app use — Skip is available from step 1, so the disclosure must
-// already be visible there, not only on a final slide.
-test('first-launch Introduction discloses free/paid pricing before Skip can be used', async ({ page }) => {
+// Issue #271 (updated): the commercial/AI-content/usage-data disclosure no
+// longer lives inside the Introduction itself — IntroGuide has no
+// persistent banner any more — it now lives as an always-visible red block
+// at the bottom of Home, reached right after Skip (or after the guide is
+// otherwise closed).
+test('first-launch Introduction has no commercial disclosure banner, and Skip reveals it on Home', async ({ page }) => {
   await gotoHash(page, '/', { stable: false })
   const guide = page.getByRole('dialog', { name: 'Tamamizu Guide' })
   await expect(guide).toBeVisible()
   await expect(guide.getByRole('button', { name: 'Skip' })).toBeVisible()
-  await expect(guide).toContainText('Hiragana is free')
-  await expect(guide).toContainText('USD 5.00')
-  await expect(guide).toContainText('not a subscription')
+  await expect(guide).not.toContainText('Hiragana is free')
+  await expect(guide).not.toContainText('USD 5.00')
+  await expect(guide).not.toContainText('not a subscription')
+
+  await guide.getByRole('button', { name: 'Skip' }).click()
+  await expect(page.getByRole('heading', { name: 'Tamamizu' })).toBeVisible()
+  const disclosure = page.getByTestId('home-commercial-disclosure')
+  await expect(disclosure).toContainText('Hiragana : Free')
+  await expect(disclosure).toContainText('Full Access : $5 USD + tax')
+  await expect(disclosure).toContainText('AI-generated images & audio Reviewed by a Japanese teacher')
+  await expect(disclosure).toContainText('Usage data is used only to improve the app. Thank you!')
 })
 
 // Issue #271: the app-level Introduction replay moved from Settings to Home.
-test('Home\'s "View introduction again" reopens the same Introduction', async ({ page }) => {
+test('Home\'s "View introduction again" reopens the same Introduction, without the old in-guide disclosure, and Home\'s own disclosure is still there afterward', async ({ page }) => {
   await gotoHash(page, '/')
   await expect(page.getByRole('heading', { name: 'Tamamizu' })).toBeVisible()
+  await expect(page.getByTestId('home-commercial-disclosure')).toContainText('Hiragana : Free')
+
   await page.getByText('View introduction again').click()
   const guide = page.getByRole('dialog', { name: 'Tamamizu Guide' })
   await expect(guide).toBeVisible()
-  await expect(guide).toContainText('Hiragana is free')
+  await expect(guide).not.toContainText('Hiragana is free')
+
+  await guide.getByRole('button', { name: 'Skip' }).click()
+  await expect(page.getByRole('heading', { name: 'Tamamizu' })).toBeVisible()
+  await expect(page.getByTestId('home-commercial-disclosure')).toContainText('Hiragana : Free')
 })
 
 test('Final pending Home recommendation is clear and fits at 320px', async ({ page }) => {
@@ -197,7 +213,7 @@ test('inactive paid content is locked without 320px overflow', async ({ page }) 
   await page.setViewportSize({ width: 320, height: 800 })
   await gotoHash(page, '/practice/katakana/katakana-a-row')
 
-  await expect(page.getByRole('heading', { name: 'Full Tamamizu required' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Full Access required' })).toBeVisible()
   await expect(page.locator('main').getByRole('link', { name: 'Account', exact: true })).toHaveAttribute('href', '#/account')
   await expectNoHorizontalPageOverflow(page)
 })
