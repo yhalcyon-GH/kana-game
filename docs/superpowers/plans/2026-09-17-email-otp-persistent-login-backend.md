@@ -4,7 +4,7 @@
 
 **Goal:** Add a 6-digit email OTP sign-in flow plus a 90-day "remember this browser" persistent credential (max 3 slots per user, LRU eviction on the 4th), entirely on the backend, without touching Magic Link or the purchase/entitlement boundary.
 
-**Architecture:** Mirrors the existing Magic Link stack file-for-file: a new additive migration (`0003_email_otp_persistent_login.sql`), a repository per new table (`EmailLoginChallengeRepository`, `PersistentSessionRepository`), an orchestrating service (`OtpAuthService`) with the same PDO-transaction/atomic-consume shape as `MagicLinkAuthService`, three new file-per-endpoint entrypoints under `server/auth/`, small extensions to `SessionRepository`/`CurrentUserService`/`RateLimiter`/`logout.php` for linkage and session-refresh, and test coverage added to both the SQLite-backed `server/tests/run-tests.php` suite and the real-MariaDB `server/tests/mariadb-concurrency/` harness.
+**Architecture:** Mirrors the existing Magic Link stack file-for-file: a new additive migration (`0006_email_otp_persistent_login.sql`), a repository per new table (`EmailLoginChallengeRepository`, `PersistentSessionRepository`), an orchestrating service (`OtpAuthService`) with the same PDO-transaction/atomic-consume shape as `MagicLinkAuthService`, three new file-per-endpoint entrypoints under `server/auth/`, small extensions to `SessionRepository`/`CurrentUserService`/`RateLimiter`/`logout.php` for linkage and session-refresh, and test coverage added to both the SQLite-backed `server/tests/run-tests.php` suite and the real-MariaDB `server/tests/mariadb-concurrency/` harness.
 
 **Tech Stack:** PHP 8+, PDO (MariaDB in production, SQLite in tests), no Composer/dependency manager (project convention — see `server/tests/run-tests.php`'s own doc comment), dependency-free test runner.
 
@@ -27,7 +27,7 @@
 
 ## Task List
 
-- [ ] Task 1: Migration `0003_email_otp_persistent_login.sql`
+- [ ] Task 1: Migration `0006_email_otp_persistent_login.sql`
 - [ ] Task 2: `RateLimiter` — generalize for `login_code_email` / `login_code_ip` buckets
 - [ ] Task 3: `EmailLoginChallengeRepository`
 - [ ] Task 4: `PersistentSessionRepository`
@@ -47,10 +47,10 @@
 
 ---
 
-### Task 1: Migration `0003_email_otp_persistent_login.sql`
+### Task 1: Migration `0006_email_otp_persistent_login.sql`
 
 **Files:**
-- Create: `server/sql/migrations/0003_email_otp_persistent_login.sql`
+- Create: `server/sql/migrations/0006_email_otp_persistent_login.sql`
 
 **Interfaces:**
 - Produces: tables `email_login_challenges`, `persistent_sessions`; new nullable column `sessions.persistent_session_id`. These exact table/column names and types are what every later task's repository SQL targets.
@@ -148,13 +148,13 @@ ALTER TABLE sessions
 
 - [ ] **Step 2: Sanity-check the file**
 
-Run: `php -r "echo preg_match('/;\s*$/m', file_get_contents('server/sql/migrations/0003_email_otp_persistent_login.sql')) ? \"looks statement-terminated\n\" : \"check terminators\n\";"`
+Run: `php -r "echo preg_match('/;\s*$/m', file_get_contents('server/sql/migrations/0006_email_otp_persistent_login.sql')) ? \"looks statement-terminated\n\" : \"check terminators\n\";"`
 Expected: `looks statement-terminated` (a cheap parenthesis/quote sanity check — this migration is not executed against any DB in this task; Tasks 3–5's SQLite fixtures and, ultimately, Task 17's real-MariaDB harness are what actually execute an equivalent shape).
 
 - [ ] **Step 3: Commit**
 
 ```bash
-git add server/sql/migrations/0003_email_otp_persistent_login.sql
+git add server/sql/migrations/0006_email_otp_persistent_login.sql
 git commit -m "Add migration 0003: email OTP challenges + persistent sessions"
 ```
 

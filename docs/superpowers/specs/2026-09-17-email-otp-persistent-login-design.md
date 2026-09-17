@@ -46,7 +46,7 @@ login — without weakening the existing Paddle purchase/entitlement security bo
 
 ## Data model (additive migration only, MariaDB-compatible, mirrors 0001's conventions)
 
-New migration `server/sql/migrations/0003_email_otp_persistent_login.sql`:
+New migration `server/sql/migrations/0006_email_otp_persistent_login.sql`:
 
 **`email_login_challenges`**
 - `id` BIGINT AUTO_INCREMENT PK

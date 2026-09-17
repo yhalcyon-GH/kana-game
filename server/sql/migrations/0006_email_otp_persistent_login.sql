@@ -5,9 +5,10 @@
 -- sessions' existing columns, or rate_limits — Magic Link stays fully
 -- functional as fallback (see server/src/Auth/MagicLinkAuthService.php).
 --
--- Run this once, after 0001_users_auth_foundation.sql and
--- 0002_purchase_attribution.sql, against the same MariaDB 10.5+ database.
--- This migration is NOT deployed to Xserver as part of this PR.
+-- Run this once, after 0001-0005 (0001_users_auth_foundation.sql through
+-- 0005_pending_adjustments_action_width.sql), against the same MariaDB
+-- 10.5+ database. This migration is NOT deployed to Xserver as part of
+-- this PR.
 
 CREATE TABLE IF NOT EXISTS email_login_challenges (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
