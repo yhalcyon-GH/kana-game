@@ -221,6 +221,22 @@ describe('HomePage intro replay affordance (Issue #271)', () => {
   })
 })
 
+// Issue #271: the commercial/AI-content/usage-data disclosure moved from a
+// persistent IntroGuide banner to a single always-visible block at the
+// bottom of Home instead (Home renders on every visit, unlike IntroGuide
+// which a learner sees only once/on replay).
+describe('HomePage bottom commercial disclosure (Issue #271)', () => {
+  it('shows the exact disclosure copy in red text, with its 4 lines preserved', () => {
+    const { getByTestId } = renderHome()
+    const disclosure = getByTestId('home-commercial-disclosure')
+    expect(disclosure).toHaveTextContent(
+      'Hiragana : Free Full Access : $5 USD + tax AI-generated images & audio Reviewed by a Japanese teacher Usage data is used only to improve the app. Thank you!',
+    )
+    expect(disclosure.textContent?.split('\n')).toHaveLength(4)
+    expect(disclosure.className).toMatch(/text-red-600/)
+  })
+})
+
 // The large standalone Saved card that used to render on Home is gone —
 // Saved is reachable from the top nav on every screen instead (see
 // NavBar.test.tsx's Saved badge coverage). Deliberate removal, not a

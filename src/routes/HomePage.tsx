@@ -33,6 +33,23 @@ function IntroReplayLink() {
   )
 }
 
+// Commercial/AI-content/usage-data disclosure (Issue #271) — now shown once,
+// here at the bottom of Home, instead of as a persistent banner across every
+// IntroGuide step. Home always renders on every visit, so this stays the one
+// place this exact required copy is guaranteed visible in the app, even
+// though (unlike the former IntroGuide banner) a learner mid-onboarding who
+// has not yet reached Home won't see it until they do.
+function CommercialDisclosure() {
+  return (
+    <p
+      className="max-w-md text-center text-sm leading-relaxed whitespace-pre-line text-red-600 dark:text-red-400"
+      data-testid="home-commercial-disclosure"
+    >
+      {'Hiragana : Free\nFull Access : $5 USD + tax\nAI-generated images & audio Reviewed by a Japanese teacher\nUsage data is used only to improve the app. Thank you!'}
+    </p>
+  )
+}
+
 function ContinueCard() {
   const lastStudied = useProgressStore((s) => s.lastStudied)
   if (!lastStudied) return null
@@ -113,6 +130,7 @@ export function HomePage() {
         })}
       </div>
       <IntroReplayLink />
+      <CommercialDisclosure />
     </div>
   )
 }
