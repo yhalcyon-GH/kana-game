@@ -25,10 +25,10 @@ function IntroReplayLink() {
     <button
       type="button"
       onClick={() => setHasCompletedIntroGuide(false)}
-      className="flex flex-col items-center gap-0.5 text-center text-sm text-neutral-500 hover:text-blue-600 dark:text-neutral-400 dark:hover:text-blue-400"
+      className="flex w-full max-w-md flex-col items-center gap-0.5 rounded-xl border border-neutral-300 bg-white px-4 py-2.5 text-center hover:border-blue-400 dark:border-neutral-600 dark:bg-neutral-800"
     >
-      <span className="font-semibold">How Tamamizu works</span>
-      <span>View introduction again</span>
+      <span className="text-base font-semibold">How Tamamizu works</span>
+      <span className="text-sm text-blue-600 dark:text-blue-400">View introduction again</span>
     </button>
   )
 }

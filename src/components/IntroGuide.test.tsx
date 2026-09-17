@@ -33,9 +33,10 @@ describe('IntroGuide replay narration (startedStepRef reset across viewing sessi
     const welcomeAudioKey = locale.steps['intro.welcome'].audioKey
     expect(callsFor(welcomeAudioKey)).toBe(1)
 
-    // E: Next advances to step 2 and plays its audio exactly once (no
-    // double-play from both the click handler and the step-change effect).
-    const writingSystemsAudioKey = locale.steps['intro.writingSystems'].audioKey
+    // E: Next advances to step 2 ("Before using Tamamizu") and plays its
+    // audio exactly once (no double-play from both the click handler and
+    // the step-change effect).
+    const writingSystemsAudioKey = locale.steps['intro.beforeUse'].audioKey
     fireEvent.click(getByText(locale.nextLabel))
     expect(callsFor(writingSystemsAudioKey)).toBe(1)
 
@@ -87,9 +88,52 @@ describe('IntroGuide (Issue #29/#31)', () => {
     expect(container.querySelectorAll('img')).toHaveLength(1)
   })
 
-  it('shows the kana-usage slide and exact locale subtitle as step 4', () => {
+  it('shows the "Before using Tamamizu" slide immediately after the welcome step, with its own subtitle and slide asset', () => {
     const { container, getByText } = render(<IntroGuide />)
-    for (let i = 0; i < 3; i++) fireEvent.click(getByText(locale.nextLabel))
+    fireEvent.click(getByText(locale.nextLabel))
+    expect(getByText(locale.steps['intro.beforeUse'].subtitle)).toBeInTheDocument()
+    expect(container.querySelector('img')).toHaveAttribute(
+      'src',
+      expect.stringContaining('guide/slide-before-use.webp'),
+    )
+  })
+
+  it('advancing past the "Before using Tamamizu" slide with Next/Continue proceeds to the writing-systems step', () => {
+    const { getByText } = render(<IntroGuide />)
+    fireEvent.click(getByText(locale.nextLabel)) // welcome -> beforeUse
+    fireEvent.click(getByText(locale.nextLabel)) // beforeUse -> writingSystems
+    expect(getByText(locale.steps['intro.writingSystems'].subtitle)).toBeInTheDocument()
+  })
+
+  it('always shows an explicit Play/Replay narration control on the "Before using Tamamizu" slide (not only on autoplay failure)', () => {
+    const { getByText } = render(<IntroGuide />)
+    fireEvent.click(getByText(locale.nextLabel)) // welcome -> beforeUse
+    expect(getByText('🔁 Replay narration')).toBeInTheDocument()
+  })
+
+  it('replaying the "Before using Tamamizu" narration does not double-play (reuses the same static playback call, not a second concurrent one)', () => {
+    const callsFor = (audioKey: string) => mockSpeakStaticOnly.mock.calls.filter((c) => c[0] === audioKey).length
+    const beforeUseAudioKey = locale.steps['intro.beforeUse'].audioKey
+
+    const { getByText } = render(<IntroGuide />)
+    fireEvent.click(getByText(locale.nextLabel)) // welcome -> beforeUse, autoplay attempt #1
+    expect(callsFor(beforeUseAudioKey)).toBe(1)
+
+    fireEvent.click(getByText('🔁 Replay narration')) // explicit replay #2
+    expect(callsFor(beforeUseAudioKey)).toBe(2)
+  })
+
+  it('leaving the "Before using Tamamizu" slide (Next or Back) stops any in-progress narration before starting the next step\'s', () => {
+    const { getByText } = render(<IntroGuide />)
+    fireEvent.click(getByText(locale.nextLabel)) // welcome -> beforeUse
+    mockStop.mockClear()
+    fireEvent.click(getByText(locale.nextLabel)) // beforeUse -> writingSystems
+    expect(mockStop).toHaveBeenCalled()
+  })
+
+  it('shows the kana-usage slide and exact locale subtitle as step 5', () => {
+    const { container, getByText } = render(<IntroGuide />)
+    for (let i = 0; i < 4; i++) fireEvent.click(getByText(locale.nextLabel))
 
     expect(getByText(locale.steps['intro.kanaUsage'].subtitle)).toBeInTheDocument()
     expect(container.querySelector('img')).toHaveAttribute(
@@ -128,8 +172,8 @@ describe('IntroGuide (Issue #29/#31)', () => {
 
   it('re-rendering after Settings resets completion to false starts back at step 1', () => {
     const { getByText, rerender } = render(<IntroGuide />)
-    fireEvent.click(getByText(locale.nextLabel)) // now on step 2
-    expect(getByText(locale.steps['intro.writingSystems'].subtitle)).toBeInTheDocument()
+    fireEvent.click(getByText(locale.nextLabel)) // now on step 2 ("Before using Tamamizu")
+    expect(getByText(locale.steps['intro.beforeUse'].subtitle)).toBeInTheDocument()
     fireEvent.click(getByText(locale.skipLabel))
     expect(useProgressStore.getState().hasCompletedIntroGuide).toBe(true)
 
@@ -214,7 +258,7 @@ describe('IntroGuide Back navigation', () => {
   it('Next then Back returns to the previous step', () => {
     const { getByText } = render(<IntroGuide />)
     fireEvent.click(getByText(locale.nextLabel))
-    expect(getByText(locale.steps['intro.writingSystems'].subtitle)).toBeInTheDocument()
+    expect(getByText(locale.steps['intro.beforeUse'].subtitle)).toBeInTheDocument()
 
     fireEvent.click(getByText('Back'))
     expect(getByText(locale.steps['intro.welcome'].subtitle)).toBeInTheDocument()

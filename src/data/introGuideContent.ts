@@ -28,6 +28,10 @@ const EN: IntroGuideLocaleContent = {
       subtitle: "Hi! I'm Tamamizu. Let's learn Japanese together!",
       audioKey: 'guide/intro-welcome',
     },
+    'intro.beforeUse': {
+      subtitle: 'A few things to know before you start.',
+      audioKey: 'guide/intro-before-use',
+    },
     'intro.writingSystems': {
       subtitle: 'Japanese has three main writing systems: Hiragana, Katakana, and Kanji.',
       audioKey: 'guide/intro-writing-systems',
