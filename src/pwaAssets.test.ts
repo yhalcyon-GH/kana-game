@@ -32,12 +32,17 @@ describe('index.html icon references', () => {
   const appleTouchIcon = html.match(/rel="apple-touch-icon"[^>]*href="([^"]+)"/)?.[1]
 
   it('references the favicon and apple-touch-icon as root-relative public paths, so Vite prefixes them with `base` at build time for either deployment', () => {
-    expect(favicon).toBe('/favicon.svg')
+    expect(favicon).toBe('/icons/favicon-32x32.png')
     expect(appleTouchIcon).toBe('/icons/apple-touch-icon.png')
   })
 
   it('points those references at files that actually exist under public/', () => {
     expect(favicon && existsSync(join(publicDir, favicon.replace(/^\//, '')))).toBe(true)
     expect(appleTouchIcon && existsSync(join(publicDir, appleTouchIcon.replace(/^\//, '')))).toBe(true)
+  })
+
+  it('uses the expected production pixel dimensions for the browser and Apple touch icons', () => {
+    expect(pngDimensions(join(publicDir, 'icons/favicon-32x32.png'))).toEqual({ width: 32, height: 32 })
+    expect(pngDimensions(join(publicDir, 'icons/apple-touch-icon.png'))).toEqual({ width: 192, height: 192 })
   })
 })
