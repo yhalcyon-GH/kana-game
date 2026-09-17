@@ -125,14 +125,24 @@ if ($credential->token === null) {
     // "log out" should mean "forget this browser entirely" when a
     // remember cookie exists, not silently leave it able to silently
     // re-auth on the next me.php call, so revoke it too when present.
-    if ($rememberToken !== null) {
-        $pdo = Db::connect($config);
-        $persistentSessions = new PersistentSessionRepository($pdo);
-        $ownPersistentSession = $persistentSessions->findActiveByRawToken($rememberToken);
-        if ($ownPersistentSession !== null) {
-            $persistentSessions->revoke($ownPersistentSession['id']);
-            (new SessionRepository($pdo))->revokeByPersistentSessionId($ownPersistentSession['id']);
+    // Wrapped like the credentialed path below: a DB failure while
+    // revoking the remember-cookie-only credential must produce a 500,
+    // not a 200 that lies about the revoke having happened.
+    try {
+        if ($rememberToken !== null) {
+            $pdo = Db::connect($config);
+            $persistentSessions = new PersistentSessionRepository($pdo);
+            $ownPersistentSession = $persistentSessions->findActiveByRawToken($rememberToken);
+            if ($ownPersistentSession !== null) {
+                $persistentSessions->revoke($ownPersistentSession['id']);
+                (new SessionRepository($pdo))->revokeByPersistentSessionId($ownPersistentSession['id']);
+            }
         }
+    } catch (\Throwable $e) {
+        error_log('logout.php: ' . get_class($e));
+        http_response_code(500);
+        echo json_encode(['error' => 'temporary server error']);
+        exit;
     }
     // Still clear the cookies when cookie mode is enabled: idempotent,
     // and unconditionally safe here since there was no disagreeing
