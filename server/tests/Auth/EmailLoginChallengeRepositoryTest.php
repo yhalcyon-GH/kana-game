@@ -154,5 +154,18 @@ function emailLoginChallengeRepositoryTests(): array
             $rows = $pdo->query('SELECT code_mac FROM email_login_challenges ORDER BY id')->fetchAll();
             assertTrue($rows[0]['code_mac'] !== $rows[1]['code_mac'], 'the same code under a different challenge token must produce a different code_mac');
         },
+
+        'consumeAttempt() with the correct code but the WRONG pepper fails (pepper isolation)' => function () {
+            $pdo = makeEmailLoginChallengeRepositoryTestDb();
+            $repo = new EmailLoginChallengeRepository($pdo);
+            $rawToken = 'raw-pepper-isolation';
+            $repo->issue('pepper@example.com', $rawToken, '123123', ELC_TEST_PEPPER, new \DateTimeImmutable('+10 minutes'));
+
+            $wrongPepper = $repo->consumeAttempt($rawToken, '123123', 'a-completely-different-pepper', 5);
+            assertFalse($wrongPepper->success, 'the correct code under the wrong pepper must fail exactly like a wrong code -- the pepper is part of the effective secret');
+
+            $rightPepper = $repo->consumeAttempt($rawToken, '123123', ELC_TEST_PEPPER, 5);
+            assertTrue($rightPepper->success, 'the correct code under the correct pepper must still work (the wrong-pepper attempt above must not have poisoned the row beyond a normal attempts++)');
+        },
     ];
 }

@@ -221,5 +221,23 @@ function otpAuthServiceTests(): array
             $sessions = new SessionRepository($h['pdo']);
             assertTrue($sessions->findActiveUserIdForRawToken($oldestSessionToken) === null, 'the sessions row linked to the evicted (oldest) persistent session must be cascade-revoked');
         },
+
+        'no PDO row anywhere in the OTP tables ever contains the plaintext code, end-to-end through requestCode()+verifyCode()' => function () {
+            $h = makeOtpAuthServiceHarness();
+            $request = $h['service']->requestCode('sweep@example.com', '203.0.113.1');
+            $code = $h['mailer']->sentCodes[0]['code'];
+            $h['service']->verifyCode($request->challengeToken, $code);
+
+            foreach (['email_login_challenges', 'persistent_sessions', 'sessions', 'users'] as $table) {
+                $rows = $h['pdo']->query("SELECT * FROM {$table}")->fetchAll();
+                foreach ($rows as $row) {
+                    foreach ($row as $column => $value) {
+                        if (is_string($value)) {
+                            assertFalse(str_contains($value, $code), "{$table}.{$column} must never contain the plaintext OTP code");
+                        }
+                    }
+                }
+            }
+        },
     ];
 }
