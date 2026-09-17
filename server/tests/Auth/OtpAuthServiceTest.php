@@ -222,6 +222,87 @@ function otpAuthServiceTests(): array
             assertTrue($sessions->findActiveUserIdForRawToken($oldestSessionToken) === null, 'the sessions row linked to the evicted (oldest) persistent session must be cascade-revoked');
         },
 
+        'a lost eviction race (evictLruForUser returns null while still at cap) is retried once and still ends up <= cap' => function () {
+            // This is an APPROXIMATION of the real concurrency race, done
+            // at the unit level in a single thread -- it cannot reproduce
+            // true concurrent transactions. It simulates "another
+            // transaction already evicted the row we were about to evict"
+            // by pre-revoking that exact row via a decorated repository
+            // right before OtpAuthService's own evictLruForUser() call
+            // runs, forcing that first call's conditional UPDATE to
+            // affect 0 rows (rowCount() !== 1) and return null, exactly
+            // as it would if a concurrent transaction won the race. The
+            // DEFINITIVE proof that the cap holds under real concurrency
+            // remains the MariaDB scenario E harness in
+            // server/tests/mariadb-concurrency/ (not runnable here).
+            $pdo = makeOtpAuthServiceTestDb();
+            $mailer = new FakeMailer();
+            $challenges = new EmailLoginChallengeRepository($pdo);
+
+            $persistentSessions = new class ($pdo) extends PersistentSessionRepository {
+                public bool $sabotageNextEviction = false;
+
+                public function evictLruForUser(string $userId): ?int
+                {
+                    if ($this->sabotageNextEviction) {
+                        $this->sabotageNextEviction = false;
+                        // Simulate a concurrent transaction winning the
+                        // race for the LRU row: revoke it out from under
+                        // the upcoming real eviction attempt, so that
+                        // attempt's own conditional UPDATE affects 0 rows.
+                        $lru = $this->pdo->query(
+                            "SELECT id FROM persistent_sessions WHERE user_id = '{$userId}' AND revoked_at IS NULL ORDER BY last_seen_at ASC, id ASC LIMIT 1",
+                        )->fetchColumn();
+                        if ($lru !== false) {
+                            $this->pdo->exec("UPDATE persistent_sessions SET revoked_at = CURRENT_TIMESTAMP WHERE id = {$lru}");
+                        }
+                    }
+
+                    return parent::evictLruForUser($userId);
+                }
+            };
+
+            $currentUser = new CurrentUserService(new UserRepository($pdo), new SessionRepository($pdo), 24, $persistentSessions);
+            $service = new OtpAuthService(
+                $pdo,
+                $challenges,
+                $persistentSessions,
+                new UserRepository($pdo),
+                new SessionRepository($pdo),
+                new RateLimiter($pdo, 'test-rate-limit-pepper', 5, 20, 10, 10),
+                $mailer,
+                $currentUser,
+                OTP_TEST_PEPPER,
+                10,
+                5,
+                90,
+                3,
+            );
+
+            $email = 'race@example.com';
+            for ($i = 0; $i < 3; $i++) {
+                $request = $service->requestCode($email, "203.0.113.{$i}");
+                $result = $service->verifyCode($request->challengeToken, $mailer->sentCodes[$i]['code']);
+                assertTrue($result->success, "login {$i} of 3 (under quota) must succeed normally");
+            }
+            $userId = $pdo->query("SELECT id FROM users WHERE email_normalized = '{$email}'")->fetchColumn();
+            assertSame(3, $persistentSessions->countActiveForUser($userId), 'exactly 3 active persistent sessions before the 4th login');
+
+            // Arm the sabotage so the 4th login's FIRST eviction attempt
+            // loses its simulated race and returns null.
+            $persistentSessions->sabotageNextEviction = true;
+
+            $fourthRequest = $service->requestCode($email, '203.0.113.9');
+            $fourthResult = $service->verifyCode($fourthRequest->challengeToken, $mailer->sentCodes[3]['code']);
+
+            assertTrue($fourthResult->success, 'the 4th login must still succeed even after a lost eviction race');
+            assertSame(false, $persistentSessions->sabotageNextEviction, 'sabotage must have actually fired for this test to be meaningful');
+            assertTrue(
+                $persistentSessions->countActiveForUser($userId) <= 3,
+                'after a lost eviction race and the retry-once recheck, active persistent sessions must not exceed the cap',
+            );
+        },
+
         'no PDO row anywhere in the OTP tables ever contains the plaintext code, end-to-end through requestCode()+verifyCode()' => function () {
             $h = makeOtpAuthServiceHarness();
             $request = $h['service']->requestCode('sweep@example.com', '203.0.113.1');

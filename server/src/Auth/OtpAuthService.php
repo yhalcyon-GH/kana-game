@@ -152,8 +152,25 @@ final class OtpAuthService
             // here -- at cap, the least-recently-used active row is
             // evicted (and its linked sessions cascade-revoked) and this
             // login proceeds to create its own fresh persistent session.
+            //
+            // evictLruForUser() SELECTs the LRU row then conditionally
+            // UPDATEs it (WHERE revoked_at IS NULL); it returns null when
+            // it loses a race against a concurrent transaction that
+            // revoked the same row first. countActiveForUser() is a
+            // plain non-locking COUNT, so it can also be stale by the
+            // time we act on it. If the first eviction attempt loses its
+            // race, re-count and retry the eviction ONCE more -- by then
+            // the concurrent transaction that won the first race has
+            // committed (or is about to), so the recount should reflect
+            // it and the retry should find a fresh LRU row to evict. This
+            // narrows the race window; it does not eliminate it against 3
+            // or more truly simultaneous logins for the same at-cap user
+            // (see OtpAuthServiceTest and mariadb-concurrency scenario E).
             if ($this->persistentSessions->countActiveForUser($user['id']) >= $this->maxPersistentSessions) {
                 $evictedId = $this->persistentSessions->evictLruForUser($user['id']);
+                if ($evictedId === null && $this->persistentSessions->countActiveForUser($user['id']) >= $this->maxPersistentSessions) {
+                    $evictedId = $this->persistentSessions->evictLruForUser($user['id']);
+                }
                 if ($evictedId !== null) {
                     $this->sessions->revokeByPersistentSessionId($evictedId);
                 }

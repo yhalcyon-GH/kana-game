@@ -13,9 +13,13 @@ use PDO;
  * device/IP/fingerprint -- see the design spec's "Max 3 / LRU eviction"
  * section.
  */
-final class PersistentSessionRepository
+class PersistentSessionRepository
 {
-    public function __construct(private readonly PDO $pdo)
+    // Not `final`, and $pdo is `protected` rather than `private`, solely
+    // so OtpAuthServiceTest can build a tiny subclass that simulates a
+    // lost eviction race (see that test) -- no production behavior here
+    // changes.
+    public function __construct(protected readonly PDO $pdo)
     {
     }
 
