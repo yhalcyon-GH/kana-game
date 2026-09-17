@@ -29,6 +29,36 @@ final class OtpRequestResult
 }
 
 /**
+ * @internal Value object for OtpAuthService::verifyCode().
+ */
+final class OtpVerifyResult
+{
+    /**
+     * @param array{id: string, email_normalized: string}|null $user
+     */
+    private function __construct(
+        public readonly bool $success,
+        public readonly ?string $sessionToken,
+        public readonly ?string $persistentToken,
+        public readonly ?array $user,
+    ) {
+    }
+
+    public static function invalid(): self
+    {
+        return new self(false, null, null, null);
+    }
+
+    /**
+     * @param array{id: string, email_normalized: string} $user
+     */
+    public static function success(string $sessionToken, string $persistentToken, array $user): self
+    {
+        return new self(true, $sessionToken, $persistentToken, $user);
+    }
+}
+
+/**
  * Orchestrates the 6-digit email OTP request/verify flow -- the same
  * shape as MagicLinkAuthService, kept as a SEPARATE class (not a
  * refactor of MagicLinkAuthService) per the spec's explicit instruction
@@ -94,6 +124,56 @@ final class OtpAuthService
         $this->mailer->sendLoginCode($email, $code);
 
         return OtpRequestResult::issued($rawChallengeToken);
+    }
+
+    public function verifyCode(string $rawChallengeToken, string $code): OtpVerifyResult
+    {
+        $consumeResult = $this->challenges->consumeAttempt($rawChallengeToken, $code, $this->codePepper, $this->maxAttempts);
+        if (!$consumeResult->success) {
+            return OtpVerifyResult::invalid();
+        }
+
+        $email = $this->challenges->findEmailForRawToken($rawChallengeToken);
+        if ($email === null) {
+            // Defensive -- consumeAttempt() just succeeded against this
+            // exact token, so the row must exist; unreachable in
+            // practice, mirrors MagicLinkAuthService::verify()'s own
+            // defensive null check on findEmailForRawToken().
+            return OtpVerifyResult::invalid();
+        }
+
+        $this->pdo->beginTransaction();
+
+        try {
+            $user = $this->users->findOrCreateByEmail($email);
+
+            // Max-3/LRU enforcement: quota unit is persistent_sessions
+            // ROWS, not devices/IPs/fingerprints. Login is NEVER blocked
+            // here -- at cap, the least-recently-used active row is
+            // evicted (and its linked sessions cascade-revoked) and this
+            // login proceeds to create its own fresh persistent session.
+            if ($this->persistentSessions->countActiveForUser($user['id']) >= $this->maxPersistentSessions) {
+                $evictedId = $this->persistentSessions->evictLruForUser($user['id']);
+                if ($evictedId !== null) {
+                    $this->sessions->revokeByPersistentSessionId($evictedId);
+                }
+            }
+
+            $rawPersistentToken = $this->generateRawToken();
+            $persistentExpiresAt = new \DateTimeImmutable("+{$this->persistentLoginDays} days");
+            $persistentId = $this->persistentSessions->create($user['id'], $rawPersistentToken, $persistentExpiresAt);
+
+            $rawSessionToken = $this->currentUser->createSession($user['id'], $persistentId);
+
+            $this->pdo->commit();
+
+            return OtpVerifyResult::success($rawSessionToken, $rawPersistentToken, $user);
+        } catch (\Throwable $e) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            throw $e;
+        }
     }
 
     private function generateCode(): string

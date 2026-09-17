@@ -127,5 +127,99 @@ function otpAuthServiceTests(): array
             assertFalse($oldConsume->success, 'the superseded first challenge must never succeed after a resend');
             assertTrue($newConsume->success, 'the fresh challenge issued by the resend must succeed');
         },
+
+        'verifyCode() with the correct code succeeds, creates a user, and issues both a session and a persistent token' => function () {
+            $h = makeOtpAuthServiceHarness();
+            $request = $h['service']->requestCode('verify-me@example.com', '203.0.113.1');
+            $code = $h['mailer']->sentCodes[0]['code'];
+
+            $result = $h['service']->verifyCode($request->challengeToken, $code);
+
+            assertTrue($result->success, 'verifyCode() with the correct code must succeed');
+            assertTrue($result->sessionToken !== null, 'a successful verify must return a session token');
+            assertTrue($result->persistentToken !== null, 'a successful verify must return a persistent token');
+            assertSame('verify-me@example.com', $result->user['email_normalized'], 'the returned user must carry the normalized email');
+
+            $userCount = (int) $h['pdo']->query('SELECT COUNT(*) FROM users')->fetchColumn();
+            assertSame(1, $userCount, 'exactly one user row should exist after first verification');
+            assertSame(1, $h['persistentSessions']->countActiveForUser($result->user['id']), 'exactly one persistent session should have been created');
+        },
+
+        'verifyCode() with the wrong code fails and creates no user, no session, no persistent session' => function () {
+            $h = makeOtpAuthServiceHarness();
+            $request = $h['service']->requestCode('wrong-code@example.com', '203.0.113.1');
+
+            $result = $h['service']->verifyCode($request->challengeToken, '000000');
+
+            assertFalse($result->success, 'verifyCode() with the wrong code must fail');
+            assertTrue($result->sessionToken === null, 'a failed verify must not return a session token');
+            assertSame(0, (int) $h['pdo']->query('SELECT COUNT(*) FROM users')->fetchColumn(), 'a wrong-code verify must not create a user');
+        },
+
+        'verifyCode() with an unknown challenge token fails with the same generic shape' => function () {
+            $h = makeOtpAuthServiceHarness();
+            $result = $h['service']->verifyCode('never-issued-challenge', '123456');
+
+            assertFalse($result->success, 'an unknown challenge token must fail');
+            assertTrue($result->sessionToken === null, 'a failed verify must not return a session token');
+            assertTrue($result->user === null, 'a failed verify must not return a user');
+        },
+
+        'verifyCode() twice with the same challenge succeeds once and fails the second time (single-use)' => function () {
+            $h = makeOtpAuthServiceHarness();
+            $request = $h['service']->requestCode('reuse-otp@example.com', '203.0.113.1');
+            $code = $h['mailer']->sentCodes[0]['code'];
+
+            $first = $h['service']->verifyCode($request->challengeToken, $code);
+            $second = $h['service']->verifyCode($request->challengeToken, $code);
+
+            assertTrue($first->success, 'the first verifyCode() call with the correct code must succeed');
+            assertFalse($second->success, 'a second verifyCode() call against the same (already-used) challenge must fail');
+        },
+
+        'verifyCode() creates a NEW persistent session on every successful login (never reuses one)' => function () {
+            $h = makeOtpAuthServiceHarness();
+            $requestA = $h['service']->requestCode('repeat-login@example.com', '203.0.113.1');
+            $resultA = $h['service']->verifyCode($requestA->challengeToken, $h['mailer']->sentCodes[0]['code']);
+            $requestB = $h['service']->requestCode('repeat-login@example.com', '203.0.113.2');
+            $resultB = $h['service']->verifyCode($requestB->challengeToken, $h['mailer']->sentCodes[1]['code']);
+
+            assertTrue($resultA->persistentToken !== $resultB->persistentToken, 'each login must mint a fresh persistent token, not reuse one');
+            assertSame(2, $h['persistentSessions']->countActiveForUser($resultA->user['id']), 'both logins must have their own active persistent session');
+        },
+
+        'a 4th successful login evicts the least-recently-used persistent session and cascade-revokes its linked session, without blocking the 4th login' => function () {
+            // emailLimit raised to 10 (default OTP request-code flow uses
+            // 3/hour) purely so this test's 4 requestCode() calls for the
+            // same email don't collide with the UNRELATED per-email OTP
+            // request-rate limit under test elsewhere -- this test is
+            // about persistent-session quota/LRU eviction, not the
+            // request-code rate limiter, and maxPersistentSessions stays
+            // at 3 (the actual thing under test).
+            $h = makeOtpAuthServiceHarness(null, 10, 10, 5, 3);
+            $email = 'quota@example.com';
+            $sessionTokens = [];
+            $persistentTokensSeen = [];
+
+            for ($i = 0; $i < 3; $i++) {
+                $request = $h['service']->requestCode($email, "203.0.113.{$i}");
+                $result = $h['service']->verifyCode($request->challengeToken, $h['mailer']->sentCodes[$i]['code']);
+                assertTrue($result->success, "login {$i} of 3 (under quota) must succeed normally");
+                $sessionTokens[] = $result->sessionToken;
+            }
+            $userId = $h['pdo']->query("SELECT id FROM users WHERE email_normalized = '{$email}'")->fetchColumn();
+            assertSame(3, $h['persistentSessions']->countActiveForUser($userId), 'exactly 3 active persistent sessions before the 4th login');
+
+            $oldestSessionToken = $sessionTokens[0];
+
+            $fourthRequest = $h['service']->requestCode($email, '203.0.113.9');
+            $fourthResult = $h['service']->verifyCode($fourthRequest->challengeToken, $h['mailer']->sentCodes[3]['code']);
+
+            assertTrue($fourthResult->success, 'the 4th login must NEVER be blocked -- it proceeds and evicts instead');
+            assertSame(3, $h['persistentSessions']->countActiveForUser($userId), 'the count must stay capped at 3 (one evicted, one created)');
+
+            $sessions = new SessionRepository($h['pdo']);
+            assertTrue($sessions->findActiveUserIdForRawToken($oldestSessionToken) === null, 'the sessions row linked to the evicted (oldest) persistent session must be cascade-revoked');
+        },
     ];
 }
