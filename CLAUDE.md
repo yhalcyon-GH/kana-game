@@ -42,6 +42,12 @@ For unattended multi-task or "Overnight mode" work, follow
 `docs/autonomous-operations.md` for the autonomous execution loop, Stop/Human
 Gates, and morning-checkpoint expectations.
 
+Before choosing or changing infrastructure, external services, APIs, paid models,
+automation, or a human workaround, apply the canonical Cost Gate and Human
+fast-path policy in `docs/operational-gates.md`. In particular, any path that can
+create additional charges must be disclosed and explicitly approved before
+implementation or activation.
+
 ## Context and usage
 
 Context is a limited resource. Keep the main session focused on the current task.
