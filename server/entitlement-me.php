@@ -98,12 +98,21 @@ $credential = SessionCredentialResolver::resolve(
 );
 $rememberToken = $rememberCookie->readToken($_COOKIE);
 
-// A missing credential and an ambiguous one both mean "not
-// authenticated" here -- see the identical comment in auth/me.php. This
-// is a read-only lookup, so (like me.php, and unlike purchase-intent.php)
-// there is no Origin/CSRF check here even though resolveOrRefresh() below
-// can succeed from the remember cookie alone -- the only side effect is
-// the same session-refresh me.php already performs with no Origin check.
+// Security-review finding: an ambiguous (Bearer != cookie) credential
+// must be rejected outright, matching auth/logout.php's own ambiguous
+// branch -- it must NEVER be allowed to fall through into
+// resolveOrRefresh()'s remember-cookie fallback. $credential->token is
+// null for both a genuinely MISSING credential and an AMBIGUOUS one, but
+// those two are not the same thing: SessionCredentialResolution exists
+// specifically so a caller can tell them apart, and this endpoint must
+// use that distinction rather than silently folding "disagreeing
+// credentials" into "no credentials." A missing credential still falls
+// through below to the remember-cookie refresh path exactly as before.
+if ($credential->ambiguous) {
+    http_response_code(401);
+    echo json_encode(['error' => 'unauthorized']);
+    exit;
+}
 
 try {
     $pdo = Db::connect($config);

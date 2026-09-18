@@ -140,6 +140,26 @@ $credential = SessionCredentialResolver::resolve(
     $cookieToken,
 );
 
+// Security-review finding: an ambiguous (Bearer != cookie) credential
+// must be rejected outright, matching auth/logout.php's own ambiguous
+// branch -- it must NEVER be allowed to fall through into
+// resolveOrRefresh()'s remember-cookie fallback below. $credential->token
+// is null for both a genuinely MISSING credential and an AMBIGUOUS one,
+// but those two are not the same thing: SessionCredentialResolution
+// exists specifically so a caller can tell them apart, and a
+// state-changing endpoint (this one creates a real purchase_intents row)
+// must use that distinction rather than silently folding "disagreeing
+// credentials" into "no credentials." A missing credential still falls
+// through below to the remember-cookie refresh path exactly as before.
+// This check runs AFTER the Origin/CSRF check above (so a cross-origin
+// request is still rejected first regardless of credential shape) and
+// BEFORE any DB/auth work.
+if ($credential->ambiguous) {
+    http_response_code(401);
+    echo json_encode(['error' => 'unauthorized']);
+    exit;
+}
+
 // Phase H2 -- read the caller's asserted environment from the request
 // body. This is a CLAIM, not a selection: PurchaseIntentEndpoint::handle()
 // compares it against the server's own authoritative PaddleEnvironmentConfig
@@ -167,11 +187,10 @@ try {
 
     // resolveOrRefresh() FIRST, before PurchaseIntentEndpoint::handle()
     // ever runs -- see the identical seam in auth/me.php and auth/
-    // sign-out-others.php. A missing credential and an ambiguous one
-    // both mean "not authenticated" here -- see the identical comment in
-    // auth/me.php -- but resolveOrRefresh() also gets a chance to
-    // transparently re-authenticate from a genuinely valid remember-me
-    // credential first.
+    // sign-out-others.php. An ambiguous credential was already rejected
+    // above, before this try block; only a genuinely MISSING session
+    // credential reaches here and gets a chance to transparently
+    // re-authenticate from a genuinely valid remember-me credential.
     $resolution = $currentUser->resolveOrRefresh($credential->token, $rememberToken);
     if ($resolution['user'] === null) {
         // Match PurchaseIntentEndpoint::handle()'s own 401 body exactly

@@ -317,40 +317,57 @@ function webSessionCookieWiringTests(): array
             assertTrue($ambiguousPos < $logoutCallPos, 'the ambiguous check must run before any revoke attempt');
         },
 
-        // Prior to this PR, these two entrypoints had their own
-        // standalone "if ($credential->token === null) { 401 }" early-
-        // exit (mirrored above via the now-removed literal check), run
-        // BEFORE any remember-cookie lookup existed for them at all. This
-        // PR gave both entrypoints the same resolveOrRefresh() wiring
-        // auth/me.php already had (see Task 12 above): $credential->token
-        // -- null for BOTH a missing and an ambiguous credential, per
-        // SessionCredentialResolver's contract -- is now passed straight
-        // into resolveOrRefresh() instead of being gated by a separate
-        // check first. This still gives an ambiguous credential the
-        // IDENTICAL treatment a missing one gets (both attempt the same
-        // remember-cookie-based refresh, then both 401 if that fails),
-        // preserving the property asserted below -- it is just expressed
-        // via the single resolveOrRefresh() call rather than a redundant
-        // early-exit in front of it. See
-        // CurrentUserServiceTest.php's "ambiguous credential pair,
-        // composed with an unrelated valid remember cookie" case for
-        // proof that the remember-cookie fallback can only ever
-        // authenticate as the remember cookie's OWN rightful owner, never
-        // as either side of the disputed session pair -- so this is not a
-        // new bypass. These endpoints have no idempotent-success contract
-        // to accidentally satisfy (unlike logout.php), so (unlike
-        // logout.php) there is no separate ->ambiguous branch expected in
-        // these files.
-        'entitlement-me.php and purchase-intent.php feed $credential->token directly into resolveOrRefresh(), giving an ambiguous credential the same treatment as a missing one' => function () {
+        // Security-review finding (post-merge, PR #303): the correction
+        // pass above originally gave entitlement-me.php and
+        // purchase-intent.php the SAME treatment auth/me.php already had
+        // -- $credential->token (null for BOTH a missing and an ambiguous
+        // credential) fed straight into resolveOrRefresh(), relying on
+        // the remember-cookie fallback only ever authenticating as its
+        // own independently-valid owner. An independent review flagged
+        // that this still lets a disagreeing Bearer/cookie pair reach a
+        // successful, cookie-issuing outcome via the remember cookie,
+        // which is inconsistent with logout.php's own ambiguous branch
+        // (SessionCredentialResolution's contract exists specifically so
+        // callers CAN distinguish "missing" from "disagreeing" -- these
+        // two endpoints must actually use that distinction, matching
+        // logout.php, rather than re-collapsing it). Both entrypoints now
+        // check $credential->ambiguous and reject with 401 BEFORE
+        // resolveOrRefresh() is ever called, so an ambiguous pair can
+        // never reach the remember-cookie fallback at all. A genuinely
+        // missing session credential is unaffected and still falls
+        // through to that fallback. See CurrentUserServiceTest.php's
+        // "ambiguous credential pair must never reach the remember-cookie
+        // fallback" cases for the resolver-level proof, and this test for
+        // the entrypoint-level wiring proof.
+        'entitlement-me.php and purchase-intent.php reject an ambiguous credential with 401 BEFORE resolveOrRefresh() ever runs' => function () {
             foreach (['entitlement-me.php', 'purchase-intent.php'] as $path) {
                 $source = loadServerSource($path);
                 assertTrue(
-                    str_contains($source, '$currentUser->resolveOrRefresh($credential->token, $rememberToken);'),
-                    "{$path} must pass \$credential->token (null for BOTH missing and ambiguous credentials) straight into resolveOrRefresh(), matching auth/me.php's wiring",
+                    str_contains($source, 'if ($credential->ambiguous) {'),
+                    "{$path} must check \$credential->ambiguous, matching auth/logout.php's own ambiguous branch",
                 );
-                assertFalse(
-                    str_contains($source, 'if ($credential->token === null) {'),
-                    "{$path} must not retain a standalone null-token early-exit ahead of resolveOrRefresh() -- that would duplicate, not just precede, the check resolveOrRefresh() itself now performs",
+                assertTrue(
+                    str_contains($source, '$currentUser->resolveOrRefresh($credential->token, $rememberToken);'),
+                    "{$path} must still pass \$credential->token into resolveOrRefresh() for the genuinely-missing-credential case",
+                );
+
+                $ambiguousCheckPos = strpos($source, 'if ($credential->ambiguous) {');
+                $resolveOrRefreshPos = strpos($source, '->resolveOrRefresh($credential->token, $rememberToken);');
+                assertTrue(
+                    $ambiguousCheckPos !== false && $resolveOrRefreshPos !== false,
+                    "expected both the ambiguous check and the resolveOrRefresh() call in {$path}",
+                );
+                assertTrue(
+                    $ambiguousCheckPos < $resolveOrRefreshPos,
+                    "{$path} must reject an ambiguous credential BEFORE resolveOrRefresh() runs, so it never reaches the remember-cookie fallback",
+                );
+
+                $ambiguousBranchEnd = strpos($source, 'exit;', $ambiguousCheckPos);
+                assertTrue($ambiguousBranchEnd !== false, "expected the ambiguous branch in {$path} to end with its own exit;");
+                $ambiguousBranch = substr($source, $ambiguousCheckPos, $ambiguousBranchEnd - $ambiguousCheckPos);
+                assertTrue(
+                    str_contains($ambiguousBranch, 'http_response_code(401)'),
+                    "{$path}'s ambiguous branch must reject with 401, matching auth/logout.php",
                 );
             }
         },
