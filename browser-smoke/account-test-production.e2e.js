@@ -72,3 +72,21 @@ test('active production Account has no purchase CTA at 320px', async ({ page }) 
   const hasOverflow = await page.locator('body').evaluate((body) => body.scrollWidth > body.clientWidth)
   expect(hasOverflow).toBe(false)
 })
+
+test('Account exposes "Signed-in browsers & devices" with the approved max-3/LRU copy, and Sign out other browsers works, at 320px', async ({ page }) => {
+  await installProductionAuthFixture(page, 'active')
+  await page.setViewportSize({ width: 320, height: 800 })
+  await page.goto('./#/account')
+  const skip = page.getByRole('button', { name: 'Skip', exact: true })
+  if (await skip.isVisible()) await skip.click()
+
+  await expect(page.getByRole('heading', { name: 'Signed-in browsers & devices' })).toBeVisible()
+  await expect(page.getByText(
+    'You can stay signed in on up to 3 browsers or devices. Signing in on another one automatically signs out the least recently used one.',
+  )).toBeVisible()
+  const hasOverflow = await page.locator('body').evaluate((body) => body.scrollWidth > body.clientWidth)
+  expect(hasOverflow).toBe(false)
+
+  await page.getByRole('button', { name: 'Sign out other browsers' }).click()
+  await expect(page.getByText('Signed out 1 other browser.')).toBeVisible()
+})

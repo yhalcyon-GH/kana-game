@@ -33,12 +33,19 @@ export function useProductionSandboxPurchase() {
   const [config] = useState(readProductionSandboxConfig)
   const [status, setStatus] = useState<PurchaseStatus>('idle')
   const sessionStatus = useRef(state.status)
+  // Prefill-only: read fresh via a ref (like sessionStatus above) rather
+  // than as a useLayoutEffect dependency below, so the controller/Paddle
+  // instance is never torn down and recreated just because the resolved
+  // email changed -- Checkout.open() reads this at open() time, not at
+  // effect-setup time.
+  const currentUserEmail = useRef(state.user?.emailNormalized ?? null)
   const actions = useRef<PurchaseActions | null>(null)
 
   useLayoutEffect(() => {
     sessionStatus.current = state.status
+    currentUserEmail.current = state.user?.emailNormalized ?? null
     if (state.status === 'signed-out' || state.status === 'active') actions.current?.invalidate()
-  }, [state.status])
+  }, [state.status, state.user])
 
   useLayoutEffect(() => {
     if ('error' in config || !apiBase) return
@@ -125,7 +132,7 @@ export function useProductionSandboxPurchase() {
           }
           return result.kind === 'created' ? result.purchaseRef : null
         })
-        if (prepared && isCurrent(attempt)) await controller.open()
+        if (prepared && isCurrent(attempt)) await controller.open(currentUserEmail.current ?? undefined)
       },
       retry: () => {
         if (!disposed && currentStatus === 'still-confirming') void confirm()

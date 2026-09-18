@@ -134,7 +134,7 @@ describe('Production Web auth (Phase 3B)', () => {
     await screen.findByText('signed-in@example.com')
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /sign out/i }))
+      fireEvent.click(screen.getByRole('button', { name: 'Sign out' }))
     })
 
     expect(productionAuthClient.logout).toHaveBeenCalled()

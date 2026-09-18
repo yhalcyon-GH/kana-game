@@ -175,9 +175,45 @@ human review and merge decision.
 
 ## Open items to confirm during implementation (not blocking spec approval)
 
-- Exact hook point in `CurrentUserService`/`SessionCredentialResolver` for the
-  persistent-session-refresh path (not read in detail during research).
-- Whether an existing non-authenticated JSON endpoint can carry the `email_code_auth` flag
-  instead of a new file, once `me.php` and friends are read directly.
-- Exact current purchase-trigger UI in `AccountPage.tsx` / `sandboxCheckoutController.ts` for
-  wiring the "skip checkout if already entitled" step B UX.
+- ~~Exact hook point in `CurrentUserService`/`SessionCredentialResolver` for the
+  persistent-session-refresh path (not read in detail during research).~~ Resolved in PR A:
+  `CurrentUserService::resolveOrRefresh()`, wired into `me.php`. PR B additionally extended it
+  into `entitlement-me.php` and `purchase-intent.php` (previously session-only), so a caller
+  whose session cookie expired but who still holds a valid remember-me cookie is transparently
+  refreshed there too, not just at `me.php`.
+- ~~Whether an existing non-authenticated JSON endpoint can carry the `email_code_auth` flag
+  instead of a new file, once `me.php` and friends are read directly.~~ Resolved in PR A: a new
+  file, `server/auth/capabilities.php` (no DB dependency, so a DB outage can never mask the flag).
+- ~~Exact current purchase-trigger UI in `AccountPage.tsx` / `sandboxCheckoutController.ts` for
+  wiring the "skip checkout if already entitled" step B UX.~~ Resolved in PR B: `AccountPage.tsx`
+  already branched on `EntitlementProvider`'s resolved status before this feature (loading/
+  signed-out/active/inactive), so "already entitled -> no checkout" was already correct;
+  PR B added the required exact copy strings and the "Signed-in browsers & devices" section.
+
+## PR B implementation notes (frontend + follow-ups)
+
+- `src/routes/LoginPage.tsx` now detects `email_code_auth` via `capabilities.php` once on
+  mount and renders the 6-digit code flow when true, falling back to the original Magic Link
+  UI (kept, unmodified in its own logic) when false/unreachable/malformed.
+- `entitlement-me.php` and `purchase-intent.php` were extended to call
+  `CurrentUserService::resolveOrRefresh()` (previously `resolve()`-only) — see the file-level
+  doc comments in both for the exact seam. `purchase-intent.php`'s Origin/CSRF check was
+  widened to also cover a remember-cookie-only request, matching the identical fix already
+  applied to `logout.php`/`sign-out-others.php` in PR A review.
+- Dev-harness OTP capture (`DevHarnessLoginCodeStore`, `dev-only/last-login-code.php`,
+  `DevHarnessMailer::sendLoginCode()`) mirrors the existing Magic Link dev-harness capture
+  mechanism exactly — same gating, same single-use consume-on-read semantics, same exclusion
+  from any production deployment.
+- **`me.php`'s side-effecting GET (disclosed in PR A review) was reviewed and deliberately
+  NOT changed in PR B.** The refresh-from-persistent-credential behavior this design
+  explicitly calls for (this section, above) is itself the "side effect" — minting a fresh
+  `sessions` row on a GET. It cannot be triggered by a third party (it requires the caller to
+  already hold the real, HttpOnly, `SameSite=Lax`, host-only remember cookie for that exact
+  browser), so it is not a CSRF/cross-site attack surface; the concern is a REST-convention
+  one (a GET should be side-effect-free/cacheable), which matters mainly for prefetching,
+  caching intermediaries, and automated scanners that assume GETs are safe to repeat/prefetch
+  freely. Moving this behavior behind a POST would touch the primary session-restoration path
+  used by every authenticated page load and is not a "smallest bounded fix" — it risks
+  destabilizing the exact continuity behavior this feature exists to provide, for a
+  theoretical rather than demonstrated risk. Documented here per explicit instruction; a
+  focused follow-up issue has been opened to decide this before a Production rollout.

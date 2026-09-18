@@ -79,6 +79,7 @@ describe('production Sandbox purchase orchestration', () => {
     expect(sdk.open).toHaveBeenCalledExactlyOnceWith({
       settings: { displayMode: 'overlay', showAddDiscounts: true }, items: [{ priceId: 'pri_fixture', quantity: 1 }],
       customData: { purchase_ref: 'private-purchase-ref' },
+      customer: { email: 'learner@example.com' },
     })
     expect(sdk.initialize).toHaveBeenCalledWith(expect.objectContaining({ environment: 'sandbox' }))
     expect(f.result.current.environment).toBe('sandbox')
