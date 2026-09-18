@@ -16,6 +16,7 @@ vi.mock('./lib/auth/productionAuthClient', async () => {
     fetchCurrentUserResult: vi.fn(),
     fetchCurrentEntitlementResult: vi.fn(),
     logout: vi.fn(),
+    fetchAuthCapabilities: vi.fn(),
   }
 })
 
@@ -38,6 +39,12 @@ beforeEach(() => {
   vi.mocked(productionAuthClient.fetchCurrentUserResult).mockReset().mockResolvedValue({ kind: 'signed-out' })
   vi.mocked(productionAuthClient.fetchCurrentEntitlementResult).mockReset()
   vi.mocked(productionAuthClient.logout).mockReset().mockResolvedValue({ kind: 'signed-out' })
+  // This suite exercises the existing Magic Link flow only (OTP capability
+  // detection is covered deterministically in LoginPage.test.tsx) -- without
+  // this, LoginPage's capability probe hits the real, unmocked global fetch()
+  // against the stubbed https://api.example.com base, which is a flaky
+  // real-network race in CI rather than a deterministic fallback.
+  vi.mocked(productionAuthClient.fetchAuthCapabilities).mockReset().mockResolvedValue({ kind: 'unavailable' })
 })
 
 afterEach(() => {
@@ -48,7 +55,18 @@ afterEach(() => {
 describe('Production Web auth (Phase 3B)', () => {
   it('/login is reachable in development', async () => {
     renderAt('/login')
-    expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
+    // LoginPage renders the SAME "Sign in" heading text for both its
+    // transient checking-capability state and its settled magic-link
+    // state, but they're different component subtrees (a raw <div> vs
+    // <MagicLinkSignIn>), so React replaces the DOM node when the
+    // capability-check effect resolves. `expect(await findByRole(...))`
+    // can resolve with the FIRST (about-to-be-replaced) node and then
+    // assert on that stale reference after it's already been unmounted --
+    // wrapping the query AND the assertion in the same waitFor callback
+    // keeps them atomic, always re-querying the live DOM.
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
+    })
   })
 
   it('/login does not fall back to production auth in unconfigured development', async () => {
@@ -64,7 +82,12 @@ describe('Production Web auth (Phase 3B)', () => {
   it('/login is reachable in a production build too', async () => {
     (vi.stubEnv as (name: string, value: unknown) => void)('DEV', false)
     renderAt('/login')
-    expect(await screen.findByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
+    // See the comment on the sibling "reachable in development" test above
+    // -- same stale-node race between the checking-capability and
+    // magic-link subtrees.
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Sign in' })).toBeInTheDocument()
+    })
   })
 
   it('requesting a sign-in link always shows the same generic message (enumeration-safe), regardless of the email', async () => {
