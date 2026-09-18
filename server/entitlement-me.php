@@ -36,7 +36,9 @@ declare(strict_types=1);
  * a new Set-Cookie before delegating to CurrentUserEntitlementService::
  * lookupForSession() with whichever session token is now valid — no
  * user-visible re-login, and no change to that service's own
- * resolve()-only-based signature/tests.
+ * resolve()-only-based signature/tests. Same Issue #304 side-effecting-
+ * GET rationale and Cache-Control: no-store mitigation as server/auth/
+ * me.php — see that file's doc comment.
  */
 
 require __DIR__ . '/src/Config.php';
@@ -77,6 +79,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
 
 $cors->applyHeaders($_SERVER['HTTP_ORIGIN'] ?? null);
 header('Content-Type: application/json');
+header('Cache-Control: no-store');
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
     http_response_code(405);

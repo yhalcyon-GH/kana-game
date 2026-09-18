@@ -217,3 +217,13 @@ human review and merge decision.
   destabilizing the exact continuity behavior this feature exists to provide, for a
   theoretical rather than demonstrated risk. Documented here per explicit instruction; a
   focused follow-up issue has been opened to decide this before a Production rollout.
+- **Resolved (Issue #304, follow-up to the above):** rather than change the HTTP verb or the
+  refresh semantics, every entrypoint that can emit a session-minting `Set-Cookie` —
+  `me.php`, `entitlement-me.php`, `purchase-intent.php`, `verify.php`, `verify-code.php`,
+  `logout.php` — now sends `Cache-Control: no-store` unconditionally, before any
+  response-status branch, mirroring the pattern already used by the `dev-only/` entrypoints
+  (`server/tests/DevOnly/LastLoginCodeEntrypointTest.php` etc.). This directly closes the
+  REST-convention concern raised above (no caching intermediary can ever store or replay a
+  response carrying a session-minting `Set-Cookie`) without touching the session-restoration
+  path, the client contract, or any status code/body. See
+  `server/tests/Auth/CacheControlWiringTest.php`.
