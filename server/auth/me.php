@@ -19,6 +19,18 @@ declare(strict_types=1);
  * (persistent-session) cookie is present, this transparently mints a
  * fresh session and reissues it as a new Set-Cookie -- no user-visible
  * re-login.
+ *
+ * This refresh is a genuine side effect on a GET (Issue #304, disclosed
+ * in PR A review and deliberately kept as-is by the PR B design doc --
+ * moving it behind a POST would touch the primary session-restoration
+ * path used by every authenticated page load, for a theoretical rather
+ * than demonstrated CSRF/attack risk: the refresh can only fire for a
+ * caller that already holds the real, HttpOnly, SameSite=Lax, host-only
+ * remember cookie for this exact browser). The bounded, REST-convention
+ * mitigation actually shipped: Cache-Control: no-store below, so no
+ * caching intermediary (proxy, CDN edge, browser prefetch cache) can
+ * ever store or replay a response that carries a session-minting
+ * Set-Cookie to a different request/client.
  */
 
 require __DIR__ . '/../src/Config.php';
@@ -53,6 +65,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
 
 $cors->applyHeaders($_SERVER['HTTP_ORIGIN'] ?? null);
 header('Content-Type: application/json');
+header('Cache-Control: no-store');
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
     http_response_code(405);

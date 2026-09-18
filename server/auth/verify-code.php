@@ -58,6 +58,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
 
 $cors->applyHeaders($_SERVER['HTTP_ORIGIN'] ?? null);
 header('Content-Type: application/json');
+header('Cache-Control: no-store');
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     http_response_code(405);
