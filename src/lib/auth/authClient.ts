@@ -180,3 +180,76 @@ export async function fetchDevHarnessMagicLink(apiBase: string, emailNormalized:
     return null
   }
 }
+
+/**
+ * Requests a 6-digit email sign-in code (server/auth/request-code.php).
+ * Only ever meaningful when the backend has EMAIL_CODE_AUTH_ENABLED and
+ * DEV_HARNESS_ENABLED both true -- otherwise this harness's own
+ * fetchDevHarnessLoginCode() below will never find a pending code.
+ */
+export async function requestLoginCode(apiBase: string, email: string): Promise<string | null> {
+  try {
+    const response = await fetch(`${apiBase}/auth/request-code.php`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    })
+    if (!response.ok) return null
+
+    const body = (await safeJson(response)) as { challenge?: unknown } | null
+    return typeof body?.challenge === 'string' ? body.challenge : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Consumes a 6-digit email OTP code (server/auth/verify-code.php). Bearer
+ * mode only, matching this file's own scope -- see VerifyResult and
+ * verifyMagicLinkToken() above.
+ */
+export async function verifyLoginCode(apiBase: string, challenge: string, code: string): Promise<VerifyResult | null> {
+  try {
+    const response = await fetch(`${apiBase}/auth/verify-code.php`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ challenge, code }),
+    })
+    if (!response.ok) return null
+
+    const body = (await safeJson(response)) as { session_token?: unknown; user?: { user_id?: unknown; email_normalized?: unknown } } | null
+    if (
+      typeof body?.session_token !== 'string' ||
+      typeof body.user?.user_id !== 'string' ||
+      typeof body.user?.email_normalized !== 'string'
+    ) {
+      return null
+    }
+
+    return { sessionToken: body.session_token, userId: body.user.user_id, emailNormalized: body.user.email_normalized }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * DEV-ONLY. Retrieves (and consumes) the most recently issued 6-digit
+ * email sign-in code for an email from server/dev-only/last-login-code.php
+ * -- the OTP equivalent of fetchDevHarnessMagicLink() above. Returns null
+ * when the harness is disabled (403) or no code is pending (404) -- both
+ * unremarkable, expected states for this harness, not errors. Exists
+ * solely so the /account-test harness and automated dev/Sandbox browser
+ * smoke can exercise the OTP flow end to end without real email delivery.
+ */
+export async function fetchDevHarnessLoginCode(apiBase: string, emailNormalized: string): Promise<string | null> {
+  try {
+    const url = `${apiBase}/dev-only/last-login-code.php?email=${encodeURIComponent(emailNormalized)}`
+    const response = await fetch(url)
+    if (!response.ok) return null
+
+    const body = (await safeJson(response)) as { login_code?: unknown } | null
+    return typeof body?.login_code === 'string' ? body.login_code : null
+  } catch {
+    return null
+  }
+}

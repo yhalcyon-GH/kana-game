@@ -213,6 +213,82 @@ function currentUserServiceTests(): array
             assertSame(null, $result['refreshed_session_token'], 'an ambiguous credential pair must never mint a refreshed session');
         },
 
+        // Security-review finding (PR #303): a prior version of this test
+        // (removed) demonstrated that resolveOrRefresh() ALONE cannot
+        // distinguish "ambiguous" from "missing" once handed a null
+        // token, and treated that as sufficient justification for
+        // entitlement-me.php/purchase-intent.php to feed an ambiguous
+        // credential's token straight into resolveOrRefresh(). An
+        // independent review correctly flagged that this let a
+        // disagreeing Bearer/cookie pair reach a successful, cookie-
+        // issuing outcome via an unrelated remember cookie -- inconsistent
+        // with auth/logout.php's own ambiguous branch, which rejects
+        // outright and never even looks at the remember cookie.
+        // SessionCredentialResolution exists specifically so "missing" and
+        // "disagreeing" ARE distinguishable; the fix is that the CALLER
+        // (the entrypoint) must make that distinction BEFORE calling
+        // resolveOrRefresh(), not that resolveOrRefresh() itself changes.
+        // Both entrypoints now check $credential->ambiguous and reject
+        // with 401 first (see WebSessionCookieWiringTest.php's wiring
+        // proof). This test simulates that exact control flow against
+        // real SessionCredentialResolver + CurrentUserService instances,
+        // proving the ambiguous pair never authenticates even in the
+        // presence of a fully valid, unrelated remember cookie.
+        'the entrypoint pattern (reject ambiguous BEFORE calling resolveOrRefresh) never authenticates an ambiguous pair even with a valid, unrelated remember cookie present' => function () {
+            $pdo = makeCurrentUserServiceTestDb();
+            $users = new UserRepository($pdo);
+            $sessions = new SessionRepository($pdo);
+            $persistentSessions = new PersistentSessionRepository($pdo);
+            $service = new CurrentUserService($users, $sessions, 24, $persistentSessions);
+
+            $userA = $users->findOrCreateByEmail('ambiguous-entrypoint-a@example.com');
+            $userB = $users->findOrCreateByEmail('ambiguous-entrypoint-b@example.com');
+            $userC = $users->findOrCreateByEmail('ambiguous-entrypoint-c@example.com');
+            $rawSessionA = $service->createSession($userA['id']);
+            $rawSessionB = $service->createSession($userB['id']);
+            $persistentSessions->create($userC['id'], 'raw-remember-entrypoint-c', new \DateTimeImmutable('+90 days'));
+
+            $credential = SessionCredentialResolver::resolve($rawSessionA, $rawSessionB);
+            assertTrue($credential->ambiguous, 'sanity check: this pair must be ambiguous');
+
+            // Mirrors entitlement-me.php/purchase-intent.php's actual
+            // control flow exactly: the ambiguous check short-circuits
+            // BEFORE resolveOrRefresh() is ever reached, no matter how
+            // valid the remember cookie is.
+            if ($credential->ambiguous) {
+                $result = ['user' => null, 'refreshed_session_token' => null, 'rejected' => true];
+            } else {
+                $result = $service->resolveOrRefresh($credential->token, 'raw-remember-entrypoint-c') + ['rejected' => false];
+            }
+
+            assertTrue($result['rejected'], 'an ambiguous credential must be rejected before resolveOrRefresh() is ever called');
+            assertSame(null, $result['user'], 'an ambiguous credential pair must never authenticate, even with a valid, unrelated remember cookie present');
+            assertSame(null, $result['refreshed_session_token'], 'an ambiguous credential pair must never mint a refreshed session');
+        },
+
+        // Companion to the above: the fix narrows ONLY the ambiguous
+        // case. A genuinely absent session credential (no Bearer, no
+        // cookie -- not a disagreeing pair) must still transparently
+        // refresh from a valid remember cookie exactly as before.
+        'resolveOrRefresh() with a genuinely absent (non-ambiguous) session credential still refreshes from a valid remember cookie' => function () {
+            $pdo = makeCurrentUserServiceTestDb();
+            $users = new UserRepository($pdo);
+            $sessions = new SessionRepository($pdo);
+            $persistentSessions = new PersistentSessionRepository($pdo);
+            $service = new CurrentUserService($users, $sessions, 24, $persistentSessions);
+            $user = $users->findOrCreateByEmail('absent-session-still-refreshes@example.com');
+            $persistentSessions->create($user['id'], 'raw-remember-absent', new \DateTimeImmutable('+90 days'));
+
+            $credential = SessionCredentialResolver::resolve(null, null);
+            assertFalse($credential->ambiguous, 'sanity check: no credential at all is NOT ambiguous');
+            assertSame(null, $credential->token, 'sanity check: no credential at all has a null token');
+
+            $result = $service->resolveOrRefresh($credential->token, 'raw-remember-absent');
+
+            assertSame($user['id'], $result['user']['user_id'], 'a genuinely absent session credential must still refresh from a valid remember cookie');
+            assertTrue($result['refreshed_session_token'] !== null, 'a genuinely absent session credential must still mint a fresh session when the remember cookie is valid');
+        },
+
         'resolveOrRefresh() with no PersistentSessionRepository wired (legacy 3-arg construction) never throws, just falls back to no-user' => function () {
             $pdo = makeCurrentUserServiceTestDb();
             $service = new CurrentUserService(new UserRepository($pdo), new SessionRepository($pdo), 24);

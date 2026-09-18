@@ -45,6 +45,36 @@ export type LogoutResult =
   | { kind: 'signed-out' }
   | { kind: 'unavailable' }
 
+export type CapabilitiesResult =
+  | { kind: 'available'; emailCodeAuth: boolean }
+  // Absent/malformed/unreachable all fold into the SAME fallback signal --
+  // see the design spec: a GitHub-Pages-ahead-of-backend deploy (or any
+  // other reason this probe can't be trusted) must fall back to Magic
+  // Link, never block sign-in outright.
+  | { kind: 'unavailable' }
+
+export type RequestLoginCodeResult =
+  // A challenge was issued -- the frontend can move to the code-entry step.
+  | { kind: 'issued'; challenge: string }
+  // Enumeration-safe by design (see request-code.php): malformed email,
+  // rate-limiting, and "no challenge for another reason" are all
+  // indistinguishable here, matching the backend's own contract.
+  | { kind: 'not-issued' }
+  | { kind: 'unavailable' }
+
+export type VerifyLoginCodeResult =
+  | { kind: 'authenticated'; user: CurrentUser }
+  | { kind: 'invalid' }
+  | { kind: 'unavailable' }
+
+export type SignOutOthersResult =
+  | { kind: 'ok'; revoked: number }
+  | { kind: 'signed-out' }
+  // Authenticated, but this browser has no persistent ("remember me")
+  // credential of its own to keep -- see sign-out-others.php's 400.
+  | { kind: 'no-persistent-session' }
+  | { kind: 'unavailable' }
+
 async function safeJson(response: Response): Promise<unknown> {
   try {
     return await response.json()
@@ -187,6 +217,98 @@ export async function logout(apiBase: string): Promise<LogoutResult> {
   try {
     const response = await fetch(`${apiBase}/auth/logout.php`, { method: 'POST', credentials: 'include' })
     return response.ok ? { kind: 'signed-out' } : { kind: 'unavailable' }
+  } catch {
+    return { kind: 'unavailable' }
+  }
+}
+
+/**
+ * Public, unauthenticated probe -- no credentials needed (see
+ * server/auth/capabilities.php). Any non-200 or network failure is
+ * 'unavailable', which the caller must treat exactly like
+ * `emailCodeAuth: false` (fall back to Magic Link) -- never block sign-in
+ * on this probe failing.
+ */
+export async function fetchAuthCapabilities(apiBase: string): Promise<CapabilitiesResult> {
+  try {
+    const response = await fetch(`${apiBase}/auth/capabilities.php`)
+    if (!response.ok) return { kind: 'unavailable' }
+
+    const body = (await safeJson(response)) as { email_code_auth?: unknown } | null
+    if (typeof body?.email_code_auth !== 'boolean') return { kind: 'unavailable' }
+    return { kind: 'available', emailCodeAuth: body.email_code_auth }
+  } catch {
+    return { kind: 'unavailable' }
+  }
+}
+
+/**
+ * request-code.php's own contract is enumeration-safe: a malformed email
+ * or a rate-limited request both come back 200 with NO `challenge` key,
+ * indistinguishable from each other here (see that file's own doc
+ * comment) -- this wrapper preserves that, folding both into 'not-issued'.
+ */
+export async function requestLoginCode(apiBase: string, email: string): Promise<RequestLoginCodeResult> {
+  try {
+    const response = await fetch(`${apiBase}/auth/request-code.php`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    })
+    if (!response.ok) return { kind: 'unavailable' }
+
+    const body = (await safeJson(response)) as { challenge?: unknown } | null
+    if (typeof body?.challenge !== 'string' || body.challenge === '') return { kind: 'not-issued' }
+    return { kind: 'issued', challenge: body.challenge }
+  } catch {
+    return { kind: 'unavailable' }
+  }
+}
+
+/**
+ * POSTs the opaque challenge token and the (possibly leading-zero) code
+ * as strings, with `credentials: 'include'` so the server's session AND
+ * remember-me Set-Cookie headers are actually stored by the browser. A
+ * wrong/expired code is reported as 'invalid' -- callers must NEVER fall
+ * back to Magic Link on this outcome (only on 'unavailable', which means
+ * the OTP path itself could not be reached at all).
+ */
+export async function verifyLoginCode(apiBase: string, challenge: string, code: string): Promise<VerifyLoginCodeResult> {
+  try {
+    const response = await fetch(`${apiBase}/auth/verify-code.php`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ challenge, code }),
+    })
+    if (response.status === 400) return { kind: 'invalid' }
+    if (!response.ok) return { kind: 'unavailable' }
+
+    const body = (await safeJson(response)) as { user?: { user_id?: unknown; email_normalized?: unknown } } | null
+    if (typeof body?.user?.user_id !== 'string' || typeof body.user?.email_normalized !== 'string') {
+      return { kind: 'unavailable' }
+    }
+    return { kind: 'authenticated', user: { userId: body.user.user_id, emailNormalized: body.user.email_normalized } }
+  } catch {
+    return { kind: 'unavailable' }
+  }
+}
+
+/**
+ * Revokes every OTHER persistent ("remember this browser") credential for
+ * the current user, keeping only the one tied to this browser's own
+ * remember cookie -- see server/auth/sign-out-others.php.
+ */
+export async function signOutOtherBrowsers(apiBase: string): Promise<SignOutOthersResult> {
+  try {
+    const response = await fetch(`${apiBase}/auth/sign-out-others.php`, { method: 'POST', credentials: 'include' })
+    if (response.status === 401) return { kind: 'signed-out' }
+    if (response.status === 400) return { kind: 'no-persistent-session' }
+    if (!response.ok) return { kind: 'unavailable' }
+
+    const body = (await safeJson(response)) as { revoked?: unknown } | null
+    if (typeof body?.revoked !== 'number') return { kind: 'unavailable' }
+    return { kind: 'ok', revoked: body.revoked }
   } catch {
     return { kind: 'unavailable' }
   }

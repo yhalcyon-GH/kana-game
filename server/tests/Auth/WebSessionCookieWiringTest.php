@@ -49,39 +49,15 @@ function assertCorsConstructedAsCredentialed(string $relativePath): void
     );
 }
 
-function assertOriginCheckedForCookieCredential(string $relativePath): void
-{
-    $source = loadServerSource($relativePath);
-
-    assertTrue(
-        str_contains($source, '$cookieToken = $webSessionCookie->readToken($_COOKIE);'),
-        "{$relativePath} must capture the cookie token in a named variable to check its presence before resolving",
-    );
-    assertTrue(
-        (bool) preg_match(
-            "/if \\(\\\$cookieToken !== null && !\\\$cors->isOriginAllowed\\(\\\$_SERVER\\['HTTP_ORIGIN'\\] \\?\\? null\\)\\)/",
-            $source,
-        ),
-        "{$relativePath} must reject a cookie-authenticated request from a non-allowlisted Origin, as CSRF defense-in-depth beyond SameSite=Lax",
-    );
-
-    // The Origin check must run BEFORE the credential is resolved to a
-    // session token, so an untrusted-origin cookie request never even
-    // reaches session lookup.
-    $originCheckPos = strpos($source, 'isOriginAllowed(');
-    $resolvePos = strpos($source, 'SessionCredentialResolver::resolve(');
-    assertTrue($originCheckPos !== false && $resolvePos !== false, 'expected both an Origin check and a resolve() call');
-    assertTrue($originCheckPos < $resolvePos, 'the Origin check must run before SessionCredentialResolver::resolve()');
-}
-
 /**
- * Same CSRF-defense-in-depth property as assertOriginCheckedForCookieCredential(),
- * but for entrypoints (logout.php, sign-out-others.php) that can also
- * authenticate/act purely from the persistent "remember this browser"
- * cookie -- the Origin check on those entrypoints must therefore gate
- * on EITHER cookie being present, not just the session cookie, or a
- * remember-cookie-only request bypasses the CSRF defense entirely
- * (security-review finding, PR #298).
+ * CSRF-defense-in-depth property for entrypoints (logout.php,
+ * sign-out-others.php, purchase-intent.php) that can also authenticate/
+ * act purely from the persistent "remember this browser" cookie -- the
+ * Origin check on those entrypoints must therefore gate on EITHER
+ * cookie being present, not just the session cookie, or a remember-
+ * cookie-only request bypasses the CSRF defense entirely
+ * (security-review finding, PR #298; widened to purchase-intent.php
+ * once it started authenticating via resolveOrRefresh() too, PR B).
  */
 function assertOriginCheckedForCookieOrRememberCredential(string $relativePath): void
 {
@@ -233,8 +209,16 @@ function webSessionCookieWiringTests(): array
             assertOriginCheckedForCookieOrRememberCredential('auth/sign-out-others.php');
         },
 
-        'purchase-intent.php rejects a cookie-authenticated request from a non-allowlisted Origin before session lookup' => function () {
-            assertOriginCheckedForCookieCredential('purchase-intent.php');
+        // purchase-intent.php's Origin check was widened (this PR) from
+        // "session cookie only" to "session cookie OR remember cookie",
+        // matching logout.php/sign-out-others.php exactly: since this
+        // endpoint now authenticates via resolveOrRefresh(), a remember-
+        // cookie-only request can also create a real purchase_intents row,
+        // so it needs the same Origin defense the session-cookie path
+        // already had. See assertOriginCheckedForCookieOrRememberCredential()'s
+        // own doc comment.
+        'purchase-intent.php rejects a request authenticated by either the session or remember cookie from a non-allowlisted Origin before session lookup' => function () {
+            assertOriginCheckedForCookieOrRememberCredential('purchase-intent.php');
         },
 
         // Security-review finding: verify.php ISSUES the session cookie
@@ -333,19 +317,58 @@ function webSessionCookieWiringTests(): array
             assertTrue($ambiguousPos < $logoutCallPos, 'the ambiguous check must run before any revoke attempt');
         },
 
-        'entitlement-me.php and purchase-intent.php treat an ambiguous credential as unauthorized via the same null-token check as a missing credential' => function () {
+        // Security-review finding (post-merge, PR #303): the correction
+        // pass above originally gave entitlement-me.php and
+        // purchase-intent.php the SAME treatment auth/me.php already had
+        // -- $credential->token (null for BOTH a missing and an ambiguous
+        // credential) fed straight into resolveOrRefresh(), relying on
+        // the remember-cookie fallback only ever authenticating as its
+        // own independently-valid owner. An independent review flagged
+        // that this still lets a disagreeing Bearer/cookie pair reach a
+        // successful, cookie-issuing outcome via the remember cookie,
+        // which is inconsistent with logout.php's own ambiguous branch
+        // (SessionCredentialResolution's contract exists specifically so
+        // callers CAN distinguish "missing" from "disagreeing" -- these
+        // two endpoints must actually use that distinction, matching
+        // logout.php, rather than re-collapsing it). Both entrypoints now
+        // check $credential->ambiguous and reject with 401 BEFORE
+        // resolveOrRefresh() is ever called, so an ambiguous pair can
+        // never reach the remember-cookie fallback at all. A genuinely
+        // missing session credential is unaffected and still falls
+        // through to that fallback. See CurrentUserServiceTest.php's
+        // "ambiguous credential pair must never reach the remember-cookie
+        // fallback" cases for the resolver-level proof, and this test for
+        // the entrypoint-level wiring proof.
+        'entitlement-me.php and purchase-intent.php reject an ambiguous credential with 401 BEFORE resolveOrRefresh() ever runs' => function () {
             foreach (['entitlement-me.php', 'purchase-intent.php'] as $path) {
                 $source = loadServerSource($path);
                 assertTrue(
-                    str_contains($source, 'if ($credential->token === null) {'),
-                    "{$path} must check \$credential->token === null (which is true for BOTH missing and ambiguous credentials) before proceeding",
+                    str_contains($source, 'if ($credential->ambiguous) {'),
+                    "{$path} must check \$credential->ambiguous, matching auth/logout.php's own ambiguous branch",
                 );
-                // These endpoints have no idempotent-success contract to
-                // accidentally satisfy (unlike logout.php) -- an
-                // ambiguous credential correctly collapsing to the same
-                // 401 as a missing one is safe and intentional here, so
-                // (unlike logout.php) there is no separate ->ambiguous
-                // branch expected in these files.
+                assertTrue(
+                    str_contains($source, '$currentUser->resolveOrRefresh($credential->token, $rememberToken);'),
+                    "{$path} must still pass \$credential->token into resolveOrRefresh() for the genuinely-missing-credential case",
+                );
+
+                $ambiguousCheckPos = strpos($source, 'if ($credential->ambiguous) {');
+                $resolveOrRefreshPos = strpos($source, '->resolveOrRefresh($credential->token, $rememberToken);');
+                assertTrue(
+                    $ambiguousCheckPos !== false && $resolveOrRefreshPos !== false,
+                    "expected both the ambiguous check and the resolveOrRefresh() call in {$path}",
+                );
+                assertTrue(
+                    $ambiguousCheckPos < $resolveOrRefreshPos,
+                    "{$path} must reject an ambiguous credential BEFORE resolveOrRefresh() runs, so it never reaches the remember-cookie fallback",
+                );
+
+                $ambiguousBranchEnd = strpos($source, 'exit;', $ambiguousCheckPos);
+                assertTrue($ambiguousBranchEnd !== false, "expected the ambiguous branch in {$path} to end with its own exit;");
+                $ambiguousBranch = substr($source, $ambiguousCheckPos, $ambiguousBranchEnd - $ambiguousCheckPos);
+                assertTrue(
+                    str_contains($ambiguousBranch, 'http_response_code(401)'),
+                    "{$path}'s ambiguous branch must reject with 401, matching auth/logout.php",
+                );
             }
         },
 

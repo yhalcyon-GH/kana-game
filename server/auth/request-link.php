@@ -29,6 +29,7 @@ require __DIR__ . '/../src/Auth/RateLimiter.php';
 require __DIR__ . '/../src/Auth/ResendMailer.php';
 require __DIR__ . '/../src/Auth/SessionRepository.php';
 require __DIR__ . '/../src/Auth/UserRepository.php';
+require __DIR__ . '/../src/DevOnly/DevHarnessLoginCodeStore.php';
 require __DIR__ . '/../src/DevOnly/DevHarnessMagicLinkStore.php';
 require __DIR__ . '/../src/DevOnly/DevHarnessMailer.php';
 require __DIR__ . '/../src/Uuid.php';
@@ -45,6 +46,7 @@ use KanaGame\Paddle\Auth\UserRepository;
 use KanaGame\Paddle\Config;
 use KanaGame\Paddle\Cors;
 use KanaGame\Paddle\Db;
+use KanaGame\Paddle\DevOnly\DevHarnessLoginCodeStore;
 use KanaGame\Paddle\DevOnly\DevHarnessMagicLinkStore;
 use KanaGame\Paddle\DevOnly\DevHarnessMailer;
 
@@ -130,6 +132,7 @@ try {
     if ($config->get('DEV_HARNESS_ENABLED') === 'true') {
         $mailer = new DevHarnessMailer(
             new DevHarnessMagicLinkStore($pdo),
+            new DevHarnessLoginCodeStore($pdo),
             true,
             $config->intWithDefault('MAGIC_LINK_TOKEN_EXPIRY_MINUTES', 15),
         );

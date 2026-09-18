@@ -111,7 +111,7 @@ export function createSandboxCheckoutController({ config, onEvent, loadPaddle = 
     }
   }
 
-  async function open(): Promise<void> {
+  async function open(customerEmail?: string): Promise<void> {
     if (disposed || preparing || active || !purchaseRef) return
     const attempt = generation
     active = true
@@ -148,6 +148,12 @@ export function createSandboxCheckoutController({ config, onEvent, loadPaddle = 
         settings: { displayMode: 'overlay', showAddDiscounts: true },
         items: [{ priceId: config.priceId, quantity: 1 }],
         customData: { purchase_ref: purchaseRef },
+        // Prefill only -- Paddle's own checkout.completed email is never
+        // trusted as entitlement authority (see purchaseRef/customData
+        // above, which is the only value the signed webhook resolves the
+        // buyer from). Omitted entirely when the caller has no known
+        // authenticated email, rather than sending an empty string.
+        ...(customerEmail ? { customer: { email: customerEmail } } : {}),
       })
     } catch {
       if (isCurrent(attempt)) finish({ kind: 'unavailable' }, true)
