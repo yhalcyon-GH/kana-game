@@ -213,6 +213,43 @@ function currentUserServiceTests(): array
             assertSame(null, $result['refreshed_session_token'], 'an ambiguous credential pair must never mint a refreshed session');
         },
 
+        // entitlement-me.php and purchase-intent.php (unlike logout.php)
+        // feed an ambiguous credential's null token straight into
+        // resolveOrRefresh() alongside whatever remember cookie the
+        // request also carries, rather than 401ing before the remember
+        // cookie is ever considered. This proves that composition is
+        // still safe: the ambiguous Bearer/cookie pair itself supplies no
+        // information resolveOrRefresh() uses -- only $persistentRawToken
+        // does -- so the outcome is determined SOLELY by whether that
+        // remember token is a real, valid credential for its own owner.
+        // It can therefore only ever authenticate as the remember
+        // cookie's own rightful owner (userC below), never as either
+        // disputed identity (userA/userB) and never as a "rescue" of the
+        // ambiguous pair itself.
+        'an ambiguous credential pair composed with an unrelated, valid remember cookie authenticates only as the remember cookie\'s own owner, never either disputed identity' => function () {
+            $pdo = makeCurrentUserServiceTestDb();
+            $users = new UserRepository($pdo);
+            $sessions = new SessionRepository($pdo);
+            $persistentSessions = new PersistentSessionRepository($pdo);
+            $service = new CurrentUserService($users, $sessions, 24, $persistentSessions);
+
+            $userA = $users->findOrCreateByEmail('ambiguous-refresh-a@example.com');
+            $userB = $users->findOrCreateByEmail('ambiguous-refresh-b@example.com');
+            $userC = $users->findOrCreateByEmail('ambiguous-refresh-c@example.com');
+            $rawSessionA = $service->createSession($userA['id']);
+            $rawSessionB = $service->createSession($userB['id']);
+            $persistentSessions->create($userC['id'], 'raw-remember-c', new \DateTimeImmutable('+90 days'));
+
+            $credential = SessionCredentialResolver::resolve($rawSessionA, $rawSessionB);
+            assertTrue($credential->ambiguous, 'sanity check: this pair must be ambiguous');
+
+            $result = $service->resolveOrRefresh($credential->token, 'raw-remember-c');
+
+            assertTrue($result['user'] !== null, 'a genuinely valid, unrelated remember cookie must still authenticate its own owner');
+            assertSame($userC['id'], $result['user']['user_id'], 'the ambiguous session pair must never leak into the resolved identity -- only the remember cookie\'s own owner is ever returned');
+            assertTrue($result['refreshed_session_token'] !== null, 'a valid remember cookie must still mint a refreshed session, exactly as it would for a genuinely missing (non-ambiguous) session credential');
+        },
+
         'resolveOrRefresh() with no PersistentSessionRepository wired (legacy 3-arg construction) never throws, just falls back to no-user' => function () {
             $pdo = makeCurrentUserServiceTestDb();
             $service = new CurrentUserService(new UserRepository($pdo), new SessionRepository($pdo), 24);

@@ -30,6 +30,14 @@ test('production /verify renders the production verify page, never the dev harne
 })
 
 test('production exposes the new /login and /account routes', async ({ page }) => {
+  // This test only proves the routes render (not 404) -- the OTP-vs-
+  // Magic-Link UI split itself is covered deterministically by
+  // login-otp.e2e.js. Force the Magic Link fallback here so the
+  // asserted "Sign in" heading is the final, settled UI state, not a
+  // transient "checking capability" heading that a real async
+  // capabilities.php fetch can race past before Playwright observes it
+  // (that race made this test flaky against the OTP-enabled default).
+  await installProductionAuthFixture(page, 'active', { emailCodeAuth: false })
   await page.goto('./#/login')
   let skip = page.getByRole('button', { name: 'Skip', exact: true })
   if (await skip.isVisible()) await skip.click()
