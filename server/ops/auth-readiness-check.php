@@ -4,18 +4,33 @@ declare(strict_types=1);
 
 /**
  * Operator-run, read-only CLI preflight for Production Web cookie auth
- * readiness. Closes the gap noted in ProductionAuthReadiness's own doc
- * comment: that class existed with a unit test but no actual invocation
- * path, so nothing ever ran it against a real deployment's config.
+ * and Email OTP sign-in readiness. Closes the gap noted in
+ * ProductionAuthReadiness's own doc comment: that class existed with a
+ * unit test but no actual invocation path, so nothing ever ran it
+ * against a real deployment's config.
  *
  * Usage (on the server, or against a local server/config.php):
  *   php server/ops/auth-readiness-check.php
  *
- * Exit code 0: not misconfigured (either cookie auth is off, which is a
- *   normal dev/Sandbox state, or it's on and a real mailer is configured).
+ * The first stdout line always prints, regardless of exit code, so an
+ * operator/AI session can always distinguish "the frontend is stale"
+ * from "OTP is intentionally/configurationally disabled" without
+ * needing a successful run: emailCodeAuthEnabled=false means the
+ * feature flag itself is off (matches server/auth/capabilities.php's
+ * public {"email_code_auth":false} response and the frontend's
+ * documented Magic Link fallback -- not a misconfiguration);
+ * emailCodeAuthEnabled=true with emailCodeAuthReady=false means the
+ * flag is on but LOGIN_CODE_PEPPER is missing, which IS a
+ * misconfiguration (see exit code 1 below).
+ *
+ * Exit code 0: not misconfigured (cookie auth is off, or on with a real
+ *   mailer configured; and Email OTP is either off or fully ready).
  * Exit code 1: WEB_SESSION_COOKIE_ENABLED is on but no real Magic Link
- *   mailer is configured -- Live sign-in cannot work. Fix before treating
- *   this deployment as production-ready.
+ *   mailer is configured -- Live sign-in cannot work -- OR
+ *   EMAIL_CODE_AUTH_ENABLED is on but LOGIN_CODE_PEPPER is missing --
+ *   Email OTP cannot work -- OR LOGIN_CODE_PEPPER/RATE_LIMIT_PEPPER or
+ *   the two session cookie names collide. Fix before treating this
+ *   deployment as production-ready.
  *
  * Never prints secret values -- only safe readiness booleans.
  */
@@ -32,10 +47,14 @@ $readiness = ProductionAuthReadiness::fromConfig($config);
 fwrite(
     STDOUT,
     sprintf(
-        "webCookieAuthActive=%s productionMagicLinkMailerConfigured=%s devHarnessEnabled=%s\n",
+        "webCookieAuthActive=%s productionMagicLinkMailerConfigured=%s devHarnessEnabled=%s " .
+        "emailCodeAuthEnabled=%s loginCodePepperConfigured=%s emailCodeAuthReady=%s\n",
         $readiness->webCookieAuthActive ? 'true' : 'false',
         $readiness->productionMagicLinkMailerConfigured ? 'true' : 'false',
         $config->get('DEV_HARNESS_ENABLED') === 'true' ? 'true' : 'false',
+        $readiness->emailCodeAuthEnabled ? 'true' : 'false',
+        $readiness->loginCodePepperConfigured ? 'true' : 'false',
+        $readiness->emailCodeAuthReady() ? 'true' : 'false',
     ),
 );
 
@@ -49,9 +68,7 @@ if ($readiness->isMisconfigured()) {
     exit(1);
 }
 
-$loginCodePepper = $config->get('LOGIN_CODE_PEPPER');
-
-if ($config->get('EMAIL_CODE_AUTH_ENABLED') === 'true' && ($loginCodePepper === null || $loginCodePepper === '')) {
+if ($readiness->emailCodeAuthEnabled && !$readiness->loginCodePepperConfigured) {
     fwrite(
         STDERR,
         "MISCONFIGURED: EMAIL_CODE_AUTH_ENABLED is on but LOGIN_CODE_PEPPER is not " .
@@ -60,6 +77,7 @@ if ($config->get('EMAIL_CODE_AUTH_ENABLED') === 'true' && ($loginCodePepper === 
     exit(1);
 }
 
+$loginCodePepper = $config->get('LOGIN_CODE_PEPPER');
 $rateLimitPepper = $config->get('RATE_LIMIT_PEPPER');
 
 if (

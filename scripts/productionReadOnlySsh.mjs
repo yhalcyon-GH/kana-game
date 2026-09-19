@@ -68,12 +68,24 @@ export function buildReleaseIntegritySshInvocation(environment) {
   return buildFixedReadOnlySshInvocation(environment, 'ops/release-integrity-check.php')
 }
 
+const READINESS_LINE_PATTERN = /^webCookieAuthActive=(true|false) productionMagicLinkMailerConfigured=(true|false) devHarnessEnabled=(true|false) emailCodeAuthEnabled=(true|false) loginCodePepperConfigured=(true|false) emailCodeAuthReady=(true|false)$/
+
+/**
+ * Parses the fixed, redacted readiness line into safe booleans only --
+ * never raw config/secret values. Includes Email OTP sign-in readiness
+ * (emailCodeAuthEnabled / loginCodePepperConfigured / emailCodeAuthReady)
+ * alongside the original Web cookie/Magic Link fields, so a caller can
+ * mechanically distinguish "OTP intentionally/configurationally
+ * disabled" (emailCodeAuthEnabled=false) from a stale frontend without
+ * ever seeing the login-code pepper value itself.
+ */
 export function readSafePreflightResult(status, stdout, stderr) {
   const normalizedStdout = stdout.replace(/\r\n/g, '\n')
   const normalizedStderr = stderr.replace(/\r\n/g, '\n')
-  const result = /^webCookieAuthActive=(true|false) productionMagicLinkMailerConfigured=(true|false) devHarnessEnabled=(true|false)\nOK\n?$/.exec(normalizedStdout)
+  const lines = normalizedStdout.split('\n')
+  const result = lines.length > 0 ? READINESS_LINE_PATTERN.exec(lines[0]) : null
 
-  if (status === 0 && result && normalizedStderr === '') {
+  if (status === 0 && result && lines[1] === 'OK' && (lines[2] ?? '') === '' && normalizedStderr === '') {
     const devHarnessEnabled = result[3] === 'true'
     if (devHarnessEnabled) return { ok: false, reason: 'dev-harness-enabled' }
 
@@ -82,15 +94,24 @@ export function readSafePreflightResult(status, stdout, stderr) {
       webCookieAuthActive: result[1] === 'true',
       productionMagicLinkMailerConfigured: result[2] === 'true',
       devHarnessEnabled,
+      emailCodeAuthEnabled: result[4] === 'true',
+      loginCodePepperConfigured: result[5] === 'true',
+      emailCodeAuthReady: result[6] === 'true',
     }
   }
 
   if (
     status === 1
-    && /^webCookieAuthActive=(true|false) productionMagicLinkMailerConfigured=(true|false) devHarnessEnabled=(true|false)\n$/.test(normalizedStdout)
-    && /^MISCONFIGURED: WEB_SESSION_COOKIE_ENABLED is on but no real Magic Link mailer is configured \(RESEND_API_KEY \/ MAGIC_LINK_FROM_EMAIL \/ MAGIC_LINK_FROM_NAME incomplete\)\. Live sign-in cannot work\.\n$/.test(normalizedStderr)
+    && result
+    && lines[1] === ''
+    && (lines[2] ?? '') === ''
   ) {
-    return { ok: false, reason: 'auth-misconfigured' }
+    if (/^MISCONFIGURED: WEB_SESSION_COOKIE_ENABLED is on but no real Magic Link mailer is configured \(RESEND_API_KEY \/ MAGIC_LINK_FROM_EMAIL \/ MAGIC_LINK_FROM_NAME incomplete\)\. Live sign-in cannot work\.\n$/.test(normalizedStderr)) {
+      return { ok: false, reason: 'auth-misconfigured' }
+    }
+    if (/^MISCONFIGURED: EMAIL_CODE_AUTH_ENABLED is on but LOGIN_CODE_PEPPER is not configured\. Email OTP login cannot work\.\n$/.test(normalizedStderr)) {
+      return { ok: false, reason: 'email-code-auth-misconfigured' }
+    }
   }
 
   throw new Error('Remote command returned an unexpected response. Output was intentionally redacted.')

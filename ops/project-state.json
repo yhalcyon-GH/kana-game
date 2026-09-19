@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "current_main_sha": "419878e097e10e8f5dc4b999e03071379b391642",
+  "current_main_sha": "9b4cb84276a05fe9c385e1736dcdfc2f2562213e",
   "latest_completed_work": {
     "kind": "merged_pull_request",
-    "number": 308,
-    "title": "Refresh Tamamizu sale-readiness checkpoint",
-    "merged_at": "2026-09-19T16:03:14Z"
+    "number": 307,
+    "title": "Issue #305 follow-ups: from $5 price label + Paddle Customer Portal audit",
+    "merged_at": "2026-09-19T03:18:30Z"
   },
   "open_prs": [
     {
@@ -15,32 +15,37 @@
     }
   ],
   "active_work_item": {
-    "id": "issue-305-production-browser-auth-qa",
+    "id": "issue-305-production-cutover",
     "issue_number": 305,
     "branch": null,
     "pull_request_number": null,
     "status": "human_gate_waiting",
-    "goal": "The 2026-09-20 Production DB migration and API deployment are complete and verified. Next validate OTP login, reload persistence, and logout once in a real Production browser, then record the result without repeating completed infrastructure/setup work."
+    "goal": "Finish Production cutover from the reviewed current main while preserving rollback safety. Production read-only preflight passes, but release-integrity currently reports that deployed API code does not match the reviewed checkout."
   },
-  "next_machine_action": "Run `npm run resume` first. Do not repeat SSH/key/known_hosts/API-root/PHP discovery, migration 0006, the 2026-09-20 backup steps, or the 2026-09-20 API deployment merely because the chat changed. Read docs/production-operations-checkpoint.md. If Production health must be checked, use `npm run production:status` after the local resume helper loads the environment. Current next Human Gate: real-browser OTP login -> reload persistence -> logout validation against the deployed Production auth flow.",
-  "unresolved_ai_items": [],
-  "human_gates": [
-    "Confirm the newly deployed Production OTP login, reload persistence, and logout behavior once in a real browser.",
-    "Confirm Production error_log location/rotation and any remaining CORS/session-cookie behavior not already demonstrated by the fixed checks and browser QA.",
-    "Final legal review and final human GO/NO-GO decision.",
-    "Any new real-money, Paddle Live, paid-service, Production DB write, DNS, Production-secret, or Production deployment action."
+  "next_machine_action": "Run `npm run resume` first. If live main has advanced, use the new live main as source of truth. For Production work, use the existing local read-only runner setup; do not repeat SSH host/key/API-root discovery. Current next Human Gate sequence: verify Production DB migration state for OTP/persistent-login migrations, then perform an explicitly approved Production API deployment preserving config.php and rollback backups, then rerun production:release-integrity and production:preflight.",
+  "unresolved_ai_items": [
+    "Issue #311: the fixed CLI preflight (server/ops/auth-readiness-check.php), its local JS parser (scripts/productionReadOnlySsh.mjs), tests, and docs now also report OTP enablement/readiness booleans -- emailCodeAuthEnabled, loginCodePepperConfigured, emailCodeAuthReady -- so a `{\"email_code_auth\":false}` response from the public capability probe can be told apart from a stale frontend without exposing any secret value. This has not yet been re-run against live Production; see the human_gates entry below."
   ],
-  "production_live_restrictions": "NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL. Do not perform real charges or refunds, Paddle Live transactions or configuration, paid API/resource changes, Production DB writes, DNS changes, Production-secret changes, or Production deployments without explicit approval.",
-  "last_verified_at": "2026-09-20T01:26:00+07:00",
-  "last_verified_by": "Human + fixed local Production runners. Migration 0006 was explicitly approved, applied, and verified. Migration 0007 was intentionally omitted because it is dev-only. Reviewed main 419878e097e10e8f5dc4b999e03071379b391642 was explicitly approved and deployed. The deployment command exited 0; post-deploy production:release-integrity passed and production:preflight passed with webCookieAuthActive=true, productionMagicLinkMailerConfigured=true, devHarnessEnabled=false. Fresh DB and API rollback backups preceded the write. No secrets, credentials, DB contents, customer identifiers, or backup paths are stored here.",
+  "human_gates": [
+    "Confirm Production DB migration state before deploying the latest OTP/persistent-login API changes; Production DB writes/migrations require explicit human action.",
+    "Deploy the reviewed current main API release to Production only after explicit human approval, preserving Production config.php and rollback backups.",
+    "After deployment, confirm Production OTP login/logout in a real browser.",
+    "Run `npm run production:preflight` after the Issue #311 change deploys and record its emailCodeAuthEnabled/loginCodePepperConfigured/emailCodeAuthReady booleans, to confirm whether Production's current email_code_auth:false capability response is an intentionally-off flag or a missing LOGIN_CODE_PEPPER misconfiguration.",
+    "Confirm Production error_log location/rotation and CORS/session-cookie behavior where not already covered by the fixed read-only preflight.",
+    "Final legal review and final human GO/NO-GO decision.",
+    "Any real-money, Paddle Live, paid-service, Production DB write, DNS, Production-secret, or email-send operation."
+  ],
+  "production_live_restrictions": "NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL. Do not perform real charges or refunds, Paddle Live transactions or configuration, paid API/resource changes, Production DB writes, DNS changes, Production-secret changes, or email sends.",
+  "last_verified_at": "2026-09-20T00:50:36+07:00",
+  "last_verified_by": "Human + fixed local read-only Production runners. Current reviewed checkout was live main 9b4cb84276a05fe9c385e1736dcdfc2f2562213e. production:php-probe passed with php=8.4. production:preflight passed with webCookieAuthActive=true, productionMagicLinkMailerConfigured=true, devHarnessEnabled=false. production:release-integrity refused because deployed API code does not match the reviewed checkout. Human confirmed a fresh Production DB backup and a separate Production API rollback archive before further cutover work. No secrets, DB contents, credentials, or personal identifiers are stored here.",
   "known_non_blockers": [
-    "Issue #283 real-device PWA QA is complete and closed; do not repeat it on chat change.",
-    "Production cancelled-checkout UX was human-tested successfully; do not repeat it without a concrete new reason.",
-    "Refund policy is settled: refund re-locks Full Access while local learning progress/history is retained.",
-    "Paddle Live product/price, one real purchase, and one real refund were already validated on 2026-09-16; do not repeat real-money tests for routine confidence.",
+    "Issue #283 real-device PWA QA is complete and the issue is closed.",
+    "Production login persistence and logout were human-tested successfully after PR #303/#306 work.",
+    "Production cancelled-checkout UX was human-tested successfully: closing checkout left Full Access locked.",
+    "Refund policy decision is recorded: refund re-locks Full Access while local learning progress/history is retained.",
+    "Paddle Live product/price, webhook, one real purchase, and one real refund were already validated on 2026-09-16; do not repeat those real-money tests without a new explicit approval.",
     "Customer Portal integration is not launch-blocking; authenticated portal-session support would require a new Production Paddle API key and remains a separate Human Gate.",
-    "Open PR #294 is development-workflow tooling and does not block sale readiness.",
-    "The local operator already created C:\\Users\\halcy\\tamamizu-resume.ps1. Its contents and secret-adjacent local paths remain local and are not committed."
+    "Open PR #294 is development-workflow tooling and does not block sale readiness."
   ],
   "optional_post_launch": [
     "Re-evaluate a durable async webhook queue only if real Production latency or Paddle retry evidence warrants it.",

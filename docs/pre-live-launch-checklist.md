@@ -65,6 +65,16 @@ Each item is tagged:
       line appearing on Production as a go-live blocker, not routine noise
       (see `docs/observability.md`). The fixed Production preflight above
       runs this same check and prints only redacted booleans.
+- [ ] **Human required** — If Email OTP sign-in is intended to be live,
+      confirm `EMAIL_CODE_AUTH_ENABLED=true` and `LOGIN_CODE_PEPPER` are both
+      set on Production. The fixed preflight above also prints
+      `emailCodeAuthEnabled` / `loginCodePepperConfigured` /
+      `emailCodeAuthReady` booleans (never the pepper value) so a
+      `{"email_code_auth":false}` response from the public capability probe
+      can be told apart from a stale frontend — see
+      [production-readonly-connection.md](./production-readonly-connection.md#email_code_auth-false-on-the-public-capability-probe--is-it-stale-or-is-it-off).
+      If OTP is not intended to be live yet, `emailCodeAuthEnabled=false` is
+      the expected, non-blocking state.
 - [ ] **Human required** — Confirm the real path `error_log` writes to on
       this XServer plan, and that it is being watched/rotated. (Not
       independently verifiable from the repo; do not guess a path.)

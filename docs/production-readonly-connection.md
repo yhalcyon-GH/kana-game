@@ -11,8 +11,28 @@ None of these commands opens a shell, displays files, accesses a database,
 writes files, changes configuration, sends email, or contacts Paddle.
 
 The readiness command prints only whether web-cookie auth is enabled, whether
-the production Magic Link mailer is configured, and whether the development
-harness is enabled.
+the production Magic Link mailer is configured, whether the development
+harness is enabled, and — for Email OTP sign-in — whether the
+`EMAIL_CODE_AUTH_ENABLED` feature flag is on, whether a `LOGIN_CODE_PEPPER` is
+configured, and a derived `emailCodeAuthReady` summary. It never prints the
+pepper (or any other secret) value itself, only these booleans.
+
+These OTP booleans exist to make one specific ambiguity mechanically
+resolvable without a human having to guess: the public, unauthenticated
+capability probe (`GET /api/auth/capabilities.php`) can correctly report
+`{"email_code_auth":false}` for two very different reasons — the feature is
+intentionally off, or it is on but misconfigured (e.g. no pepper) — and from
+the frontend's Magic Link fallback alone those two look identical. Read the
+fixed preflight output instead of guessing:
+
+- `emailCodeAuthEnabled=false` — Email OTP is off. This is a normal,
+  intentional configuration state, not a bug or a stale frontend.
+- `emailCodeAuthEnabled=true` and `emailCodeAuthReady=true` — Email OTP is
+  fully configured and should work.
+- `emailCodeAuthEnabled=true` and `emailCodeAuthReady=false`
+  (`loginCodePepperConfigured=false`) — Email OTP is turned on but missing its
+  pepper. `npm run production:preflight` fails (non-zero exit) in this case;
+  fix the configuration before treating OTP as production-ready.
 
 The release-integrity command prints only one aggregate SHA-256 fingerprint
 of the non-secret API files listed in
@@ -109,6 +129,22 @@ It prints only one of:
 If this probe reports a supported PHP version, the original preflight
 failure is coming from the auth-readiness output itself, not a missing or
 unsupported remote PHP CLI.
+
+## "email_code_auth: false" on the public capability probe — is it stale or is it off?
+
+If the frontend falls back to Magic Link and `GET /api/auth/capabilities.php`
+returns `{"email_code_auth":false}`, do not assume the deployed frontend is
+stale. Run `npm run production:preflight` and read its `emailCodeAuthEnabled`
+/ `loginCodePepperConfigured` / `emailCodeAuthReady` booleans (see above)
+first:
+
+- If it passes with `emailCodeAuthEnabled=false`, Email OTP is intentionally
+  off in Production config — the capability probe and the frontend fallback
+  are both behaving correctly, and there is nothing to "fix" in the frontend.
+- If it fails (non-zero exit) with a `MISCONFIGURED: EMAIL_CODE_AUTH_ENABLED
+  is on but LOGIN_CODE_PEPPER is not configured` message, the flag was turned
+  on without also configuring a pepper — fix the Production configuration,
+  not the frontend.
 
 ## Explicit boundaries
 
