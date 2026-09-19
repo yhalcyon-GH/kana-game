@@ -56,9 +56,10 @@ or a deployed preview.
       and the label matches `short_name` ("Tamamizu").
 - [ ] Launch from the home-screen icon; confirm it opens in standalone mode
       (no browser address bar/tabs chrome).
-- [ ] After a normal future deployment/update, relaunch the installed app and
-      confirm it picks up the update (`registerType: 'autoUpdate'`) without
-      requiring a manual uninstall/reinstall.
+- [ ] After a normal future deployment/update, relaunch the installed app,
+      confirm the "A new version is available" Update prompt appears (see
+      `docs/pwa-update-flow.md`), and tapping Update picks up the new build
+      without requiring a manual uninstall/reinstall.
 
 ### iPhone (Safari)
 
