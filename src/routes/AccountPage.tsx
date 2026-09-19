@@ -170,7 +170,10 @@ export default function AccountPage() {
         </>
       ) : (
         <section aria-labelledby="full-tamamizu" className="flex w-full flex-col gap-4 text-center">
-          <h2 id="full-tamamizu" className="text-xl font-semibold">Full Access</h2>
+          <div className="flex flex-wrap items-baseline justify-center gap-x-2">
+            <h2 id="full-tamamizu" className="text-xl font-semibold">Full Access</h2>
+            <span className="text-sm font-semibold text-neutral-600 dark:text-neutral-300">from $5</span>
+          </div>
           <div className="flex flex-wrap items-center justify-center gap-x-2 font-semibold">
             <span>$5 USD + tax</span>
             <span aria-hidden="true">·</span>

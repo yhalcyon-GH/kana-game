@@ -360,6 +360,15 @@ describe('production Account purchase UI', () => {
     expect(screen.getByText('No subscription')).toBeInTheDocument()
   })
 
+  // -- Issue #305 follow-up: `from $5` price-clarity label next to the Full Access heading --
+
+  it('shows a "from $5" label next to the Full Access heading, without changing the heading name', async () => {
+    await renderAccount()
+    expect(screen.getByRole('heading', { name: 'Full Access' })).toBeInTheDocument()
+    expect(screen.getByText('from $5')).toBeInTheDocument()
+    expect(screen.getByText('$5 USD + tax')).toBeInTheDocument()
+  })
+
   it('shows the exact activation copy while confirming, and the delayed-activation copy once still-confirming', async () => {
     await renderAccount()
     await start()
