@@ -87,7 +87,17 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt' (not 'autoUpdate'): a waiting service worker must NOT
+      // silently activate and reload out from under a learner mid-lesson.
+      // The app registers itself via useRegisterSW('virtual:pwa-register/
+      // react', see src/components/UpdatePrompt.tsx) and only activates the
+      // new worker when the learner taps "Update" there — see Issue #310.
+      registerType: 'prompt',
+      // The app self-registers through UpdatePrompt's useRegisterSW() call
+      // instead of the plugin's auto-injected register script, so it can
+      // observe onNeedRefresh and show the in-app prompt above. Injecting
+      // both would register the service worker twice.
+      injectRegister: false,
       manifest: PWA_MANIFEST,
       workbox: {
         // Only the app shell (JS/CSS/HTML/fonts) is precached on install —
