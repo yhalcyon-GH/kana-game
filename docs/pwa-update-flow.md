@@ -12,8 +12,12 @@ reason.
   the plugin never auto-injects its own register script.
 - `src/components/UpdatePrompt.tsx` is the sole registration point: it calls
   `useRegisterSW()` from `virtual:pwa-register/react` on mount (rendered
-  once, globally, from `App.tsx`). The browser's own SW lifecycle checks for
-  a new `sw.js` on normal navigation/reload, same as any other PWA.
+  once, globally, from `App.tsx`). Once the registration is available it
+  explicitly calls `registration.update()` immediately, again when the app
+  returns to the foreground/focus after a 5-minute throttle window, and once
+  per hour while the app remains open. This avoids relying only on browser
+  lifecycle heuristics, which left one installed Production PWA stuck on an
+  older app shell in Issue #316.
 - When a new worker finishes installing and is waiting, `useRegisterSW`'s
   `needRefresh` flips to `true` and `UpdatePrompt` shows a small "A new
   version is available." banner with an **Update** button.
@@ -47,10 +51,26 @@ A learner who reports "the app looks old" or "my update isn't showing up"
 after a known Production deployment should be told to:
 
 1. Open the app and check the **Update** banner; tap **Update** if shown.
-2. If no banner appears, do a normal reload/relaunch — the browser checks
-   for a new service worker on navigation. Give it a few seconds.
+2. If no banner appears, bring the app to the foreground or relaunch it and
+   give it a few seconds. Current builds explicitly call
+   `ServiceWorkerRegistration.update()` on launch/foreground, with bounded
+   throttling, so this is deterministic rather than relying only on browser
+   heuristics.
 3. Confirm the build id under Settings → About (`Build: <sha>`) matches (or
    postdates) the deployed commit.
+
+### One-time recovery for installs older than Issue #316
+
+Builds that predate the active `registration.update()` logic obviously cannot
+execute that new logic until they have updated at least once. If such an old
+installed PWA remains stuck, do not clear site data or uninstall it as the
+first response. Use a same-origin browser reload/foreground attempt first so
+the existing service-worker registration gets another update opportunity.
+If that still does not move the build, use a non-destructive service-worker
+update action (for example, remote browser debugging that invokes
+`registration.update()`) while preserving site storage. Only clear storage or
+reinstall as a final recovery option after local progress has been backed up
+or the user explicitly accepts the data-loss risk.
 
 Uninstalling the PWA or clearing site data/storage is **not** the correct
 routine fix — it is unnecessary (this flow already delivers the update
