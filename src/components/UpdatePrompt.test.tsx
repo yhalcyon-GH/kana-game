@@ -1,24 +1,51 @@
-import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { act, fireEvent, render, screen } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const updateServiceWorker = vi.fn()
+const registrationUpdate = vi.fn().mockResolvedValue(undefined)
 let needRefresh = false
+let registerOptions: {
+  onRegisteredSW?: (swUrl: string, registration?: ServiceWorkerRegistration) => void
+} | undefined
 
 vi.mock('virtual:pwa-register/react', () => ({
-  useRegisterSW: () => ({
-    needRefresh: [needRefresh, vi.fn()],
-    offlineReady: [false, vi.fn()],
-    updateServiceWorker,
-  }),
+  useRegisterSW: (options: typeof registerOptions) => {
+    registerOptions = options
+    return {
+      needRefresh: [needRefresh, vi.fn()],
+      offlineReady: [false, vi.fn()],
+      updateServiceWorker,
+    }
+  },
 }))
 
-import { UpdatePrompt } from './UpdatePrompt'
+import {
+  UPDATE_CHECK_MIN_INTERVAL_MS,
+  UPDATE_CHECK_PERIOD_MS,
+  UpdatePrompt,
+} from './UpdatePrompt'
+
+function provideRegistration() {
+  act(() => {
+    registerOptions?.onRegisteredSW?.('/sw.js', {
+      update: registrationUpdate,
+    } as unknown as ServiceWorkerRegistration)
+  })
+}
 
 describe('UpdatePrompt', () => {
-  it('renders nothing when no update is waiting', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-09-20T00:00:00Z'))
     needRefresh = false
-    render(<UpdatePrompt />)
+    registerOptions = undefined
+    updateServiceWorker.mockReset()
+    registrationUpdate.mockReset()
+    registrationUpdate.mockResolvedValue(undefined)
+  })
 
+  it('renders nothing when no update is waiting', () => {
+    render(<UpdatePrompt />)
     expect(screen.queryByText('A new version is available.')).not.toBeInTheDocument()
   })
 
@@ -37,5 +64,65 @@ describe('UpdatePrompt', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Update' }))
 
     expect(updateServiceWorker).toHaveBeenCalledWith(true)
+  })
+
+  it('actively checks for an update as soon as the registration is available', () => {
+    render(<UpdatePrompt />)
+    provideRegistration()
+
+    expect(registrationUpdate).toHaveBeenCalledTimes(1)
+  })
+
+  it('checks again on focus after the throttle window', () => {
+    render(<UpdatePrompt />)
+    provideRegistration()
+
+    act(() => {
+      vi.advanceTimersByTime(UPDATE_CHECK_MIN_INTERVAL_MS)
+      window.dispatchEvent(new Event('focus'))
+    })
+
+    expect(registrationUpdate).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not hammer update checks when focus repeats inside the throttle window', () => {
+    render(<UpdatePrompt />)
+    provideRegistration()
+
+    act(() => {
+      vi.advanceTimersByTime(UPDATE_CHECK_MIN_INTERVAL_MS - 1)
+      window.dispatchEvent(new Event('focus'))
+      window.dispatchEvent(new Event('focus'))
+    })
+
+    expect(registrationUpdate).toHaveBeenCalledTimes(1)
+  })
+
+  it('checks again when the app becomes visible after the throttle window', () => {
+    render(<UpdatePrompt />)
+    provideRegistration()
+
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'visible',
+    })
+
+    act(() => {
+      vi.advanceTimersByTime(UPDATE_CHECK_MIN_INTERVAL_MS)
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+
+    expect(registrationUpdate).toHaveBeenCalledTimes(2)
+  })
+
+  it('performs a bounded periodic check while the app remains open', () => {
+    render(<UpdatePrompt />)
+    provideRegistration()
+
+    act(() => {
+      vi.advanceTimersByTime(UPDATE_CHECK_PERIOD_MS)
+    })
+
+    expect(registrationUpdate).toHaveBeenCalledTimes(2)
   })
 })
