@@ -6,6 +6,7 @@ import { EntitlementProvider } from './components/EntitlementProvider'
 import { GuideHighlightProvider } from './components/GuideHighlightProvider'
 import { IntroGuide } from './components/IntroGuide'
 import { NavBar } from './components/NavBar'
+import { UpdatePrompt } from './components/UpdatePrompt'
 import {
   CATEGORIES,
   CATEGORIES_BY_ID,
@@ -154,6 +155,7 @@ function App() {
       <GuideHighlightProvider>
         <div className="min-h-screen bg-white text-neutral-900 dark:bg-neutral-900 dark:text-neutral-100">
         <IntroGuide />
+        <UpdatePrompt />
         <NavBar />
         <main className="mx-auto flex max-w-3xl flex-col items-center gap-6 px-4 py-8">
           <ErrorBoundary>

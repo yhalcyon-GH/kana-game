@@ -28,6 +28,7 @@ For day-to-day development, start with [`CLAUDE.md`](../CLAUDE.md) or [`AGENTS.m
 - **[observability.md](./observability.md)** — minimal pre-Live error-log tags for the Paddle webhook, auth, and entitlement endpoints: what each tag means, severity, and where the real Xserver `error_log` destination still needs confirming.
 - **[pre-live-launch-checklist.md](./pre-live-launch-checklist.md)** — human-facing Sandbox→Live/Production cutover checklist; separates AI-verifiable items from human-only and real Paddle-Live-money operations. No secrets recorded.
 - **[pwa-installability-qa.md](./pwa-installability-qa.md)** — PWA manifest/service-worker/icon-path audit and the Android Chrome + iPhone Safari real-device home-screen install QA checklist; final icon/logo branding remains a Human Gate.
+- **[pwa-update-flow.md](./pwa-update-flow.md)** — expected Production PWA update behavior (build-id display, update-available prompt, what an update does/doesn't touch); read before telling a learner to uninstall/clear storage for a routine update.
 - **[tamamizu-guide-scripts.md](./tamamizu-guide-scripts.md)** — approved guide copy / visual direction where still applicable.
 - **[restaurant-audio-manifest.csv](./restaurant-audio-manifest.csv)** — restaurant audio asset manifest.
 
