@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { useRegisterSW } from 'virtual:pwa-register/react'
+import { useServiceWorkerUpdateChecks } from '../hooks/useServiceWorkerUpdateChecks'
 
 // Low-noise, learner-facing counterpart to registerType: 'prompt' in
 // vite.config.ts (see the comment there) — Issue #310. A waiting service
@@ -8,16 +10,26 @@ import { useRegisterSW } from 'virtual:pwa-register/react'
 // (src/store/progressStore.ts) survives untouched. See
 // docs/pwa-update-flow.md for the full expected Production behavior.
 export function UpdatePrompt() {
+  const [registration, setRegistration] = useState<ServiceWorkerRegistration | undefined>()
+
   const {
     needRefresh: [needRefresh],
     updateServiceWorker,
   } = useRegisterSW({
+    onRegisteredSW: (_swUrl, reg) => {
+      setRegistration(reg)
+    },
     onRegisterError: (error) => {
       // Swallow — a failed registration just means the learner keeps using
       // whatever's currently loaded; nothing actionable for them to do.
       console.error('Service worker registration failed', error)
     },
   })
+
+  // Issue #316: check the existing registration for an update explicitly on
+  // mount and again on focus/visibility, instead of relying solely on the
+  // browser's own (throttled, navigation-only) update heuristics.
+  useServiceWorkerUpdateChecks(registration)
 
   if (!needRefresh) return null
 
