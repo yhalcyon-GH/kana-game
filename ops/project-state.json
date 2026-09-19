@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "current_main_sha": "9b4cb84276a05fe9c385e1736dcdfc2f2562213e",
+  "current_main_sha": "7aa7f5dcf0ea707230d2dc9bd332c8891fd74a02",
   "latest_completed_work": {
     "kind": "merged_pull_request",
-    "number": 307,
-    "title": "Issue #305 follow-ups: from $5 price label + Paddle Customer Portal audit",
-    "merged_at": "2026-09-19T03:18:30Z"
+    "number": 314,
+    "title": "Extend Production readiness preflight with OTP readiness booleans",
+    "merged_at": "2026-09-20"
   },
   "open_prs": [
     {
@@ -15,35 +15,33 @@
     }
   ],
   "active_work_item": {
-    "id": "issue-305-production-cutover",
+    "id": "issue-305-production-otp-enable",
     "issue_number": 305,
     "branch": null,
     "pull_request_number": null,
     "status": "human_gate_waiting",
-    "goal": "Finish Production cutover from the reviewed current main while preserving rollback safety. Production read-only preflight passes, but release-integrity currently reports that deployed API code does not match the reviewed checkout."
+    "goal": "Enable the already-deployed Production email OTP flow by setting a distinct LOGIN_CODE_PEPPER and EMAIL_CODE_AUTH_ENABLED=true, then validate capability/preflight and perform one real-browser OTP login/reload/logout check."
   },
-  "next_machine_action": "Run `npm run resume` first. If live main has advanced, use the new live main as source of truth. For Production work, use the existing local read-only runner setup; do not repeat SSH host/key/API-root discovery. Current next Human Gate sequence: verify Production DB migration state for OTP/persistent-login migrations, then perform an explicitly approved Production API deployment preserving config.php and rollback backups, then rerun production:release-integrity and production:preflight.",
-  "unresolved_ai_items": [
-    "Issue #311: the fixed CLI preflight (server/ops/auth-readiness-check.php), its local JS parser (scripts/productionReadOnlySsh.mjs), tests, and docs now also report OTP enablement/readiness booleans -- emailCodeAuthEnabled, loginCodePepperConfigured, emailCodeAuthReady -- so a `{\"email_code_auth\":false}` response from the public capability probe can be told apart from a stale frontend without exposing any secret value. This has not yet been re-run against live Production; see the human_gates entry below."
-  ],
+  "next_machine_action": "Run npm run resume first. Do not repeat SSH/key/known_hosts/API-root/PHP discovery, migration 0006, the 2026-09-20 DB backup, the 2026-09-20 initial API rollback backup, or the 2026-09-20 initial API deployment merely because the chat changed. The Production frontend for current main 7aa7f5d is live and shows Build: 7aa7f5d. Its service worker now uses a visible user-triggered update prompt. The public capability endpoint still reports email_code_auth=false because Production OTP configuration is not enabled yet. Before the approved OTP config mutation, deploy the two updated read-only readiness files from current main (server/ops/auth-readiness-check.php and server/src/Auth/ProductionAuthReadiness.php) with a fresh rollback backup, then run the new production:preflight to confirm emailCodeAuthEnabled/loginCodePepperConfigured/emailCodeAuthReady. Then perform the explicitly approved Production config mutation and re-run production:status.",
+  "unresolved_ai_items": [],
   "human_gates": [
-    "Confirm Production DB migration state before deploying the latest OTP/persistent-login API changes; Production DB writes/migrations require explicit human action.",
-    "Deploy the reviewed current main API release to Production only after explicit human approval, preserving Production config.php and rollback backups.",
-    "After deployment, confirm Production OTP login/logout in a real browser.",
-    "Run `npm run production:preflight` after the Issue #311 change deploys and record its emailCodeAuthEnabled/loginCodePepperConfigured/emailCodeAuthReady booleans, to confirm whether Production's current email_code_auth:false capability response is an intentionally-off flag or a missing LOGIN_CODE_PEPPER misconfiguration.",
-    "Confirm Production error_log location/rotation and CORS/session-cookie behavior where not already covered by the fixed read-only preflight.",
+    "A fresh rollback backup immediately before the NEW readiness-file Production deployment.",
+    "Deploy the two updated read-only readiness files from current main to Production; this is a new Production write and is covered only by the user's explicit approval in the current chat.",
+    "Create/set a distinct Production LOGIN_CODE_PEPPER and set EMAIL_CODE_AUTH_ENABLED=true without exposing the secret value; the user explicitly approved this Production secret/config mutation in the current chat.",
+    "After enablement, confirm the public capability reports email_code_auth=true and production:preflight reports emailCodeAuthEnabled=true, loginCodePepperConfigured=true, emailCodeAuthReady=true, while webCookieAuthActive=true, productionMagicLinkMailerConfigured=true, devHarnessEnabled=false.",
+    "Perform one real-browser Production OTP login, normal reload persistence, and logout check after enablement.",
+    "Confirm Production error_log location/rotation and any remaining CORS/session-cookie behavior not already demonstrated by the fixed checks/browser QA.",
     "Final legal review and final human GO/NO-GO decision.",
-    "Any real-money, Paddle Live, paid-service, Production DB write, DNS, Production-secret, or email-send operation."
+    "Any new real-money, Paddle Live, paid-service, Production DB write, DNS, Production-secret, email-send, or Production deployment action beyond what is explicitly approved."
   ],
-  "production_live_restrictions": "NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL. Do not perform real charges or refunds, Paddle Live transactions or configuration, paid API/resource changes, Production DB writes, DNS changes, Production-secret changes, or email sends.",
-  "last_verified_at": "2026-09-20T00:50:36+07:00",
-  "last_verified_by": "Human + fixed local read-only Production runners. Current reviewed checkout was live main 9b4cb84276a05fe9c385e1736dcdfc2f2562213e. production:php-probe passed with php=8.4. production:preflight passed with webCookieAuthActive=true, productionMagicLinkMailerConfigured=true, devHarnessEnabled=false. production:release-integrity refused because deployed API code does not match the reviewed checkout. Human confirmed a fresh Production DB backup and a separate Production API rollback archive before further cutover work. No secrets, DB contents, credentials, or personal identifiers are stored here.",
+  "production_live_restrictions": "NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL. Real charges/refunds, Paddle Live transactions/configuration, paid-resource changes, Production DB writes, DNS changes, Production-secret changes, email sends, and Production deployments are Human Gates.",
+  "last_verified_at": "2026-09-20T00:00:00+07:00",
+  "last_verified_by": "GitHub + public Production checks. PR #312 (PWA update UX) and PR #314 (secret-free OTP readiness booleans) are merged. GitHub Pages build/deploy for main 7aa7f5dcf0ea707230d2dc9bd332c8891fd74a02 completed successfully. Public Production Settings shows Build: 7aa7f5d, and the live service worker waits for explicit SKIP_WAITING instead of silently activating. Public /api/auth/capabilities.php still returns email_code_auth=false. Production migration 0006 had already been explicitly approved, applied, and verified; migration 0007 remains intentionally unapplied because it is dev-only. The previously deployed API release passed release-integrity/preflight before these later readiness-only server changes. No secret values, credentials, DB contents, customer identifiers, or backup paths are stored here.",
   "known_non_blockers": [
-    "Issue #283 real-device PWA QA is complete and the issue is closed.",
-    "Production login persistence and logout were human-tested successfully after PR #303/#306 work.",
-    "Production cancelled-checkout UX was human-tested successfully: closing checkout left Full Access locked.",
-    "Refund policy decision is recorded: refund re-locks Full Access while local learning progress/history is retained.",
-    "Paddle Live product/price, webhook, one real purchase, and one real refund were already validated on 2026-09-16; do not repeat those real-money tests without a new explicit approval.",
+    "Issue #283 real-device PWA QA is complete and closed; do not repeat it on chat change.",
+    "Production cancelled-checkout UX was human-tested successfully; do not repeat it without a concrete new reason.",
+    "Refund policy is settled: refund re-locks Full Access while local learning progress/history is retained.",
+    "Paddle Live product/price, one real purchase, and one real refund were already validated on 2026-09-16; do not repeat real-money tests for routine confidence.",
     "Customer Portal integration is not launch-blocking; authenticated portal-session support would require a new Production Paddle API key and remains a separate Human Gate.",
     "Open PR #294 is development-workflow tooling and does not block sale readiness."
   ],
