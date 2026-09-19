@@ -140,7 +140,13 @@ Each item is tagged:
       confirmed 2026-09-16** (see §8): the purchase email and tax invoice
       were received and correctly showed USD 5.00 + Thailand VAT USD 0.35 =
       USD 5.35 with no seller home address exposed. Left unchecked because
-      the Paddle customer-portal link itself was not exercised.
+      the Paddle customer-portal link itself was not exercised. **Audited
+      2026-09-19** (see `docs/paddle-customer-portal-audit.md`): this repo
+      has no customer-portal link/config/API integration at all, so any
+      portal access today depends entirely on what Paddle's own receipt
+      email/dashboard provides. Adding an authenticated in-app portal-session
+      link would require creating a new Production Paddle API key, which is
+      itself a Human Gate — not implemented here.
 
 ## 5a. Webhook response timing (KEEP SYNC FOR LIVE — launch acceptable)
 
