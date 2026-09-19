@@ -1,45 +1,51 @@
 {
   "schema_version": 1,
-  "current_main_sha": "58463fdfbf0a8259f35dbba8915e9aa094762967",
+  "current_main_sha": "9b4cb84276a05fe9c385e1736dcdfc2f2562213e",
   "latest_completed_work": {
     "kind": "merged_pull_request",
-    "number": 287,
-    "title": "Fail closed when Production sign-out cannot be confirmed",
-    "merged_at": "2026-09-16T19:25:17Z"
+    "number": 307,
+    "title": "Issue #305 follow-ups: from $5 price label + Paddle Customer Portal audit",
+    "merged_at": "2026-09-19T03:18:30Z"
   },
-  "open_prs": [],
+  "open_prs": [
+    {
+      "number": 294,
+      "title": "Add GitHub Agentic Workflows: Codex PR review + PR Verify failure investigator (docs/scaffolding; workflow files pending workflows-scope push)",
+      "status": "non_blocking_human_gate"
+    }
+  ],
   "active_work_item": {
-    "id": "issue-283-pwa-human-gates",
-    "issue_number": 283,
+    "id": "issue-305-production-cutover",
+    "issue_number": 305,
     "branch": null,
     "pull_request_number": null,
     "status": "human_gate_waiting",
-    "goal": "AI-only PWA installability work is complete. Remaining work is human approval of final Tamamizu branding assets plus Android Chrome and iPhone Safari real-device installation QA."
+    "goal": "Finish Production cutover from the reviewed current main while preserving rollback safety. Production read-only preflight passes, but release-integrity currently reports that deployed API code does not match the reviewed checkout."
   },
-  "next_machine_action": "Run `npm run resume` to compare this checkpoint with live GitHub before any mutation. If live state still has no open PRs and Issue #283 is the only open issue, do not start new implementation automatically; wait for completion of the recorded Human Gates or a new bounded task.",
+  "next_machine_action": "Run `npm run resume` first. If live main has advanced, use the new live main as source of truth. For Production work, use the existing local read-only runner setup; do not repeat SSH host/key/API-root discovery. Current next Human Gate sequence: verify Production DB migration state for OTP/persistent-login migrations, then perform an explicitly approved Production API deployment preserving config.php and rollback backups, then rerun production:release-integrity and production:preflight.",
   "unresolved_ai_items": [],
   "human_gates": [
-    "Production real-browser Magic Link/auth and logout confirmation",
-    "Failed/cancelled checkout UX confirmation in a real Production browser",
-    "Any Production-only refund/customer-portal behavior not already deterministic from code/tests",
-    "DB backup/rollback knowledge or confirmation",
-    "Production-only config/log/CORS/cookie checks behind the intentionally paused SSH/read-only preflight; do not restart that preflight automatically",
-    "Issue #283 final Tamamizu icon/logo branding approval plus Android Chrome and iPhone Safari home-screen installation QA",
-    "Final legal review and final human GO/NO-GO decision",
-    "Any real-money, Paddle Live, paid-service, production DB write, DNS, production-secret, or email-send operation"
+    "Confirm Production DB migration state before deploying the latest OTP/persistent-login API changes; Production DB writes/migrations require explicit human action.",
+    "Deploy the reviewed current main API release to Production only after explicit human approval, preserving Production config.php and rollback backups.",
+    "After deployment, confirm Production OTP login/logout in a real browser.",
+    "Confirm Production error_log location/rotation and CORS/session-cookie behavior where not already covered by the fixed read-only preflight.",
+    "Final legal review and final human GO/NO-GO decision.",
+    "Any real-money, Paddle Live, paid-service, Production DB write, DNS, Production-secret, or email-send operation."
   ],
-  "production_live_restrictions": "NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL. Do not perform real charges or refunds, Paddle Live transactions or configuration, paid API/resource changes, production DB writes, DNS changes, production-secret changes, or email sends.",
-  "last_verified_at": "2026-09-16T21:47:00Z",
-  "last_verified_by": "GitHub connector: final launch-blocker audit Issue #281 closed completed; PR #287 merged into main at 58463fdfbf0a8259f35dbba8915e9aa094762967 after exact-head PR Verify, Browser Smoke, and Pre-Live Safety succeeded. The verified PR HEAD and squash-merged main share Git tree 92ea3ade3a4abfb693ab053e8fb6d023e9b8677f. No additional AI-only P0/P1 finding remained in the bounded final audit.",
+  "production_live_restrictions": "NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL. Do not perform real charges or refunds, Paddle Live transactions or configuration, paid API/resource changes, Production DB writes, DNS changes, Production-secret changes, or email sends.",
+  "last_verified_at": "2026-09-20T00:50:36+07:00",
+  "last_verified_by": "Human + fixed local read-only Production runners. Current reviewed checkout was live main 9b4cb84276a05fe9c385e1736dcdfc2f2562213e. production:php-probe passed with php=8.4. production:preflight passed with webCookieAuthActive=true, productionMagicLinkMailerConfigured=true, devHarnessEnabled=false. production:release-integrity refused because deployed API code does not match the reviewed checkout. Human confirmed a fresh Production DB backup and a separate Production API rollback archive before further cutover work. No secrets, DB contents, credentials, or personal identifiers are stored here.",
   "known_non_blockers": [
-    "The state file is a committed checkpoint, not a live database. It may be one or more commits behind origin/main; resume must compare it with GitHub before acting.",
-    "Issue #281 final launch-blocker audit is complete. Its only concrete P1 finding, Issue #286, was fixed and merged via PR #287.",
-    "PR #287 exact head 11ebd1d3219e149d65d91e9f8732149b5a9893c3 passed PR Verify, Browser Smoke, and Pre-Live Safety; its Git tree is identical to current main's Git tree.",
-    "Issue #283 AI-only PWA work was merged via PR #285: no installability/path defect was found, deterministic manifest/icon-path tests and real-device QA documentation are on main, and only the explicit Human Gates remain.",
-    "Local learning progress retention across entitlement active-to-inactive changes is covered by deterministic tests and was not classified as a launch blocker.",
-    "Production read-only preflight remains intentionally paused after a prior redacted unexpected-response result; do not restart SSH diagnostics without new explicit instruction."
+    "Issue #283 real-device PWA QA is complete and the issue is closed.",
+    "Production login persistence and logout were human-tested successfully after PR #303/#306 work.",
+    "Production cancelled-checkout UX was human-tested successfully: closing checkout left Full Access locked.",
+    "Refund policy decision is recorded: refund re-locks Full Access while local learning progress/history is retained.",
+    "Paddle Live product/price, webhook, one real purchase, and one real refund were already validated on 2026-09-16; do not repeat those real-money tests without a new explicit approval.",
+    "Customer Portal integration is not launch-blocking; authenticated portal-session support would require a new Production Paddle API key and remains a separate Human Gate.",
+    "Open PR #294 is development-workflow tooling and does not block sale readiness."
   ],
   "optional_post_launch": [
-    "Re-evaluate a durable async webhook queue only if real Production latency or Paddle retry evidence warrants it."
+    "Re-evaluate a durable async webhook queue only if real Production latency or Paddle retry evidence warrants it.",
+    "Finish PR #294 Agentic Workflow setup if the user later approves workflow permission/API-key requirements."
   ]
 }
