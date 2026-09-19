@@ -8,33 +8,33 @@ As of 2026-09-20:
 
 - Dedicated XServer SSH access for the fixed Production checks is working.
 - The local operator has a persistent resume helper at `C:\Users\halcy\tamamizu-resume.ps1`. Its contents are local-only and must not be copied into the repository.
-- Production API root and the allowlisted PHP CLI were already confirmed during the initial setup. Do not rediscover them in each chat.
+- Production API root and the allowlisted PHP CLI were already confirmed. Do not rediscover them in each chat.
 - PHP 8.4 is available for the fixed Production runners.
 - Production migration `0006_email_otp_persistent_login.sql` was explicitly human-approved, applied, and verified:
   - `email_login_challenges` exists
   - `persistent_sessions` exists
   - `sessions.persistent_session_id` exists
 - Migration `0007_dev_harness_login_codes.sql` is intentionally NOT applied in Production because it is dev-only.
-- A fresh Production DB backup was taken before migration 0006.
-- A rollback archive of the previously deployed Production API was taken before the 2026-09-20 API deployment.
-- The reviewed OTP/persistent-login API release was explicitly human-approved and deployed.
-- Post-deploy `production:release-integrity` passed.
-- Post-deploy `production:preflight` passed with:
-  - `webCookieAuthActive=true`
-  - `productionMagicLinkMailerConfigured=true`
-  - `devHarnessEnabled=false`
-- PR #312 added a visible PWA update prompt and preserved local learning progress/storage.
-- PR #314 added secret-free OTP readiness booleans to the fixed Production preflight.
-- GitHub Pages deployment for current main `7aa7f5dcf0ea707230d2dc9bd332c8891fd74a02` completed successfully.
-- Public Production Settings shows `Build: 7aa7f5d`.
-- The live service worker waits for explicit `SKIP_WAITING` and no longer silently activates a new build.
-- The public Production auth capability currently returns `email_code_auth=false`; this is now understood as a Production OTP configuration state, not proof of a stale frontend.
+- Production email OTP configuration is enabled:
+  - a distinct `LOGIN_CODE_PEPPER` is configured without exposing its value
+  - `EMAIL_CODE_AUTH_ENABLED=true`
+  - public `/api/auth/capabilities.php` returns `email_code_auth=true`
+- Production API release-integrity passed after OTP enablement.
+- PR #312 added a visible PWA update prompt and preserved local learner data.
+- PR #317 added deterministic service-worker update checks:
+  - explicit `registration.update()` when the registration becomes available
+  - foreground/focus re-checks with throttling
+  - hourly re-check while open
+  - existing consent-gated Update button remains the activation path
+- GitHub Pages deployment for main `2e018d246e97dde797642878b637adc91bffeb34` completed successfully.
+- Public Production Settings shows `Build: 2e018d2`.
+- The user's already-installed PWA still reports `Build: 419878e`. That build predates the deterministic update-check fix and therefore needs one non-destructive recovery before it can benefit from the new update behavior.
 
 No Production secrets, private keys, DB contents, customer identifiers, or backup paths belong in this file.
 
 ## What to run when a new chat/session starts
 
-First run the local helper once:
+First run:
 
     & C:\Users\halcy\tamamizu-resume.ps1
 
@@ -44,15 +44,9 @@ Then tell the assistant:
 
 The assistant must read live GitHub state before asking the human to repeat completed Production setup.
 
-For a concise read-only Production health check, after the local helper has loaded the environment, run:
+For a concise read-only Production health check, after the local helper has loaded the environment:
 
     npm run production:status
-
-This is equivalent to:
-
-    npm run production:php-probe
-    npm run production:preflight
-    npm run production:release-integrity
 
 ## Repeat policy
 
@@ -64,9 +58,8 @@ Do NOT repeat these merely because the chat changed:
 - Production API-root discovery
 - PHP CLI discovery
 - migration 0006
-- the 2026-09-20 DB backup
-- the 2026-09-20 initial API rollback archive
-- the 2026-09-20 initial API deployment
+- the completed 2026-09-20 backups/deployments
+- Production OTP secret/config enablement
 - already-recorded Paddle Live purchase/refund tests
 - already-recorded cancelled-checkout QA
 - already-recorded PWA install QA
@@ -87,40 +80,37 @@ Repeat a step only when its trigger occurs:
 
 ## Current next Human Gate
 
-The frontend is current and the OTP backend/schema are already present. The remaining issue is Production OTP configuration.
+The next required human action is **not** another deployment, migration, secret change, or Paddle test.
 
-The next approved Human Gate sequence is:
+It is a one-time, non-destructive recovery of the user's already-installed PWA from old Build `419878e` to current Production. Because Build `419878e` predates PR #317, it cannot execute the new active `registration.update()` logic until it has updated once.
 
-1. Take a fresh rollback backup immediately before the NEW readiness-file Production write.
-2. Deploy the two readiness-only files from current main:
-   - `server/ops/auth-readiness-check.php`
-   - `server/src/Auth/ProductionAuthReadiness.php`
-3. Run the new read-only `npm run production:preflight` and record:
-   - `emailCodeAuthEnabled`
-   - `loginCodePepperConfigured`
-   - `emailCodeAuthReady`
-4. Create/set a distinct Production `LOGIN_CODE_PEPPER` and set `EMAIL_CODE_AUTH_ENABLED=true` without exposing the secret value. The user explicitly approved this Production secret/config mutation in the current chat.
-5. Run `npm run production:status`; expected auth state after enablement:
-   - `webCookieAuthActive=true`
-   - `productionMagicLinkMailerConfigured=true`
-   - `devHarnessEnabled=false`
-   - `emailCodeAuthEnabled=true`
-   - `loginCodePepperConfigured=true`
-   - `emailCodeAuthReady=true`
-6. Confirm the public capability returns `email_code_auth=true`.
-7. Perform one real-browser OTP login -> normal reload persistence -> logout check.
+Rules for this recovery:
 
-Once this succeeds, do not ask the human to repeat it in later chats unless a later auth/session/config deployment materially changes the behavior.
+- Do not uninstall the PWA.
+- Do not clear site data/storage.
+- Preserve local learning progress.
+- Prefer a normal same-origin browser navigation/reload first so the existing registration gets another update opportunity.
+- If the old build still does not advance, use a non-destructive service-worker update action (for example, browser remote debugging / DevTools Update or `registration.update()`) rather than clearing storage.
+- Once the installed build reaches current Production, future updates should be handled by PR #317's deterministic checks and the existing Update prompt.
+
+After recovery, perform the final Production auth smoke once:
+
+1. receive a 6-digit OTP
+2. sign in successfully
+3. reload/relaunch and confirm the signed-in state persists
+4. sign out successfully
+
+Once recorded, do not repeat this QA unless a later auth/session/config deployment materially changes the behavior.
 
 ## PWA update behavior
 
-Routine app updates must not require uninstalling the installed PWA or clearing site storage.
+Routine updates must not require uninstalling the installed PWA or clearing site storage.
 
 - Current build is visible in Settings/About as `Build: <short-sha>`.
-- When a newer build is waiting, Tamamizu shows `A new version is available.` with an Update action.
-- The Update action activates the waiting service worker and reloads once.
-- Routine update handling must not clear local learning progress, localStorage, IndexedDB, or the runtime media cache.
-- Do not tell a learner to uninstall the app or clear site data for a normal update unless there is specific evidence of corrupted storage and the user understands the data-loss risk.
+- Current builds actively ask the service-worker registration to check for updates on registration/foreground/focus, with throttling, plus hourly while open.
+- When a newer worker is waiting, Tamamizu shows `A new version is available.` with an Update action.
+- Update activation replaces the app shell and reloads once.
+- It does not clear local learning progress, localStorage, IndexedDB, or runtime media caches.
 
 ## Safety
 
