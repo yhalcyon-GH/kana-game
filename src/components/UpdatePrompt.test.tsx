@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const updateServiceWorker = vi.fn()
 const registrationUpdate = vi.fn().mockResolvedValue(undefined)
@@ -42,6 +42,10 @@ describe('UpdatePrompt', () => {
     updateServiceWorker.mockReset()
     registrationUpdate.mockReset()
     registrationUpdate.mockResolvedValue(undefined)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('renders nothing when no update is waiting', () => {
