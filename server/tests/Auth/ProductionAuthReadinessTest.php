@@ -106,6 +106,8 @@ function productionAuthReadinessTests(): array
                 'RESEND_API_KEY' => 'super-secret-resend-key',
                 'MAGIC_LINK_FROM_EMAIL' => 'noreply@example.com',
                 'MAGIC_LINK_FROM_NAME' => 'Tamamizu',
+                'EMAIL_CODE_AUTH_ENABLED' => 'true',
+                'LOGIN_CODE_PEPPER' => 'super-secret-login-code-pepper',
             ]);
 
             $reflection = new \ReflectionClass($readiness);
@@ -113,6 +115,47 @@ function productionAuthReadinessTests(): array
                 $value = $property->getValue($readiness);
                 assertTrue(is_bool($value), "property {$property->getName()} must be a bool, never a raw config/secret value");
             }
+        },
+
+        // H. Email OTP off (default) is reported as off, not as
+        // misconfigured -- this is the "intentionally/configurationally
+        // disabled" state the frontend's Magic Link fallback expects,
+        // matching capabilities.php's own {"email_code_auth":false}.
+        'EMAIL_CODE_AUTH_ENABLED unset means Email OTP is reported as off and not ready, regardless of any pepper' => function () {
+            $readiness = readinessFromValues(['LOGIN_CODE_PEPPER' => 'a-pepper-value']);
+            assertFalse($readiness->emailCodeAuthEnabled, 'the OTP feature flag defaults to off');
+            assertTrue($readiness->loginCodePepperConfigured, 'a configured pepper is still reported as present');
+            assertFalse($readiness->emailCodeAuthReady(), 'OTP is not ready while the feature flag itself is off');
+        },
+
+        // I. Email OTP on + pepper configured -> ready.
+        'EMAIL_CODE_AUTH_ENABLED=true with LOGIN_CODE_PEPPER configured is Email OTP ready' => function () {
+            $readiness = readinessFromValues([
+                'EMAIL_CODE_AUTH_ENABLED' => 'true',
+                'LOGIN_CODE_PEPPER' => 'a-pepper-value',
+            ]);
+            assertTrue($readiness->emailCodeAuthEnabled, 'the OTP feature flag is on');
+            assertTrue($readiness->loginCodePepperConfigured, 'the pepper is present');
+            assertTrue($readiness->emailCodeAuthReady(), 'flag on + pepper configured must report Email OTP as ready');
+        },
+
+        // J. Email OTP on + pepper missing -> NOT ready (a
+        // misconfiguration the CLI preflight treats as a hard failure).
+        'EMAIL_CODE_AUTH_ENABLED=true with no LOGIN_CODE_PEPPER is NOT Email OTP ready' => function () {
+            $readiness = readinessFromValues(['EMAIL_CODE_AUTH_ENABLED' => 'true']);
+            assertTrue($readiness->emailCodeAuthEnabled, 'the OTP feature flag is on');
+            assertFalse($readiness->loginCodePepperConfigured, 'no pepper is configured');
+            assertFalse($readiness->emailCodeAuthReady(), 'flag on without a pepper must report Email OTP as not ready');
+        },
+
+        // K. an empty-string pepper must count the same as a missing one.
+        'an empty-string LOGIN_CODE_PEPPER counts as not configured' => function () {
+            $readiness = readinessFromValues([
+                'EMAIL_CODE_AUTH_ENABLED' => 'true',
+                'LOGIN_CODE_PEPPER' => '',
+            ]);
+            assertFalse($readiness->loginCodePepperConfigured, 'an empty string must not count as a configured pepper');
+            assertFalse($readiness->emailCodeAuthReady(), 'flag on with an empty-string pepper must report Email OTP as not ready');
         },
     ];
 }

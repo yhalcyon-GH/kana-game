@@ -23,11 +23,14 @@
     "goal": "Finish Production cutover from the reviewed current main while preserving rollback safety. Production read-only preflight passes, but release-integrity currently reports that deployed API code does not match the reviewed checkout."
   },
   "next_machine_action": "Run `npm run resume` first. If live main has advanced, use the new live main as source of truth. For Production work, use the existing local read-only runner setup; do not repeat SSH host/key/API-root discovery. Current next Human Gate sequence: verify Production DB migration state for OTP/persistent-login migrations, then perform an explicitly approved Production API deployment preserving config.php and rollback backups, then rerun production:release-integrity and production:preflight.",
-  "unresolved_ai_items": [],
+  "unresolved_ai_items": [
+    "Issue #311: the fixed CLI preflight (server/ops/auth-readiness-check.php), its local JS parser (scripts/productionReadOnlySsh.mjs), tests, and docs now also report OTP enablement/readiness booleans -- emailCodeAuthEnabled, loginCodePepperConfigured, emailCodeAuthReady -- so a `{\"email_code_auth\":false}` response from the public capability probe can be told apart from a stale frontend without exposing any secret value. This has not yet been re-run against live Production; see the human_gates entry below."
+  ],
   "human_gates": [
     "Confirm Production DB migration state before deploying the latest OTP/persistent-login API changes; Production DB writes/migrations require explicit human action.",
     "Deploy the reviewed current main API release to Production only after explicit human approval, preserving Production config.php and rollback backups.",
     "After deployment, confirm Production OTP login/logout in a real browser.",
+    "Run `npm run production:preflight` after the Issue #311 change deploys and record its emailCodeAuthEnabled/loginCodePepperConfigured/emailCodeAuthReady booleans, to confirm whether Production's current email_code_auth:false capability response is an intentionally-off flag or a missing LOGIN_CODE_PEPPER misconfiguration.",
     "Confirm Production error_log location/rotation and CORS/session-cookie behavior where not already covered by the fixed read-only preflight.",
     "Final legal review and final human GO/NO-GO decision.",
     "Any real-money, Paddle Live, paid-service, Production DB write, DNS, Production-secret, or email-send operation."

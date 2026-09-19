@@ -54,6 +54,14 @@ function authReadinessCheckTests(): array
             assertTrue(str_contains($result['stdout'], 'OK'), 'expected OK on stdout');
         },
 
+        'reports Email OTP as intentionally off, not misconfigured, when EMAIL_CODE_AUTH_ENABLED is unset' => function () {
+            $result = runAuthReadinessCheck([]);
+            assertTrue($result['exitCode'] === 0, 'expected exit code 0, got ' . $result['exitCode'] . ' stderr=' . $result['stderr']);
+            assertTrue(str_contains($result['stdout'], 'emailCodeAuthEnabled=false'), 'expected the OTP feature flag status on stdout');
+            assertTrue(str_contains($result['stdout'], 'loginCodePepperConfigured=false'), 'expected the pepper-presence status on stdout');
+            assertTrue(str_contains($result['stdout'], 'emailCodeAuthReady=false'), 'expected the derived OTP readiness status on stdout');
+        },
+
         'exits 0 when cookie auth is on with a fully configured real mailer' => function () {
             $result = runAuthReadinessCheck([
                 'WEB_SESSION_COOKIE_ENABLED' => 'true',
@@ -90,6 +98,10 @@ function authReadinessCheckTests(): array
             assertTrue($result['exitCode'] === 1, 'expected exit code 1, got ' . $result['exitCode']);
             assertTrue(str_contains($result['stderr'], 'MISCONFIGURED'), 'expected a MISCONFIGURED message on stderr');
             assertTrue(str_contains($result['stderr'], 'LOGIN_CODE_PEPPER'), 'expected the error to name the missing secret');
+            assertTrue(str_contains($result['stdout'], 'emailCodeAuthEnabled=true'), 'expected the OTP feature flag status on stdout even on failure');
+            assertTrue(str_contains($result['stdout'], 'loginCodePepperConfigured=false'), 'expected the pepper-presence status on stdout even on failure');
+            assertTrue(str_contains($result['stdout'], 'emailCodeAuthReady=false'), 'expected the derived OTP readiness status on stdout even on failure');
+            assertTrue(!str_contains($result['stdout'], 'OK'), 'must not print OK when misconfigured');
         },
 
         'exits 0 when EMAIL_CODE_AUTH_ENABLED is on and LOGIN_CODE_PEPPER is configured (and distinct from RATE_LIMIT_PEPPER)' => function () {
@@ -99,6 +111,10 @@ function authReadinessCheckTests(): array
                 'RATE_LIMIT_PEPPER' => 'rate-limit-pepper-value',
             ]);
             assertTrue($result['exitCode'] === 0, 'expected exit code 0, got ' . $result['exitCode'] . ' stderr=' . $result['stderr']);
+            assertTrue(str_contains($result['stdout'], 'emailCodeAuthEnabled=true'), 'expected the OTP feature flag status on stdout');
+            assertTrue(str_contains($result['stdout'], 'loginCodePepperConfigured=true'), 'expected the pepper-presence status on stdout');
+            assertTrue(str_contains($result['stdout'], 'emailCodeAuthReady=true'), 'expected the derived OTP readiness status on stdout');
+            assertTrue(!str_contains($result['stdout'], 'login-code-pepper-value'), 'must never print the raw pepper value');
         },
 
         'exits 1 when LOGIN_CODE_PEPPER and RATE_LIMIT_PEPPER are set to the same value' => function () {

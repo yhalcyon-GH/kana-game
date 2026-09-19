@@ -24,15 +24,28 @@ use KanaGame\Paddle\Config;
  * end-user-facing HTTP response are two different audiences with two
  * different safe-disclosure rules).
  *
- * Never exposes RESEND_API_KEY, MAGIC_LINK_FROM_EMAIL, or
- * MAGIC_LINK_FROM_NAME's actual values — only booleans derived from
- * whether they are present.
+ * Never exposes RESEND_API_KEY, MAGIC_LINK_FROM_EMAIL,
+ * MAGIC_LINK_FROM_NAME, or LOGIN_CODE_PEPPER's actual values — only
+ * booleans derived from whether they are present.
+ *
+ * Also covers Email OTP sign-in readiness (EMAIL_CODE_AUTH_ENABLED /
+ * LOGIN_CODE_PEPPER) for the same reason: the public capability probe
+ * (server/auth/capabilities.php) can correctly report
+ * {"email_code_auth":false} either because the feature is
+ * intentionally off, or because it is on but misconfigured, and an
+ * operator/AI session reading only that probe's response cannot tell
+ * those two states apart. Exposing safe booleans here lets a fixed
+ * read-only preflight distinguish "OTP intentionally/configurationally
+ * disabled" from "the frontend is stale" without ever printing the
+ * pepper value itself.
  */
 final class ProductionAuthReadiness
 {
     private function __construct(
         public readonly bool $webCookieAuthActive,
         public readonly bool $productionMagicLinkMailerConfigured,
+        public readonly bool $emailCodeAuthEnabled,
+        public readonly bool $loginCodePepperConfigured,
     ) {
     }
 
@@ -52,7 +65,14 @@ final class ProductionAuthReadiness
             && $config->get('MAGIC_LINK_FROM_EMAIL') !== null
             && $config->get('MAGIC_LINK_FROM_NAME') !== null;
 
-        return new self($webCookieAuthActive, $mailerConfigured);
+        // Matches capabilities.php's own exact-string convention: only
+        // the literal 'true' counts as enabled.
+        $emailCodeAuthEnabled = $config->get('EMAIL_CODE_AUTH_ENABLED') === 'true';
+
+        $loginCodePepper = $config->get('LOGIN_CODE_PEPPER');
+        $loginCodePepperConfigured = $loginCodePepper !== null && $loginCodePepper !== '';
+
+        return new self($webCookieAuthActive, $mailerConfigured, $emailCodeAuthEnabled, $loginCodePepperConfigured);
     }
 
     /**
@@ -66,5 +86,18 @@ final class ProductionAuthReadiness
     public function isMisconfigured(): bool
     {
         return $this->webCookieAuthActive && !$this->productionMagicLinkMailerConfigured;
+    }
+
+    /**
+     * True only when Email OTP sign-in can actually work end-to-end:
+     * the feature flag is on AND a login-code pepper is configured.
+     * False when the flag is off (intentionally/configurationally
+     * disabled -- not a misconfiguration) or when the flag is on but
+     * the pepper is missing (a misconfiguration the CLI preflight
+     * treats as a hard failure).
+     */
+    public function emailCodeAuthReady(): bool
+    {
+        return $this->emailCodeAuthEnabled && $this->loginCodePepperConfigured;
     }
 }

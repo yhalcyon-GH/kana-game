@@ -66,22 +66,57 @@ describe('production read-only SSH invocation', () => {
   it('accepts only explicitly redacted readiness output', () => {
     expect(readSafePreflightResult(
       0,
-      'webCookieAuthActive=true productionMagicLinkMailerConfigured=true devHarnessEnabled=false\nOK\n',
+      'webCookieAuthActive=true productionMagicLinkMailerConfigured=true devHarnessEnabled=false emailCodeAuthEnabled=false loginCodePepperConfigured=false emailCodeAuthReady=false\nOK\n',
       '',
     )).toEqual({
       ok: true,
       webCookieAuthActive: true,
       productionMagicLinkMailerConfigured: true,
       devHarnessEnabled: false,
+      emailCodeAuthEnabled: false,
+      loginCodePepperConfigured: false,
+      emailCodeAuthReady: false,
     })
   })
 
   it('treats an enabled development harness as a production blocker', () => {
     expect(readSafePreflightResult(
       0,
-      'webCookieAuthActive=true productionMagicLinkMailerConfigured=true devHarnessEnabled=true\nOK\n',
+      'webCookieAuthActive=true productionMagicLinkMailerConfigured=true devHarnessEnabled=true emailCodeAuthEnabled=false loginCodePepperConfigured=false emailCodeAuthReady=false\nOK\n',
       '',
     )).toEqual({ ok: false, reason: 'dev-harness-enabled' })
+  })
+
+  it('reports Email OTP as intentionally off (not a misconfiguration) when the feature flag is off', () => {
+    expect(readSafePreflightResult(
+      0,
+      'webCookieAuthActive=false productionMagicLinkMailerConfigured=false devHarnessEnabled=false emailCodeAuthEnabled=false loginCodePepperConfigured=false emailCodeAuthReady=false\nOK\n',
+      '',
+    )).toEqual({
+      ok: true,
+      webCookieAuthActive: false,
+      productionMagicLinkMailerConfigured: false,
+      devHarnessEnabled: false,
+      emailCodeAuthEnabled: false,
+      loginCodePepperConfigured: false,
+      emailCodeAuthReady: false,
+    })
+  })
+
+  it('reports Email OTP as fully ready when the flag is on and a pepper is configured', () => {
+    expect(readSafePreflightResult(
+      0,
+      'webCookieAuthActive=false productionMagicLinkMailerConfigured=false devHarnessEnabled=false emailCodeAuthEnabled=true loginCodePepperConfigured=true emailCodeAuthReady=true\nOK\n',
+      '',
+    )).toMatchObject({ ok: true, emailCodeAuthEnabled: true, loginCodePepperConfigured: true, emailCodeAuthReady: true })
+  })
+
+  it('classifies a missing login-code pepper while Email OTP is enabled as its own reason, distinct from cookie-auth misconfiguration', () => {
+    expect(readSafePreflightResult(
+      1,
+      'webCookieAuthActive=false productionMagicLinkMailerConfigured=false devHarnessEnabled=false emailCodeAuthEnabled=true loginCodePepperConfigured=false emailCodeAuthReady=false\n',
+      'MISCONFIGURED: EMAIL_CODE_AUTH_ENABLED is on but LOGIN_CODE_PEPPER is not configured. Email OTP login cannot work.\n',
+    )).toEqual({ ok: false, reason: 'email-code-auth-misconfigured' })
   })
 
   it('accepts only an explicitly redacted release fingerprint', () => {

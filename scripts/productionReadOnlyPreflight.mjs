@@ -18,14 +18,15 @@ try {
 
   const report = readSafePreflightResult(result.status, result.stdout, result.stderr)
   if (!report.ok) {
-    const message = report.reason === 'dev-harness-enabled'
-      ? 'Production read-only preflight: the development harness is enabled. No secret values were displayed.'
-      : 'Production read-only preflight: authentication configuration is incomplete. No secret values were displayed.'
-    console.error(message)
+    const messages = {
+      'dev-harness-enabled': 'Production read-only preflight: the development harness is enabled. No secret values were displayed.',
+      'email-code-auth-misconfigured': 'Production read-only preflight: Email OTP sign-in (EMAIL_CODE_AUTH_ENABLED) is on but no login-code pepper is configured. No secret values were displayed.',
+    }
+    console.error(messages[report.reason] ?? 'Production read-only preflight: authentication configuration is incomplete. No secret values were displayed.')
     process.exit(1)
   }
 
-  console.log(`Production read-only preflight passed: webCookieAuthActive=${report.webCookieAuthActive} productionMagicLinkMailerConfigured=${report.productionMagicLinkMailerConfigured} devHarnessEnabled=${report.devHarnessEnabled}`)
+  console.log(`Production read-only preflight passed: webCookieAuthActive=${report.webCookieAuthActive} productionMagicLinkMailerConfigured=${report.productionMagicLinkMailerConfigured} devHarnessEnabled=${report.devHarnessEnabled} emailCodeAuthEnabled=${report.emailCodeAuthEnabled} loginCodePepperConfigured=${report.loginCodePepperConfigured} emailCodeAuthReady=${report.emailCodeAuthReady}`)
   process.exit(0)
 } catch (error) {
   const message = error instanceof Error ? error.message : 'Unknown failure.'
