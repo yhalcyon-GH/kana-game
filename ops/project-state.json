@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "current_main_sha": "7aa7f5dcf0ea707230d2dc9bd332c8891fd74a02",
+  "current_main_sha": "2e018d246e97dde797642878b637adc91bffeb34",
   "latest_completed_work": {
     "kind": "merged_pull_request",
-    "number": 314,
-    "title": "Extend Production readiness preflight with OTP readiness booleans",
+    "number": 317,
+    "title": "Make installed PWA check deterministically for updates",
     "merged_at": "2026-09-20"
   },
   "open_prs": [
@@ -15,30 +15,29 @@
     }
   ],
   "active_work_item": {
-    "id": "issue-305-production-otp-enable",
+    "id": "issue-305-installed-pwa-one-time-recovery",
     "issue_number": 305,
     "branch": null,
     "pull_request_number": null,
     "status": "human_gate_waiting",
-    "goal": "Enable the already-deployed Production email OTP flow by setting a distinct LOGIN_CODE_PEPPER and EMAIL_CODE_AUTH_ENABLED=true, then validate capability/preflight and perform one real-browser OTP login/reload/logout check."
+    "goal": "Recover the user's already-installed Production PWA once from old Build 419878e to current Production without clearing local learner data, then complete the real-browser OTP login/reload/logout smoke."
   },
-  "next_machine_action": "Run npm run resume first. Do not repeat SSH/key/known_hosts/API-root/PHP discovery, migration 0006, the 2026-09-20 DB backup, the 2026-09-20 initial API rollback backup, or the 2026-09-20 initial API deployment merely because the chat changed. The Production frontend for current main 7aa7f5d is live and shows Build: 7aa7f5d. Its service worker now uses a visible user-triggered update prompt. The public capability endpoint still reports email_code_auth=false because Production OTP configuration is not enabled yet. Before the approved OTP config mutation, deploy the two updated read-only readiness files from current main (server/ops/auth-readiness-check.php and server/src/Auth/ProductionAuthReadiness.php) with a fresh rollback backup, then run the new production:preflight to confirm emailCodeAuthEnabled/loginCodePepperConfigured/emailCodeAuthReady. Then perform the explicitly approved Production config mutation and re-run production:status.",
+  "next_machine_action": "Run npm run resume first. Do not repeat SSH/key/known_hosts/API-root/PHP discovery, migration 0006, Production OTP enablement, the 2026-09-20 backups/deployments, Paddle Live tests, or PWA install QA merely because the chat changed. Production OTP is enabled and public email_code_auth=true. Current Production frontend is main 2e018d246e97dde797642878b637adc91bffeb34 and public Settings shows Build: 2e018d2. PR #317 is live and current builds explicitly call ServiceWorkerRegistration.update() on registration/foreground/focus with throttling plus hourly while open, then reuse the consent-gated Update prompt. The user's already-installed PWA remains Build 419878e, which predates this fix and cannot execute the new active-check logic until recovered once. Next Human Gate: perform a non-destructive one-time service-worker recovery on the phone; do not uninstall or clear site data. After the installed build reaches current Production, perform OTP login -> reload persistence -> logout QA.",
   "unresolved_ai_items": [],
   "human_gates": [
-    "A fresh rollback backup immediately before the NEW readiness-file Production deployment.",
-    "Deploy the two updated read-only readiness files from current main to Production; this is a new Production write and is covered only by the user's explicit approval in the current chat.",
-    "Create/set a distinct Production LOGIN_CODE_PEPPER and set EMAIL_CODE_AUTH_ENABLED=true without exposing the secret value; the user explicitly approved this Production secret/config mutation in the current chat.",
-    "After enablement, confirm the public capability reports email_code_auth=true and production:preflight reports emailCodeAuthEnabled=true, loginCodePepperConfigured=true, emailCodeAuthReady=true, while webCookieAuthActive=true, productionMagicLinkMailerConfigured=true, devHarnessEnabled=false.",
-    "Perform one real-browser Production OTP login, normal reload persistence, and logout check after enablement.",
-    "Confirm Production error_log location/rotation and any remaining CORS/session-cookie behavior not already demonstrated by the fixed checks/browser QA.",
+    "One-time non-destructive recovery of the already-installed PWA from Build 419878e to current Production; do not uninstall or clear site data because learner progress is local.",
+    "After recovery, perform one real-browser Production OTP login, normal reload/relaunch persistence, and logout check.",
+    "Confirm Production error_log location/rotation and any remaining CORS/session-cookie behavior not already demonstrated by fixed checks/browser QA.",
     "Final legal review and final human GO/NO-GO decision.",
     "Any new real-money, Paddle Live, paid-service, Production DB write, DNS, Production-secret, email-send, or Production deployment action beyond what is explicitly approved."
   ],
   "production_live_restrictions": "NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL. Real charges/refunds, Paddle Live transactions/configuration, paid-resource changes, Production DB writes, DNS changes, Production-secret changes, email sends, and Production deployments are Human Gates.",
-  "last_verified_at": "2026-09-20T00:00:00+07:00",
-  "last_verified_by": "GitHub + public Production checks. PR #312 (PWA update UX) and PR #314 (secret-free OTP readiness booleans) are merged. GitHub Pages build/deploy for main 7aa7f5dcf0ea707230d2dc9bd332c8891fd74a02 completed successfully. Public Production Settings shows Build: 7aa7f5d, and the live service worker waits for explicit SKIP_WAITING instead of silently activating. Public /api/auth/capabilities.php still returns email_code_auth=false. Production migration 0006 had already been explicitly approved, applied, and verified; migration 0007 remains intentionally unapplied because it is dev-only. The previously deployed API release passed release-integrity/preflight before these later readiness-only server changes. No secret values, credentials, DB contents, customer identifiers, or backup paths are stored here.",
+  "last_verified_at": "2026-09-20",
+  "last_verified_by": "GitHub + public Production checks + human Production checks. Production OTP configuration is enabled and public /api/auth/capabilities.php returns email_code_auth=true. Production API release-integrity passed after enablement. PR #317 exact-head PR Verify, Browser Smoke, Pre-Live Safety, and independent Claude review all passed; main 2e018d246e97dde797642878b637adc91bffeb34 deployed successfully via GitHub Pages. Public Production Settings shows Build: 2e018d2. The user's installed PWA still reports Build: 419878e, confirming a one-time legacy service-worker recovery is still required. No secret values, credentials, DB contents, customer identifiers, or backup paths are stored here.",
   "known_non_blockers": [
-    "Issue #283 real-device PWA QA is complete and closed; do not repeat it on chat change.",
+    "Production email OTP is enabled; public capability reports email_code_auth=true.",
+    "Issue #316 future/current PWA update reliability is fixed and live. Current builds actively check registration.update() on registration/foreground/focus with bounded throttling and hourly while open.",
+    "Issue #283 real-device PWA install QA is complete and closed; do not repeat it on chat change.",
     "Production cancelled-checkout UX was human-tested successfully; do not repeat it without a concrete new reason.",
     "Refund policy is settled: refund re-locks Full Access while local learning progress/history is retained.",
     "Paddle Live product/price, one real purchase, and one real refund were already validated on 2026-09-16; do not repeat real-money tests for routine confidence.",
