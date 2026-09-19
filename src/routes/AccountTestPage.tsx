@@ -3,11 +3,15 @@ import {
   createPurchaseIntent,
   fetchCurrentEntitlement,
   fetchCurrentUser,
+  fetchDevHarnessLoginCode,
   fetchDevHarnessMagicLink,
   logout,
+  requestLoginCode,
   requestMagicLink,
+  verifyLoginCode,
   type CurrentUser,
 } from '../lib/auth/authClient'
+import { inMemorySessionTransport } from '../lib/auth/sessionTransport'
 import { readAuthApiBase } from '../lib/auth/authApiBase'
 import { readSandboxConfig } from '../lib/paddle/sandboxConfig'
 import { createSandboxCheckoutController, type SandboxCheckoutController, type SandboxCheckoutEvent } from '../lib/paddle/sandboxCheckoutController'
@@ -17,6 +21,14 @@ type LinkRetrievalState =
   | { kind: 'loading' }
   | { kind: 'found'; url: string }
   | { kind: 'not-found' }
+
+type CodeRetrievalState =
+  | { kind: 'idle' }
+  | { kind: 'loading' }
+  | { kind: 'found'; code: string }
+  | { kind: 'not-found' }
+
+type OtpVerifyState = { kind: 'idle' } | { kind: 'verifying' } | { kind: 'failed' }
 
 type EntitlementCheckState =
   | { kind: 'idle' }
@@ -48,6 +60,13 @@ export default function AccountTestPage() {
   const [requestedEmail, setRequestedEmail] = useState<string | null>(null)
   const [requestingLink, setRequestingLink] = useState(false)
   const [linkRetrieval, setLinkRetrieval] = useState<LinkRetrievalState>({ kind: 'idle' })
+  const [otpEmail, setOtpEmail] = useState('')
+  const [otpRequestedEmail, setOtpRequestedEmail] = useState<string | null>(null)
+  const [requestingCode, setRequestingCode] = useState(false)
+  const [codeRetrieval, setCodeRetrieval] = useState<CodeRetrievalState>({ kind: 'idle' })
+  const [otpChallenge, setOtpChallenge] = useState<string | null>(null)
+  const [otpCode, setOtpCode] = useState('')
+  const [otpVerify, setOtpVerify] = useState<OtpVerifyState>({ kind: 'idle' })
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
   const [hasIntent, setHasIntent] = useState(false)
   const [entitlementCheck, setEntitlementCheck] = useState<EntitlementCheckState>({ kind: 'idle' })
@@ -122,6 +141,52 @@ export default function AccountTestPage() {
     setLinkRetrieval({ kind: 'loading' })
     const url = await fetchDevHarnessMagicLink(apiBase, requestedEmail)
     setLinkRetrieval(url ? { kind: 'found', url } : { kind: 'not-found' })
+  }
+
+  // Automated dev/Sandbox browser-smoke coverage for the OTP flow --
+  // mirrors the Magic Link section above exactly (request -> dev-only
+  // retrieve -> use), but the code is entered and verified inline here
+  // rather than followed as a link, since verify-code.php's contract
+  // needs both the opaque challenge AND the typed code, not just a URL.
+  async function handleRequestCode() {
+    if (!apiBase || !otpEmail || requestingCode) return
+    setRequestingCode(true)
+    setOtpRequestedEmail(null)
+    setCodeRetrieval({ kind: 'idle' })
+    setOtpChallenge(null)
+    setOtpCode('')
+    setOtpVerify({ kind: 'idle' })
+    try {
+      const challenge = await requestLoginCode(apiBase, otpEmail)
+      setOtpRequestedEmail(otpEmail)
+      if (challenge) setOtpChallenge(challenge)
+    } finally {
+      setRequestingCode(false)
+    }
+  }
+
+  async function handleRetrieveCode() {
+    if (!apiBase || !otpRequestedEmail) return
+    setCodeRetrieval({ kind: 'loading' })
+    const code = await fetchDevHarnessLoginCode(apiBase, otpRequestedEmail)
+    setCodeRetrieval(code ? { kind: 'found', code } : { kind: 'not-found' })
+    if (code) setOtpCode(code)
+  }
+
+  async function handleVerifyCode() {
+    if (!apiBase || !otpChallenge || !otpCode) return
+    setOtpVerify({ kind: 'verifying' })
+    const result = await verifyLoginCode(apiBase, otpChallenge, otpCode)
+    if (!result) {
+      setOtpVerify({ kind: 'failed' })
+      return
+    }
+    inMemorySessionTransport.setToken(result.sessionToken)
+    setOtpVerify({ kind: 'idle' })
+    setOtpChallenge(null)
+    setOtpCode('')
+    setOtpRequestedEmail(null)
+    await refreshCurrentUser()
   }
 
   async function handleCreatePurchaseIntent() {
@@ -235,6 +300,81 @@ export default function AccountTestPage() {
               )}
               {linkRetrieval.kind === 'not-found' && (
                 <p role="alert">No pending link found. The dev harness may be disabled, or the link may have already been used/expired.</p>
+              )}
+            </div>
+          )}
+        </section>
+      )}
+
+      {!currentUser && (
+        <section className="flex flex-col gap-3 border-t border-neutral-300 pt-5 dark:border-neutral-700">
+          <h2 className="text-lg font-semibold">1b. Request a test 6-digit sign-in code</h2>
+          <p className="text-sm text-neutral-600 dark:text-neutral-400">
+            Requires EMAIL_CODE_AUTH_ENABLED and DEV_HARNESS_ENABLED on the server -- otherwise no code will ever be
+            retrievable below, matching Production's own capability-detection fallback to Magic Link.
+          </p>
+          <label className="flex flex-col gap-1 text-sm">
+            Test code recipient
+            <input
+              type="email"
+              value={otpEmail}
+              onChange={(event) => setOtpEmail(event.target.value)}
+              className="rounded-lg border border-neutral-400 px-3 py-2 dark:border-neutral-600 dark:bg-neutral-800"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => void handleRequestCode()}
+            disabled={!otpEmail || requestingCode}
+            className="self-start rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {requestingCode ? 'Requesting…' : 'Request test code'}
+          </button>
+
+          {requestingCode && <p role="status">Requesting test code…</p>}
+
+          {otpRequestedEmail && (
+            <div className="flex flex-col gap-2">
+              <p role="status">
+                Code requested for {otpRequestedEmail}. Dev-only: retrieve it below (requires DEV_HARNESS_ENABLED on
+                the server).
+              </p>
+              <button
+                type="button"
+                onClick={() => void handleRetrieveCode()}
+                disabled={codeRetrieval.kind === 'loading'}
+                className="self-start rounded-xl border border-neutral-400 px-5 py-3 font-semibold hover:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-neutral-600"
+              >
+                Retrieve test code
+              </button>
+              {codeRetrieval.kind === 'not-found' && (
+                <p role="alert">No pending code found. The dev harness may be disabled, or the code may have already been used/expired.</p>
+              )}
+              {otpChallenge && (
+                <>
+                  <label className="flex flex-col gap-1 text-sm">
+                    6-digit code
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      value={otpCode}
+                      onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                      className="rounded-lg border border-neutral-400 px-3 py-2 dark:border-neutral-600 dark:bg-neutral-800"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => void handleVerifyCode()}
+                    disabled={otpCode.length !== 6 || otpVerify.kind === 'verifying'}
+                    className="self-start rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {otpVerify.kind === 'verifying' ? 'Verifying…' : 'Verify test code'}
+                  </button>
+                  {otpVerify.kind === 'failed' && (
+                    <p role="alert">Invalid or expired code. Please request a new code.</p>
+                  )}
+                </>
               )}
             </div>
           )}

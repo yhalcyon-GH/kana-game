@@ -1,9 +1,15 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useEntitlement } from '../components/EntitlementContext'
-import { logout } from '../lib/auth/productionAuthClient'
+import { logout, signOutOtherBrowsers } from '../lib/auth/productionAuthClient'
 import { readProductionAuthApiBase } from '../lib/auth/productionAuthApiBase'
 import { useProductionSandboxPurchase } from '../hooks/useProductionSandboxPurchase'
+
+type PurchaseStatus = ReturnType<typeof useProductionSandboxPurchase>['status']
+
+function confirmingStatus(status: PurchaseStatus): boolean {
+  return status === 'processing' || status === 'still-confirming'
+}
 
 /**
  * Production account page — current signed-in user (resolved via the
@@ -26,6 +32,40 @@ export default function AccountPage() {
   // replaced -- never accumulated -- by the next manual refresh's outcome.
   const [inactiveRefreshNotice, setInactiveRefreshNotice] = useState(false)
   const [logoutStatus, setLogoutStatus] = useState<'idle' | 'signing-out' | 'failed'>('idle')
+  const [signOutOthersStatus, setSignOutOthersStatus] = useState<'idle' | 'working' | 'done' | 'no-persistent-session' | 'failed'>('idle')
+  const [signOutOthersRevoked, setSignOutOthersRevoked] = useState(0)
+
+  // "Full Access unlocked. Thank you!" is a ONE-TIME transition message --
+  // shown only when THIS session watched confirmation (purchase.status was
+  // processing/still-confirming) resolve to active, never on a cold load
+  // that's already active (an already-paid returning user just sees the
+  // plain "Full Access: Active" state below, with no unlock fanfare).
+  const [justUnlocked, setJustUnlocked] = useState(false)
+  const wasConfirmingRef = useRef(confirmingStatus(purchase.status))
+  useEffect(() => {
+    if (wasConfirmingRef.current && state.status === 'active') setJustUnlocked(true)
+    wasConfirmingRef.current = confirmingStatus(purchase.status)
+  }, [state.status, purchase.status])
+
+  async function handleSignOutOthers() {
+    if (signOutOthersStatus === 'working' || !apiBase) return
+    setSignOutOthersStatus('working')
+    const result = await signOutOtherBrowsers(apiBase)
+    if (result.kind === 'ok') {
+      setSignOutOthersRevoked(result.revoked)
+      setSignOutOthersStatus('done')
+      return
+    }
+    if (result.kind === 'signed-out') {
+      markSignedOut()
+      return
+    }
+    if (result.kind === 'no-persistent-session') {
+      setSignOutOthersStatus('no-persistent-session')
+      return
+    }
+    setSignOutOthersStatus('failed')
+  }
 
   async function handleLogout() {
     if (logoutStatus === 'signing-out') return
@@ -77,7 +117,7 @@ export default function AccountPage() {
   }
 
   const currentUser = state.user
-  const confirming = purchase.status === 'processing' || purchase.status === 'still-confirming'
+  const confirming = confirmingStatus(purchase.status)
   const checkoutBusy = purchase.status === 'preparing' || purchase.status === 'open'
   const buttonClass = 'w-full rounded-xl border border-neutral-400 px-5 py-3 font-semibold hover:border-blue-500 dark:border-neutral-600'
   // Phase H2: copy is derived from the resolved config's own environment,
@@ -106,10 +146,18 @@ export default function AccountPage() {
       )}
 
       {state.status === 'active' ? (
-        <p role="status">Full Access: Active</p>
+        <>
+          <p role="status">Full Access: Active</p>
+          {justUnlocked && <p role="status">Full Access unlocked. Thank you!</p>}
+        </>
       ) : confirming ? (
         <>
           <p role="status">{purchase.status === 'processing' ? 'Processing purchase…' : 'Still confirming your purchase'}</p>
+          <p role="status">
+            {purchase.status === 'processing'
+              ? 'Payment complete. Activating Full Access…'
+              : 'Payment was completed, but Full Access is still being activated. Please try again shortly.'}
+          </p>
           {purchase.status === 'still-confirming' && (
             <button type="button" onClick={purchase.retry} className={buttonClass}>Retry</button>
           )}
@@ -123,6 +171,13 @@ export default function AccountPage() {
       ) : (
         <section aria-labelledby="full-tamamizu" className="flex w-full flex-col gap-4 text-center">
           <h2 id="full-tamamizu" className="text-xl font-semibold">Full Access</h2>
+          <div className="flex flex-wrap items-center justify-center gap-x-2 font-semibold">
+            <span>$5 USD + tax</span>
+            <span aria-hidden="true">·</span>
+            <span>One-time purchase</span>
+            <span aria-hidden="true">·</span>
+            <span>No subscription</span>
+          </div>
           <p>
             Base price: USD 5.00. Applicable taxes may be included in or added to the price depending on your
             location. The final price is shown at checkout.
@@ -170,6 +225,39 @@ export default function AccountPage() {
         <p role="alert" className="rounded-xl border border-amber-500 p-4 text-center">
           Couldn’t sign out. Please try again.
         </p>
+      )}
+
+      {currentUser && (
+        <section aria-labelledby="signed-in-devices" className="flex w-full flex-col gap-3 border-t border-neutral-300 pt-5 text-center dark:border-neutral-700">
+          <h2 id="signed-in-devices" className="text-lg font-semibold">Signed-in browsers &amp; devices</h2>
+          <p className="text-sm text-neutral-600 dark:text-neutral-300">
+            You can stay signed in on up to 3 browsers or devices. Signing in on another one automatically signs out
+            the least recently used one.
+          </p>
+          <button
+            type="button"
+            disabled={signOutOthersStatus === 'working'}
+            onClick={() => void handleSignOutOthers()}
+            className={`${buttonClass} disabled:cursor-not-allowed disabled:opacity-50`}
+          >
+            {signOutOthersStatus === 'working' ? 'Signing out other browsers…' : 'Sign out other browsers'}
+          </button>
+          {signOutOthersStatus === 'done' && (
+            <p role="status">
+              {signOutOthersRevoked > 0
+                ? `Signed out ${signOutOthersRevoked} other browser${signOutOthersRevoked === 1 ? '' : 's'}.`
+                : 'No other browsers were signed in.'}
+            </p>
+          )}
+          {signOutOthersStatus === 'no-persistent-session' && (
+            <p role="status">This browser isn’t currently one of your remembered browsers.</p>
+          )}
+          {signOutOthersStatus === 'failed' && (
+            <p role="alert" className="rounded-xl border border-amber-500 p-4 text-center">
+              Couldn’t sign out other browsers. Please try again.
+            </p>
+          )}
+        </section>
       )}
     </div>
   )

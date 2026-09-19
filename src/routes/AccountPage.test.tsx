@@ -71,6 +71,7 @@ beforeEach(() => {
     if (url.endsWith('/entitlement-me.php')) return json(entitlement)
     if (url.endsWith('/purchase-intent.php')) return json({ purchase_ref: privateRef, environment: 'sandbox' })
     if (url.endsWith('/auth/logout.php')) return json({ ok: true })
+    if (url.endsWith('/auth/sign-out-others.php')) return json({ status: 'ok', revoked: 1 })
     throw new Error('Unexpected request')
   })
   vi.stubGlobal('fetch', fetchMock)
@@ -348,5 +349,58 @@ describe('production Account purchase UI', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Sign out' }))
     await act(async () => {})
     assertPrivate()
+  })
+
+  // -- Issue #302: Full Access checkout copy + Signed-in browsers & devices --
+
+  it('shows the required pricing/terms copy for Full Access', async () => {
+    await renderAccount()
+    expect(screen.getByText('$5 USD + tax')).toBeInTheDocument()
+    expect(screen.getByText('One-time purchase')).toBeInTheDocument()
+    expect(screen.getByText('No subscription')).toBeInTheDocument()
+  })
+
+  it('shows the exact activation copy while confirming, and the delayed-activation copy once still-confirming', async () => {
+    await renderAccount()
+    await start()
+    await complete()
+    expect(screen.getByText('Payment complete. Activating Full Access…')).toBeInTheDocument()
+    await act(async () => { await vi.advanceTimersByTimeAsync(30_000) })
+    expect(screen.getByText('Payment was completed, but Full Access is still being activated. Please try again shortly.')).toBeInTheDocument()
+  })
+
+  it('shows "Full Access unlocked. Thank you!" only after watching confirmation resolve to active, never on a cold already-active load', async () => {
+    await renderAccount()
+    await start()
+    entitlement = { active: true }
+    await complete()
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000) })
+    expect(screen.getByText('Full Access: Active')).toBeInTheDocument()
+    expect(screen.getByText('Full Access unlocked. Thank you!')).toBeInTheDocument()
+  })
+
+  it('does not show the unlock message for an already-active account on a fresh load', async () => {
+    entitlement = { active: true }
+    await renderAccount()
+    expect(screen.getByText('Full Access: Active')).toBeInTheDocument()
+    expect(screen.queryByText('Full Access unlocked. Thank you!')).not.toBeInTheDocument()
+  })
+
+  it('offers "Signed-in browsers & devices" with the approved max-3/LRU copy and reports how many were revoked', async () => {
+    await renderAccount()
+    expect(screen.getByRole('heading', { name: 'Signed-in browsers & devices' })).toBeInTheDocument()
+    expect(screen.getByText(
+      'You can stay signed in on up to 3 browsers or devices. Signing in on another one automatically signs out the least recently used one.',
+    )).toBeInTheDocument()
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Sign out other browsers' })) })
+    expect(requestCount('/auth/sign-out-others.php')).toBe(1)
+    expect(screen.getByText('Signed out 1 other browser.')).toBeInTheDocument()
+  })
+
+  it('reports a server failure signing out other browsers without claiming success', async () => {
+    await renderAccount()
+    fetchMock.mockReturnValueOnce(Promise.resolve(json({}, 500)))
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Sign out other browsers' })) })
+    expect(screen.getByRole('alert')).toHaveTextContent('Couldn’t sign out other browsers. Please try again.')
   })
 })

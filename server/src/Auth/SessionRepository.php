@@ -19,17 +19,38 @@ final class SessionRepository
     {
     }
 
-    public function create(string $userId, string $rawToken, \DateTimeImmutable $expiresAt): void
+    public function create(string $userId, string $rawToken, \DateTimeImmutable $expiresAt, ?int $persistentSessionId = null): void
     {
         $statement = $this->pdo->prepare(
-            'INSERT INTO sessions (token_hash, user_id, expires_at, created_at, last_seen_at)
-             VALUES (:token_hash, :user_id, :expires_at, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)',
+            'INSERT INTO sessions (token_hash, user_id, expires_at, persistent_session_id, created_at, last_seen_at)
+             VALUES (:token_hash, :user_id, :expires_at, :persistent_session_id, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)',
         );
         $statement->execute([
             'token_hash' => hash('sha256', $rawToken),
             'user_id' => $userId,
             'expires_at' => $expiresAt->format('Y-m-d H:i:s'),
+            'persistent_session_id' => $persistentSessionId,
         ]);
+    }
+
+    /**
+     * Application-level cascade: when a persistent_sessions row is
+     * revoked or LRU-evicted, every sessions row it minted (via the
+     * session-refresh path in CurrentUserService::resolveOrRefresh(), or
+     * the one created alongside it at OTP-verify time) is revoked too --
+     * same explicit-revocation audit pattern as the rest of this schema,
+     * not a DB-level cascade delete. A no-op for any sessions row with no
+     * link (persistent_session_id IS NULL is never matched by the
+     * equality comparison below).
+     */
+    public function revokeByPersistentSessionId(int $persistentSessionId): void
+    {
+        $nowExpression = $this->nowExpression();
+        $statement = $this->pdo->prepare(
+            "UPDATE sessions SET revoked_at = {$nowExpression}
+             WHERE persistent_session_id = :persistent_session_id AND revoked_at IS NULL",
+        );
+        $statement->execute(['persistent_session_id' => $persistentSessionId]);
     }
 
     public function findActiveUserIdForRawToken(string $rawToken): ?string

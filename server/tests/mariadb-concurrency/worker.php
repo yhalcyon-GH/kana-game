@@ -43,6 +43,8 @@ $barrier = new Barrier($barrierDir);
 $result = match ($scenario) {
     'verify' => scenarioVerify($pdo, $args, $barrier, $workerId),
     'webhook' => scenarioWebhook($pdo, $args, $barrier, $workerId),
+    'otp_verify' => scenarioOtpVerify($pdo, $args, $barrier, $workerId),
+    'otp_attempt_race' => scenarioOtpAttemptRace($pdo, $args, $barrier, $workerId),
     default => ['error' => "unknown scenario: {$scenario}"],
 };
 

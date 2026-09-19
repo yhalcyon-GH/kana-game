@@ -48,8 +48,16 @@ report for what was found and what remains as follow-up work.
   worker has signaled ready. This is what makes each worker's racy operation
   actually start at (as close as this mechanism can guarantee) the same
   moment, rather than relying on guessed sleep offsets.
-- `scenarios.php` — one function per scenario (A, B, C1–C4), each run inside a
-  worker process against that worker's own dedicated `PDO` connection.
+- `scenarios.php` — one function per scenario (A, B, C1–C4, D, E, F), each run
+  inside a worker process against that worker's own dedicated `PDO`
+  connection. D: same OTP challenge/code raced across 3 workers — exactly
+  one verifyCode() succeeds. E: a user at the 3-persistent-session cap, two
+  concurrent 4th-login verifyCode() calls with distinct challenges — both
+  succeed, the LRU row is evicted, and the active count never exceeds the
+  cap. F: 8 concurrent WRONG-code guesses raced against one challenge with
+  LOGIN_CODE_MAX_ATTEMPTS=5 — exactly 5 are accepted (incorrect_code), the
+  rest are rejected as attempts_exhausted, `attempts` never exceeds 5, and
+  the correct code no longer succeeds once the budget is spent.
 - `worker.php` — the actual separate-process entrypoint (`proc_open`s this,
   never calls a scenario function in-process). Reads scenario args from a
   per-iteration JSON file (never argv, never stdout) so raw secret values

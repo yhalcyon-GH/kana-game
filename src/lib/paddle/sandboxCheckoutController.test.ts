@@ -47,6 +47,22 @@ describe('Sandbox checkout controller', () => {
     expect(f.loadPaddle).toHaveBeenCalledTimes(1)
   })
 
+  it('prefills the authenticated email as a customer hint, never as part of custom_data/correlation', async () => {
+    const f = fixture()
+    await f.prepare('private-ref')
+    await f.controller.open('learner@example.com')
+    const options = f.open.mock.calls[0][0]
+    expect(options.customer).toEqual({ email: 'learner@example.com' })
+    expect(options.customData).toEqual({ purchase_ref: 'private-ref' })
+  })
+
+  it('omits customer entirely when no email is known, rather than sending an empty value', async () => {
+    const f = fixture()
+    await f.prepare('private-ref')
+    await f.controller.open()
+    expect(f.open.mock.calls[0][0]).not.toHaveProperty('customer')
+  })
+
   it('makes promo-code entry explicit without changing or exposing correlation data', async () => {
     const f = fixture()
     await f.prepare('private-ref')

@@ -95,6 +95,17 @@ final class Config
             'RESEND_API_KEY',
             'MAGIC_LINK_FROM_EMAIL',
             'MAGIC_LINK_FROM_NAME',
+
+            // --- Email OTP + persistent login ("remember this browser") ---
+            'LOGIN_CODE_PEPPER',
+            'EMAIL_CODE_AUTH_ENABLED',
+            'LOGIN_CODE_TTL_MINUTES',
+            'LOGIN_CODE_MAX_ATTEMPTS',
+            'LOGIN_CODE_EMAIL_PER_HOUR',
+            'LOGIN_CODE_IP_PER_HOUR',
+            'PERSISTENT_LOGIN_DAYS',
+            'MAX_PERSISTENT_SESSIONS',
+            'PERSISTENT_LOGIN_COOKIE_NAME',
         ];
 
         $values = [];

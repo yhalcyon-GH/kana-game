@@ -50,6 +50,7 @@ function makePurchaseIntentEndpointHarness(string $serverEnvironment): array
             user_id TEXT NOT NULL,
             expires_at TEXT NOT NULL,
             revoked_at TEXT NULL,
+            persistent_session_id INTEGER NULL,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )',

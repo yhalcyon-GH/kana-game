@@ -8,6 +8,9 @@ import {
   fetchCurrentEntitlement,
   logout,
   fetchDevHarnessMagicLink,
+  requestLoginCode,
+  verifyLoginCode,
+  fetchDevHarnessLoginCode,
 } from './authClient'
 
 const API_BASE = 'https://api.example.com'
@@ -174,5 +177,62 @@ describe('fetchDevHarnessMagicLink', () => {
   it('returns null when the harness is disabled (403) or no link is pending (404)', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ error: 'dev harness disabled' }), { status: 403 }))
     expect(await fetchDevHarnessMagicLink(API_BASE, 'user@example.com')).toBeNull()
+  })
+})
+
+describe('requestLoginCode', () => {
+  it('POSTs the email to request-code.php and returns the issued challenge', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ status: 'ok', challenge: 'opaque-challenge' }), { status: 200 }))
+
+    const result = await requestLoginCode(API_BASE, 'a@example.com')
+
+    expect(fetch).toHaveBeenCalledWith(`${API_BASE}/auth/request-code.php`, expect.objectContaining({
+      method: 'POST', body: JSON.stringify({ email: 'a@example.com' }),
+    }))
+    expect(result).toBe('opaque-challenge')
+  })
+
+  it('returns null when no challenge is issued (enumeration-safe response)', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ status: 'ok' }), { status: 200 }))
+    expect(await requestLoginCode(API_BASE, 'a@example.com')).toBeNull()
+  })
+})
+
+describe('verifyLoginCode', () => {
+  it('POSTs the challenge and code (Bearer mode) and returns the session token/user', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({
+      session_token: 'raw-session', persistent_token: 'raw-persistent',
+      user: { user_id: 'u1', email_normalized: 'a@example.com' },
+    }), { status: 200 }))
+
+    const result = await verifyLoginCode(API_BASE, 'opaque-challenge', '012345')
+
+    expect(fetch).toHaveBeenCalledWith(`${API_BASE}/auth/verify-code.php`, expect.objectContaining({
+      method: 'POST', body: JSON.stringify({ challenge: 'opaque-challenge', code: '012345' }),
+    }))
+    expect(result).toEqual({ sessionToken: 'raw-session', userId: 'u1', emailNormalized: 'a@example.com' })
+  })
+
+  it('returns null for an invalid/expired code, never throws', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ error: 'invalid or expired code' }), { status: 400 }))
+    expect(await verifyLoginCode(API_BASE, 'opaque-challenge', '000000')).toBeNull()
+  })
+})
+
+describe('fetchDevHarnessLoginCode', () => {
+  it('GETs the dev-only endpoint with the email as a query param and returns the login_code', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ login_code: '012345' }), { status: 200 }))
+
+    const result = await fetchDevHarnessLoginCode(API_BASE, 'user@example.com')
+
+    const [url] = vi.mocked(fetch).mock.calls[0]
+    expect(url).toContain('/dev-only/last-login-code.php')
+    expect(url).toContain('email=user%40example.com')
+    expect(result).toBe('012345')
+  })
+
+  it('returns null when the harness is disabled (403) or no code is pending (404)', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ error: 'dev harness disabled' }), { status: 403 }))
+    expect(await fetchDevHarnessLoginCode(API_BASE, 'user@example.com')).toBeNull()
   })
 })

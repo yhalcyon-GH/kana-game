@@ -30,6 +30,14 @@ test('production /verify renders the production verify page, never the dev harne
 })
 
 test('production exposes the new /login and /account routes', async ({ page }) => {
+  // This test only proves the routes render (not 404) -- the OTP-vs-
+  // Magic-Link UI split itself is covered deterministically by
+  // login-otp.e2e.js. Force the Magic Link fallback here so the
+  // asserted "Sign in" heading is the final, settled UI state, not a
+  // transient "checking capability" heading that a real async
+  // capabilities.php fetch can race past before Playwright observes it
+  // (that race made this test flaky against the OTP-enabled default).
+  await installProductionAuthFixture(page, 'active', { emailCodeAuth: false })
   await page.goto('./#/login')
   let skip = page.getByRole('button', { name: 'Skip', exact: true })
   if (await skip.isVisible()) await skip.click()
@@ -71,4 +79,22 @@ test('active production Account has no purchase CTA at 320px', async ({ page }) 
   await expect(page.getByRole('button', { name: /purchase/i })).toHaveCount(0)
   const hasOverflow = await page.locator('body').evaluate((body) => body.scrollWidth > body.clientWidth)
   expect(hasOverflow).toBe(false)
+})
+
+test('Account exposes "Signed-in browsers & devices" with the approved max-3/LRU copy, and Sign out other browsers works, at 320px', async ({ page }) => {
+  await installProductionAuthFixture(page, 'active')
+  await page.setViewportSize({ width: 320, height: 800 })
+  await page.goto('./#/account')
+  const skip = page.getByRole('button', { name: 'Skip', exact: true })
+  if (await skip.isVisible()) await skip.click()
+
+  await expect(page.getByRole('heading', { name: 'Signed-in browsers & devices' })).toBeVisible()
+  await expect(page.getByText(
+    'You can stay signed in on up to 3 browsers or devices. Signing in on another one automatically signs out the least recently used one.',
+  )).toBeVisible()
+  const hasOverflow = await page.locator('body').evaluate((body) => body.scrollWidth > body.clientWidth)
+  expect(hasOverflow).toBe(false)
+
+  await page.getByRole('button', { name: 'Sign out other browsers' }).click()
+  await expect(page.getByText('Signed out 1 other browser.')).toBeVisible()
 })

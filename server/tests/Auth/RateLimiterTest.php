@@ -237,5 +237,27 @@ function rateLimiterTests(): array
             )->fetchColumn();
             assertSame(1, $count, 'exactly one row must exist for this identifier no matter how many times the first-call path runs');
         },
+
+        'checkAndRecordLoginCodeEmail() uses a separate bucket/limit from checkAndRecordEmail()' => function () {
+            $pdo = makeRateLimitTestDb();
+            $limiter = new RateLimiter($pdo, 'test-pepper', 5, 20, 3, 10);
+
+            for ($i = 0; $i < 3; $i++) {
+                assertTrue($limiter->checkAndRecordLoginCodeEmail('otp@example.com'), "login-code attempt {$i} should be under its own 3/hour limit");
+            }
+            assertFalse($limiter->checkAndRecordLoginCodeEmail('otp@example.com'), 'the 4th login-code request for this email must be blocked by the login-code bucket, not the magic-link bucket');
+
+            assertTrue($limiter->checkAndRecordEmail('otp@example.com'), 'the magic-link email bucket must be independent of the login-code email bucket');
+        },
+
+        'checkAndRecordLoginCodeIp() uses a separate bucket/limit from checkAndRecordIp()' => function () {
+            $pdo = makeRateLimitTestDb();
+            $limiter = new RateLimiter($pdo, 'test-pepper', 5, 20, 3, 10);
+
+            for ($i = 0; $i < 10; $i++) {
+                assertTrue($limiter->checkAndRecordLoginCodeIp('203.0.113.5'), "login-code IP attempt {$i} should be under its own 10/hour limit");
+            }
+            assertFalse($limiter->checkAndRecordLoginCodeIp('203.0.113.5'), 'the 11th login-code request from this IP must be blocked');
+        },
     ];
 }

@@ -103,5 +103,17 @@ function configTests(): array
                 putenv('PADDLE_FULL_TAMAMIZU_PRODUCT_ID');
             }
         },
+
+        'Config::load()\'s whitelist includes every new email-OTP/persistent-login key' => function () {
+            // fromArray() bypasses the whitelist entirely (see Config::fromArray()'s
+            // own doc comment: "bypassing env/file loading entirely"), so this test
+            // instead drives load() itself via a real env var for one representative
+            // new key, proving the key is actually in Config::load()'s $keys array --
+            // fromArray() would pass even if the key were missing from that array.
+            putenv('LOGIN_CODE_PEPPER=test-only-pepper-value');
+            $config = \KanaGame\Paddle\Config::load();
+            putenv('LOGIN_CODE_PEPPER'); // unset for subsequent tests
+            assertSame('test-only-pepper-value', $config->get('LOGIN_CODE_PEPPER'), 'LOGIN_CODE_PEPPER must be loadable via Config::load(), not just Config::fromArray()');
+        },
     ];
 }

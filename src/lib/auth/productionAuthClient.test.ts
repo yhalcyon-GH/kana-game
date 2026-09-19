@@ -1,12 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   createPurchaseIntent,
+  fetchAuthCapabilities,
   fetchCurrentEntitlement,
   fetchCurrentEntitlementResult,
   fetchCurrentUser,
   fetchCurrentUserResult,
   logout,
+  requestLoginCode,
   requestMagicLink,
+  signOutOtherBrowsers,
+  verifyLoginCode,
   verifyMagicLinkToken,
 } from './productionAuthClient'
 
@@ -190,5 +194,93 @@ describe('productionAuthClient', () => {
 
     await expect(logout(API_BASE)).resolves.toEqual({ kind: 'unavailable' })
     await expect(logout(API_BASE)).resolves.toEqual({ kind: 'unavailable' })
+  })
+
+  it('fetchAuthCapabilities() reads the public probe with no credentials', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({ email_code_auth: true }))
+    expect(await fetchAuthCapabilities(API_BASE)).toEqual({ kind: 'available', emailCodeAuth: true })
+    expect(fetch).toHaveBeenCalledWith(`${API_BASE}/auth/capabilities.php`)
+  })
+
+  it.each([
+    [false, 200, { email_code_auth: 'not-a-boolean' }],
+    [false, 404, {}],
+    [false, 500, {}],
+  ])('fetchAuthCapabilities() treats malformed/failed responses as unavailable (ok=%s, status=%s)', async (ok, status, body) => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse(body, ok as boolean, status as number))
+    expect(await fetchAuthCapabilities(API_BASE)).toEqual({ kind: 'unavailable' })
+  })
+
+  it('fetchAuthCapabilities() treats a network failure as unavailable, never throwing', async () => {
+    vi.mocked(fetch).mockRejectedValueOnce(new Error('network down'))
+    await expect(fetchAuthCapabilities(API_BASE)).resolves.toEqual({ kind: 'unavailable' })
+  })
+
+  it('requestLoginCode() posts the email with no credentials and returns the issued challenge', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({ status: 'ok', challenge: 'opaque-challenge' }))
+    expect(await requestLoginCode(API_BASE, 'a@example.com')).toEqual({ kind: 'issued', challenge: 'opaque-challenge' })
+    expect(fetch).toHaveBeenCalledWith(`${API_BASE}/auth/request-code.php`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'a@example.com' }),
+    })
+  })
+
+  it('requestLoginCode() reports not-issued for the enumeration-safe "no challenge" response, indistinguishable from rate-limiting', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({ status: 'ok' }))
+    expect(await requestLoginCode(API_BASE, 'a@example.com')).toEqual({ kind: 'not-issued' })
+  })
+
+  it('requestLoginCode() reports unavailable for a non-ok response or network failure', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(jsonResponse({}, false, 404))
+      .mockRejectedValueOnce(new Error('network down'))
+    expect(await requestLoginCode(API_BASE, 'a@example.com')).toEqual({ kind: 'unavailable' })
+    expect(await requestLoginCode(API_BASE, 'a@example.com')).toEqual({ kind: 'unavailable' })
+  })
+
+  it('verifyLoginCode() posts the challenge and code with credentials: "include"', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({ user: { user_id: 'u1', email_normalized: 'a@example.com' } }))
+    const result = await verifyLoginCode(API_BASE, 'opaque-challenge', '012345')
+    expect(fetch).toHaveBeenCalledWith(`${API_BASE}/auth/verify-code.php`, {
+      method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ challenge: 'opaque-challenge', code: '012345' }),
+    })
+    expect(result).toEqual({ kind: 'authenticated', user: { userId: 'u1', emailNormalized: 'a@example.com' } })
+  })
+
+  it('verifyLoginCode() reports invalid (never a distinguishable reason) for a 400 -- wrong/expired code must never trigger Magic Link fallback', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({ error: 'invalid or expired code' }, false, 400))
+    expect(await verifyLoginCode(API_BASE, 'opaque-challenge', '000000')).toEqual({ kind: 'invalid' })
+  })
+
+  it.each([403, 429, 500])('verifyLoginCode() reports unavailable for HTTP %s', async (status) => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({}, false, status))
+    expect(await verifyLoginCode(API_BASE, 'opaque-challenge', '000000')).toEqual({ kind: 'unavailable' })
+  })
+
+  it('verifyLoginCode() reports unavailable on a network failure', async () => {
+    vi.mocked(fetch).mockRejectedValueOnce(new Error('network down'))
+    await expect(verifyLoginCode(API_BASE, 'opaque-challenge', '000000')).resolves.toEqual({ kind: 'unavailable' })
+  })
+
+  it('signOutOtherBrowsers() posts with credentials: "include" and reports the revoked count', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({ status: 'ok', revoked: 2 }))
+    expect(await signOutOtherBrowsers(API_BASE)).toEqual({ kind: 'ok', revoked: 2 })
+    expect(fetch).toHaveBeenCalledWith(`${API_BASE}/auth/sign-out-others.php`, { method: 'POST', credentials: 'include' })
+  })
+
+  it('signOutOtherBrowsers() distinguishes signed-out (401) from no-persistent-session (400)', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(jsonResponse({ error: 'unauthorized' }, false, 401))
+      .mockResolvedValueOnce(jsonResponse({ error: 'no persistent session on this browser' }, false, 400))
+    expect(await signOutOtherBrowsers(API_BASE)).toEqual({ kind: 'signed-out' })
+    expect(await signOutOtherBrowsers(API_BASE)).toEqual({ kind: 'no-persistent-session' })
+  })
+
+  it('signOutOtherBrowsers() reports unavailable for a server error or network failure', async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(jsonResponse({}, false, 500))
+      .mockRejectedValueOnce(new Error('network down'))
+    expect(await signOutOtherBrowsers(API_BASE)).toEqual({ kind: 'unavailable' })
+    expect(await signOutOtherBrowsers(API_BASE)).toEqual({ kind: 'unavailable' })
   })
 })
