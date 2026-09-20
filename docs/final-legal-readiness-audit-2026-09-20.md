@@ -33,11 +33,9 @@ Current official sources checked on 2026-09-20:
 
 The previously approved public identity is retained: **Tamamizu** is the public-facing supplier/operator and product/service name. `GigaNihongo` remains an underlying technical/umbrella identity and may appear in infrastructure or payment records, but it is not used as the public operator name in Tamamizu's Terms, Privacy, or Support pages. No private legal name or home address is published.
 
-### 2. Support telephone/contact requirements
+### 2. Support telephone/contact requirements — decided and implemented
 
-Paddle's Seller Handbook currently says buyer support details should include email and phone number. Tamamizu currently publishes an email address but no phone number.
-
-**Human decision required:** confirm with Paddle/current account requirements whether a telephone number must be publicly displayed for this seller/account, and if so choose the public support number to publish. Do not invent or expose a private phone number.
+Paddle's Seller Handbook currently says buyer support details should include email and phone number. The human operator supplied a dedicated Thai support number for public use. The Support page now publishes it in international format alongside the existing support email.
 
 ### 3. Explicit acceptance of supplier Terms / Refund Policy
 
@@ -75,9 +73,8 @@ Before final legal approval, the human operator should confirm the real Producti
 
 A human should not approve launch until the following are intentionally decided:
 
-1. Public support phone requirement/number, because Paddle's current Seller Handbook asks sellers to publish buyer-support email **and phone** and no public phone number has been approved.
-2. Final Terms/refund acceptance mechanism at checkout; the current UI links the policies but does not yet record an explicit acceptance action.
-3. Final review of the resulting public Terms, Privacy Policy, Refund Policy, Support page, and purchase acceptance UX.
-4. Final GO/NO-GO.
+1. Final Terms/refund acceptance mechanism at checkout; the current UI links the policies but does not yet record an explicit acceptance action.
+2. Final review of the resulting public Terms, Privacy Policy, Refund Policy, Support page, and purchase acceptance UX.
+3. Final GO/NO-GO.
 
 Once those choices are supplied, implementation of the approved wording is ordinary code work and can be completed/tested by AI.
