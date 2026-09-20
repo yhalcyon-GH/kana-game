@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "current_main_sha": "761558bbb28fa3175843538aa05e63d17bce6987",
+  "current_main_sha": "7dbcb7fc0e72af2187aede5fd7267971a28230a5",
   "latest_completed_work": {
-    "kind": "legal_public_copy",
-    "number": 328,
-    "title": "Apply prior Tamamizu legal identity, support phone, and Paddle wording",
+    "kind": "legal_checkout_acceptance",
+    "number": 330,
+    "title": "Require explicit Terms and refund acceptance before checkout",
     "merged_at": "2026-09-20"
   },
   "open_prs": [
@@ -15,23 +15,23 @@
     }
   ],
   "active_work_item": {
-    "id": "explicit-checkout-policy-acceptance",
-    "issue_number": 329,
-    "branch": "legal/explicit-checkout-policy-acceptance",
+    "id": "final-human-approval-and-go-no-go",
+    "issue_number": null,
+    "branch": null,
     "pull_request_number": null,
-    "status": "implementation_in_progress",
-    "goal": "Require an explicit unchecked Terms & Conditions + Refund Policy acceptance before Paddle Checkout can start, without persisting acceptance or changing server/payment behavior."
+    "status": "human_approval_only",
+    "goal": "All identified AI-implementable pre-launch technical and legal UX work is complete. Remaining steps are final human legal approval of the public pages/checkout acceptance UX and final human GO/NO-GO."
   },
-  "next_machine_action": "Finish Issue #329 implementation, tests, exact-head CI and independent review, then merge if clean. After that, all identified AI-implementable pre-launch legal/technical work is complete. Remaining Human Gates: final review/approval of the public Terms, Privacy Policy, Refund Policy, Support page and checkout acceptance UX; then final GO/NO-GO. Do not repeat completed identity, phone, CORS, logging, migration, deployment, OTP, purchase/refund, PWA or checkout-cancel checks.",
+  "next_machine_action": "Run `npm run resume` first and read this state. Do not repeat completed CORS correction, XServer log review/9-week retention, migration 0006, Production API deployment, OTP enablement, Paddle Live purchase/refund, cancelled-checkout QA, PWA QA, public identity/support phone decisions, Paddle Merchant-of-Record wording, or explicit checkout policy acceptance. Next step is human-only final legal approval, followed by final GO/NO-GO. AI may verify the current public frontend/build and read-only Production status, but must not perform new real-money, Paddle Live, Production DB/config/secret/DNS/backend-deploy actions without explicit approval.",
   "unresolved_ai_items": [],
   "human_gates": [
-    "Final human legal approval of the resulting public Terms, Privacy Policy, Refund Policy, Support page, and explicit purchase acceptance UX.",
+    "Final human legal approval of the public Terms, Privacy Policy, Refund Policy, Support page, and explicit purchase acceptance UX.",
     "Final human GO/NO-GO decision and any optional rollback rehearsal.",
-    "Any new real-money, Paddle Live, paid-service, Production DB write, DNS, Production-secret, email-send, or Production deployment action beyond what is explicitly approved."
+    "Any new real-money, Paddle Live, paid-service, Production DB write, DNS, Production-secret, email-send, or Production backend deployment action beyond what is explicitly approved."
   ],
   "production_live_restrictions": "NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL. Real charges/refunds, Paddle Live transactions/configuration, paid-resource changes, Production DB writes, DNS changes, Production-secret changes, email sends, and Production deployments are Human Gates.",
   "last_verified_at": "2026-09-20",
-  "last_verified_by": "PR #328 merged after exact-head CI and independent review, carrying forward Tamamizu as public supplier/operator identity, public support email/Thai phone, Paddle Merchant-of-Record wording, worldwide Paddle-supported availability subject to restrictions, Thailand framework, guardian/minor policy, and the 14-day refund policy. Issue #329 is implementing the final checkout acceptance control. No additional Production or money action is required for that code change.",
+  "last_verified_by": "PR #330 merged after exact-head PR Verify, Browser Smoke, Pre-Live Safety, and Claude Code Review. The explicit checkout acceptance checkbox is now implemented: unchecked by default, required before checkout, directly linked to Terms/Refund, and page-local/non-persistent. All identified AI-implementable pre-launch technical/legal UX work is complete; remaining gates are final human legal approval and GO/NO-GO.",
   "known_non_blockers": [
     "Production Email OTP is enabled and real-device OTP login/persistence/logout QA passed on 2026-09-20.",
     "Production CORS now allows only https://app.tamamizu.giganihongo.com; guarded correction and post-change production:status passed on 2026-09-20.",
