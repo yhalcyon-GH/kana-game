@@ -130,7 +130,9 @@ export function createSandboxCheckoutController({ config, onEvent, loadPaddle = 
         }
         const summary = readCheckoutSummary(event.data)
         if (promotionExpected) {
-          if (!verifyPromotion(summary) && promotionVerified && summary) onEvent({ kind: 'summary', summary })
+          const wasVerified = promotionVerified
+          verifyPromotion(summary)
+          if (wasVerified && summary) onEvent({ kind: 'summary', summary })
         } else if (summary) {
           onEvent({ kind: 'summary', summary })
         }
