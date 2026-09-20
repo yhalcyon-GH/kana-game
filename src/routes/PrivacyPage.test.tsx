@@ -80,7 +80,7 @@ describe('PrivacyPage', () => {
     expect(screen.getByRole('heading', { name: 'Purchases and access', level: 2 })).toBeInTheDocument()
     const retention = screen.getByRole('heading', { name: 'Retention and deletion', level: 2 }).parentElement?.textContent ?? ''
     expect(retention).toMatch(/as long as reasonably needed/i)
-    expect(retention).toMatch(/retention settings of the\s*hosting providers involved/i)
+    expect(retention).toMatch(/user-area error-log retention.*nine weeks/i)
     expect(retention).not.toMatch(/about 90 days/)
     expect(retention).toMatch(/cannot be reversed/)
     expect(retention).toMatch(/does not itself provide a refund/)
@@ -94,12 +94,24 @@ describe('PrivacyPage', () => {
     expect(text).toMatch(/school/)
   })
 
-  it('identifies the developer/operator using only public GitHub identity', () => {
+  it('identifies GigaNihongo as controller/operator without exposing a private legal identity', () => {
     render(<PrivacyPage />)
-    expect(screen.getByRole('link', { name: 'yhalcyon-GH' })).toHaveAttribute('href', 'https://github.com/yhalcyon-GH')
-    expect(screen.getByRole('link', { name: 'kana-game' })).toHaveAttribute('href', 'https://github.com/yhalcyon-GH/kana-game')
+    const controller = screen.getByRole('heading', { name: 'Controller / operator', level: 2 }).parentElement?.textContent ?? ''
+    expect(controller).toMatch(/GigaNihongo/)
+    expect(controller).toMatch(/from Thailand/)
     const section = screen.getByRole('heading', { name: 'Developer / operator', level: 2 }).parentElement?.textContent ?? ''
-    expect(section).not.toMatch(/@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)
+    expect(section).toMatch(/GigaNihongo supplier brand/)
+    expect(screen.getByRole('link', { name: 'kana-game' })).toHaveAttribute('href', 'https://github.com/yhalcyon-GH/kana-game')
+    expect(section).not.toMatch(/yhalcyon-GH/)
+  })
+
+  it('describes applicable legal bases, service providers, transfers, and privacy rights', () => {
+    render(<PrivacyPage />)
+    const section = screen.getByRole('heading', { name: 'Legal bases and service providers', level: 2 }).parentElement?.textContent ?? ''
+    expect(section).toMatch(/perform the purchase relationship/)
+    expect(section).toMatch(/legitimate operational and security interests/)
+    expect(section).toMatch(/countries other than your own/)
+    expect(section).toMatch(/access, correction, deletion/)
   })
 
   it('provides a private support email for privacy inquiries', () => {
