@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "current_main_sha": "c90839be34dc4855a051e06c99e49bbe0db56caf",
+  "current_main_sha": "680a58d2509a5282c0930cbbf59af5fb9edead21",
   "latest_completed_work": {
-    "kind": "final_read_only_production_verification",
+    "kind": "human_launch_go",
     "number": null,
-    "title": "Final CORS, PHP, auth-readiness, and release-integrity checks passed",
+    "title": "Final human GO decision",
     "merged_at": "2026-09-20"
   },
   "open_prs": [
@@ -15,22 +15,21 @@
     }
   ],
   "active_work_item": {
-    "id": "final-go-no-go",
+    "id": "post-launch-monitoring",
     "issue_number": null,
     "branch": null,
     "pull_request_number": null,
-    "status": "human_go_no_go_only",
-    "goal": "All technical checks, legal approval, and final read-only Production verification are complete. Only the human GO/NO-GO launch decision remains."
+    "status": "launched",
+    "goal": "Tamamizu is launch-approved for normal customer traffic. Continue normal post-launch monitoring; no pre-launch Human Gates remain."
   },
-  "next_machine_action": "Do not repeat completed checks. Final read-only Production verification passed on 2026-09-20 at main c90839be34dc4855a051e06c99e49bbe0db56caf: PHP 8.4; cookie auth active; Production mailer configured; dev harness disabled; Email OTP enabled and ready; LOGIN_CODE_PEPPER configured; deployed API matches reviewed checkout; CORS exactly one Production origin with no GitHub Pages/localhost/unknown origins. Await only explicit human GO/NO-GO.",
+  "next_machine_action": "Treat Tamamizu as launched/GO-approved from 2026-09-20. Do not repeat pre-launch checks merely because a chat/session changes. Monitor normal Production behavior and investigate only if real post-launch evidence appears (auth failures, webhook errors/retries, entitlement mismatches, repeated server errors, unexpected CORS, or support incidents). NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL remains in force for any new real charge/refund or paid/Production mutation.",
   "unresolved_ai_items": [],
   "human_gates": [
-    "Final human GO/NO-GO launch decision.",
     "Any new real-money, Paddle Live, paid-service, Production DB write, DNS, Production-secret, email-send, or Production backend deployment action beyond what is explicitly approved."
   ],
   "production_live_restrictions": "NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL. Real charges/refunds, Paddle Live transactions/configuration, paid-resource changes, Production DB writes, DNS changes, Production-secret changes, email sends, and Production deployments are Human Gates.",
   "last_verified_at": "2026-09-20",
-  "last_verified_by": "Human ran the final read-only Production checks after resuming to main c90839be34dc4855a051e06c99e49bbe0db56caf. Results passed: PHP 8.4; webCookieAuthActive=true; productionMagicLinkMailerConfigured=true; devHarnessEnabled=false; emailCodeAuthEnabled=true; loginCodePepperConfigured=true; emailCodeAuthReady=true; release-integrity matched the reviewed checkout; CORS exact=true with originCount=1, Production origin present, GitHub Pages/localhost absent, unknownCount=0. Final legal approval had already been granted. Only GO/NO-GO remains.",
+  "last_verified_by": "Human explicitly issued final GO after final legal approval and final read-only Production checks passed. Tamamizu is approved for normal customer traffic. No separate launch switch or Production mutation was required because the reviewed frontend/backend and Paddle Live configuration were already active and validated.",
   "known_non_blockers": [
     "Production Email OTP is enabled and real-device OTP login/persistence/logout QA passed on 2026-09-20.",
     "Production CORS now allows only https://app.tamamizu.giganihongo.com; guarded correction and post-change production:status passed on 2026-09-20.",
