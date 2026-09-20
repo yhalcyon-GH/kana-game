@@ -76,13 +76,17 @@ describe('productionAuthClient', () => {
     expect(await createPurchaseIntent(API_BASE, 'sandbox')).toEqual({ kind: 'unavailable' })
   })
 
-  it('requestMagicLink() posts the email as JSON, no credentials needed (no session yet)', async () => {
+  it('requestMagicLink() posts the email as JSON with credentials so the browser-binding cookie can be stored', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(jsonResponse({ status: 'ok' }))
     await requestMagicLink(API_BASE, 'a@example.com')
 
     expect(fetch).toHaveBeenCalledWith(
       `${API_BASE}/auth/request-link.php`,
-      expect.objectContaining({ method: 'POST', body: JSON.stringify({ email: 'a@example.com' }) }),
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'include',
+        body: JSON.stringify({ email: 'a@example.com' }),
+      }),
     )
   })
 
