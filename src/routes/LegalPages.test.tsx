@@ -20,6 +20,10 @@ describe('SupportPage', () => {
       'href',
       'mailto:tamamizu.jp@gmail.com',
     )
+    expect(screen.getByRole('link', { name: '+66 82 103 4511' })).toHaveAttribute(
+      'href',
+      'tel:+66821034511',
+    )
     expect(screen.getByText(/Do not send payment-card details/i)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Terms & Conditions' })).toHaveAttribute('href', '/terms')
   })
