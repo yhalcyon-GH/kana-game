@@ -113,7 +113,7 @@ $expectedBefore = [
 ];
 sort($expectedBefore);
 
-$before = \\KanaGame\\Paddle\\Config::load()->allowedOrigins();
+$before = \KanaGame\Paddle\Config::load()->allowedOrigins();
 sort($before);
 if ($before !== $expectedBefore) {
     echo 'CORS_CONFIG_REFUSED reason=precondition beforeCount=' . count($before) . "\n";
@@ -164,7 +164,7 @@ if (!rename($tempPath, $configPath)) {
     exit(11);
 }
 
-$after = \\KanaGame\\Paddle\\Config::load()->allowedOrigins();
+$after = \KanaGame\Paddle\Config::load()->allowedOrigins();
 $expectedAfter = ['https://app.tamamizu.giganihongo.com'];
 if ($after !== $expectedAfter) {
     if (!copy($backupPath, $configPath)) {
