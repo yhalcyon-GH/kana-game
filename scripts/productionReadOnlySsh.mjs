@@ -68,6 +68,25 @@ export function buildReleaseIntegritySshInvocation(environment) {
   return buildFixedReadOnlySshInvocation(environment, 'ops/release-integrity-check.php')
 }
 
+/**
+ * Builds a fixed, redacted Production CORS allowlist probe. The remote PHP
+ * snippet reads the effective server-side Config (including env overrides)
+ * but prints only whether it exactly matches the one intended Production
+ * frontend origin plus the number of configured origins. It never prints an
+ * origin string or any other configuration value.
+ */
+export function buildCorsProbeSshInvocation(environment) {
+  const php = [
+    'require "src/Config.php";',
+    '$config=\\KanaGame\\Paddle\\Config::load();',
+    '$origins=$config->allowedOrigins();',
+    'sort($origins);',
+    '$expected=array("https://app.tamamizu.giganihongo.com");',
+    'echo "corsExact=".($origins===$expected?"true":"false")." originCount=".count($origins).PHP_EOL;',
+  ].join(' ')
+  return buildFixedReadOnlySshInvocation(environment, `-r '${php}'`)
+}
+
 const READINESS_LINE_PATTERN = /^webCookieAuthActive=(true|false) productionMagicLinkMailerConfigured=(true|false) devHarnessEnabled=(true|false) emailCodeAuthEnabled=(true|false) loginCodePepperConfigured=(true|false) emailCodeAuthReady=(true|false)$/
 
 /**
@@ -124,6 +143,21 @@ export function readSafeReleaseIntegrityResult(status, stdout, stderr) {
 
   if (status === 0 && result && normalizedStderr === '') {
     return result[1]
+  }
+
+  throw new Error('Remote command returned an unexpected response. Output was intentionally redacted.')
+}
+
+export function readSafeCorsProbeResult(status, stdout, stderr) {
+  const normalizedStdout = stdout.replace(/\r\n/g, '\n')
+  const normalizedStderr = stderr.replace(/\r\n/g, '\n')
+  const result = /^corsExact=(true|false) originCount=([0-9]{1,3})\n?$/.exec(normalizedStdout)
+
+  if (status === 0 && result && normalizedStderr === '') {
+    return {
+      corsExact: result[1] === 'true',
+      originCount: Number(result[2]),
+    }
   }
 
   throw new Error('Remote command returned an unexpected response. Output was intentionally redacted.')

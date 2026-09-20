@@ -8,25 +8,31 @@ describe('PrivacyPage', () => {
     expect(screen.getByRole('heading', { name: 'Privacy Policy', level: 1 })).toBeInTheDocument()
   })
 
-  it('discloses local-storage-only progress data for the free app, and that an account is only needed to purchase', () => {
+  it('discloses local-storage-only free progress and the live OTP-with-Magic-Link-fallback account flow', () => {
     render(<PrivacyPage />)
     const heading = screen.getByRole('heading', { name: 'Account (optional)', level: 2 })
     const text = heading.parentElement?.textContent ?? ''
     expect(text).toMatch(/You do not need an account to use the free parts/i)
-    expect(text).toMatch(/only involved if you purchase Full Access/i)
-    expect(text).toMatch(/Magic Link/)
+    expect(text).toMatch(/buy Full Access or restore paid access/i)
+    expect(text).toMatch(/six-digit one-time code/i)
+    expect(text).toMatch(/fall back to a one-time Magic Link/i)
     expect(screen.getAllByText(/local storage/i).length).toBeGreaterThan(0)
   })
 
-  it('discloses the sign-in session cookie accurately, including its security attributes and the no-sign-in case', () => {
+  it('discloses both authentication cookies accurately, including security attributes and remembered-browser limits', () => {
     render(<PrivacyPage />)
     const heading = screen.getByRole('heading', { name: 'Cookies', level: 2 })
     const text = heading.parentElement?.textContent ?? ''
-    expect(text).toMatch(/sets one cookie to keep you signed in/i)
-    expect(text).toMatch(/never your email address/i)
-    expect(text).toMatch(/not used for tracking or analytics/i)
-    expect(text).toMatch(/Secure, HttpOnly, and SameSite=Lax/)
-    expect(text).toMatch(/If you don't\s*sign in, no cookie is set/i)
+    expect(text).toMatch(/two authentication cookies/i)
+    expect(text).toMatch(/short-lived session credential/i)
+    expect(text).toMatch(/remember this browser/i)
+    expect(text).toMatch(/do not contain your email address/i)
+    expect(text).toMatch(/not tracking or analytics/i)
+    expect(text).toMatch(/Secure, HttpOnly,\s*SameSite=Lax, and Path=\//)
+    expect(text).toMatch(/host-only/i)
+    expect(text).toMatch(/up to 90 days/i)
+    expect(text).toMatch(/at most three remembered browsers or devices/i)
+    expect(text).toMatch(/If you don't sign in, these authentication\s*cookies are not set/i)
   })
 
   it('accurately states analytics is currently inactive, and names Umami as the provider if a future build enables it', () => {
@@ -73,7 +79,9 @@ describe('PrivacyPage', () => {
     render(<PrivacyPage />)
     expect(screen.getByRole('heading', { name: 'Purchases and access', level: 2 })).toBeInTheDocument()
     const retention = screen.getByRole('heading', { name: 'Retention and deletion', level: 2 }).parentElement?.textContent ?? ''
-    expect(retention).toMatch(/about 90 days/)
+    expect(retention).toMatch(/as long as reasonably needed/i)
+    expect(retention).toMatch(/retention settings of the\s*hosting providers involved/i)
+    expect(retention).not.toMatch(/about 90 days/)
     expect(retention).toMatch(/cannot be reversed/)
     expect(retention).toMatch(/does not itself provide a refund/)
   })

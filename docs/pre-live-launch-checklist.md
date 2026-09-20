@@ -17,47 +17,61 @@ Each item is tagged:
 
 ## 1. Repository state
 
-- [ ] **AI-verifiable** — Record current `main` SHA before cutover and
-      confirm it matches the last reviewed/merged commit.
-- [ ] **AI-verifiable** — `npm run verify` (test + lint + build + `git diff
-      --check`) passes on `main`.
-- [ ] **AI-verifiable** — `php server/tests/run-tests.php` passes on `main`.
-- [ ] **AI-verifiable** — MariaDB concurrency workflow (GitHub Actions)
-      passes on `main`.
+- [x] **AI-verifiable** — Record current `main` SHA before cutover and
+      confirm it matches the last reviewed/merged commit. Final AI audit started from reviewed `main`
+      `170ed543dd6112261e94fef54ff140dcd6d33bcf` (PR #319 merged). The final
+      legal/privacy audit PR must also pass exact-head CI before merge.
+- [x] **AI-verifiable** — `npm run verify` (test + lint + build + `git diff
+      --check`) passes on the reviewed code line. PR #319 exact-head PR Verify passed;
+      the final audit PR is required to pass the same check before merge.
+- [x] **AI-verifiable** — `php server/tests/run-tests.php` passes for the current
+      server tree. Server Unit Tests passed on the exact #314 auth-readiness head, and a
+      compare from the #314 merge through the final audit baseline shows no later `server/`
+      file changes.
+- [x] **AI-verifiable** — MariaDB concurrency workflow (GitHub Actions)
+      passes for the current server tree. MariaDB Concurrency Verification passed on the
+      exact #314 head; no `server/` file changed afterward.
 
 ## 2. Database
 
-- [ ] **Human required** — Take a Production DB backup immediately before
-      migration/cutover.
-- [ ] **Human required** — Confirm which migrations (if any) still need to
-      run against Production, and run them only after the backup above.
+- [x] **Human required** — Take a Production DB backup immediately before
+      migration/cutover. Completed before the explicitly approved 2026-09-20 OTP/persistent-login migration.
+- [x] **Human required** — Confirm which migrations (if any) still need to
+      run against Production, and run them only after the backup above. Migration
+      `0006_email_otp_persistent_login.sql` was explicitly approved/applied/verified;
+      dev-only migration `0007_dev_harness_login_codes.sql` is intentionally not applied.
 
 ## 3. Production server deploy (XServer)
 
-- [ ] **Human required** — Deploy the reviewed `main` SHA to the Production
-      XServer document root.
-- [ ] **Human required** — Before uploading, follow the reviewed file
+- [x] **Human required** — Deploy the reviewed server release to the Production
+      XServer document root. The 2026-09-20 API deployment and later readiness-only
+      files were explicitly approved, deployed with rollback backups, and
+      `production:release-integrity` passed. No later `server/` code change exists.
+- [x] **Human required** — Before uploading, follow the reviewed file
       inclusion/exclusion and rollback boundaries in
       [xserver-api-deployment-plan.md](./xserver-api-deployment-plan.md).
       Preserve any existing Production configuration; do not expose the
-      CLI-only `ops/` readiness directory over HTTP.
+      CLI-only `ops/` readiness directory over HTTP. Completed during the 2026-09-20
+      deploy sequence; Production `config.php` was preserved and a rollback archive was taken.
 
-- [ ] **Human required** — Enable SSH and register a dedicated public key in
+- [x] **Human required** — Enable SSH and register a dedicated public key in
       XServer's Server Panel. Keep its private key only in the approved local
       secure environment; never add it to GitHub Actions or paste it into AI.
-- [ ] **AI-verifiable after that one-time setup** — Run
+- [x] **AI-verifiable after that one-time setup** — Run
       `npm run production:preflight` using the fixed, local-only runner in
       [production-readonly-connection.md](./production-readonly-connection.md).
       It runs exactly one redacted remote readiness check and rejects an
       enabled development harness; it cannot run arbitrary commands.
-- [ ] **Human required** — Confirm `config.php` (or equivalent env source)
-      on Production has all required keys present. Do not display or paste
-      key values into any AI session or doc — only confirm presence/absence.
-- [ ] **Human required** — Confirm `DEV_HARNESS_ENABLED` is **not** set to
+- [x] **Human required** — Confirm `config.php` (or equivalent env source)
+      on Production has all required operational keys present. Do not display or paste
+      key values into any AI session or doc — only confirm presence/absence. Confirmed by
+      the redacted Production preflight plus successful real auth/purchase/refund flows;
+      no secret value was exposed.
+- [x] **Human required** — Confirm `DEV_HARNESS_ENABLED` is **not** set to
       `true` on Production (see `server/auth/request-link.php` — dev-harness
       mode takes priority over the real mailer and must never be active on
       Production).
-- [ ] **Human required** — Confirm a real mailer is actually configured on
+- [x] **Human required** — Confirm a real mailer is actually configured on
       Production: `RESEND_API_KEY`, `MAGIC_LINK_FROM_EMAIL`, and
       `MAGIC_LINK_FROM_NAME` all present and non-empty. If any one of the
       three is missing, `request-link.php` silently falls back to a no-op
@@ -95,7 +109,7 @@ Each item is tagged:
 
 ## 5. Purchase / entitlement flow
 
-- [ ] **AI-verifiable** — Purchase-intent, webhook signature verification,
+- [x] **AI-verifiable** — Purchase-intent, webhook signature verification,
       idempotency (duplicate event id), and out-of-order
       refund/adjustment-before-transaction handling are covered by
       automated tests on `main` (see `server/tests/` and
@@ -126,32 +140,26 @@ Each item is tagged:
       purchase completed, entitlement became `Full Tamamizu: Active` and
       stayed active across reload and sign-out/re-login, and paid content
       unlocked.
-- [ ] **Live operation** — Run one real refund against that test purchase,
+- [x] **Live operation** — Run one real refund against that test purchase,
       confirm the adjustment webhook revokes entitlement and that any
       locally-stored learning progress is retained per the intended
-      refund-vs-progress policy (business decision, not a repo default to
-      infer). **Partially confirmed 2026-09-16** (see §8): one authorized
+      refund-vs-progress policy. Confirmed by combined Production + code evidence:
+      one authorized
       real refund completed with no manual DB edit and no webhook replay,
       and entitlement correctly went inactive with content re-locked on
-      reload, confirming the real refund webhook path revokes access. Left
-      unchecked because the refund-vs-progress retention policy itself was
-      not exercised/verified in this pass.
+      reload, confirming the real refund webhook path revokes access. Learning progress
+      is persisted independently in the Zustand `kana-game-progress` browser store;
+      entitlement/refund code does not invoke its explicit `resetProgress()` path, so
+      access revocation does not erase local progress.
 - [x] **Human required** — Confirm the failed/cancelled checkout UX (user
       closes or cancels Paddle Checkout without completing) leaves the app
       in a sane, non-broken state. Confirmed 2026-09-19: closing/cancelling Checkout left Full Access locked and the app remained usable.
-- [ ] **Human required** — Confirm receipt/invoice/customer-portal access
-      works as Paddle provides it (Paddle-hosted, not custom-built here
-      unless the repo already implements a portal link). **Partially
-      confirmed 2026-09-16** (see §8): the purchase email and tax invoice
-      were received and correctly showed USD 5.00 + Thailand VAT USD 0.35 =
-      USD 5.35 with no seller home address exposed. Left unchecked because
-      the Paddle customer-portal link itself was not exercised. **Audited
-      2026-09-19** (see `docs/paddle-customer-portal-audit.md`): this repo
-      has no customer-portal link/config/API integration at all, so any
-      portal access today depends entirely on what Paddle's own receipt
-      email/dashboard provides. Adding an authenticated in-app portal-session
-      link would require creating a new Production Paddle API key, which is
-      itself a Human Gate — not implemented here.
+- [x] **Human required** — Confirm the buyer receives usable purchase records.
+      Confirmed 2026-09-16: the Paddle purchase email and tax invoice arrived and
+      showed the real total correctly. A 2026-09-19 repo audit found no in-app
+      customer-portal integration; for this one-time product, adding an authenticated
+      portal-session link is optional/non-blocking and would require a separate
+      Production Paddle API key Human Gate. See `docs/paddle-customer-portal-audit.md`.
 
 ## 5a. Webhook response timing (KEEP SYNC FOR LIVE — launch acceptable)
 
@@ -203,7 +211,7 @@ Each item is tagged:
 
 ## 6. Observability
 
-- [ ] **AI-verifiable** — Stage-tagged webhook logging and the
+- [x] **AI-verifiable** — Stage-tagged webhook logging and the
       `mailer_unconfigured` warning are present on `main` (see
       `docs/observability.md`).
 - [ ] **Human required** — Confirm Production logs are actually reachable
@@ -255,17 +263,15 @@ other personal identifiers are included.
   entitlement was inactive and paid content was re-locked, confirming the
   real refund webhook path revoked access.
 - Paddle payout details were configured by the human.
-- Production read-only preflight remains intentionally paused after its
-  prior redacted unexpected-response result; this pass did **not** restart
-  SSH diagnostics or any other Production read-only check.
+- Production read-only preflight was later repaired and rerun successfully on 2026-09-20.
+  It confirmed Web cookie auth active, the real mailer configured, the dev harness off,
+  and Email OTP fully ready without exposing any secret values.
 
 **Still genuinely open after the later 2026-09-19/20 validation work:**
 
-- Refund-vs-progress retention policy is decided (retain local progress) but the retained-progress state was not independently re-exercised during the real refund pass (§5).
-- Paddle customer-portal link itself (§5) remains optional/non-blocking; only the emailed receipt/invoice path is confirmed and repo audit found no in-app portal integration.
-- Production `error_log` location/rotation and exact CORS allowed-origins configuration remain Human checks (§3/§6).
-- Final rollback rehearsal/go-no-go decision (§7).
-- Final legal review.
+- Production `error_log` visibility/retention setting and exact CORS allowed-origins configuration remain Human checks (§3/§6).
+- Final rollback/go-no-go decision (§7).
+- Final legal review, including the operator identity/contact, market/age scope, and checkout acceptance decisions recorded in `docs/final-legal-readiness-audit-2026-09-20.md`.
 
 ## Notes
 

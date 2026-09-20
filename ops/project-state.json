@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "current_main_sha": "7c1aff810a1b90c6b3793926c615581cd31e80ed",
+  "current_main_sha": "170ed543dd6112261e94fef54ff140dcd6d33bcf",
   "latest_completed_work": {
-    "kind": "human_validation",
-    "number": 317,
-    "title": "Production PWA recovery + OTP login persistence/logout QA",
-    "merged_at": "2026-09-20"
+    "kind": "prelaunch_ai_audit",
+    "number": 320,
+    "title": "Final pre-launch AI audit: legal copy accuracy and checklist evidence",
+    "merged_at": "pending exact-head PR merge"
   },
   "open_prs": [
     {
@@ -15,34 +15,35 @@
     }
   ],
   "active_work_item": {
-    "id": "issue-305-ai-only-exhausted",
-    "issue_number": 305,
-    "branch": null,
+    "id": "final-human-gates",
+    "issue_number": 320,
+    "branch": "ops/issue-320-final-prelaunch-audit",
     "pull_request_number": null,
-    "status": "human_gates_only",
-    "goal": "AI-only sale-readiness work is exhausted. Production PWA is current, Email OTP is live, and real-browser OTP login/persistence/logout QA passed. Remaining work is limited to true Human Gates and optional post-launch tooling."
+    "status": "human_gates_only_after_audit",
+    "goal": "Finish the final AI-only legal/privacy/checklist audit, then proceed through the redacted Production CORS check, XServer error-log/retention confirmation, explicit legal/operator decisions, and final human GO/NO-GO."
   },
-  "next_machine_action": "Run npm run resume first. Do not repeat completed SSH/key/known_hosts/API-root/PHP discovery, migration 0006, Production OTP enablement, backups/deployments, Paddle Live purchase/refund, cancelled-checkout QA, PWA install/recovery, or OTP login/persistence/logout QA merely because the chat changed. Current Production PWA is Build 7c1aff8. Future PWA updates actively check for a new service worker on registration/foreground/focus with bounded throttling plus hourly while open. Next required work is human-only: confirm Production error_log location/rotation and exact CORS allowed-origins configuration, complete final legal review, and make final GO/NO-GO decision.",
+  "next_machine_action": "Run `npm run resume` first and read `docs/final-human-gates-runbook.md`. Do not repeat completed migration 0006, Production API deployment, OTP enablement, Paddle Live purchase/refund, cancelled-checkout QA, PWA recovery/install QA, or OTP login/persistence/logout QA. After the final audit PR merges, the next step is Human Gate 1: run the new read-only `npm run production:cors-probe` from the existing local resume environment. It prints only whether the effective allowlist is exactly the intended Production frontend and the origin count; it never prints configured origin values.",
   "unresolved_ai_items": [],
   "human_gates": [
-    "Confirm Production error_log location/rotation.",
-    "Confirm exact Production CORS allowed-origins configuration matches only the intended frontend origin(s).",
-    "Final legal review.",
-    "Final human GO/NO-GO decision and any desired rollback rehearsal.",
+    "Run the fixed read-only `npm run production:cors-probe`; expected pass is corsExact=true originCount=1. Any config correction if it fails is a separate Production config Human Gate.",
+    "Confirm XServer Production PHP error-log access and the actual domain retention/save setting; report only safe status/tags, not raw customer/request data.",
+    "Final legal/operator decisions recorded in `docs/final-legal-readiness-audit-2026-09-20.md`: public supplier/controller identity; support-phone requirement/public number if needed; checkout Terms/refund acceptance mechanism; Paddle Merchant-of-Record wording; launch geography/privacy scope; minor/guardian policy.",
+    "Final human legal approval of the resulting public Terms, Privacy Policy, Refund Policy, and Support page.",
+    "Final human GO/NO-GO decision and any optional rollback rehearsal.",
     "Any new real-money, Paddle Live, paid-service, Production DB write, DNS, Production-secret, email-send, or Production deployment action beyond what is explicitly approved."
   ],
   "production_live_restrictions": "NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL. Real charges/refunds, Paddle Live transactions/configuration, paid-resource changes, Production DB writes, DNS changes, Production-secret changes, email sends, and Production deployments are Human Gates.",
   "last_verified_at": "2026-09-20",
-  "last_verified_by": "Human real-device Production QA + GitHub/public Production checks. Installed PWA was recovered from Build 419878e and now runs current Production Build 7c1aff8. Production Email OTP is enabled and public capability reports email_code_auth=true. Human verified 6-digit OTP delivery/login, login persistence across close/relaunch, and logout back to signed-out state. PR #317 fixed deterministic future PWA update checks. No secret values, credentials, DB contents, customer identifiers, or backup paths are stored here.",
+  "last_verified_by": "GitHub/current-code audit + prior human Production QA. Current audit baseline main is 170ed543dd6112261e94fef54ff140dcd6d33bcf. The final AI pass corrected stale OTP/persistent-cookie privacy descriptions, removed an unverified fixed log-retention promise, closed repository-verifiable checklist items with existing exact-head CI evidence, added a redacted CORS probe, and documented exact remaining legal/operational Human Gates. No Production mutation or secret value was performed.",
   "known_non_blockers": [
     "Production Email OTP is enabled and real-device OTP login/persistence/logout QA passed on 2026-09-20.",
-    "Legacy installed-PWA recovery is complete; the user's device is now on Build 7c1aff8. Future/current builds actively check registration.update() on registration/foreground/focus with bounded throttling and hourly while open.",
-    "Issue #283 real-device PWA install QA is complete and closed; do not repeat it on chat change.",
-    "Production cancelled-checkout UX was human-tested successfully; do not repeat it without a concrete new reason.",
-    "Refund policy is settled: refund re-locks Full Access while local learning progress/history is retained.",
+    "Legacy installed-PWA recovery is complete; future/current builds actively check registration.update() with bounded throttling.",
+    "Production DB migration 0006 and reviewed API deployment are complete; 0007 remains intentionally dev-only.",
+    "Production cancelled-checkout UX was human-tested successfully.",
+    "Refund policy is settled: full refund within 14 days; refund re-locks Full Access while local learning progress/history remains in the independent browser progress store.",
     "Paddle Live product/price, one real purchase, and one real refund were already validated on 2026-09-16; do not repeat real-money tests for routine confidence.",
-    "Customer Portal integration is not launch-blocking; authenticated portal-session support would require a new Production Paddle API key and remains a separate optional Human Gate.",
-    "Open PR #294 is development-workflow tooling and does not block sale readiness."
+    "Paddle purchase email/tax invoice were received; an in-app Customer Portal integration is optional/non-blocking and would require a separate Production Paddle API key Human Gate.",
+    "Open PR #294 is optional development-workflow tooling and does not block sale readiness."
   ],
   "optional_post_launch": [
     "Re-evaluate a durable async webhook queue only if real Production latency or Paddle retry evidence warrants it.",

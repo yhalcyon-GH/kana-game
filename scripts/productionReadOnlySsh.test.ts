@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildCorsProbeSshInvocation,
   buildPhpVersionProbeSshInvocation,
   buildReadOnlySshInvocation,
   buildReleaseIntegritySshInvocation,
+  readSafeCorsProbeResult,
   readSafePhpVersionProbeResult,
   readSafePreflightResult,
   readSafeReleaseIntegrityResult,
@@ -39,6 +41,22 @@ describe('production read-only SSH invocation', () => {
 
     expect(invocation.args.at(-1)).toBe('cd -- /home/account/tamamizu/api && php ops/release-integrity-check.php')
     expect(invocation.args.join(' ')).not.toMatch(/find|cat|mysql|mariadb|config\.php/)
+  })
+
+  it('permits only the fixed redacted CORS allowlist probe', () => {
+    const invocation = buildCorsProbeSshInvocation(environment)
+    const remote = invocation.args.at(-1) ?? ''
+
+    expect(invocation.command).toBe('ssh')
+    expect(invocation.args).toContain('StrictHostKeyChecking=yes')
+    expect(invocation.args).toContain('BatchMode=yes')
+    expect(remote).toContain('cd -- /home/account/tamamizu/api && php -r')
+    expect(remote).toContain('Config::load()')
+    expect(remote).toContain('https://app.tamamizu.giganihongo.com')
+    expect(remote).toContain('corsExact=')
+    expect(remote).toContain('originCount=')
+    expect(remote).not.toMatch(/echo .*ALLOWED_ORIGINS|DB_PASSWORD|RESEND_API_KEY|LOGIN_CODE_PEPPER/)
+    expect(remote).not.toMatch(/mysql|mariadb|paddle|migration/)
   })
 
   it('accepts safe Windows paths for local key material', () => {
@@ -123,6 +141,26 @@ describe('production read-only SSH invocation', () => {
     const fingerprint = 'a'.repeat(64)
     expect(readSafeReleaseIntegrityResult(0, `releaseContentSha256=${fingerprint}\nOK\n`, '')).toBe(fingerprint)
     expect(() => readSafeReleaseIntegrityResult(0, 'config.php\n', '')).toThrow(/redacted/)
+  })
+
+  it('accepts only redacted CORS probe output', () => {
+    expect(readSafeCorsProbeResult(0, 'corsExact=true originCount=1\n', '')).toEqual({
+      corsExact: true,
+      originCount: 1,
+    })
+    expect(readSafeCorsProbeResult(0, 'corsExact=false originCount=2\n', '')).toEqual({
+      corsExact: false,
+      originCount: 2,
+    })
+  })
+
+  it('redacts unexpected CORS probe output instead of returning configured origins', () => {
+    expect(() => readSafeCorsProbeResult(
+      0,
+      'corsExact=false originCount=2 origins=https://secret.example\n',
+      '',
+    )).toThrow(/redacted/)
+    expect(() => readSafeCorsProbeResult(1, '', 'config error: hidden-value\n')).toThrow(/redacted/)
   })
 
   it('redacts unexpected remote output instead of returning it to the caller', () => {
