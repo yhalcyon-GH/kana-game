@@ -167,11 +167,21 @@ export async function logout(apiBase: string): Promise<void> {
  * from server/dev-only/last-magic-link.php. Returns null when the
  * harness is disabled (403) or no link is pending (404) -- both are
  * unremarkable, expected states for this harness, not errors.
+ *
+ * POST + a JSON body (Issue #360), not GET + a query string -- the
+ * server now requires this so a cross-site request can never reach the
+ * server and burn the pending link as a side effect (a plain GET was a
+ * CORS "simple request": CORS stopped an attacker from reading the
+ * response, but never stopped the request from arriving and consuming
+ * the row). See server/dev-only/last-magic-link.php's own doc comment.
  */
 export async function fetchDevHarnessMagicLink(apiBase: string, emailNormalized: string): Promise<string | null> {
   try {
-    const url = `${apiBase}/dev-only/last-magic-link.php?email=${encodeURIComponent(emailNormalized)}`
-    const response = await fetch(url)
+    const response = await fetch(`${apiBase}/dev-only/last-magic-link.php`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: emailNormalized }),
+    })
     if (!response.ok) return null
 
     const body = (await safeJson(response)) as { magic_link_url?: unknown } | null
@@ -240,11 +250,18 @@ export async function verifyLoginCode(apiBase: string, challenge: string, code: 
  * unremarkable, expected states for this harness, not errors. Exists
  * solely so the /account-test harness and automated dev/Sandbox browser
  * smoke can exercise the OTP flow end to end without real email delivery.
+ *
+ * POST + a JSON body (Issue #360), not GET + a query string -- see
+ * fetchDevHarnessMagicLink() above and server/dev-only/last-login-code.php's
+ * own doc comment for why.
  */
 export async function fetchDevHarnessLoginCode(apiBase: string, emailNormalized: string): Promise<string | null> {
   try {
-    const url = `${apiBase}/dev-only/last-login-code.php?email=${encodeURIComponent(emailNormalized)}`
-    const response = await fetch(url)
+    const response = await fetch(`${apiBase}/dev-only/last-login-code.php`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: emailNormalized }),
+    })
     if (!response.ok) return null
 
     const body = (await safeJson(response)) as { login_code?: unknown } | null

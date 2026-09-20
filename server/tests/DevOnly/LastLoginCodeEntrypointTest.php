@@ -30,15 +30,26 @@ function assertLastLoginCodeChecksDevHarnessGateFirst(): void
         'the DEV_HARNESS_ENABLED gate must be an exact-string, default-closed check',
     );
 
-    // Must be the FIRST response-status branch in the file -- no other
-    // "if (" appears earlier that could let some other check run first
-    // and leak information (e.g. a 400/404 body) before the harness gate
-    // is enforced.
+    // The only branch allowed to run before the DEV_HARNESS_ENABLED gate
+    // is the unauthenticated OPTIONS-preflight short-circuit (Issue
+    // #360) -- it always returns a fixed 204 with no CORS headers for a
+    // disallowed Origin and reveals nothing about harness/dev-only
+    // state. No other "if (" may appear earlier, since that could let
+    // some other check run first and leak information (e.g. a 400/404
+    // body) before the harness gate is enforced.
     $gatePos = strpos($source, "\$config->get('DEV_HARNESS_ENABLED') !== 'true'");
-    $firstBranchPos = strpos($source, 'if (');
+    $optionsCheckPos = strpos($source, "=== 'OPTIONS'");
     assertTrue(
-        $gatePos !== false && $firstBranchPos !== false && $gatePos === $firstBranchPos + strlen('if ('),
-        'DEV_HARNESS_ENABLED must be checked before anything else in the file (the very first "if")',
+        $gatePos !== false && $optionsCheckPos !== false && $optionsCheckPos < $gatePos,
+        'the OPTIONS-preflight short-circuit must run before the DEV_HARNESS_ENABLED gate',
+    );
+
+    preg_match_all('/if\s*\(/', $source, $matches, PREG_OFFSET_CAPTURE);
+    $branchesBeforeGate = array_filter($matches[0], static fn (array $match): bool => $match[1] < $gatePos);
+    assertSame(
+        1,
+        count($branchesBeforeGate),
+        'only the OPTIONS-preflight short-circuit may run before the DEV_HARNESS_ENABLED gate',
     );
 }
 
@@ -51,14 +62,15 @@ function assertLastLoginCodeSetsNoStore(): void
         "last-login-code.php must call header('Cache-Control: no-store')",
     );
 
-    // Must be set before the first conditional branch (the
-    // DEV_HARNESS_ENABLED check) so every response -- 403/405/400/404/
-    // 500/200 alike -- carries it, not only the success path.
+    // Must be set before the DEV_HARNESS_ENABLED gate (the first
+    // response-status branch for a non-OPTIONS request) so every
+    // response -- 403/405/415/400/404/500/200 alike -- carries it, not
+    // only the success path.
     $noStorePos = strpos($source, "header('Cache-Control: no-store')");
-    $firstBranchPos = strpos($source, 'if (');
+    $gatePos = strpos($source, "\$config->get('DEV_HARNESS_ENABLED') !== 'true'");
     assertTrue(
-        $noStorePos !== false && $firstBranchPos !== false && $noStorePos < $firstBranchPos,
-        'Cache-Control: no-store must be set unconditionally, before the first branch, so every response status carries it',
+        $noStorePos !== false && $gatePos !== false && $noStorePos < $gatePos,
+        'Cache-Control: no-store must be set before the DEV_HARNESS_ENABLED gate, so every response status carries it',
     );
 }
 
@@ -84,19 +96,100 @@ function assertLastLoginCodeUsesCors(): void
     );
 
     $corsCallPos = strpos($source, '$cors->applyHeaders(');
-    $firstBranchPos = strpos($source, 'if (');
+    $gatePos = strpos($source, "\$config->get('DEV_HARNESS_ENABLED') !== 'true'");
     assertTrue(
-        $corsCallPos !== false && $firstBranchPos !== false && $corsCallPos < $firstBranchPos,
-        'Cors::applyHeaders() must be called unconditionally, before the first branch, so every response status is readable cross-origin',
+        $corsCallPos !== false && $gatePos !== false && $corsCallPos < $gatePos,
+        'Cors::applyHeaders() must be called before the DEV_HARNESS_ENABLED gate, so every response status is readable cross-origin',
     );
 }
 
-function assertLastLoginCodeOnlyAcceptsGet(): void
+function assertLastLoginCodeSupportsOptionsPreflight(): void
 {
     $source = loadLastLoginCodeEntrypointSource();
 
-    assertTrue(str_contains($source, "!== 'GET'"), 'expected a GET method guard');
-    assertTrue(str_contains($source, '405'), 'expected a 405 response for non-GET requests');
+    assertTrue(
+        (bool) preg_match(
+            "/if\\s*\\(\\s*\\(\\\$_SERVER\\['REQUEST_METHOD'\\]\\s*\\?\\?\\s*''\\)\\s*===\\s*'OPTIONS'\\s*\\)/",
+            $source,
+        ),
+        'expected an OPTIONS method guard',
+    );
+    assertTrue(
+        str_contains($source, '$cors->applyPreflightHeaders('),
+        'the OPTIONS branch must answer the preflight via Cors::applyPreflightHeaders(), the existing exact-origin CORS helper',
+    );
+    assertTrue(
+        str_contains($source, 'http_response_code(204);'),
+        'the OPTIONS branch must respond 204',
+    );
+}
+
+function assertLastLoginCodeOnlyAcceptsPost(): void
+{
+    $source = loadLastLoginCodeEntrypointSource();
+
+    assertFalse(str_contains($source, "!== 'GET'"), 'GET must no longer be accepted (Issue #360)');
+    assertTrue(str_contains($source, "!== 'POST'"), 'expected a POST method guard');
+    assertTrue(str_contains($source, '405'), 'expected a 405 response for non-POST requests');
+}
+
+function assertLastLoginCodeRequiresJsonContentType(): void
+{
+    $source = loadLastLoginCodeEntrypointSource();
+
+    assertTrue(
+        str_contains($source, "\$_SERVER['CONTENT_TYPE'] ?? ''"),
+        'expected the Content-Type header to be inspected',
+    );
+    assertTrue(
+        str_contains($source, '415'),
+        'expected a 415 response for a non-JSON Content-Type',
+    );
+
+    $contentTypePos = strpos($source, "\$_SERVER['CONTENT_TYPE'] ?? ''");
+    $bodyReadPos = strpos($source, "file_get_contents('php://input')");
+    $consumePos = strpos($source, '->consume(');
+    assertTrue(
+        $contentTypePos !== false && $bodyReadPos !== false && $consumePos !== false
+            && $contentTypePos < $bodyReadPos && $bodyReadPos < $consumePos,
+        'Content-Type must be validated before the body is read, and before the credential is consumed',
+    );
+}
+
+function assertLastLoginCodeRejectsDisallowedOriginBeforeConsuming(): void
+{
+    $source = loadLastLoginCodeEntrypointSource();
+
+    assertTrue(
+        (bool) preg_match('/\\$cors->isOriginAllowed\\(\\s*\\$requestOrigin\\s*\\)/', $source),
+        'expected a present Origin to be checked against Cors::isOriginAllowed()',
+    );
+    assertTrue(str_contains($source, '403'), 'expected a 403 response for a disallowed Origin');
+
+    assertTrue(
+        (bool) preg_match('/\\$requestOrigin\\s*!==\\s*null\\s*&&\\s*\\$requestOrigin\\s*!==\\s*\'\'/', $source),
+        'a present-but-empty/null Origin must not be rejected -- only an explicitly disallowed one',
+    );
+
+    $originCheckPos = strpos($source, '$cors->isOriginAllowed(');
+    $bodyReadPos = strpos($source, "file_get_contents('php://input')");
+    $consumePos = strpos($source, '->consume(');
+    assertTrue(
+        $originCheckPos !== false && $bodyReadPos !== false && $consumePos !== false
+            && $originCheckPos < $bodyReadPos && $bodyReadPos < $consumePos,
+        'a disallowed Origin must be rejected before the body is read, and before the credential is consumed',
+    );
+}
+
+function assertLastLoginCodeReadsEmailFromJsonBody(): void
+{
+    $source = loadLastLoginCodeEntrypointSource();
+
+    assertFalse(str_contains($source, "\$_GET['email']"), 'email must no longer be read from the query string (Issue #360)');
+    assertTrue(
+        (bool) preg_match('/is_array\\(\\$body\\)\\s*\\?\\s*\\(\\$body\\[\'email\'\\]\\s*\\?\\?\\s*null\\)\\s*:\\s*null/', $source),
+        "expected the email to be read from the decoded JSON body's 'email' field",
+    );
 }
 
 function assertLastLoginCodeNeverLogsTheRawCode(): void
@@ -132,14 +225,22 @@ function assertLastLoginCodeNeverLogsTheRawCode(): void
 function lastLoginCodeEntrypointTests(): array
 {
     return [
-        'checks DEV_HARNESS_ENABLED before anything else in the file' =>
+        'checks DEV_HARNESS_ENABLED before anything else in the file except the OPTIONS short-circuit' =>
             'KanaGame\\Paddle\\Tests\\assertLastLoginCodeChecksDevHarnessGateFirst',
-        'sets Cache-Control: no-store unconditionally, before any response-status branch' =>
+        'sets Cache-Control: no-store unconditionally, before the DEV_HARNESS_ENABLED gate' =>
             'KanaGame\\Paddle\\Tests\\assertLastLoginCodeSetsNoStore',
-        'applies Cors::applyHeaders() from $config->allowedOrigins(), never a hardcoded/wildcard origin, before any response-status branch' =>
+        'applies Cors::applyHeaders() from $config->allowedOrigins(), never a hardcoded/wildcard origin, before the DEV_HARNESS_ENABLED gate' =>
             'KanaGame\\Paddle\\Tests\\assertLastLoginCodeUsesCors',
-        'only accepts GET' =>
-            'KanaGame\\Paddle\\Tests\\assertLastLoginCodeOnlyAcceptsGet',
+        'supports OPTIONS preflight via Cors::applyPreflightHeaders()' =>
+            'KanaGame\\Paddle\\Tests\\assertLastLoginCodeSupportsOptionsPreflight',
+        'only accepts POST' =>
+            'KanaGame\\Paddle\\Tests\\assertLastLoginCodeOnlyAcceptsPost',
+        'requires an application/json Content-Type before consuming' =>
+            'KanaGame\\Paddle\\Tests\\assertLastLoginCodeRequiresJsonContentType',
+        'rejects a present, disallowed Origin before reading/consuming the credential' =>
+            'KanaGame\\Paddle\\Tests\\assertLastLoginCodeRejectsDisallowedOriginBeforeConsuming',
+        'reads the email from the JSON request body, not the query string' =>
+            'KanaGame\\Paddle\\Tests\\assertLastLoginCodeReadsEmailFromJsonBody',
         'never logs the raw login code' =>
             'KanaGame\\Paddle\\Tests\\assertLastLoginCodeNeverLogsTheRawCode',
     ];

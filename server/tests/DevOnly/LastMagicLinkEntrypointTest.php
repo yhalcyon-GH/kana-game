@@ -14,8 +14,8 @@ require_once __DIR__ . '/../TestCase.php';
  * can't observe real header() calls via headers_list()). A live-HTTP
  * check would need a whole new PHP-built-in-server test harness this
  * repo doesn't otherwise have -- disproportionate for one/two headers.
- * This parses the file's own source instead, directly regressing two
- * separate incidents found via live XServer black-box testing:
+ * This parses the file's own source instead, directly regressing three
+ * separate incidents found via live XServer black-box testing / audit:
  *
  * 1. The success response was cache-eligible (Cache-Control: max-age=1,
  *    Expires: +1s) because this file set no Cache-Control at all,
@@ -27,6 +27,11 @@ require_once __DIR__ . '/../TestCase.php';
  *    consumed (deleted) the row, but the browser refused to let JS
  *    read the response -- indistinguishable from "no pending link" at
  *    the UI, while silently burning the one-time link.
+ * 3. (Issue #360) Being a plain GET, a cross-site request could still
+ *    reach the server and burn the pending value as a side effect even
+ *    though CORS stopped the attacker from reading the response. POST
+ *    + a required `application/json` body closes this (see the
+ *    entrypoint's own doc comment for the full mechanism).
  */
 function loadEntrypointSource(): string
 {
@@ -45,14 +50,17 @@ function assertLastMagicLinkEntrypointSetsNoStore(): void
         "last-magic-link.php must call header('Cache-Control: no-store')",
     );
 
-    // Must be set before the first conditional branch (the DEV_HARNESS_ENABLED
-    // check) so every response -- 403/405/400/404/500/200 alike -- carries it,
-    // not only the success path.
+    // Must be set before the DEV_HARNESS_ENABLED gate (the first
+    // response-status branch for a non-OPTIONS request) so every
+    // response -- 403/405/415/400/404/500/200 alike -- carries it, not
+    // only the success path. The unauthenticated OPTIONS-preflight
+    // short-circuit above it sends its own fixed 204 and never reaches
+    // this header, which is fine: it carries no cacheable body.
     $noStorePos = strpos($source, "header('Cache-Control: no-store')");
-    $firstBranchPos = strpos($source, 'if (');
+    $gatePos = strpos($source, "\$config->get('DEV_HARNESS_ENABLED') !== 'true'");
     assertTrue(
-        $noStorePos !== false && $firstBranchPos !== false && $noStorePos < $firstBranchPos,
-        'Cache-Control: no-store must be set unconditionally, before the first branch, so every response status carries it',
+        $noStorePos !== false && $gatePos !== false && $noStorePos < $gatePos,
+        'Cache-Control: no-store must be set before the DEV_HARNESS_ENABLED gate, so every response status carries it',
     );
 }
 
@@ -77,14 +85,15 @@ function assertLastMagicLinkEntrypointUsesCors(): void
         'must never emit a wildcard Access-Control-Allow-Origin -- Cors::applyHeaders() already guarantees this, this guards against ever bypassing it with a raw header() call',
     );
 
-    // applyHeaders() must run before the first response-status branch, same
-    // reasoning as the no-store check above -- every status code, not only
-    // the success path, needs the CORS header for a browser to read it.
+    // applyHeaders() must run before the DEV_HARNESS_ENABLED gate, same
+    // reasoning as the no-store check above -- every status code for a
+    // non-OPTIONS request, not only the success path, needs the CORS
+    // header for a browser to read it.
     $corsCallPos = strpos($source, '$cors->applyHeaders(');
-    $firstBranchPos = strpos($source, 'if (');
+    $gatePos = strpos($source, "\$config->get('DEV_HARNESS_ENABLED') !== 'true'");
     assertTrue(
-        $corsCallPos !== false && $firstBranchPos !== false && $corsCallPos < $firstBranchPos,
-        'Cors::applyHeaders() must be called unconditionally, before the first branch, so every response status is readable cross-origin',
+        $corsCallPos !== false && $gatePos !== false && $corsCallPos < $gatePos,
+        'Cors::applyHeaders() must be called before the DEV_HARNESS_ENABLED gate, so every response status is readable cross-origin',
     );
 }
 
@@ -99,6 +108,118 @@ function assertLastMagicLinkEntrypointDevHarnessGateUnchanged(): void
         str_contains($source, "\$config->get('DEV_HARNESS_ENABLED') !== 'true'"),
         'the DEV_HARNESS_ENABLED gate must remain an exact-string, default-closed check',
     );
+
+    // The only branch allowed to run before the DEV_HARNESS_ENABLED gate
+    // is the unauthenticated OPTIONS-preflight short-circuit (Issue
+    // #360) -- it always returns a fixed 204 and reveals nothing about
+    // harness/dev-only state. No other "if (" may appear earlier.
+    $gatePos = strpos($source, "\$config->get('DEV_HARNESS_ENABLED') !== 'true'");
+    $optionsCheckPos = strpos($source, "=== 'OPTIONS'");
+    assertTrue(
+        $gatePos !== false && $optionsCheckPos !== false && $optionsCheckPos < $gatePos,
+        'the OPTIONS-preflight short-circuit must run before the DEV_HARNESS_ENABLED gate',
+    );
+
+    preg_match_all('/if\s*\(/', $source, $matches, PREG_OFFSET_CAPTURE);
+    $branchesBeforeGate = array_filter($matches[0], static fn (array $match): bool => $match[1] < $gatePos);
+    assertSame(
+        1,
+        count($branchesBeforeGate),
+        'only the OPTIONS-preflight short-circuit may run before the DEV_HARNESS_ENABLED gate',
+    );
+}
+
+function assertLastMagicLinkEntrypointSupportsOptionsPreflight(): void
+{
+    $source = loadEntrypointSource();
+
+    assertTrue(
+        (bool) preg_match(
+            "/if\\s*\\(\\s*\\(\\\$_SERVER\\['REQUEST_METHOD'\\]\\s*\\?\\?\\s*''\\)\\s*===\\s*'OPTIONS'\\s*\\)/",
+            $source,
+        ),
+        'expected an OPTIONS method guard',
+    );
+    assertTrue(
+        str_contains($source, '$cors->applyPreflightHeaders('),
+        'the OPTIONS branch must answer the preflight via Cors::applyPreflightHeaders(), the existing exact-origin CORS helper',
+    );
+    assertTrue(
+        str_contains($source, 'http_response_code(204);'),
+        'the OPTIONS branch must respond 204',
+    );
+}
+
+function assertLastMagicLinkEntrypointOnlyAcceptsPost(): void
+{
+    $source = loadEntrypointSource();
+
+    assertFalse(str_contains($source, "!== 'GET'"), 'GET must no longer be accepted (Issue #360)');
+    assertTrue(str_contains($source, "!== 'POST'"), 'expected a POST method guard');
+    assertTrue(str_contains($source, '405'), 'expected a 405 response for non-POST requests');
+}
+
+function assertLastMagicLinkEntrypointRequiresJsonContentType(): void
+{
+    $source = loadEntrypointSource();
+
+    assertTrue(
+        str_contains($source, "\$_SERVER['CONTENT_TYPE'] ?? ''"),
+        'expected the Content-Type header to be inspected',
+    );
+    assertTrue(
+        str_contains($source, '415'),
+        'expected a 415 response for a non-JSON Content-Type',
+    );
+
+    // The Content-Type check must run before the body is ever read, and
+    // before the credential store is ever touched.
+    $contentTypePos = strpos($source, "\$_SERVER['CONTENT_TYPE'] ?? ''");
+    $bodyReadPos = strpos($source, "file_get_contents('php://input')");
+    $consumePos = strpos($source, '->consume(');
+    assertTrue(
+        $contentTypePos !== false && $bodyReadPos !== false && $consumePos !== false
+            && $contentTypePos < $bodyReadPos && $bodyReadPos < $consumePos,
+        'Content-Type must be validated before the body is read, and before the credential is consumed',
+    );
+}
+
+function assertLastMagicLinkEntrypointRejectsDisallowedOriginBeforeConsuming(): void
+{
+    $source = loadEntrypointSource();
+
+    assertTrue(
+        (bool) preg_match('/\\$cors->isOriginAllowed\\(\\s*\\$requestOrigin\\s*\\)/', $source),
+        'expected a present Origin to be checked against Cors::isOriginAllowed()',
+    );
+    assertTrue(str_contains($source, '403'), 'expected a 403 response for a disallowed Origin');
+
+    // A missing Origin (direct test/dev callers) must remain supported --
+    // the rejection must be conditioned on the Origin being present.
+    assertTrue(
+        (bool) preg_match('/\\$requestOrigin\\s*!==\\s*null\\s*&&\\s*\\$requestOrigin\\s*!==\\s*\'\'/', $source),
+        'a present-but-empty/null Origin must not be rejected -- only an explicitly disallowed one',
+    );
+
+    $originCheckPos = strpos($source, '$cors->isOriginAllowed(');
+    $bodyReadPos = strpos($source, "file_get_contents('php://input')");
+    $consumePos = strpos($source, '->consume(');
+    assertTrue(
+        $originCheckPos !== false && $bodyReadPos !== false && $consumePos !== false
+            && $originCheckPos < $bodyReadPos && $bodyReadPos < $consumePos,
+        'a disallowed Origin must be rejected before the body is read, and before the credential is consumed',
+    );
+}
+
+function assertLastMagicLinkEntrypointReadsEmailFromJsonBody(): void
+{
+    $source = loadEntrypointSource();
+
+    assertFalse(str_contains($source, "\$_GET['email']"), 'email must no longer be read from the query string (Issue #360)');
+    assertTrue(
+        (bool) preg_match('/is_array\\(\\$body\\)\\s*\\?\\s*\\(\\$body\\[\'email\'\\]\\s*\\?\\?\\s*null\\)\\s*:\\s*null/', $source),
+        "expected the email to be read from the decoded JSON body's 'email' field",
+    );
 }
 
 /**
@@ -107,11 +228,21 @@ function assertLastMagicLinkEntrypointDevHarnessGateUnchanged(): void
 function lastMagicLinkEntrypointTests(): array
 {
     return [
-        'sets Cache-Control: no-store unconditionally, before any response-status branch' =>
+        'sets Cache-Control: no-store unconditionally, before the DEV_HARNESS_ENABLED gate' =>
             'KanaGame\\Paddle\\Tests\\assertLastMagicLinkEntrypointSetsNoStore',
-        'applies Cors::applyHeaders() from $config->allowedOrigins(), never a hardcoded/wildcard origin, before any response-status branch' =>
+        'applies Cors::applyHeaders() from $config->allowedOrigins(), never a hardcoded/wildcard origin, before the DEV_HARNESS_ENABLED gate' =>
             'KanaGame\\Paddle\\Tests\\assertLastMagicLinkEntrypointUsesCors',
-        'the DEV_HARNESS_ENABLED gate is unchanged by the CORS/no-store fixes' =>
+        'the DEV_HARNESS_ENABLED gate is the first response-status branch after the OPTIONS short-circuit' =>
             'KanaGame\\Paddle\\Tests\\assertLastMagicLinkEntrypointDevHarnessGateUnchanged',
+        'supports OPTIONS preflight via Cors::applyPreflightHeaders()' =>
+            'KanaGame\\Paddle\\Tests\\assertLastMagicLinkEntrypointSupportsOptionsPreflight',
+        'only accepts POST' =>
+            'KanaGame\\Paddle\\Tests\\assertLastMagicLinkEntrypointOnlyAcceptsPost',
+        'requires an application/json Content-Type before consuming' =>
+            'KanaGame\\Paddle\\Tests\\assertLastMagicLinkEntrypointRequiresJsonContentType',
+        'rejects a present, disallowed Origin before reading/consuming the credential' =>
+            'KanaGame\\Paddle\\Tests\\assertLastMagicLinkEntrypointRejectsDisallowedOriginBeforeConsuming',
+        'reads the email from the JSON request body, not the query string' =>
+            'KanaGame\\Paddle\\Tests\\assertLastMagicLinkEntrypointReadsEmailFromJsonBody',
     ];
 }
