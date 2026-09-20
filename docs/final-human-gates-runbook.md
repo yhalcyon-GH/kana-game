@@ -41,6 +41,15 @@ Confirm that the public identity, support details, Paddle wording, refund promis
 
 ## Remaining Gate — final GO/NO-GO
 
+**Final read-only Production verification completed 2026-09-20:**
+
+- `production:php-probe` passed with PHP 8.4.
+- `production:preflight` passed: cookie auth active, Production mailer configured, dev harness disabled, Email OTP enabled/ready, LOGIN_CODE_PEPPER configured.
+- `production:release-integrity` passed against reviewed checkout `c90839be34dc4855a051e06c99e49bbe0db56caf`.
+- `production:cors-probe` passed: exactly one Production origin; GitHub Pages, localhost, and unknown origins absent.
+
+No further technical check is required before the human GO/NO-GO unless something changes.
+
 Before normal customer traffic, verify read-only status:
 
     & C:\Users\halcy\tamamizu-resume.ps1

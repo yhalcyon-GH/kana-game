@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "current_main_sha": "bb0de98775fcd7119d6779983d598292ee125d1a",
+  "current_main_sha": "c90839be34dc4855a051e06c99e49bbe0db56caf",
   "latest_completed_work": {
-    "kind": "human_legal_approval",
+    "kind": "final_read_only_production_verification",
     "number": null,
-    "title": "Final public legal/support/checkout UX approval",
+    "title": "Final CORS, PHP, auth-readiness, and release-integrity checks passed",
     "merged_at": "2026-09-20"
   },
   "open_prs": [
@@ -20,17 +20,17 @@
     "branch": null,
     "pull_request_number": null,
     "status": "human_go_no_go_only",
-    "goal": "Final human legal/business approval was explicitly granted on 2026-09-20. The only remaining launch gate is the final human GO/NO-GO after the last read-only Production checks."
+    "goal": "All technical checks, legal approval, and final read-only Production verification are complete. Only the human GO/NO-GO launch decision remains."
   },
-  "next_machine_action": "Do not repeat completed legal decisions or implementation. Final human legal approval was explicitly granted on 2026-09-20 for the current public Terms, Privacy Policy, Refund Policy, Support page, and explicit checkout acceptance UX. Before GO/NO-GO, run only the final read-only Production checks (`production:cors-probe` and `production:status`) and confirm the reviewed frontend build is publicly served. Then request the human GO/NO-GO decision.",
+  "next_machine_action": "Do not repeat completed checks. Final read-only Production verification passed on 2026-09-20 at main c90839be34dc4855a051e06c99e49bbe0db56caf: PHP 8.4; cookie auth active; Production mailer configured; dev harness disabled; Email OTP enabled and ready; LOGIN_CODE_PEPPER configured; deployed API matches reviewed checkout; CORS exactly one Production origin with no GitHub Pages/localhost/unknown origins. Await only explicit human GO/NO-GO.",
   "unresolved_ai_items": [],
   "human_gates": [
-    "Final human GO/NO-GO decision after the final read-only Production checks.",
+    "Final human GO/NO-GO launch decision.",
     "Any new real-money, Paddle Live, paid-service, Production DB write, DNS, Production-secret, email-send, or Production backend deployment action beyond what is explicitly approved."
   ],
   "production_live_restrictions": "NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL. Real charges/refunds, Paddle Live transactions/configuration, paid-resource changes, Production DB writes, DNS changes, Production-secret changes, email sends, and Production deployments are Human Gates.",
   "last_verified_at": "2026-09-20",
-  "last_verified_by": "Human explicitly granted final legal/business approval for the current public Terms, Privacy Policy, Refund Policy, Support page, and explicit Terms+Refund purchase acceptance UX. Public frontend build 7dbcb7f was confirmed served after PR #330; PR #331 only changed docs/state. Remaining gate: final GO/NO-GO after read-only Production status/CORS checks.",
+  "last_verified_by": "Human ran the final read-only Production checks after resuming to main c90839be34dc4855a051e06c99e49bbe0db56caf. Results passed: PHP 8.4; webCookieAuthActive=true; productionMagicLinkMailerConfigured=true; devHarnessEnabled=false; emailCodeAuthEnabled=true; loginCodePepperConfigured=true; emailCodeAuthReady=true; release-integrity matched the reviewed checkout; CORS exact=true with originCount=1, Production origin present, GitHub Pages/localhost absent, unknownCount=0. Final legal approval had already been granted. Only GO/NO-GO remains.",
   "known_non_blockers": [
     "Production Email OTP is enabled and real-device OTP login/persistence/logout QA passed on 2026-09-20.",
     "Production CORS now allows only https://app.tamamizu.giganihongo.com; guarded correction and post-change production:status passed on 2026-09-20.",
