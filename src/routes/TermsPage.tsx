@@ -37,8 +37,8 @@ export function TermsPage() {
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Ordering through Paddle</h2>
         <p>
           Our order process is conducted by our online reseller Paddle.com. Paddle.com is the Merchant of Record for
-          all our orders. Paddle handles payment processing, transaction taxes, buyer order support, and returns for
-          purchases made through Paddle Checkout, while Tamamizu remains responsible for the service and these Terms.
+          all our orders. Paddle provides all customer service inquiries and handles returns. Tamamizu remains
+          responsible for the service and these Terms.
         </p>
       </section>
 
