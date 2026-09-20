@@ -5,7 +5,7 @@ import { readProductionAuthApiBase } from '../lib/auth/productionAuthApiBase'
 import { createSandboxCheckoutController, type CheckoutSummary } from '../lib/paddle/sandboxCheckoutController'
 import { readProductionSandboxConfig } from '../lib/paddle/sandboxConfig'
 
-type PurchaseStatus = 'idle' | 'preparing' | 'open' | 'processing' | 'still-confirming' | 'unavailable'
+type PurchaseStatus = 'idle' | 'preparing' | 'open' | 'processing' | 'still-confirming' | 'unavailable' | 'promotion-unavailable'
 type PurchaseActions = {
   start: (discountCode?: string, inlineTarget?: string) => Promise<void>
   retry: () => void
@@ -105,6 +105,10 @@ export function useProductionSandboxPurchase() {
           // SDK closes (including auto-close); Account cancellation still aborts.
           case 'completed': void confirm(); break
           case 'closed': invalidate(); break
+          case 'promotion-unavailable':
+            invalidate()
+            changeStatus('promotion-unavailable')
+            break
           case 'mismatch': case 'unavailable':
             invalidate()
             changeStatus('unavailable')
@@ -115,7 +119,7 @@ export function useProductionSandboxPurchase() {
 
     actions.current = {
       start: async (discountCode?: string, inlineTarget?: string) => {
-        if (disposed || sessionStatus.current !== 'inactive' || !['idle', 'unavailable'].includes(currentStatus)) return
+        if (disposed || sessionStatus.current !== 'inactive' || !['idle', 'unavailable', 'promotion-unavailable'].includes(currentStatus)) return
         invalidate()
         const attempt = generation
         const prepared = await controller.prepare(async () => {
