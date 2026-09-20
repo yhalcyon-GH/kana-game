@@ -9,10 +9,14 @@ this stops short of.
 All logging described here uses PHP's built-in `error_log()`. There is
 no log-shipping/aggregation configured in this repo.
 
-**TODO before Production deploy:** confirm and record here the actual
-file path (or destination) Xserver's PHP writes `error_log()` output
-to for this hosting account/PHP-FPM pool. This doc does not guess that
-path — it has not been confirmed against a real Production deploy.
+**Remaining pre-launch Human Gate:** confirm that the Production domain's
+PHP error log is reachable and record the actual XServer save/retention
+setting chosen for this account. XServer's current official manual says
+the Server Panel exposes domain-level error logs generated daily for the
+past 7 days, with an optional "user-area save" setting for keeping older
+compressed logs under the domain's `log/` directory. The repository cannot
+see which optional setting this account currently uses, so it must not
+invent a longer retention period. See `docs/final-human-gates-runbook.md`.
 
 ## Logging convention
 
@@ -66,21 +70,23 @@ of never granting entitlement, and Paddle's own retry/redelivery
 mechanism (visible in the Paddle dashboard) is the only thing giving
 you a second chance once the underlying cause is fixed.
 
-### `request-link: mailer_unconfigured`
+### `request-link: mailer_unconfigured` / `request-code: mailer_unconfigured`
 
-Logged from `server/auth/request-link.php` every time a request falls
+The first tag is logged from `server/auth/request-link.php`; the second
+is logged from the Production-primary OTP endpoint
+`server/auth/request-code.php`. Each appears when a request falls
 through to the safe no-op mailer because `DEV_HARNESS_ENABLED` is not
 `'true'` **and** the Resend triplet (`RESEND_API_KEY`,
 `MAGIC_LINK_FROM_EMAIL`, `MAGIC_LINK_FROM_NAME`) is incomplete or
-absent. No PII, secret, or config value is included — the tag alone is
-the signal.
+absent. No PII, secret, one-time code, or config value is included — the
+tag alone is the signal.
 
-**If this tag appears in Production at all, Live sign-in cannot work**
-— every magic-link request is silently accepted (per the
-enumeration-safe `{"status":"ok"}` contract) but no email is ever
-sent. Treat this as a go-live blocker, not routine noise: it will
-repeat on every request until the Resend triplet (or dev-harness flag,
-for non-Production use) is fully configured.
+**If either tag appears repeatedly in Production, treat it as a go-live
+blocker.** The affected request is deliberately enumeration-safe and may
+look superficially successful to the client while no email is sent.
+`production:preflight` already checks the same mailer configuration
+without exposing secret values, but the runtime tags remain useful for
+detecting later drift or failures.
 
 ### `entitlement.php: lookup failure: <ExceptionClass>`
 
