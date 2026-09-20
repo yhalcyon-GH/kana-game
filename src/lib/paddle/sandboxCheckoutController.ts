@@ -10,7 +10,7 @@ export type CheckoutSummary = {
 }
 
 export type SandboxCheckoutEvent =
-  | { kind: 'preparing' | 'ready' | 'opening' | 'open' | 'loaded' | 'completed' | 'closed' | 'unavailable' }
+  | { kind: 'preparing' | 'ready' | 'opening' | 'open' | 'loaded' | 'completed' | 'closed' | 'unavailable' | 'promotion-unavailable' }
   | { kind: 'summary'; summary: CheckoutSummary }
   | { kind: 'mismatch'; phase: 'loaded' | 'completed'; transactionMatches: boolean; purchaseRefMatches: boolean }
 
@@ -59,6 +59,7 @@ export function createSandboxCheckoutController({ config, onEvent, loadPaddle = 
   let checkoutOpen = false
   let purchaseRef: string | null = null
   let transactionId: string | null = null
+  let promotionExpected = false
   let paddle: Paddle | undefined
   let initialization: Promise<Paddle> | null = null
 
@@ -70,6 +71,7 @@ export function createSandboxCheckoutController({ config, onEvent, loadPaddle = 
     active = false
     purchaseRef = null
     transactionId = null
+    promotionExpected = false
     // Invalidate BEFORE closing: the SDK may synchronously dispatch closed.
     if (closeOverlay && checkoutOpen) {
       checkoutOpen = false
@@ -91,6 +93,10 @@ export function createSandboxCheckoutController({ config, onEvent, loadPaddle = 
     if (event.name === 'checkout.closed') {
       checkoutOpen = false
       finish({ kind: 'closed' }, false)
+      return
+    }
+    if (event.name === 'checkout.error') {
+      finish({ kind: promotionExpected ? 'promotion-unavailable' : 'unavailable' }, true)
       return
     }
 
@@ -116,6 +122,13 @@ export function createSandboxCheckoutController({ config, onEvent, loadPaddle = 
     if (phase === 'loaded') {
       transactionId = incomingId!
       const summary = readCheckoutSummary(event.data)
+      // A campaign link promises a discount. If Paddle loads the checkout
+      // without one, fail closed instead of letting the buyer accidentally
+      // complete a full-price purchase.
+      if (promotionExpected && (!summary || summary.discount <= 0)) {
+        finish({ kind: 'promotion-unavailable' }, true)
+        return
+      }
       if (summary) onEvent({ kind: 'summary', summary })
       onEvent({ kind: 'loaded' })
     } else {
@@ -152,6 +165,7 @@ export function createSandboxCheckoutController({ config, onEvent, loadPaddle = 
     if (disposed || preparing || active || !purchaseRef) return
     const attempt = generation
     active = true
+    promotionExpected = Boolean(discountCode)
     onEvent({ kind: 'opening' })
     if (!isCurrent(attempt)) return
     const eventCallback = (event: PaddleEventData) => handleEvent(attempt, event)
@@ -208,7 +222,7 @@ export function createSandboxCheckoutController({ config, onEvent, loadPaddle = 
         ...(customerEmail ? { customer: { email: customerEmail } } : {}),
       })
     } catch {
-      if (isCurrent(attempt)) finish({ kind: 'unavailable' }, true)
+      if (isCurrent(attempt)) finish({ kind: discountCode ? 'promotion-unavailable' : 'unavailable' }, true)
     }
   }
 
