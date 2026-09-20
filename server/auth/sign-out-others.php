@@ -112,9 +112,45 @@ try {
         exit;
     }
 
+    // The remember credential must belong to the same account as the current
+    // session. Without this check a stale remember cookie for account B could
+    // be presented alongside an active session for account A and accidentally
+    // drive "sign out others" against the wrong persistent-session keep id.
+    if ($ownPersistentSession['user_id'] !== $resolution['user']['user_id']) {
+        http_response_code(401);
+        echo json_encode(['error' => 'unauthorized']);
+        exit;
+    }
+
+    // resolveOrRefresh() may have minted a fresh normal session from the
+    // remember credential. Preserve exactly the token that authenticated this
+    // request; every other normal session for the user (including unlinked
+    // Magic-Link sessions) is revoked below.
+    $currentSessionRawToken = $resolution['refreshed_session_token'] ?? $credential->token;
+    if (!is_string($currentSessionRawToken) || $currentSessionRawToken === '') {
+        http_response_code(401);
+        echo json_encode(['error' => 'unauthorized']);
+        exit;
+    }
+
     $revokedIds = $persistentSessions->revokeAllForUserExcept($resolution['user']['user_id'], $ownPersistentSession['id']);
     foreach ($revokedIds as $revokedId) {
         $sessions->revokeByPersistentSessionId($revokedId);
+    }
+
+    $revokedSessionCount = $sessions->revokeAllForUserExceptRawToken(
+        $resolution['user']['user_id'],
+        $currentSessionRawToken,
+    );
+
+    if ($resolution['refreshed_session_token'] !== null && $webSessionCookie->isEnabled()) {
+        $newExpiresAt = new \DateTimeImmutable(
+            '+' . $config->intWithDefault('SESSION_EXPIRY_HOURS', 24) . ' hours',
+        );
+        header(
+            'Set-Cookie: ' . $webSessionCookie->issueHeader($resolution['refreshed_session_token'], $newExpiresAt),
+            false,
+        );
     }
 } catch (\Throwable $e) {
     error_log('sign-out-others.php: ' . get_class($e));
@@ -123,4 +159,10 @@ try {
     exit;
 }
 
-echo json_encode(['status' => 'ok', 'revoked' => count($revokedIds)]);
+echo json_encode([
+    'status' => 'ok',
+    // This remains a human-facing approximation of "other browsers": one
+    // browser may have multiple historical normal sessions, so report the
+    // larger of persistent credentials revoked vs normal sessions revoked.
+    'revoked' => max(count($revokedIds), $revokedSessionCount),
+]);
