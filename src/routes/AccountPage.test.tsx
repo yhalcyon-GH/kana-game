@@ -44,11 +44,11 @@ async function start() {
   await act(async () => {
     const acceptance = screen.getByRole('checkbox', { name: /I agree to Tamamizu's Terms & Conditions and Refund Policy/i })
     if (!(acceptance as HTMLInputElement).checked) fireEvent.click(acceptance)
-    fireEvent.click(screen.getByRole('button', { name: 'Sandbox test purchase' }))
+    fireEvent.click(screen.getByRole('button', { name: /Sandbox test purchase|Continue with test promotion/ }))
   })
 }
-function emit(name: string, ref = privateRef, transaction = 'txn_1') {
-  callbacks.at(-1)?.({ name, data: { id: 'che_1', transaction_id: transaction, custom_data: { purchase_ref: ref } } } as PaddleEventData)
+function emit(name: string, ref = privateRef, transaction = 'txn_1', extra: Record<string, unknown> = {}) {
+  callbacks.at(-1)?.({ name, data: { id: 'che_1', transaction_id: transaction, custom_data: { purchase_ref: ref }, ...extra } } as PaddleEventData)
 }
 async function complete() {
   await act(async () => { emit('checkout.loaded'); emit('checkout.completed') })
@@ -118,21 +118,73 @@ describe('production Account purchase UI', () => {
     expect(purchaseButton).toBeEnabled()
   })
 
-  it('acknowledges a valid promo link and passes it only as Paddle discountCode', async () => {
-    await renderAccount('/account?promo=tamamizu0304')
-    expect(screen.getByText(/Promo code/)).toHaveTextContent('tamamizu0304')
+  it('makes a promo link explicit, opens inline, and shows Paddle-calculated 50% totals without code entry', async () => {
+    await renderAccount('/account?promo=HALF50')
+    expect(screen.getByText('Promotion link detected')).toBeInTheDocument()
+    expect(screen.getByText(/Code:/)).toHaveTextContent('HALF50')
+    expect(screen.getByText(/do not need to enter a promo code in Paddle/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Continue with test promotion' })).toBeDisabled()
+
     await start()
     const options = sdk.open.mock.calls[0][0]
-    expect(options.discountCode).toBe('tamamizu0304')
+    expect(options.settings).toEqual(expect.objectContaining({
+      displayMode: 'inline',
+      variant: 'one-page',
+      frameTarget: 'tamamizu-promo-checkout',
+      showAddDiscounts: false,
+    }))
+    expect(options.discountCode).toBe('HALF50')
     expect(options.customData).toEqual({ purchase_ref: privateRef })
-    expect(JSON.stringify(options.customData)).not.toContain('tamamizu0304')
+    expect(JSON.stringify(options.customData)).not.toContain('HALF50')
+
+    await act(async () => {
+      emit('checkout.loaded', privateRef, 'txn_1', {
+        currency_code: 'USD',
+        totals: { subtotal: 5, discount: 2.5, tax: 0, total: 2.5, balance: 2.5, credit: 0 },
+      })
+    })
+    expect(screen.getByText('Promotion applied')).toBeInTheDocument()
+    expect(screen.getByText('50% OFF')).toBeInTheDocument()
+    expect(screen.getByLabelText('Promotion summary')).toHaveTextContent('$5.00')
+    expect(screen.getByLabelText('Promotion summary')).toHaveTextContent('−$2.50')
+    expect(screen.getByLabelText('Promotion summary')).toHaveTextContent('$2.50')
+    expect(screen.getByLabelText('Secure Paddle checkout')).not.toHaveClass('hidden')
+  })
+
+  it('shows FREE and no-payment-details guidance when Paddle calculates a zero-total promo checkout', async () => {
+    await renderAccount('/account?promo=FREE100')
+    await start()
+    await act(async () => {
+      emit('checkout.loaded', privateRef, 'txn_1', {
+        currency_code: 'USD',
+        totals: { subtotal: 5, discount: 5, tax: 0, total: 0, balance: 0, credit: 0 },
+      })
+    })
+    expect(screen.getByText('100% OFF')).toBeInTheDocument()
+    expect(screen.getByText('FREE')).toBeInTheDocument()
+    expect(screen.getByText('No payment details are needed for this $0 checkout.')).toBeInTheDocument()
+  })
+
+  it('fails closed instead of exposing a full-price checkout when Paddle does not apply the promo', async () => {
+    await renderAccount('/account?promo=EXPIRED')
+    await start()
+    await act(async () => {
+      emit('checkout.loaded', privateRef, 'txn_1', {
+        currency_code: 'USD',
+        totals: { subtotal: 5, discount: 0, tax: 0, total: 5, balance: 5, credit: 0 },
+      })
+    })
+    expect(screen.getByRole('alert')).toHaveTextContent('This promotion could not be applied.')
+    expect(screen.queryByText('Promotion applied')).not.toBeInTheDocument()
+    expect(sdk.close).toHaveBeenCalledOnce()
   })
 
   it('ignores an invalid promo link and never passes it to Paddle', async () => {
     await renderAccount('/account?promo=bad-code')
-    expect(screen.queryByText(/Promo code/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Promotion link detected')).not.toBeInTheDocument()
     await start()
     expect(sdk.open.mock.calls[0][0]).not.toHaveProperty('discountCode')
+    expect(sdk.open.mock.calls[0][0].settings).toEqual({ displayMode: 'overlay', showAddDiscounts: false })
   })
 
   it('preserves a valid promo link when a signed-out buyer goes to sign in', async () => {
