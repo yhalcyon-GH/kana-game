@@ -63,18 +63,17 @@ The current Tamamizu policy promises a full refund within 14 calendar days with 
 
 The remaining “refund vs local learning progress” question is not a payment-system blocker: local progress is stored in browser storage and the server-side entitlement/refund path does not clear it. The repo decision remains to retain local progress after access is revoked.
 
-## Operational legal/privacy dependency: XServer logs
+## Operational legal/privacy dependency: XServer logs — completed
 
-XServer's current manual states that error logs are available by domain in Server Panel, with recent history available there and optional server-side saving for longer retention. The exact setting for the Tamamizu domain is account-specific.
-
-Before final legal approval, the human operator should confirm the real Production error-log retention/save setting, because privacy copy should not promise a retention duration that the hosting account does not actually implement.
+The Production XServer error log was reviewed on 2026-09-20 without copying customer/request data into the repository. No launch-critical Paddle webhook, auth-mailer, or PHP fatal/warning/parse/notice signals were found in the supplied log. The human operator then set `giganihongo.com` user-area error-log retention to **9 weeks**, and the Privacy Policy was updated to match that factual Production setting.
 
 ## Final legal Human Gate
 
-A human should not approve launch until the following are intentionally decided:
+All identified legal/product decisions that required implementation are now reflected in the product, including the explicit unchecked Terms + Refund acceptance control.
 
-1. Final Terms/refund acceptance mechanism at checkout; the current UI links the policies but does not yet record an explicit acceptance action.
-2. Final review of the resulting public Terms, Privacy Policy, Refund Policy, Support page, and purchase acceptance UX.
-3. Final GO/NO-GO.
+The remaining human steps are:
 
-Once those choices are supplied, implementation of the approved wording is ordinary code work and can be completed/tested by AI.
+1. Final review and approval of the resulting public Terms, Privacy Policy, Refund Policy, Support page, and purchase acceptance UX.
+2. Final GO/NO-GO.
+
+No additional AI-only legal-copy implementation remains unless the human requests a change during final review.
