@@ -37,11 +37,11 @@ The previously approved public identity is retained: **Tamamizu** is the public-
 
 Paddle's Seller Handbook currently says buyer support details should include email and phone number. The human operator supplied a dedicated Thai support number for public use. The Support page now publishes it in international format alongside the existing support email.
 
-### 3. Explicit acceptance of supplier Terms / Refund Policy
+### 3. Explicit acceptance of supplier Terms / Refund Policy — implemented
 
-The current Account purchase surface says “By continuing, review…” and links the policies. Paddle's Seller Handbook says the buyer should accept the seller's Terms and refund policy before purchase, and Paddle Buyer Terms treat the Supplier Agreement as part of the purchase relationship.
+The purchase surface now uses an explicit, unchecked acceptance checkbox before checkout. The buyer must affirm “I agree to Tamamizu's Terms & Conditions and Refund Policy” before the Buy Full Access / Sandbox test purchase button becomes enabled. The Terms and Refund Policy remain directly linked beside the acceptance control.
 
-**Human legal approval required:** approve the final click-wrap wording/mechanism (for example, wording tied directly to selecting “Buy Full Access”, or a checkbox if counsel/Paddle requires one). This changes the legal acceptance mechanism, so it is not an AI-only copy edit.
+The acceptance state is page-local only: it is not preselected, not persisted to browser storage, and not added to analytics or the buyer profile. Navigating away/remounting the page requires a fresh acceptance. This implements Paddle's current Seller Handbook requirement that the buyer accept the seller's Terms and refund policy before purchase. Final human legal review of the resulting wording and UX remains required before GO/NO-GO.
 
 ### 4. Paddle Merchant-of-Record wording — decided and implemented
 

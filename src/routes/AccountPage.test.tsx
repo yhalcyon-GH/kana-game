@@ -37,7 +37,11 @@ async function renderAccount() {
   return view
 }
 async function start() {
-  await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Sandbox test purchase' })) })
+  await act(async () => {
+    const acceptance = screen.getByRole('checkbox', { name: /I agree to Tamamizu's Terms & Conditions and Refund Policy/i })
+    if (!(acceptance as HTMLInputElement).checked) fireEvent.click(acceptance)
+    fireEvent.click(screen.getByRole('button', { name: 'Sandbox test purchase' }))
+  })
 }
 function emit(name: string, ref = privateRef, transaction = 'txn_1') {
   callbacks.at(-1)?.({ name, data: { id: 'che_1', transaction_id: transaction, custom_data: { purchase_ref: ref } } } as PaddleEventData)
@@ -90,16 +94,24 @@ describe('production Account purchase UI', () => {
     expect(requestCount('/purchase-intent.php')).toBe(0)
   })
 
-  it('offers Full Access with Sandbox labeling, price/tax disclosure, and policy links', async () => {
+  it('offers Full Access with Sandbox labeling, price/tax disclosure, policy links, and explicit unchecked acceptance', async () => {
     await renderAccount()
     expect(screen.getByText('Full Access')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Sandbox test purchase' })).toBeEnabled()
+    const acceptance = screen.getByRole('checkbox', { name: /I agree to Tamamizu's Terms & Conditions and Refund Policy/i })
+    const purchaseButton = screen.getByRole('button', { name: 'Sandbox test purchase' })
+    expect(acceptance).not.toBeChecked()
+    expect(purchaseButton).toBeDisabled()
+    fireEvent.click(purchaseButton)
+    expect(requestCount('/purchase-intent.php')).toBe(0)
     expect(screen.getByText(/Base price: USD 5\.00/)).toBeInTheDocument()
     expect(screen.getByText(/final price is shown at checkout/i)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Terms & Conditions' })).toHaveAttribute('href', '/terms')
     expect(screen.getByRole('link', { name: 'Refund Policy' })).toHaveAttribute('href', '/refund')
     expect(screen.getByRole('link', { name: 'Privacy Policy' })).toHaveAttribute('href', '/privacy')
     expect(screen.getByRole('link', { name: 'Support & Contact' })).toHaveAttribute('href', '/support')
+    fireEvent.click(acceptance)
+    expect(acceptance).toBeChecked()
+    expect(purchaseButton).toBeEnabled()
   })
 
   it.each([
@@ -124,12 +136,17 @@ describe('production Account purchase UI', () => {
     expect(sdk.initialize).not.toHaveBeenCalled()
   })
 
-  it('offers Full Access with ordinary purchase labeling (no Sandbox/Test Mode text) when configured for live', async () => {
+  it('offers Full Access with ordinary purchase labeling and the same acceptance gate when configured for live', async () => {
     vi.stubEnv('VITE_PADDLE_ENVIRONMENT', 'live')
     vi.stubEnv('VITE_PADDLE_CLIENT_TOKEN', 'live_fixture')
     await renderAccount()
     expect(screen.getByText('Full Access')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Buy Full Access' })).toBeEnabled()
+    const acceptance = screen.getByRole('checkbox', { name: /I agree to Tamamizu's Terms & Conditions and Refund Policy/i })
+    const button = screen.getByRole('button', { name: 'Buy Full Access' })
+    expect(acceptance).not.toBeChecked()
+    expect(button).toBeDisabled()
+    fireEvent.click(acceptance)
+    expect(button).toBeEnabled()
     expect(document.body.textContent).not.toMatch(/sandbox|test mode/i)
   })
 

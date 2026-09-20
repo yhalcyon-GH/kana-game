@@ -34,6 +34,9 @@ export default function AccountPage() {
   const [logoutStatus, setLogoutStatus] = useState<'idle' | 'signing-out' | 'failed'>('idle')
   const [signOutOthersStatus, setSignOutOthersStatus] = useState<'idle' | 'working' | 'done' | 'no-persistent-session' | 'failed'>('idle')
   const [signOutOthersRevoked, setSignOutOthersRevoked] = useState(0)
+  // Explicit, page-local clickwrap gate. It is intentionally unchecked by
+  // default and never persisted to storage or sent as profile/analytics data.
+  const [purchasePoliciesAccepted, setPurchasePoliciesAccepted] = useState(false)
 
   // "Full Access unlocked. Thank you!" is a ONE-TIME transition message --
   // shown only when THIS session watched confirmation (purchase.status was
@@ -69,8 +72,9 @@ export default function AccountPage() {
 
   async function handleLogout() {
     if (logoutStatus === 'signing-out') return
-    // Sensitive purchase correlation is local/in-memory and should be cleared
-    // immediately even if the server-side session revoke later fails.
+    // Sensitive purchase correlation and page-local policy acceptance are
+    // cleared immediately even if the server-side session revoke later fails.
+    setPurchasePoliciesAccepted(false)
     purchase.invalidate()
     setLogoutStatus('signing-out')
     if (!apiBase) {
@@ -185,14 +189,32 @@ export default function AccountPage() {
             Base price: USD 5.00. Applicable taxes may be included in or added to the price depending on your
             location. The final price is shown at checkout.
           </p>
+          <div className="flex w-full items-start gap-3 rounded-xl border border-neutral-300 p-4 text-left dark:border-neutral-700">
+            <input
+              id="purchase-policy-acceptance"
+              type="checkbox"
+              checked={purchasePoliciesAccepted}
+              disabled={!purchase.configured || checkoutBusy}
+              onChange={(event) => setPurchasePoliciesAccepted(event.target.checked)}
+              className="mt-1 h-4 w-4 shrink-0"
+            />
+            <div className="flex flex-col gap-1">
+              <label htmlFor="purchase-policy-acceptance" className="font-semibold text-neutral-900 dark:text-neutral-100">
+                I agree to Tamamizu&apos;s Terms &amp; Conditions and Refund Policy.
+              </label>
+              <p className="text-sm text-neutral-600 dark:text-neutral-300">
+                Read the <Link to="/terms" className="underline">Terms &amp; Conditions</Link> and{' '}
+                <Link to="/refund" className="underline">Refund Policy</Link> before purchasing.
+              </p>
+            </div>
+          </div>
           <p className="text-sm text-neutral-600 dark:text-neutral-300">
-            By continuing, review the <Link to="/terms" className="underline">Terms &amp; Conditions</Link>,{' '}
-            <Link to="/refund" className="underline">Refund Policy</Link>, <Link to="/privacy" className="underline">Privacy Policy</Link>, and{' '}
+            You can also review the <Link to="/privacy" className="underline">Privacy Policy</Link> and{' '}
             <Link to="/support" className="underline">Support &amp; Contact</Link>.
           </p>
           <button
             type="button"
-            disabled={!purchase.configured || checkoutBusy}
+            disabled={!purchase.configured || checkoutBusy || !purchasePoliciesAccepted}
             onClick={() => void purchase.start()}
             className="w-full rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
