@@ -75,6 +75,8 @@ describe('production read-only SSH invocation', () => {
     expect(remote).toBe('cd -- /home/account/tamamizu/api && php')
     expect(invocation.input).toContain("getenv('ALLOWED_ORIGINS')")
     expect(invocation.input).toContain("config-before-cors-")
+    expect(invocation.input).toContain("$backupDir . '/config-cors-staged-'")
+    expect(invocation.input).not.toContain("$configPath . '.cors-'")
     expect(invocation.input).toContain("CORS_CONFIG_UPDATED beforeCount=4 afterCount=1 backupCreated=true")
     expect(invocation.input).toContain("'ALLOWED_ORIGINS'] = 'https://app.tamamizu.giganihongo.com'")
     expect(invocation.input).toContain("CORS_CONFIG_REFUSED source=environment")
