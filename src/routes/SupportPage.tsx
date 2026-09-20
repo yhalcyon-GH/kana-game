@@ -10,6 +10,10 @@ export function SupportPage() {
         <a href="mailto:tamamizu.jp@gmail.com" className="underline">
           tamamizu.jp@gmail.com
         </a>
+        {' '}or by phone at{' '}
+        <a href="tel:+66821034511" className="underline">
+          +66 82 103 4511
+        </a>
         .
       </p>
 
