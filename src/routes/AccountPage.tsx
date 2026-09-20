@@ -8,8 +8,25 @@ import { useProductionSandboxPurchase } from '../hooks/useProductionSandboxPurch
 
 type PurchaseStatus = ReturnType<typeof useProductionSandboxPurchase>['status']
 
+const PROMO_CHECKOUT_TARGET = 'tamamizu-promo-checkout'
+
 function confirmingStatus(status: PurchaseStatus): boolean {
   return status === 'processing' || status === 'still-confirming'
+}
+
+function formatCheckoutAmount(amount: number, currencyCode: string): string {
+  try {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: currencyCode }).format(amount)
+  } catch {
+    return `${currencyCode} ${amount.toFixed(2)}`
+  }
+}
+
+function inferPercentageOff(subtotal: number, discount: number): number | null {
+  if (subtotal <= 0 || discount <= 0) return null
+  const raw = (discount / subtotal) * 100
+  const rounded = Math.round(raw)
+  return rounded >= 1 && rounded <= 100 && Math.abs(raw - rounded) < 0.05 ? rounded : null
 }
 
 /**
@@ -135,13 +152,22 @@ export default function AccountPage() {
   // which case the generic (non-Sandbox-specific) copy below is used --
   // this build is never treated as Live just because it isn't Sandbox.
   const isSandbox = purchase.environment === 'sandbox'
-  const purchaseButtonLabel = isSandbox ? 'Sandbox test purchase' : 'Buy Full Access'
+  const purchaseButtonLabel = promoCode
+    ? (isSandbox ? 'Continue with test promotion' : 'Continue with promotion')
+    : (isSandbox ? 'Sandbox test purchase' : 'Buy Full Access')
   const unavailableConfigMessage = isSandbox ? 'Sandbox configuration unavailable' : 'Purchase unavailable'
-  const preparingMessage = isSandbox ? 'Preparing Sandbox Checkout…' : 'Preparing checkout…'
-  const openMessage = isSandbox ? 'Complete your test purchase in Paddle Checkout.' : 'Complete your purchase in Paddle Checkout.'
+  const preparingMessage = promoCode
+    ? 'Checking your promotion with Paddle…'
+    : (isSandbox ? 'Preparing Sandbox Checkout…' : 'Preparing checkout…')
+  const openMessage = promoCode
+    ? 'Your promotion is applied. Complete checkout below.'
+    : (isSandbox ? 'Complete your test purchase in Paddle Checkout.' : 'Complete your purchase in Paddle Checkout.')
   const checkoutUnavailableMessage = isSandbox
     ? 'Couldn’t open Sandbox Checkout. Please try again.'
     : 'Couldn’t open checkout. Please try again.'
+  const percentageOff = purchase.summary
+    ? inferPercentageOff(purchase.summary.subtotal, purchase.summary.discount)
+    : null
 
   return (
     <div className="flex w-full max-w-sm flex-col items-center gap-6">
@@ -191,12 +217,37 @@ export default function AccountPage() {
           </div>
           <p>
             Base price: USD 5.00. Applicable taxes may be included in or added to the price depending on your
-            location. The final price is shown at checkout.
+            location. {promoCode ? 'Paddle will verify your promotion and calculate the final total.' : 'The final price is shown at checkout.'}
           </p>
           {promoCode && (
-            <p role="status" className="rounded-xl border border-emerald-500 px-4 py-3 text-sm">
-              Promo code <span className="font-semibold">{promoCode}</span> will be applied at checkout.
-            </p>
+            <div role="status" className="flex flex-col gap-1 rounded-xl border border-emerald-500 px-4 py-3 text-left text-sm">
+              <strong className="text-base">Promotion link detected</strong>
+              <span>Code: <span className="font-semibold">{promoCode}</span></span>
+              <span>Your discount will be checked and applied automatically. You do not need to enter a promo code in Paddle.</span>
+            </div>
+          )}
+          {promoCode && purchase.summary && (
+            <div aria-label="Promotion summary" className="flex flex-col gap-3 rounded-xl border-2 border-emerald-500 p-4 text-left">
+              <div className="text-center">
+                <p className="font-semibold">Promotion applied</p>
+                {percentageOff !== null && <p className="text-2xl font-bold">{percentageOff}% OFF</p>}
+              </div>
+              <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 text-sm">
+                <dt>Base price</dt>
+                <dd className="text-right font-medium">{formatCheckoutAmount(purchase.summary.subtotal, purchase.summary.currencyCode)}</dd>
+                <dt>Discount</dt>
+                <dd className="text-right font-medium">−{formatCheckoutAmount(purchase.summary.discount, purchase.summary.currencyCode)}</dd>
+                <dt>Tax</dt>
+                <dd className="text-right font-medium">{formatCheckoutAmount(purchase.summary.tax, purchase.summary.currencyCode)}</dd>
+                <dt className="border-t border-neutral-300 pt-2 font-bold dark:border-neutral-700">Total</dt>
+                <dd className="border-t border-neutral-300 pt-2 text-right text-lg font-bold dark:border-neutral-700">
+                  {purchase.summary.total === 0 ? 'FREE' : formatCheckoutAmount(purchase.summary.total, purchase.summary.currencyCode)}
+                </dd>
+              </dl>
+              {purchase.summary.total === 0 && (
+                <p className="text-center text-sm font-semibold">No payment details are needed for this $0 checkout.</p>
+              )}
+            </div>
           )}
           <div className="flex w-full items-start gap-3 rounded-xl border border-neutral-300 p-4 text-left dark:border-neutral-700">
             <input
@@ -224,7 +275,7 @@ export default function AccountPage() {
           <button
             type="button"
             disabled={!purchase.configured || checkoutBusy || !purchasePoliciesAccepted}
-            onClick={() => void purchase.start(promoCode)}
+            onClick={() => void purchase.start(promoCode, promoCode ? PROMO_CHECKOUT_TARGET : undefined)}
             className="w-full rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {purchaseButtonLabel}
@@ -233,6 +284,18 @@ export default function AccountPage() {
           {purchase.status === 'preparing' && <p role="status">{preparingMessage}</p>}
           {purchase.status === 'open' && <p role="status">{openMessage}</p>}
           {purchase.status === 'unavailable' && <p role="status">{checkoutUnavailableMessage}</p>}
+          {purchase.status === 'promotion-unavailable' && (
+            <p role="alert" className="rounded-xl border border-amber-500 p-4 text-sm">
+              This promotion could not be applied. Please try the link again or contact Support before purchasing.
+            </p>
+          )}
+          {promoCode && (
+            <div
+              id={PROMO_CHECKOUT_TARGET}
+              aria-label="Secure Paddle checkout"
+              className={purchase.status === 'open' ? 'w-full overflow-hidden rounded-xl' : 'hidden'}
+            />
+          )}
           {checkoutBusy && <button type="button" onClick={purchase.cancel} className={buttonClass}>Cancel checkout</button>}
         </section>
       )}
