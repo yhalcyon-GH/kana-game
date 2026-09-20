@@ -15,6 +15,11 @@ As of 2026-09-20:
   - `persistent_sessions` exists
   - `sessions.persistent_session_id` exists
 - Migration `0007_dev_harness_login_codes.sql` is intentionally NOT applied in Production because it is dev-only.
+- Security migration `0008_magic_link_browser_binding.sql` is **not yet applied**
+  in Production. It is additive, does not depend on dev-only 0007, and must be
+  applied only after the normal Production DB backup/Human Gate immediately
+  before deploying the matching #364 backend source. Until both migration and
+  code are deployed together, keep the current Production backend unchanged.
 - Production email OTP configuration is enabled:
   - a distinct `LOGIN_CODE_PEPPER` is configured without exposing its value
   - `EMAIL_CODE_AUTH_ENABLED=true`
