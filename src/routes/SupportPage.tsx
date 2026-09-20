@@ -6,7 +6,7 @@ export function SupportPage() {
       <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">Support &amp; Contact</h1>
 
       <p>
-        Tamamizu support is provided by GigaNihongo. Contact us at{' '}
+        For Tamamizu support, contact us at{' '}
         <a href="mailto:tamamizu.jp@gmail.com" className="underline">
           tamamizu.jp@gmail.com
         </a>
@@ -17,7 +17,7 @@ export function SupportPage() {
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Purchases through Paddle</h2>
         <p>
           Paddle.com is the Merchant of Record for purchases made through Paddle Checkout and handles payment,
-          transaction-tax, order-support, and return processing for those orders. You can still contact GigaNihongo
+          transaction-tax, order-support, and return processing for those orders. You can still contact Tamamizu
           for Tamamizu access, account, refund-policy, and product-support questions.
         </p>
       </section>
