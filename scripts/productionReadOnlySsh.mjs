@@ -80,9 +80,9 @@ export function buildCorsProbeSshInvocation(environment) {
     'require "src/Config.php";',
     '$config=\\KanaGame\\Paddle\\Config::load();',
     '$origins=$config->allowedOrigins();',
-    'sort($origins);',
-    '$expected=array("https://app.tamamizu.giganihongo.com");',
-    'echo "corsExact=".($origins===$expected?"true":"false")." originCount=".count($origins).PHP_EOL;',
+    '$known=array("https://app.tamamizu.giganihongo.com","https://yhalcyon-gh.github.io","http://localhost:5173","http://localhost:4173");',
+    '$unknown=count(array_diff($origins,$known));',
+    'echo "corsExact=".(count($origins)===1&&in_array($known[0],$origins,true)?"true":"false")." originCount=".count($origins)." prod=".(in_array($known[0],$origins,true)?"true":"false")." githubPages=".(in_array($known[1],$origins,true)?"true":"false")." localhost5173=".(in_array($known[2],$origins,true)?"true":"false")." localhost4173=".(in_array($known[3],$origins,true)?"true":"false")." unknownCount=".$unknown.PHP_EOL;',
   ].join(' ')
   return buildFixedReadOnlySshInvocation(environment, `-r '${php}'`)
 }
@@ -151,12 +151,17 @@ export function readSafeReleaseIntegrityResult(status, stdout, stderr) {
 export function readSafeCorsProbeResult(status, stdout, stderr) {
   const normalizedStdout = stdout.replace(/\r\n/g, '\n')
   const normalizedStderr = stderr.replace(/\r\n/g, '\n')
-  const result = /^corsExact=(true|false) originCount=([0-9]{1,3})\n?$/.exec(normalizedStdout)
+  const result = /^corsExact=(true|false) originCount=([0-9]{1,3}) prod=(true|false) githubPages=(true|false) localhost5173=(true|false) localhost4173=(true|false) unknownCount=([0-9]{1,3})\n?$/.exec(normalizedStdout)
 
   if (status === 0 && result && normalizedStderr === '') {
     return {
       corsExact: result[1] === 'true',
       originCount: Number(result[2]),
+      prod: result[3] === 'true',
+      githubPages: result[4] === 'true',
+      localhost5173: result[5] === 'true',
+      localhost4173: result[6] === 'true',
+      unknownCount: Number(result[7]),
     }
   }
 

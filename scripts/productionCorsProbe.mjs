@@ -17,12 +17,13 @@ try {
   }
 
   const report = readSafeCorsProbeResult(result.status, result.stdout, result.stderr)
+  const safeDetails = `originCount=${report.originCount} prod=${report.prod} githubPages=${report.githubPages} localhost5173=${report.localhost5173} localhost4173=${report.localhost4173} unknownCount=${report.unknownCount}`
   if (!report.corsExact) {
-    console.error(`Production CORS probe failed: corsExact=false originCount=${report.originCount}. Configured origin values were intentionally not displayed.`)
+    console.error(`Production CORS probe failed: corsExact=false ${safeDetails}. Configured origin values were intentionally not displayed.`)
     process.exit(1)
   }
 
-  console.log(`Production CORS probe passed: corsExact=true originCount=${report.originCount}`)
+  console.log(`Production CORS probe passed: corsExact=true ${safeDetails}`)
   process.exit(0)
 } catch (error) {
   const message = error instanceof Error ? error.message : 'Unknown failure.'
