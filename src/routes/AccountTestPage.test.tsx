@@ -238,7 +238,7 @@ describe('AccountTestPage', () => {
       environment: 'sandbox', token: 'test_poc_fixture', eventCallback: expect.any(Function),
     })
     expect(openCheckout).toHaveBeenCalledWith({
-      settings: { displayMode: 'overlay', showAddDiscounts: true },
+      settings: { displayMode: 'overlay', showAddDiscounts: false },
       items: [{ priceId: 'pri_poc_fixture', quantity: 1 }],
       customData: { purchase_ref: 'raw-purchase-ref-value' },
     })
