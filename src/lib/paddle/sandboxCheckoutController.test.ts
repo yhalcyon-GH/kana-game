@@ -83,7 +83,7 @@ describe('Sandbox checkout controller', () => {
       displayMode: 'inline',
       variant: 'one-page',
       frameTarget: 'tamamizu-promo-checkout',
-      frameInitialHeight: '520',
+      frameInitialHeight: 520,
       frameStyle: 'width:100%; min-width:312px; background-color:transparent; border:none;',
       showAddDiscounts: false,
     })
