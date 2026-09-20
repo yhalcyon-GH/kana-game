@@ -3,6 +3,9 @@ name: Browser Smoke
 on:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   browser-smoke:
     runs-on: ubuntu-latest
