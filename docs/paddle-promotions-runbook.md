@@ -32,9 +32,29 @@ The resulting checkout must still complete through Paddle and Full Tamamizu must
 - Do not grant access based on a promo code being present in the URL, DOM, or client state.
 - Do not create Live discounts, run real charges/refunds, or mutate Production data as part of automated development/testing.
 
-## Optional future campaign links
+## Campaign links
 
-Paddle.js can prefill a public discount using `discountCode`, so a future `?promo=PUBLIC_CODE` campaign-link feature is possible. It is intentionally not required for launch: customer-entered codes already support zero-deploy campaigns with less application logic. If added later, treat the code as public marketing data only, never as authorization, and keep entitlement dependent on the completed Paddle transaction.
+Tamamizu supports shareable promo links on the production HashRouter account route:
+
+```text
+https://app.tamamizu.giganihongo.com/#/account?promo=PUBLIC_CODE
+```
+
+The Account page accepts only 1-32 ASCII letters/digits from the `promo`
+query parameter, acknowledges a valid code in the purchase UI, and passes it
+to Paddle Checkout as `discountCode`. The existing manual **Add discount**
+control remains enabled as a fallback.
+
+When a buyer opens the promo account link while signed out, the current Email
+OTP flow preserves the validated `promo` query through sign-in and returns to
+the Account page with the same code. Promo codes remain public marketing data:
+they are never written into Paddle `customData`, never replace the private
+`purchase_ref`, and never grant access directly. Entitlement still depends
+only on the completed Paddle transaction/webhook path.
+
+A campaign link does not create, enable, extend, or otherwise mutate a Paddle
+Live discount. The human operator still creates/limits/expires the code in the
+Paddle Live Dashboard under the Human Gate described above.
 
 ## References
 
