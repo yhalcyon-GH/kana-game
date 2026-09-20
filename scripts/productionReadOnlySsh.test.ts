@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildCorsFixSshInvocation,
   buildCorsProbeSshInvocation,
   buildPhpVersionProbeSshInvocation,
   buildReadOnlySshInvocation,
   buildReleaseIntegritySshInvocation,
+  readSafeCorsFixResult,
   readSafeCorsProbeResult,
   readSafePhpVersionProbeResult,
   readSafePreflightResult,
@@ -60,6 +62,26 @@ describe('production read-only SSH invocation', () => {
     expect(remote).toContain('localhost4173=')
     expect(remote).toContain('unknownCount=')
     expect(remote).not.toMatch(/echo .*ALLOWED_ORIGINS|DB_PASSWORD|RESEND_API_KEY|LOGIN_CODE_PEPPER/)
+    expect(remote).not.toMatch(/mysql|mariadb|paddle|migration/)
+  })
+
+  it('builds a guarded stdin-based Production CORS config fix with no secret output', () => {
+    const invocation = buildCorsFixSshInvocation(environment)
+    const remote = invocation.args.at(-1) ?? ''
+
+    expect(invocation.command).toBe('ssh')
+    expect(invocation.args).toContain('StrictHostKeyChecking=yes')
+    expect(invocation.args).toContain('BatchMode=yes')
+    expect(remote).toBe('cd -- /home/account/tamamizu/api && php')
+    expect(invocation.input).toContain("getenv('ALLOWED_ORIGINS')")
+    expect(invocation.input).toContain("config-before-cors-")
+    expect(invocation.input).toContain("$backupDir . '/config-cors-staged-'")
+    expect(invocation.input).not.toContain("$configPath . '.cors-'")
+    expect(invocation.input).toContain("CORS_CONFIG_UPDATED beforeCount=4 afterCount=1 backupCreated=true")
+    expect(invocation.input).toContain("'ALLOWED_ORIGINS'] = 'https://app.tamamizu.giganihongo.com'")
+    expect(invocation.input).toContain("CORS_CONFIG_REFUSED source=environment")
+    expect(invocation.input).toContain("CORS_CONFIG_ROLLED_BACK reason=postcondition")
+    expect(invocation.input).not.toMatch(/DB_PASSWORD=|RESEND_API_KEY=|LOGIN_CODE_PEPPER=/)
     expect(remote).not.toMatch(/mysql|mariadb|paddle|migration/)
   })
 
@@ -183,6 +205,35 @@ describe('production read-only SSH invocation', () => {
       '',
     )).toThrow(/redacted/)
     expect(() => readSafeCorsProbeResult(1, '', 'config error: hidden-value\n')).toThrow(/redacted/)
+  })
+
+  it('accepts only fixed safe CORS config-fix status output', () => {
+    expect(readSafeCorsFixResult(
+      0,
+      'CORS_CONFIG_UPDATED beforeCount=4 afterCount=1 backupCreated=true\n',
+      '',
+    )).toEqual({ ok: true, beforeCount: 4, afterCount: 1, backupCreated: true })
+
+    expect(readSafeCorsFixResult(
+      3,
+      'CORS_CONFIG_REFUSED source=environment\n',
+      '',
+    )).toEqual({ ok: false, reason: 'source=environment' })
+
+    expect(readSafeCorsFixResult(
+      5,
+      'CORS_CONFIG_REFUSED reason=precondition beforeCount=3\n',
+      '',
+    )).toEqual({ ok: false, reason: 'reason=precondition beforeCount=3' })
+  })
+
+  it('redacts unexpected CORS config-fix output instead of returning config values', () => {
+    expect(() => readSafeCorsFixResult(
+      1,
+      'ALLOWED_ORIGINS=https://secret.example\n',
+      '',
+    )).toThrow(/redacted/)
+    expect(() => readSafeCorsFixResult(1, '', 'config.php contained hidden value\n')).toThrow(/redacted/)
   })
 
   it('redacts unexpected remote output instead of returning it to the caller', () => {
