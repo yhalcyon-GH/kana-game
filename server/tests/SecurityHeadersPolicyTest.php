@@ -29,5 +29,14 @@ function securityHeadersPolicyTests(): array
                 assertTrue(str_contains($source, $header), "missing reviewed security header policy: {$header}");
             }
         },
+
+        'release integrity manifest includes the root API .htaccess' => function () {
+            $source = file_get_contents(__DIR__ . '/../ops/release-integrity-manifest.json');
+            assertTrue($source !== false, 'release integrity manifest must exist');
+            $manifest = json_decode($source, true);
+            assertTrue(is_array($manifest), 'release integrity manifest must be valid JSON');
+            $files = is_array($manifest['files'] ?? null) ? $manifest['files'] : [];
+            assertTrue(in_array('.htaccess', $files, true), 'server/.htaccess must be covered by release integrity');
+        },
     ];
 }
