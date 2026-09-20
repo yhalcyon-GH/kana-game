@@ -31,7 +31,7 @@ Current official sources checked on 2026-09-20:
 
 ### 1. Supplier/operator identity — decided
 
-The previously approved public identity is retained: **GigaNihongo** is the supplier/operator brand and **Tamamizu** is the product/service brand. This matches the public seller identity already used in the real Paddle purchase records. The 2026-09-20 legal-copy update now uses GigaNihongo in Terms, Privacy, and Support instead of treating the public GitHub handle as the operator identity. No private legal name or home address is published.
+The previously approved public identity is retained: **Tamamizu** is the public-facing supplier/operator and product/service name. `GigaNihongo` remains an underlying technical/umbrella identity and may appear in infrastructure or payment records, but it is not used as the public operator name in Tamamizu's Terms, Privacy, or Support pages. No private legal name or home address is published.
 
 ### 2. Support telephone/contact requirements
 
@@ -51,7 +51,7 @@ The project had already decided to use Paddle as Merchant of Record. The 2026-09
 
 ### 5. Privacy controller / launch geography — prior decisions applied
 
-The prior launch decision is worldwide availability wherever Paddle supports sales, excluding sanctioned/regulatorily restricted or otherwise unavailable territories. GigaNihongo operates from Thailand. The 2026-09-20 Privacy update now identifies GigaNihongo as the controller/operator where applicable law uses that concept and adds general-purpose lawful-basis, service-provider/international-processing, and data-rights disclosures without claiming that one jurisdiction's law applies everywhere.
+The prior launch decision is worldwide availability wherever Paddle supports sales, excluding sanctioned/regulatorily restricted or otherwise unavailable territories. Tamamizu operates from Thailand. The 2026-09-20 Privacy update now identifies Tamamizu as the controller/operator where applicable law uses that concept and adds general-purpose lawful-basis, service-provider/international-processing, and data-rights disclosures without claiming that one jurisdiction's law applies everywhere.
 
 Final human legal review should still confirm whether any market-specific representative, registration, notice, or other jurisdiction-specific disclosure is required before intentionally marketing into a particular jurisdiction.
 
