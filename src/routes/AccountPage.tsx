@@ -293,7 +293,7 @@ export default function AccountPage() {
             <div
               id={PROMO_CHECKOUT_TARGET}
               aria-label="Secure Paddle checkout"
-              className={purchase.status === 'open' ? 'w-full overflow-hidden rounded-xl' : 'hidden'}
+              className={checkoutBusy ? 'w-full overflow-hidden rounded-xl' : 'hidden'}
             />
           )}
           {checkoutBusy && <button type="button" onClick={purchase.cancel} className={buttonClass}>Cancel checkout</button>}
