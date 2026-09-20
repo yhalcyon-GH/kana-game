@@ -9,8 +9,8 @@ function deferred<T>() {
   return { promise, resolve, reject }
 }
 
-function event(name: string, ref = 'private-ref', transaction = 'txn_1'): PaddleEventData {
-  return { name, data: { id: 'che_fixture', transaction_id: transaction, custom_data: { purchase_ref: ref } } } as PaddleEventData
+function event(name: string, ref = 'private-ref', transaction = 'txn_1', extra: Record<string, unknown> = {}): PaddleEventData {
+  return { name, data: { id: 'che_fixture', transaction_id: transaction, custom_data: { purchase_ref: ref }, ...extra } } as PaddleEventData
 }
 
 function fixture(environment: 'sandbox' | 'live' = 'sandbox', token = 'test_fixture') {
@@ -27,7 +27,7 @@ function fixture(environment: 'sandbox' | 'live' = 'sandbox', token = 'test_fixt
   const loadPaddle = vi.fn(async () => ({ initializePaddle: initialize }))
   const controller = createSandboxCheckoutController({ config: { environment, token, priceId: 'pri_fixture' }, loadPaddle, onEvent: (value) => events.push(value) })
   const prepare = (ref = 'private-ref') => controller.prepare(async () => ref)
-  const emit = (name: string, ref?: string, transaction?: string) => callbacks.at(-1)?.(event(name, ref, transaction))
+  const emit = (name: string, ref?: string, transaction?: string, extra?: Record<string, unknown>) => callbacks.at(-1)?.(event(name, ref, transaction, extra))
   return { controller, prepare, emit, callbacks, events, open, close, update, initialize, loadPaddle, paddle }
 }
 
@@ -39,7 +39,7 @@ describe('Sandbox checkout controller', () => {
     expect(f.loadPaddle).not.toHaveBeenCalled()
     await f.controller.open()
     expect(f.initialize).toHaveBeenCalledExactlyOnceWith({ environment: 'sandbox', token: 'test_fixture', eventCallback: expect.any(Function) })
-    expect(f.open).toHaveBeenCalledExactlyOnceWith({ settings: { displayMode: 'overlay', showAddDiscounts: true }, items: [{ priceId: 'pri_fixture', quantity: 1 }], customData: { purchase_ref: 'private-ref' } })
+    expect(f.open).toHaveBeenCalledExactlyOnceWith({ settings: { displayMode: 'overlay', showAddDiscounts: false }, items: [{ priceId: 'pri_fixture', quantity: 1 }], customData: { purchase_ref: 'private-ref' } })
     f.controller.cancel()
     await f.prepare('private-next')
     await f.controller.open()
@@ -63,26 +63,62 @@ describe('Sandbox checkout controller', () => {
     expect(f.open.mock.calls[0][0]).not.toHaveProperty('customer')
   })
 
-  it('makes promo-code entry explicit without changing or exposing correlation data', async () => {
+  it('hides manual promo-code entry without changing or exposing correlation data', async () => {
     const f = fixture()
     await f.prepare('private-ref')
     await f.controller.open()
     const options = f.open.mock.calls[0][0]
-    expect(options.settings).toEqual({ displayMode: 'overlay', showAddDiscounts: true })
+    expect(options.settings).toEqual({ displayMode: 'overlay', showAddDiscounts: false })
     expect(options.customData).toEqual({ purchase_ref: 'private-ref' })
     expect(options).not.toHaveProperty('discountCode')
     expect(options).not.toHaveProperty('discountId')
   })
 
-  it('prefills a public discountCode without mixing it into customData/correlation', async () => {
+  it('opens promo checkout inline, prefills discountCode, and keeps it out of correlation data', async () => {
     const f = fixture()
     await f.prepare('private-ref')
-    await f.controller.open('learner@example.com', 'tamamizu0304')
+    await f.controller.open('learner@example.com', 'tamamizu0304', 'tamamizu-promo-checkout')
     const options = f.open.mock.calls[0][0]
+    expect(options.settings).toEqual({
+      displayMode: 'inline',
+      variant: 'one-page',
+      frameTarget: 'tamamizu-promo-checkout',
+      frameInitialHeight: '520',
+      frameStyle: 'width:100%; min-width:312px; background-color:transparent; border:none;',
+      showAddDiscounts: false,
+    })
     expect(options.discountCode).toBe('tamamizu0304')
     expect(options.customer).toEqual({ email: 'learner@example.com' })
     expect(options.customData).toEqual({ purchase_ref: 'private-ref' })
     expect(JSON.stringify(options.customData)).not.toContain('tamamizu0304')
+  })
+
+  it('emits Paddle-calculated checkout totals only after correlation succeeds', async () => {
+    const f = fixture()
+    await f.prepare('private-ref')
+    await f.controller.open('learner@example.com', 'HALF50', 'tamamizu-promo-checkout')
+    f.emit('checkout.loaded', 'private-ref', 'txn_1', {
+      currency_code: 'USD',
+      totals: { subtotal: 5, discount: 2.5, tax: 0, total: 2.5, balance: 2.5, credit: 0 },
+    })
+    expect(f.events).toContainEqual({
+      kind: 'summary',
+      summary: { currencyCode: 'USD', subtotal: 5, discount: 2.5, tax: 0, total: 2.5 },
+    })
+    expect(f.events.at(-1)).toEqual({ kind: 'loaded' })
+  })
+
+  it('fails closed when a promo checkout loads without an actual Paddle discount', async () => {
+    const f = fixture()
+    await f.prepare('private-ref')
+    await f.controller.open('learner@example.com', 'EXPIRED', 'tamamizu-promo-checkout')
+    f.emit('checkout.loaded', 'private-ref', 'txn_1', {
+      currency_code: 'USD',
+      totals: { subtotal: 5, discount: 0, tax: 0, total: 5, balance: 5, credit: 0 },
+    })
+    expect(f.events.at(-1)).toEqual({ kind: 'promotion-unavailable' })
+    expect(f.close).toHaveBeenCalledOnce()
+    expect(f.events.some((value) => value.kind === 'loaded')).toBe(false)
   })
 
   it('guards duplicate preparation and open synchronously while initialization is pending', async () => {
