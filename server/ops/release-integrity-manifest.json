@@ -4,7 +4,6 @@
     "src"
   ],
   "files": [
-    ".htaccess",
     "entitlement-me.php",
     "purchase-intent.php",
     "paddle-webhook.php",
