@@ -339,15 +339,15 @@ function webSessionCookieWiringTests(): array
         // "ambiguous credential pair must never reach the remember-cookie
         // fallback" cases for the resolver-level proof, and this test for
         // the entrypoint-level wiring proof.
-        'entitlement-me.php and purchase-intent.php reject an ambiguous credential with 401 BEFORE resolveOrRefresh() ever runs' => function () {
-            foreach (['entitlement-me.php', 'purchase-intent.php'] as $path) {
+        'every resolveOrRefresh authenticated entrypoint rejects an ambiguous credential with 401 before remember-cookie fallback' => function () {
+            foreach (['auth/me.php', 'auth/sign-out-others.php', 'entitlement-me.php', 'purchase-intent.php'] as $path) {
                 $source = loadServerSource($path);
                 assertTrue(
                     str_contains($source, 'if ($credential->ambiguous) {'),
                     "{$path} must check \$credential->ambiguous, matching auth/logout.php's own ambiguous branch",
                 );
                 assertTrue(
-                    str_contains($source, '$currentUser->resolveOrRefresh($credential->token, $rememberToken);'),
+                    str_contains($source, '->resolveOrRefresh($credential->token, $rememberToken);'),
                     "{$path} must still pass \$credential->token into resolveOrRefresh() for the genuinely-missing-credential case",
                 );
 
@@ -372,14 +372,10 @@ function webSessionCookieWiringTests(): array
             }
         },
 
-        // Task 12: auth/me.php no longer has its own standalone
-        // "$credential->token === null" early-exit -- $credential->token
-        // (null for both missing and ambiguous credentials, per
-        // SessionCredentialResolver's contract) is now passed straight
-        // into CurrentUserService::resolveOrRefresh(), which folds a
-        // failed/absent session credential into the same "maybe refresh
-        // from the remember cookie, else 401" path. This subsumes the
-        // old null-token short-circuit rather than duplicating it.
+        // auth/me.php still permits a genuinely missing/expired normal
+        // session to refresh from a valid remember cookie, but the
+        // ambiguous Bearer+cookie case is rejected by the test above
+        // before this path can run.
         'me.php calls CurrentUserService::resolveOrRefresh(), not just resolve(), so a valid remember cookie can silently refresh an expired session' => function () {
             $source = loadServerSource('auth/me.php');
             assertTrue(str_contains($source, '->resolveOrRefresh('), 'me.php must use the persistent-refresh-aware resolver');
