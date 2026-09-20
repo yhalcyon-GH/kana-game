@@ -49,6 +49,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
 
 $cors->applyHeaders($_SERVER['HTTP_ORIGIN'] ?? null);
 header('Content-Type: application/json');
+header('Cache-Control: no-store');
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     http_response_code(405);
@@ -84,6 +85,12 @@ $credential = SessionCredentialResolver::resolve(
     SessionCredentialResolver::extractBearerToken($_SERVER['HTTP_AUTHORIZATION'] ?? null),
     $cookieToken,
 );
+
+if ($credential->ambiguous) {
+    http_response_code(401);
+    echo json_encode(['error' => 'unauthorized']);
+    exit;
+}
 
 try {
     $pdo = Db::connect($config);

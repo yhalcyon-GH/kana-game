@@ -87,15 +87,15 @@ $credential = SessionCredentialResolver::resolve(
 );
 $rememberToken = $rememberCookie->readToken($_COOKIE);
 
-// A missing session credential and an AMBIGUOUS one (Bearer + cookie
-// present and disagreeing) both simply fold into $credential->token
-// being null here -- unlike logout.php, this is a read-only lookup
-// with no idempotent-success contract to accidentally satisfy. Either
-// way, resolveOrRefresh() below now also gets a chance to transparently
-// re-authenticate from a genuinely valid remember-me credential; this
-// is a strict widening of when a legitimate persistent-credential
-// holder can re-auth, never a new bypass, since a refresh only ever
-// succeeds against a real, valid persistent session.
+// A disagreeing Bearer + cookie pair is not the same as a missing
+// session credential. Reject it before the remember-cookie fallback so
+// this endpoint never silently authenticates through a different
+// credential source than the caller supplied.
+if ($credential->ambiguous) {
+    http_response_code(401);
+    echo json_encode(['error' => 'unauthorized']);
+    exit;
+}
 
 try {
     $pdo = Db::connect($config);
