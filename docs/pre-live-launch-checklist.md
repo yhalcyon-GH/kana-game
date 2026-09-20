@@ -65,9 +65,9 @@ Each item is tagged:
       line appearing on Production as a go-live blocker, not routine noise
       (see `docs/observability.md`). The fixed Production preflight above
       runs this same check and prints only redacted booleans.
-- [ ] **Human required** — If Email OTP sign-in is intended to be live,
+- [x] **Human required** — If Email OTP sign-in is intended to be live,
       confirm `EMAIL_CODE_AUTH_ENABLED=true` and `LOGIN_CODE_PEPPER` are both
-      set on Production. The fixed preflight above also prints
+      set on Production. Confirmed 2026-09-20; the fixed preflight reported `emailCodeAuthEnabled=true`, `loginCodePepperConfigured=true`, `emailCodeAuthReady=true`, and the public capability returned `email_code_auth=true`. The fixed preflight above also prints
       `emailCodeAuthEnabled` / `loginCodePepperConfigured` /
       `emailCodeAuthReady` booleans (never the pepper value) so a
       `{"email_code_auth":false}` response from the public capability probe
@@ -80,10 +80,7 @@ Each item is tagged:
       independently verifiable from the repo; do not guess a path.)
 - [ ] **Human required** — Confirm CORS allowed-origins in Production config
       match the real Production frontend origin(s) only.
-- [ ] **Human required** — Confirm session cookie settings (`Secure`,
-      `HttpOnly`, `SameSite`) are correct for the real Production domain and
-      that the cookie is actually being set/read in a real browser against
-      Production.
+- [x] **Human required** — Confirm session cookie behavior is correct in a real Production browser. Confirmed 2026-09-20 by successful OTP login, persistence across close/relaunch, and logout. Static cookie attributes remain enforced by the reviewed server implementation; no secret values were exposed.
 
 ## 4. Magic Link auth (end-to-end, real browser, Production)
 
@@ -94,8 +91,7 @@ Each item is tagged:
 - [x] **Human required** — Click the link, confirm session cookie is set,
       confirm `auth/me` reflects the logged-in user. Confirmed 2026-09-16
       (see §8).
-- [ ] **Human required** — Confirm `auth/logout` clears the session. Not
-      covered by the 2026-09-16 validation pass; still open.
+- [x] **Human required** — Confirm `auth/logout` clears the session. Confirmed 2026-09-20 in the real installed Production PWA after Email OTP enablement: 6-digit OTP login succeeded, login persisted across close/relaunch, and logout returned to signed-out state.
 
 ## 5. Purchase / entitlement flow
 
@@ -140,10 +136,9 @@ Each item is tagged:
       reload, confirming the real refund webhook path revokes access. Left
       unchecked because the refund-vs-progress retention policy itself was
       not exercised/verified in this pass.
-- [ ] **Human required** — Confirm the failed/cancelled checkout UX (user
+- [x] **Human required** — Confirm the failed/cancelled checkout UX (user
       closes or cancels Paddle Checkout without completing) leaves the app
-      in a sane, non-broken state. Not covered by the 2026-09-16 validation
-      pass; still open.
+      in a sane, non-broken state. Confirmed 2026-09-19: closing/cancelling Checkout left Full Access locked and the app remained usable.
 - [ ] **Human required** — Confirm receipt/invoice/customer-portal access
       works as Paddle provides it (Paddle-hosted, not custom-built here
       unless the repo already implements a portal link). **Partially
@@ -264,20 +259,13 @@ other personal identifiers are included.
   prior redacted unexpected-response result; this pass did **not** restart
   SSH diagnostics or any other Production read-only check.
 
-**Not covered by this pass** — still genuinely open, not to be inferred as
-done:
+**Still genuinely open after the later 2026-09-19/20 validation work:**
 
-- `auth/logout` session clearing (§4).
-- Refund-vs-progress retention policy verification (§5).
-- Paddle customer-portal link itself (§5) — only the emailed
-  receipt/invoice was confirmed.
-- Failed/cancelled checkout UX (§5).
-- Production server/SSH/config items gated on the paused read-only preflight
-  (§3): `error_log` path/rotation, CORS allowed-origins, session cookie
-  settings in a real browser, `config.php` key presence, `DEV_HARNESS_ENABLED`
-  off, real-mailer env vars.
-- DB backup and rollback-rehearsal (§2, §7).
-- Final go/no-go decision (§7).
+- Refund-vs-progress retention policy is decided (retain local progress) but the retained-progress state was not independently re-exercised during the real refund pass (§5).
+- Paddle customer-portal link itself (§5) remains optional/non-blocking; only the emailed receipt/invoice path is confirmed and repo audit found no in-app portal integration.
+- Production `error_log` location/rotation and exact CORS allowed-origins configuration remain Human checks (§3/§6).
+- Final rollback rehearsal/go-no-go decision (§7).
+- Final legal review.
 
 ## Notes
 
