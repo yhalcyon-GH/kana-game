@@ -197,7 +197,7 @@ export function createSandboxCheckoutController({ config, onEvent, loadPaddle = 
             displayMode: 'inline' as const,
             variant: 'one-page' as const,
             frameTarget: inlineTarget,
-            frameInitialHeight: '520',
+            frameInitialHeight: 520,
             frameStyle: 'width:100%; min-width:312px; background-color:transparent; border:none;',
             showAddDiscounts: false,
           }
