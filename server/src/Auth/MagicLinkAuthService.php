@@ -69,34 +69,54 @@ final class MagicLinkAuthService
      * request do we validate/normalize the email and then check the
      * EMAIL bucket.
      */
-    public function requestLink(string $rawEmail, string $clientIp): void
-    {
+    public function requestLink(
+        string $rawEmail,
+        string $clientIp,
+        ?string $rawBrowserBinding = null,
+    ): bool {
         if (!$this->rateLimiter->checkAndRecordIp($clientIp)) {
-            return;
+            return false;
         }
 
         $email = EmailNormalizer::normalize($rawEmail);
         if (!EmailValidator::isValid($email)) {
-            return;
+            return false;
         }
 
         if (!$this->rateLimiter->checkAndRecordEmail($email)) {
-            return;
+            return false;
         }
 
         $rawToken = $this->generateRawToken();
         $expiresAt = new \DateTimeImmutable("+{$this->tokenExpiryMinutes} minutes");
-        $this->tokens->issue($email, $rawToken, $expiresAt);
+        $this->tokens->issue($email, $rawToken, $expiresAt, $rawBrowserBinding);
 
         $magicLinkUrl = $this->urlBuilder->build($rawToken);
         $this->mailer->sendMagicLink($email, $magicLinkUrl);
+
+        return true;
     }
 
-    public function verify(string $rawToken): MagicLinkAuthResult
-    {
+    public function verify(
+        string $rawToken,
+        ?string $rawBrowserBinding = null,
+        bool $requireBrowserBinding = false,
+    ): MagicLinkAuthResult {
         $this->pdo->beginTransaction();
 
         try {
+            // Browser binding is checked BEFORE the one-time consume. A link
+            // opened in the wrong browser therefore fails generically but is
+            // not burned; the requesting browser can still use it.
+            if (!$this->tokens->browserBindingMatches(
+                $rawToken,
+                $rawBrowserBinding,
+                $requireBrowserBinding,
+            )) {
+                $this->pdo->rollBack();
+                return MagicLinkAuthResult::invalid();
+            }
+
             if (!$this->tokens->consume($rawToken)) {
                 $this->pdo->rollBack();
                 return MagicLinkAuthResult::invalid();
