@@ -51,9 +51,9 @@ The current Account purchase surface says “By continuing, review…” and lin
 
 ### 4. Paddle Merchant-of-Record wording in Tamamizu Terms
 
-Paddle's current materials describe Paddle as the authorised reseller / Merchant of Record for the transaction, while the supplier licenses/supports the product. Tamamizu's current Terms mention Paddle Checkout and the Refund Policy but do not plainly state this transaction-role split.
+Paddle's current Seller Handbook says sellers are required to add Paddle's prescribed Merchant-of-Record/order-process statement to their website Terms. Paddle's Buyer Terms also describe Paddle as the authorised reseller while the Supplier Agreement governs use of the product. Tamamizu's current Terms mention Paddle Checkout and the Refund Policy but do not yet include the required Merchant-of-Record/order-process statement.
 
-**Human legal approval required:** approve adding a concise Merchant-of-Record paragraph to the Terms and Support copy, consistent with the current Paddle agreement/account.
+**Human legal approval required:** approve adding the current Paddle-required Merchant-of-Record/order-process wording to the Terms (and any supporting clarification on the Support page) before launch.
 
 ### 5. Privacy controller identity, lawful bases, rights, recipients/transfers
 
