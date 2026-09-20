@@ -130,6 +130,10 @@ export function createSandboxCheckoutController({ config, onEvent, loadPaddle = 
         }
         const summary = readCheckoutSummary(event.data)
         if (promotionExpected) {
+          if (promotionVerified && summary && summary.discount <= 0) {
+            finish({ kind: 'promotion-unavailable' }, true)
+            return
+          }
           const wasVerified = promotionVerified
           verifyPromotion(summary)
           if (wasVerified && summary) onEvent({ kind: 'summary', summary })
@@ -172,9 +176,12 @@ export function createSandboxCheckoutController({ config, onEvent, loadPaddle = 
       return
     }
 
-    if (promotionExpected && !verifyPromotion(summary)) {
-      finish({ kind: 'promotion-unavailable' }, true)
-      return
+    if (promotionExpected) {
+      if (!summary || summary.discount <= 0) {
+        finish({ kind: 'promotion-unavailable' }, true)
+        return
+      }
+      verifyPromotion(summary)
     }
     // A completion signal is only permission to check server entitlement.
     finish({ kind: 'completed' }, false)
