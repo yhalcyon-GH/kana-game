@@ -57,7 +57,9 @@ jobs:
           # remain disallowed.
           claude_args: >-
             --allowed-tools
-            "Bash(npm ci),
+            "Edit,
+            Write,
+            Bash(npm ci),
             Bash(npm test),
             Bash(npm run lint),
             Bash(npm run build),
