@@ -26,6 +26,7 @@ $testFiles = [
     __DIR__ . '/WebhookHandlerTest.php' => 'KanaGame\\Paddle\\Tests\\webhookHandlerTests',
     __DIR__ . '/EntitlementRepositoryTest.php' => 'KanaGame\\Paddle\\Tests\\entitlementRepositoryTests',
     __DIR__ . '/CorsTest.php' => 'KanaGame\\Paddle\\Tests\\corsTests',
+    __DIR__ . '/SecurityHeadersPolicyTest.php' => 'KanaGame\\Paddle\\Tests\\securityHeadersPolicyTests',
     __DIR__ . '/UuidTest.php' => 'KanaGame\\Paddle\\Tests\\uuidTests',
     __DIR__ . '/Auth/UserRepositoryTest.php' => 'KanaGame\\Paddle\\Tests\\userRepositoryTests',
     __DIR__ . '/Auth/MagicLinkTokenRepositoryTest.php' => 'KanaGame\\Paddle\\Tests\\magicLinkTokenRepositoryTests',
