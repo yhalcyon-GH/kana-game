@@ -44,6 +44,17 @@ function makePurchaseIntentEndpointHarness(string $serverEnvironment): array
         )',
     );
     $pdo->exec(
+        'CREATE TABLE persistent_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            token_hash TEXT NOT NULL UNIQUE,
+            user_id TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            revoked_at TEXT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )',
+    );
+    $pdo->exec(
         'CREATE TABLE sessions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             token_hash TEXT NOT NULL UNIQUE,
