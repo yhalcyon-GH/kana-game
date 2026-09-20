@@ -23,7 +23,8 @@
     "production:preflight": "node scripts/productionReadOnlyPreflight.mjs",
     "production:release-integrity": "node scripts/productionReleaseIntegrity.mjs",
     "production:php-probe": "node scripts/productionPhpVersionProbe.mjs",
-    "production:status": "npm run production:php-probe && npm run production:preflight && npm run production:release-integrity"
+    "production:status": "npm run production:php-probe && npm run production:preflight && npm run production:release-integrity",
+    "production:cors-probe": "node scripts/productionCorsProbe.mjs"
   },
   "dependencies": {
     "@paddle/paddle-js": "1.6.5",
