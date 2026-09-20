@@ -76,5 +76,15 @@ function requestLinkMailerWiringTests(): array
             assertTrue($resendConditionPos !== false && $elsePos !== false && $noopAssignPos !== false, 'expected an else branch assigning the no-op mailer');
             assertTrue($elsePos < $noopAssignPos, 'the no-op mailer must be the fallback (else) branch, never a branch that could also match a real config');
         },
+
+        'request-link.php rejects a present non-allowlisted Origin before reading the email body' => function () {
+            $source = loadRequestLinkSource();
+            assertTrue(str_contains($source, '$requestOrigin = $_SERVER[\'HTTP_ORIGIN\'] ?? null;'), 'must capture the browser Origin');
+            assertTrue(str_contains($source, '!$cors->isOriginAllowed($requestOrigin)'), 'must reject a present non-allowlisted Origin');
+            $originPos = strpos($source, '$requestOrigin =');
+            $bodyPos = strpos($source, "file_get_contents('php://input')");
+            assertTrue($originPos !== false && $bodyPos !== false && $originPos < $bodyPos, 'Origin rejection must run before the email request body is read');
+            assertTrue(str_contains($source, '$requestOrigin !== null && $requestOrigin !== \'\''), 'missing Origin must remain supported for direct/non-browser callers');
+        },
     ];
 }

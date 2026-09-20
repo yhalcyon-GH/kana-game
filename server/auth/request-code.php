@@ -67,6 +67,19 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     exit;
 }
 
+// Public email-request endpoints do not require an authenticated cookie,
+// but a browser still supplies Origin on cross-site fetches (including
+// CORS-simple text/plain requests). Reject a present, non-allowlisted
+// Origin before reading the body so a hostile webpage cannot use a
+// visitor's browser to trigger Tamamizu sign-in email traffic. Direct
+// non-browser callers with no Origin header remain supported.
+$requestOrigin = $_SERVER['HTTP_ORIGIN'] ?? null;
+if ($requestOrigin !== null && $requestOrigin !== '' && !$cors->isOriginAllowed($requestOrigin)) {
+    http_response_code(403);
+    echo json_encode(['error' => 'forbidden']);
+    exit;
+}
+
 if ($config->get('EMAIL_CODE_AUTH_ENABLED') !== 'true') {
     // Feature flag off -- a GitHub-Pages-ahead-of-backend deploy, or a
     // deliberate rollback, must not have this endpoint half-work. The

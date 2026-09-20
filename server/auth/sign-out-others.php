@@ -85,6 +85,12 @@ $credential = SessionCredentialResolver::resolve(
     $cookieToken,
 );
 
+if ($credential->ambiguous) {
+    http_response_code(401);
+    echo json_encode(['error' => 'unauthorized']);
+    exit;
+}
+
 try {
     $pdo = Db::connect($config);
     $persistentSessions = new PersistentSessionRepository($pdo);
