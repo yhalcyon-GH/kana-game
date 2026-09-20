@@ -25,7 +25,7 @@ This is the durable 2026-09-20 pre-launch checkpoint. **Do not repeat completed 
 - Paddle Merchant-of-Record wording is present in Terms, with supporting role clarification on Support.
 - The purchase page now requires an **explicit unchecked Terms & Conditions + Refund Policy acceptance** before Checkout can start. Acceptance is page-local and not persisted/tracked.
 
-## Remaining Gate 1 — final human legal approval
+## Completed Gate — final human legal approval
 
 Review the actual public-facing wording/UX in:
 
@@ -37,9 +37,9 @@ Review the actual public-facing wording/UX in:
 
 Confirm that the public identity, support details, Paddle wording, refund promise, privacy disclosures, minors/guardian wording, and explicit acceptance checkbox are acceptable for launch.
 
-This is a human legal/business approval. AI can inspect and summarize the pages, but cannot make this approval on the operator's behalf.
+**Completed 2026-09-20:** the human operator explicitly approved the current public Terms, Privacy Policy, Refund Policy, Support page, and explicit purchase acceptance UX for launch.
 
-## Remaining Gate 2 — final GO/NO-GO
+## Remaining Gate — final GO/NO-GO
 
 Before normal customer traffic, verify read-only status:
 
