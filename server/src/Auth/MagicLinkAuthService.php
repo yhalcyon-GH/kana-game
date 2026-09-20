@@ -59,9 +59,11 @@ final class MagicLinkAuthService
     }
 
     /**
-     * Always "succeeds" from the caller's perspective — no exception,
-     * no distinguishable return value for "already registered" vs.
-     * "new" vs. "rate-limited" vs. "malformed."
+     * The HTTP caller always returns the same enumeration-safe response.
+     * Internally this method returns true only when a token was actually
+     * issued/sent, so request-link.php knows whether it is safe to refresh
+     * the short-lived browser-binding cookie. This boolean is never exposed
+     * to the requester and does not distinguish existing vs new accounts.
      *
      * Ordering: the IP bucket is recorded FIRST, before email
      * validation — a malformed email must not be a free pass that
