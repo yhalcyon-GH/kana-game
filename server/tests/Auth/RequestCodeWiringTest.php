@@ -44,6 +44,16 @@ function requestCodeWiringTests(): array
             assertTrue(str_contains($source, '405'), 'must respond 405 for non-POST requests');
         },
 
+        'request-code.php rejects a present non-allowlisted Origin before reading the email body' => function () {
+            $source = loadRequestCodeSource();
+            assertTrue(str_contains($source, '$requestOrigin = $_SERVER[\'HTTP_ORIGIN\'] ?? null;'), 'must capture the browser Origin');
+            assertTrue(str_contains($source, '!$cors->isOriginAllowed($requestOrigin)'), 'must reject a present non-allowlisted Origin');
+            $originPos = strpos($source, '$requestOrigin =');
+            $bodyPos = strpos($source, "file_get_contents('php://input')");
+            assertTrue($originPos !== false && $bodyPos !== false && $originPos < $bodyPos, 'Origin rejection must run before the email request body is read');
+            assertTrue(str_contains($source, '$requestOrigin !== null && $requestOrigin !== \'\''), 'missing Origin must remain supported for direct/non-browser callers');
+        },
+
         'request-code.php never echoes the raw request body or a code/challenge value into error_log()' => function () {
             $source = loadRequestCodeSource();
             preg_match_all('/error_log\\(([^)]*)\\)/', $source, $matches);
