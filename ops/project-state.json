@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "current_main_sha": "c5fec3a6d6783d0f3db8cff3b40c75338d027bb8",
+  "current_main_sha": "2dac724e9b0506c23c6f2ee6fb49f3db69c7625a",
   "latest_completed_work": {
     "kind": "production_human_gate",
     "number": 326,
@@ -15,24 +15,24 @@
     }
   ],
   "active_work_item": {
-    "id": "final-legal-human-gates",
+    "id": "final-checkout-acceptance-gate",
     "issue_number": null,
-    "branch": null,
-    "pull_request_number": null,
-    "status": "human_legal_decisions_required",
-    "goal": "Production technical cutover gates are complete. Remaining launch blockers are the explicit legal/operator decisions, final public legal-page approval, and final human GO/NO-GO."
+    "branch": "ops/finalize-decided-legal-copy-20260920",
+    "pull_request_number": 328,
+    "status": "one_human_legal_decision_remaining",
+    "goal": "All prior legal/product identity choices and the public support phone are now resolved. The only remaining legal UX decision before final review is the explicit checkout Terms + Refund acceptance mechanism."
   },
-  "next_machine_action": "Run `npm run resume` first. Do not repeat completed Production CORS correction, error-log review/retention setup, migration 0006, Production API deployment, OTP enablement, Paddle Live purchase/refund, cancelled-checkout QA, PWA recovery/install QA, or OTP login/persistence/logout QA. Next Human Gate is legal/operator decisions from `docs/final-legal-readiness-audit-2026-09-20.md`; after the human supplies those decisions, implement the approved public Terms/Privacy/Refund/Support wording and purchase acceptance UX, run exact-head CI/review, and merge before final GO/NO-GO.",
+  "next_machine_action": "Finish and merge PR #328 after exact-head CI/review. Public-facing identity is Tamamizu. Public support email and Thai support phone are decided and published. Do not re-ask identity, geography, governing law, minor policy, refund policy, support email, support phone, or Paddle Merchant-of-Record role. Next Human Gate: approve the explicit pre-purchase Terms + Refund acceptance mechanism; then implement/test it before final legal approval and GO/NO-GO.",
   "unresolved_ai_items": [],
   "human_gates": [
-    "Final legal/operator decisions: public supplier/controller identity; support-phone requirement/public number if needed; checkout Terms/refund acceptance mechanism; Paddle Merchant-of-Record wording; launch geography/privacy scope; minor/guardian policy.",
+    "Approve the explicit pre-purchase Terms + Refund acceptance mechanism (button-bound clickwrap vs checkbox or another counsel/Paddle-approved mechanism).",
     "Final human legal approval of the resulting public Terms, Privacy Policy, Refund Policy, Support page, and purchase acceptance UX.",
     "Final human GO/NO-GO decision and any optional rollback rehearsal.",
     "Any new real-money, Paddle Live, paid-service, Production DB write, DNS, Production-secret, email-send, or Production deployment action beyond what is explicitly approved."
   ],
   "production_live_restrictions": "NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL. Real charges/refunds, Paddle Live transactions/configuration, paid-resource changes, Production DB writes, DNS changes, Production-secret changes, email sends, and Production deployments are Human Gates.",
   "last_verified_at": "2026-09-20",
-  "last_verified_by": "Human Production checks + GitHub source of truth. Production CORS was reduced to the single intended frontend origin with backup/postcondition verification and production:status passing. XServer error log was reachable, the supplied log had no launch-critical Paddle/auth-mailer/PHP failure tags, and giganihongo.com user-area error-log retention was set to 9 weeks. Technical cutover gates are complete; remaining blockers are legal/operator decisions and final human GO/NO-GO.",
+  "last_verified_by": "Prior legal/product decisions were recovered and applied; Tamamizu is the public supplier/operator identity. Human supplied a Thai support phone for public support use, now normalized to international format and added alongside the support email. The only unresolved legal UX decision is explicit checkout Terms + Refund acceptance.",
   "known_non_blockers": [
     "Production Email OTP is enabled and real-device OTP login/persistence/logout QA passed on 2026-09-20.",
     "Production CORS now allows only https://app.tamamizu.giganihongo.com; guarded correction and post-change production:status passed on 2026-09-20.",

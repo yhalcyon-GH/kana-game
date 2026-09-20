@@ -29,19 +29,13 @@ Current official sources checked on 2026-09-20:
 
 ## Human legal decisions / information still required
 
-### 1. Supplier/operator identity
+### 1. Supplier/operator identity — decided
 
-Paddle's current Seller Handbook says sellers should include the company name or sole proprietor's brand in Terms, with the legal name preferred for sole proprietors. UK/EU privacy transparency rules can also require the identity and contact details of the controller.
+The previously approved public identity is retained: **Tamamizu** is the public-facing supplier/operator and product/service name. `GigaNihongo` remains an underlying technical/umbrella identity and may appear in infrastructure or payment records, but it is not used as the public operator name in Tamamizu's Terms, Privacy, or Support pages. No private legal name or home address is published.
 
-Current Tamamizu pages identify the operator as the public GitHub handle `yhalcyon-GH` and provide the support email, but do not publish the operator's legal personal/business name.
+### 2. Support telephone/contact requirements — decided and implemented
 
-**Human decision required:** decide what legally appropriate operator/supplier identity should be published. Do not put a private identity into GitHub until the operator intentionally chooses to make that information public.
-
-### 2. Support telephone/contact requirements
-
-Paddle's Seller Handbook currently says buyer support details should include email and phone number. Tamamizu currently publishes an email address but no phone number.
-
-**Human decision required:** confirm with Paddle/current account requirements whether a telephone number must be publicly displayed for this seller/account, and if so choose the public support number to publish. Do not invent or expose a private phone number.
+Paddle's Seller Handbook currently says buyer support details should include email and phone number. The human operator supplied a dedicated Thai support number for public use. The Support page now publishes it in international format alongside the existing support email.
 
 ### 3. Explicit acceptance of supplier Terms / Refund Policy
 
@@ -49,34 +43,19 @@ The current Account purchase surface says “By continuing, review…” and lin
 
 **Human legal approval required:** approve the final click-wrap wording/mechanism (for example, wording tied directly to selecting “Buy Full Access”, or a checkbox if counsel/Paddle requires one). This changes the legal acceptance mechanism, so it is not an AI-only copy edit.
 
-### 4. Paddle Merchant-of-Record wording in Tamamizu Terms
+### 4. Paddle Merchant-of-Record wording — decided and implemented
 
-Paddle's current Seller Handbook says sellers are required to add Paddle's prescribed Merchant-of-Record/order-process statement to their website Terms. Paddle's Buyer Terms also describe Paddle as the authorised reseller while the Supplier Agreement governs use of the product. Tamamizu's current Terms mention Paddle Checkout and the Refund Policy but do not yet include the required Merchant-of-Record/order-process statement.
+The project had already decided to use Paddle as Merchant of Record. The 2026-09-20 legal-copy update now states in Terms that Paddle.com conducts the order process as online reseller and is Merchant of Record, and explains Paddle's payment/tax/order-support/return role. Support carries the same role split. Final human legal approval of the published wording remains required.
 
-**Human legal approval required:** approve adding the current Paddle-required Merchant-of-Record/order-process wording to the Terms (and any supporting clarification on the Support page) before launch.
+### 5. Privacy controller / launch geography — prior decisions applied
 
-### 5. Privacy controller identity, lawful bases, rights, recipients/transfers
+The prior launch decision is worldwide availability wherever Paddle supports sales, excluding sanctioned/regulatorily restricted or otherwise unavailable territories. Tamamizu operates from Thailand. The 2026-09-20 Privacy update now identifies Tamamizu as the controller/operator where applicable law uses that concept and adds general-purpose lawful-basis, service-provider/international-processing, and data-rights disclosures without claiming that one jurisdiction's law applies everywhere.
 
-If UK GDPR / EU GDPR applies to the intended market, current official guidance calls for privacy information including the controller's identity/contact details, purposes and lawful bases, rights, retention, recipients, and transfer information where applicable.
+Final human legal review should still confirm whether any market-specific representative, registration, notice, or other jurisdiction-specific disclosure is required before intentionally marketing into a particular jurisdiction.
 
-Tamamizu already describes many purposes, categories, service providers, retention criteria, and deletion contact, but it does not currently provide:
-- a legal/controller identity beyond the public handle;
-- a section explicitly stating lawful bases;
-- a consolidated data-subject-rights section;
-- a consolidated international-transfer/recipient explanation.
+### 6. Children / minimum age — decided
 
-**Human decision required:** decide the launch markets and obtain final legal review of whether UK/EU GDPR, Thailand PDPA, or other jurisdiction-specific additions/representatives are required. Once the applicable scope and public operator identity are decided, the remaining wording can be implemented mechanically.
-
-### 6. Children / minimum age
-
-The Privacy Policy currently says Tamamizu does not set a minimum learning age and permits guardian-managed use. Because signed-in accounts process an email address, selling/serving minors can trigger jurisdiction-specific consent/capacity/privacy rules.
-
-**Human decision required:** decide whether the launch should:
-- remain available to minors with guardian involvement;
-- set a minimum account/purchase age;
-- or restrict particular markets/flows.
-
-Do not infer the answer from the educational nature of the app.
+The prior decision remains: Tamamizu does **not** set a minimum learning age. Where needed, minors use the service with a parent or legal guardian's permission/supervision, and a guardian may purchase and manage the account. The Privacy Policy already reflects this. Final legal review should confirm whether a specific market requires an additional age threshold or consent flow.
 
 ## Refund policy assessment
 
@@ -94,11 +73,8 @@ Before final legal approval, the human operator should confirm the real Producti
 
 A human should not approve launch until the following are intentionally decided:
 
-1. Public legal/operator identity.
-2. Public support phone requirement/number, if required.
-3. Final Terms/refund acceptance mechanism at checkout.
-4. Merchant-of-Record wording.
-5. Intended geographic/age scope and corresponding privacy/controller disclosures.
-6. Final review of the resulting public Terms, Privacy Policy, Refund Policy, and Support page.
+1. Final Terms/refund acceptance mechanism at checkout; the current UI links the policies but does not yet record an explicit acceptance action.
+2. Final review of the resulting public Terms, Privacy Policy, Refund Policy, Support page, and purchase acceptance UX.
+3. Final GO/NO-GO.
 
 Once those choices are supplied, implementation of the approved wording is ordinary code work and can be completed/tested by AI.

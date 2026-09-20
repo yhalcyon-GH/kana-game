@@ -5,7 +5,7 @@ export function TermsPage() {
     <div className="flex w-full max-w-2xl flex-col gap-4 text-sm text-neutral-600 dark:text-neutral-300">
       <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-100">Terms &amp; Conditions</h1>
 
-      <p>Last updated: 15 September 2026</p>
+      <p>Last updated: 20 September 2026</p>
 
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">About these Terms</h2>
@@ -17,11 +17,36 @@ export function TermsPage() {
       </section>
 
       <section className="flex flex-col gap-2">
+        <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Supplier and service identity</h2>
+        <p>
+          Tamamizu is the public-facing product, supplier, and operator name for this service. These Terms are
+          provided by Tamamizu, which operates from Thailand.
+        </p>
+      </section>
+
+      <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Free and paid content</h2>
         <p>
           Hiragana learning content is available without payment. Full Access is a one-time purchase that unlocks
           additional paid content; it is not a subscription. The base price is USD 5.00. Applicable taxes may be
           included in or added to the price depending on your location, and the final price is shown at Paddle Checkout.
+        </p>
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Ordering through Paddle</h2>
+        <p>
+          Our order process is conducted by our online reseller Paddle.com. Paddle.com is the Merchant of Record for
+          all our orders. Paddle provides all customer service inquiries and handles returns. Tamamizu remains
+          responsible for the service and these Terms.
+        </p>
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Availability by country or region</h2>
+        <p>
+          Tamamizu is intended for learners worldwide and may be offered anywhere Paddle supports sales, subject to
+          sanctions, export controls, payment restrictions, and other applicable legal or platform limitations.
         </p>
       </section>
 
@@ -104,8 +129,9 @@ export function TermsPage() {
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Contact and related policies</h2>
         <p>
-          For questions, contact <Link to="/support" className="underline">Support &amp; Contact</Link>. See also the{' '}
-          <Link to="/privacy" className="underline">Privacy Policy</Link> and <Link to="/refund" className="underline">Refund Policy</Link>.
+          For questions, contact Tamamizu through <Link to="/support" className="underline">Support &amp; Contact</Link>.
+          See also the <Link to="/privacy" className="underline">Privacy Policy</Link> and{' '}
+          <Link to="/refund" className="underline">Refund Policy</Link>.
         </p>
       </section>
     </div>

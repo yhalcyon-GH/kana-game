@@ -15,6 +15,15 @@ export function PrivacyPage() {
       </p>
 
       <section className="flex flex-col gap-2">
+        <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Controller / operator</h2>
+        <p>
+          Tamamizu is operated from Thailand. Where applicable privacy law uses terms such as data controller or
+          business, Tamamizu is the party responsible for the personal data the service itself processes. Privacy and account-deletion requests can be sent to{' '}
+          <a href="mailto:tamamizu.jp@gmail.com" className="underline">tamamizu.jp@gmail.com</a>.
+        </p>
+      </section>
+
+      <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Account (optional)</h2>
         <p>
           You do not need an account to use the free parts of this app — those work entirely from local storage on
@@ -101,8 +110,9 @@ export function PrivacyPage() {
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Retention and deletion</h2>
         <p>
           Tamamizu keeps ordinary security and operational logs only for as long as reasonably needed for security,
-          troubleshooting, abuse prevention, and operation of the service, subject to the retention settings of the
-          hosting providers involved. Tamamizu does not intentionally log one-time codes, Magic Links, session
+          troubleshooting, abuse prevention, and operation of the service. As of 20 September 2026, XServer's
+          user-area error-log retention for the production domain is configured for nine weeks; provider-side
+          operational records may follow the provider's own retention rules. Tamamizu does not intentionally log one-time codes, Magic Links, session
           credentials, secrets, payment tokens, or unnecessary personal data. We keep account and purchase-access
           information only while needed to operate the service, handle refunds or disputes, and meet legal, tax,
           fraud-prevention, or record-keeping obligations.
@@ -216,6 +226,28 @@ export function PrivacyPage() {
       </section>
 
       <section className="flex flex-col gap-2">
+        <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Legal bases and service providers</h2>
+        <p>
+          Where applicable law requires a legal basis, Tamamizu processes account and purchase-access data as needed
+          to provide the service and perform the purchase relationship; processes security and abuse-prevention data
+          for legitimate operational and security interests; and keeps records where required by law. Optional
+          features that require consent are used only when you choose to activate them.
+        </p>
+        <p>
+          Tamamizu uses service providers where needed to operate the service, including hosting, email delivery,
+          Paddle for purchases, and optional analytics or feedback providers when those features are enabled. These
+          providers may process data in countries other than your own under their own infrastructure and contractual
+          safeguards. Browser or device speech-recognition providers may also process speech data when you choose to
+          use speech recognition.
+        </p>
+        <p>
+          Depending on the law that applies to you, you may have rights to request access, correction, deletion,
+          restriction, objection, portability, or withdrawal of consent. Contact Tamamizu using the address below
+          to make a privacy request. Rights that are mandatory under applicable law are not limited by this policy.
+        </p>
+      </section>
+
+      <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Children and guardians</h2>
         <p>
           Tamamizu is a learning app and does not set a minimum learning age. Where needed, a minor should use the
@@ -228,11 +260,8 @@ export function PrivacyPage() {
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Developer / operator</h2>
         <p>
-          Tamamizu: Hiragana &amp; Katakana is developed and operated by{' '}
-          <a href="https://github.com/yhalcyon-GH" target="_blank" rel="noreferrer" className="underline">
-            yhalcyon-GH
-          </a>
-          , published from the public{' '}
+          Tamamizu: Hiragana &amp; Katakana is developed and operated under the Tamamizu name. The application source
+          is published in the public{' '}
           <a href="https://github.com/yhalcyon-GH/kana-game" target="_blank" rel="noreferrer" className="underline">
             kana-game
           </a>{' '}
