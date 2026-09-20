@@ -23,7 +23,35 @@ That means the effective Production allowlist is exactly:
 
 The command deliberately reports only equality + count. It never prints the real configured list.
 
-If it reports `corsExact=false`, stop. Do not paste config.php or secret values into chat. A Production config correction is a Human Gate and should be made only after reviewing the intended change.
+If it reports `corsExact=false`, stop. Do not paste config.php or secret values into chat.
+
+For the 2026-09-20 Production state, the expanded redacted probe confirmed exactly four public-known origins and no unknown entries:
+
+    prod=true githubPages=true localhost5173=true localhost4173=true unknownCount=0
+
+That is the Production frontend plus the three legacy development/GitHub-Pages origins. After explicit human approval, use the guarded fixed runner rather than editing `config.php` manually:
+
+    npm run production:cors-fix -- --approve
+
+The runner:
+- refuses unless `--approve` is present;
+- refuses if `ALLOWED_ORIGINS` is supplied by the real environment rather than the local Production config file;
+- refuses unless the effective pre-change allowlist is still exactly those four known entries;
+- creates a private rollback backup under the existing `~/tamamizu-backups/` directory;
+- changes only `ALLOWED_ORIGINS` to the single Production frontend origin;
+- verifies the postcondition and automatically restores the backup if the new effective config is not exactly one Production origin;
+- prints only fixed status/count fields, never config values or secrets.
+
+Immediately afterward run:
+
+    npm run production:cors-probe
+    npm run production:status
+
+Expected CORS result:
+
+    Production CORS probe passed: corsExact=true originCount=1 prod=true githubPages=false localhost5173=false localhost4173=false unknownCount=0
+
+Any refusal, rollback, release-integrity failure, or non-exact CORS result is a stop condition.
 
 ## Gate 2 — Production PHP error-log access and retention
 
