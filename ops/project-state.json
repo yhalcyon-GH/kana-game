@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "current_main_sha": "2e018d246e97dde797642878b637adc91bffeb34",
+  "current_main_sha": "7c1aff810a1b90c6b3793926c615581cd31e80ed",
   "latest_completed_work": {
-    "kind": "merged_pull_request",
+    "kind": "human_validation",
     "number": 317,
-    "title": "Make installed PWA check deterministically for updates",
+    "title": "Production PWA recovery + OTP login persistence/logout QA",
     "merged_at": "2026-09-20"
   },
   "open_prs": [
@@ -15,33 +15,33 @@
     }
   ],
   "active_work_item": {
-    "id": "issue-305-installed-pwa-one-time-recovery",
+    "id": "issue-305-ai-only-exhausted",
     "issue_number": 305,
     "branch": null,
     "pull_request_number": null,
-    "status": "human_gate_waiting",
-    "goal": "Recover the user's already-installed Production PWA once from old Build 419878e to current Production without clearing local learner data, then complete the real-browser OTP login/reload/logout smoke."
+    "status": "human_gates_only",
+    "goal": "AI-only sale-readiness work is exhausted. Production PWA is current, Email OTP is live, and real-browser OTP login/persistence/logout QA passed. Remaining work is limited to true Human Gates and optional post-launch tooling."
   },
-  "next_machine_action": "Run npm run resume first. Do not repeat SSH/key/known_hosts/API-root/PHP discovery, migration 0006, Production OTP enablement, the 2026-09-20 backups/deployments, Paddle Live tests, or PWA install QA merely because the chat changed. Production OTP is enabled and public email_code_auth=true. Current Production frontend is main 2e018d246e97dde797642878b637adc91bffeb34 and public Settings shows Build: 2e018d2. PR #317 is live and current builds explicitly call ServiceWorkerRegistration.update() on registration/foreground/focus with throttling plus hourly while open, then reuse the consent-gated Update prompt. The user's already-installed PWA remains Build 419878e, which predates this fix and cannot execute the new active-check logic until recovered once. Next Human Gate: perform a non-destructive one-time service-worker recovery on the phone; do not uninstall or clear site data. After the installed build reaches current Production, perform OTP login -> reload persistence -> logout QA.",
+  "next_machine_action": "Run npm run resume first. Do not repeat completed SSH/key/known_hosts/API-root/PHP discovery, migration 0006, Production OTP enablement, backups/deployments, Paddle Live purchase/refund, cancelled-checkout QA, PWA install/recovery, or OTP login/persistence/logout QA merely because the chat changed. Current Production PWA is Build 7c1aff8. Future PWA updates actively check for a new service worker on registration/foreground/focus with bounded throttling plus hourly while open. Next required work is human-only: confirm Production error_log location/rotation and exact CORS allowed-origins configuration, complete final legal review, and make final GO/NO-GO decision.",
   "unresolved_ai_items": [],
   "human_gates": [
-    "One-time non-destructive recovery of the already-installed PWA from Build 419878e to current Production; do not uninstall or clear site data because learner progress is local.",
-    "After recovery, perform one real-browser Production OTP login, normal reload/relaunch persistence, and logout check.",
-    "Confirm Production error_log location/rotation and any remaining CORS/session-cookie behavior not already demonstrated by fixed checks/browser QA.",
-    "Final legal review and final human GO/NO-GO decision.",
+    "Confirm Production error_log location/rotation.",
+    "Confirm exact Production CORS allowed-origins configuration matches only the intended frontend origin(s).",
+    "Final legal review.",
+    "Final human GO/NO-GO decision and any desired rollback rehearsal.",
     "Any new real-money, Paddle Live, paid-service, Production DB write, DNS, Production-secret, email-send, or Production deployment action beyond what is explicitly approved."
   ],
   "production_live_restrictions": "NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL. Real charges/refunds, Paddle Live transactions/configuration, paid-resource changes, Production DB writes, DNS changes, Production-secret changes, email sends, and Production deployments are Human Gates.",
   "last_verified_at": "2026-09-20",
-  "last_verified_by": "GitHub + public Production checks + human Production checks. Production OTP configuration is enabled and public /api/auth/capabilities.php returns email_code_auth=true. Production API release-integrity passed after enablement. PR #317 exact-head PR Verify, Browser Smoke, Pre-Live Safety, and independent Claude review all passed; main 2e018d246e97dde797642878b637adc91bffeb34 deployed successfully via GitHub Pages. Public Production Settings shows Build: 2e018d2. The user's installed PWA still reports Build: 419878e, confirming a one-time legacy service-worker recovery is still required. No secret values, credentials, DB contents, customer identifiers, or backup paths are stored here.",
+  "last_verified_by": "Human real-device Production QA + GitHub/public Production checks. Installed PWA was recovered from Build 419878e and now runs current Production Build 7c1aff8. Production Email OTP is enabled and public capability reports email_code_auth=true. Human verified 6-digit OTP delivery/login, login persistence across close/relaunch, and logout back to signed-out state. PR #317 fixed deterministic future PWA update checks. No secret values, credentials, DB contents, customer identifiers, or backup paths are stored here.",
   "known_non_blockers": [
-    "Production email OTP is enabled; public capability reports email_code_auth=true.",
-    "Issue #316 future/current PWA update reliability is fixed and live. Current builds actively check registration.update() on registration/foreground/focus with bounded throttling and hourly while open.",
+    "Production Email OTP is enabled and real-device OTP login/persistence/logout QA passed on 2026-09-20.",
+    "Legacy installed-PWA recovery is complete; the user's device is now on Build 7c1aff8. Future/current builds actively check registration.update() on registration/foreground/focus with bounded throttling and hourly while open.",
     "Issue #283 real-device PWA install QA is complete and closed; do not repeat it on chat change.",
     "Production cancelled-checkout UX was human-tested successfully; do not repeat it without a concrete new reason.",
     "Refund policy is settled: refund re-locks Full Access while local learning progress/history is retained.",
     "Paddle Live product/price, one real purchase, and one real refund were already validated on 2026-09-16; do not repeat real-money tests for routine confidence.",
-    "Customer Portal integration is not launch-blocking; authenticated portal-session support would require a new Production Paddle API key and remains a separate Human Gate.",
+    "Customer Portal integration is not launch-blocking; authenticated portal-session support would require a new Production Paddle API key and remains a separate optional Human Gate.",
     "Open PR #294 is development-workflow tooling and does not block sale readiness."
   ],
   "optional_post_launch": [
