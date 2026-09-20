@@ -147,7 +147,7 @@ function webSessionCookieWiringTests(): array
         'auth/request-link.php enables credentialed CORS and only sets a host-only browser-binding cookie for an actually issued Magic Link' => function () {
             $source = loadServerSource('auth/request-link.php');
 
-            assertTrue(str_contains($source, "$cookieModeEnabled = $config->get('WEB_SESSION_COOKIE_ENABLED') === 'true';"), 'request-link must derive cookie mode from the same closed-by-default setting');
+            assertTrue(str_contains($source, "\$cookieModeEnabled = \$config->get('WEB_SESSION_COOKIE_ENABLED') === 'true';"), 'request-link must derive cookie mode from the same closed-by-default setting');
             assertTrue(str_contains($source, 'new Cors($config->allowedOrigins(), null, $cookieModeEnabled)'), 'request-link must enable Access-Control-Allow-Credentials only in cookie mode');
             assertTrue(str_contains($source, 'WebSessionCookie::MAGIC_LINK_BINDING_DEFAULT_NAME'), 'request-link must use the dedicated host-only binding-cookie name');
             assertTrue(str_contains($source, 'random_bytes(32)'), 'browser binding must use a fresh 256-bit CSPRNG secret');
