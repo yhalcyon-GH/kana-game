@@ -36,7 +36,7 @@ function fixture(initialState = inactive, strict = false) {
   return {
     ...hook, refresh, markSignedOut,
     setState: (next: EntitlementState) => { state = next; hook.rerender() },
-    start: () => act(async () => { await hook.result.current.start() }),
+    start: (discountCode?: string, inlineTarget?: string) => act(async () => { await hook.result.current.start(discountCode, inlineTarget) }),
     complete: () => act(async () => {
       callbacks.at(-1)?.(event('checkout.loaded'))
       callbacks.at(-1)?.(event('checkout.completed'))
@@ -77,13 +77,58 @@ describe('production Sandbox purchase orchestration', () => {
     await act(async () => { pending.resolve({ kind: 'created', purchaseRef: 'private-purchase-ref' }); await start })
     expect(f.result.current.status).toBe('open')
     expect(sdk.open).toHaveBeenCalledExactlyOnceWith({
-      settings: { displayMode: 'overlay', showAddDiscounts: true }, items: [{ priceId: 'pri_fixture', quantity: 1 }],
+      settings: { displayMode: 'overlay', showAddDiscounts: false }, items: [{ priceId: 'pri_fixture', quantity: 1 }],
       customData: { purchase_ref: 'private-purchase-ref' },
       customer: { email: 'learner@example.com' },
     })
     expect(sdk.initialize).toHaveBeenCalledWith(expect.objectContaining({ environment: 'sandbox' }))
     expect(f.result.current.environment).toBe('sandbox')
     expect(f.refresh).not.toHaveBeenCalled()
+  })
+
+  it('opens a promo checkout inline and exposes Paddle-calculated summary data', async () => {
+    const f = fixture()
+    await f.start('HALF50', 'tamamizu-promo-checkout')
+    expect(sdk.open).toHaveBeenCalledWith(expect.objectContaining({
+      settings: expect.objectContaining({
+        displayMode: 'inline',
+        variant: 'one-page',
+        frameTarget: 'tamamizu-promo-checkout',
+        showAddDiscounts: false,
+      }),
+      discountCode: 'HALF50',
+      customData: { purchase_ref: 'private-purchase-ref' },
+    }))
+    act(() => callbacks.at(-1)?.({
+      name: 'checkout.loaded',
+      data: {
+        id: 'che_1',
+        transaction_id: 'txn_1',
+        custom_data: { purchase_ref: 'private-purchase-ref' },
+        currency_code: 'USD',
+        totals: { subtotal: 5, discount: 2.5, tax: 0, total: 2.5, balance: 2.5, credit: 0 },
+      },
+    } as PaddleEventData))
+    expect(f.result.current.summary).toEqual({ currencyCode: 'USD', subtotal: 5, discount: 2.5, tax: 0, total: 2.5 })
+    expect(f.result.current.status).toBe('open')
+  })
+
+  it('surfaces a promo-specific unavailable state instead of allowing a full-price fallback', async () => {
+    const f = fixture()
+    await f.start('EXPIRED', 'tamamizu-promo-checkout')
+    act(() => callbacks.at(-1)?.({
+      name: 'checkout.loaded',
+      data: {
+        id: 'che_1',
+        transaction_id: 'txn_1',
+        custom_data: { purchase_ref: 'private-purchase-ref' },
+        currency_code: 'USD',
+        totals: { subtotal: 5, discount: 0, tax: 0, total: 5, balance: 5, credit: 0 },
+      },
+    } as PaddleEventData))
+    expect(f.result.current.status).toBe('promotion-unavailable')
+    expect(f.result.current.summary).toBeNull()
+    expect(sdk.close).toHaveBeenCalledOnce()
   })
 
   it('exposes the live environment and maps it to the SDK\'s "production" value, per configured live credentials', async () => {
