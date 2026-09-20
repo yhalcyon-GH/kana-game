@@ -34,6 +34,7 @@ preflight; use the XServer account's confirmed path, not an assumed path.
      library dependency of the normal authentication request endpoint; it is
      not a public endpoint by itself.
    - all of `server/auth/`;
+   - `server/.htaccess` (reviewed API security-header policy);
    - `server/entitlement-me.php`;
    - `server/purchase-intent.php`;
    - `server/paddle-webhook.php`;
@@ -72,6 +73,14 @@ A post-upload browser request to
 readiness output. The CLI preflight must still return only its three redacted
 booleans. Do not run the browser request until the owner has approved the
 Production upload.
+
+After an approved upload, perform a read-only header verification against
+`/api/auth/capabilities.php`. The response should include the reviewed root
+`.htaccess` policy: HSTS, `X-Content-Type-Options: nosniff`,
+`X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, the restrictive
+Permissions Policy, and the JSON-API Content Security Policy. If these headers
+are absent, stop and verify XServer's Apache/mod_headers behavior rather than
+assuming the committed policy is active.
 
 ## Stop conditions
 
