@@ -20,9 +20,9 @@
     "branch": "ops/finalize-decided-legal-copy-20260920",
     "pull_request_number": null,
     "status": "two_human_legal_decisions_remaining",
-    "goal": "Apply all previously decided legal/product identity choices automatically. Remaining decisions are only the public support phone requirement/number and explicit checkout acceptance mechanism, followed by final legal approval and GO/NO-GO."
+    "goal": "Apply all previously decided legal/product identity choices automatically. Public supplier/operator identity is Tamamizu. Remaining decisions are only the public support phone requirement/number and explicit checkout acceptance mechanism, followed by final legal approval and GO/NO-GO."
   },
-  "next_machine_action": "Finish and merge the legal-copy PR after exact-head CI/review. Do not ask again about supplier/operator identity, worldwide Paddle-supported launch geography, Thai governing law, Paddle Merchant-of-Record role, guardian/minor policy, refund policy, or support email: those were previously decided and have been carried forward. Next Human Gate after merge: decide (1) public support phone handling and (2) checkout Terms/Refund acceptance mechanism.",
+  "next_machine_action": "Finish and merge the legal-copy PR after exact-head CI/review. Do not ask again about supplier/operator identity: public-facing identity is Tamamizu. GigaNihongo remains underlying technical/umbrella infrastructure only. Also do not re-ask worldwide Paddle-supported launch geography, Thai governing law, Paddle Merchant-of-Record role, guardian/minor policy, refund policy, or support email. Next Human Gate after merge: decide (1) public support phone handling and (2) checkout Terms/Refund acceptance mechanism.",
   "unresolved_ai_items": [],
   "human_gates": [
     "Decide how to satisfy Paddle's current public support-phone requirement: approve a public support number or confirm an accepted alternative with Paddle.",
@@ -33,7 +33,7 @@
   ],
   "production_live_restrictions": "NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL. Real charges/refunds, Paddle Live transactions/configuration, paid-resource changes, Production DB writes, DNS changes, Production-secret changes, email sends, and Production deployments are Human Gates.",
   "last_verified_at": "2026-09-20",
-  "last_verified_by": "Prior human decisions were recovered and applied rather than re-asked: GigaNihongo supplier/operator brand, Tamamizu product/service brand, worldwide Paddle-supported availability subject to restrictions, Thailand base/governing-law framework, no minimum learning age with guardian involvement, Paddle Merchant-of-Record role, dedicated support email, and existing 14-day refund policy. Remaining unresolved human legal choices are support phone and explicit checkout acceptance mechanism.",
+  "last_verified_by": "Prior human decisions were recovered and applied rather than re-asked: Tamamizu is the public supplier/operator and product/service identity; GigaNihongo is underlying technical/umbrella infrastructure only; worldwide Paddle-supported availability subject to restrictions; Thailand base/governing-law framework; no minimum learning age with guardian involvement; Paddle Merchant-of-Record role; dedicated support email; existing 14-day refund policy. Remaining unresolved human legal choices are support phone and explicit checkout acceptance mechanism.",
   "known_non_blockers": [
     "Production Email OTP is enabled and real-device OTP login/persistence/logout QA passed on 2026-09-20.",
     "Production CORS now allows only https://app.tamamizu.giganihongo.com; guarded correction and post-change production:status passed on 2026-09-20.",
