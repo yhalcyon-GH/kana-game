@@ -94,13 +94,13 @@ describe('PrivacyPage', () => {
     expect(text).toMatch(/school/)
   })
 
-  it('identifies GigaNihongo as controller/operator without exposing a private legal identity', () => {
+  it('identifies Tamamizu as controller/operator without exposing a private legal identity', () => {
     render(<PrivacyPage />)
     const controller = screen.getByRole('heading', { name: 'Controller / operator', level: 2 }).parentElement?.textContent ?? ''
-    expect(controller).toMatch(/GigaNihongo/)
+    expect(controller).toMatch(/Tamamizu/)
     expect(controller).toMatch(/from Thailand/)
     const section = screen.getByRole('heading', { name: 'Developer / operator', level: 2 }).parentElement?.textContent ?? ''
-    expect(section).toMatch(/GigaNihongo supplier brand/)
+    expect(section).toMatch(/Tamamizu name/)
     expect(screen.getByRole('link', { name: 'kana-game' })).toHaveAttribute('href', 'https://github.com/yhalcyon-GH/kana-game')
     expect(section).not.toMatch(/yhalcyon-GH/)
   })
