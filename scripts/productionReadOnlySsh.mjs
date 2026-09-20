@@ -87,6 +87,122 @@ export function buildCorsProbeSshInvocation(environment) {
   return buildFixedReadOnlySshInvocation(environment, `-r '${php}'`)
 }
 
+export const CORS_FIX_PHP = String.raw`<?php
+declare(strict_types=1);
+
+$apiRoot = getcwd();
+$configPath = $apiRoot . '/config.php';
+$envAllowedOrigins = getenv('ALLOWED_ORIGINS');
+
+if ($envAllowedOrigins !== false && trim($envAllowedOrigins) !== '') {
+    echo "CORS_CONFIG_REFUSED source=environment\n";
+    exit(3);
+}
+if (!is_file($configPath)) {
+    echo "CORS_CONFIG_REFUSED source=file-missing\n";
+    exit(4);
+}
+
+require $apiRoot . '/src/Config.php';
+
+$expectedBefore = [
+    'https://app.tamamizu.giganihongo.com',
+    'https://yhalcyon-gh.github.io',
+    'http://localhost:5173',
+    'http://localhost:4173',
+];
+sort($expectedBefore);
+
+$before = \\KanaGame\\Paddle\\Config::load()->allowedOrigins();
+sort($before);
+if ($before !== $expectedBefore) {
+    echo 'CORS_CONFIG_REFUSED reason=precondition beforeCount=' . count($before) . "\n";
+    exit(5);
+}
+
+$fileValues = require $configPath;
+if (!is_array($fileValues)) {
+    echo "CORS_CONFIG_REFUSED reason=config-shape\n";
+    exit(6);
+}
+
+$home = getenv('HOME');
+$backupDir = is_string($home) && $home !== '' ? $home . '/tamamizu-backups' : '';
+if ($backupDir === '' || !is_dir($backupDir) || !is_writable($backupDir)) {
+    echo "CORS_CONFIG_REFUSED reason=backup-dir\n";
+    exit(7);
+}
+
+$backupPath = $backupDir . '/config-before-cors-' . gmdate('Ymd-His') . '.php';
+if (!copy($configPath, $backupPath)) {
+    echo "CORS_CONFIG_REFUSED reason=backup-failed\n";
+    exit(8);
+}
+@chmod($backupPath, 0600);
+
+$fileValues['ALLOWED_ORIGINS'] = 'https://app.tamamizu.giganihongo.com';
+$content = "<?php\n\ndeclare(strict_types=1);\n\nreturn " . var_export($fileValues, true) . ";\n";
+$tempPath = $configPath . '.cors-' . bin2hex(random_bytes(6)) . '.tmp';
+$written = file_put_contents($tempPath, $content, LOCK_EX);
+if ($written === false) {
+    echo "CORS_CONFIG_REFUSED reason=temp-write\n";
+    exit(9);
+}
+
+$mode = @fileperms($configPath);
+@chmod($tempPath, is_int($mode) ? ($mode & 0777) : 0600);
+$check = require $tempPath;
+if (!is_array($check) || ($check['ALLOWED_ORIGINS'] ?? null) !== 'https://app.tamamizu.giganihongo.com') {
+    @unlink($tempPath);
+    echo "CORS_CONFIG_REFUSED reason=temp-verify\n";
+    exit(10);
+}
+
+if (!rename($tempPath, $configPath)) {
+    @unlink($tempPath);
+    echo "CORS_CONFIG_REFUSED reason=replace-failed\n";
+    exit(11);
+}
+
+$after = \\KanaGame\\Paddle\\Config::load()->allowedOrigins();
+$expectedAfter = ['https://app.tamamizu.giganihongo.com'];
+if ($after !== $expectedAfter) {
+    if (!copy($backupPath, $configPath)) {
+        echo "CORS_CONFIG_FAILED reason=postcondition rollback=false\n";
+        exit(12);
+    }
+    echo "CORS_CONFIG_ROLLED_BACK reason=postcondition\n";
+    exit(13);
+}
+
+echo "CORS_CONFIG_UPDATED beforeCount=4 afterCount=1 backupCreated=true\n";
+`;
+
+export function buildCorsFixSshInvocation(environment) {
+  const target = assertMatch(required(environment, 'TAMAMIZU_PRODUCTION_SSH_TARGET'), targetPattern, 'SSH target')
+  const port = assertMatch(required(environment, 'TAMAMIZU_PRODUCTION_SSH_PORT'), portPattern, 'SSH port')
+  const identityFile = assertLocalAbsolutePath(required(environment, 'TAMAMIZU_PRODUCTION_SSH_IDENTITY_FILE'), 'identity-file path')
+  const knownHosts = assertLocalAbsolutePath(required(environment, 'TAMAMIZU_PRODUCTION_KNOWN_HOSTS'), 'known-hosts path')
+  const apiRoot = assertMatch(required(environment, 'TAMAMIZU_PRODUCTION_API_ROOT'), apiRootPattern, 'API root path')
+  const phpCommand = assertMatch(environment.TAMAMIZU_PRODUCTION_PHP_COMMAND || 'php', phpCommandPattern, 'PHP command')
+
+  return {
+    command: 'ssh',
+    args: [
+      '-T',
+      '-o', 'BatchMode=yes',
+      '-o', 'IdentitiesOnly=yes',
+      '-o', 'StrictHostKeyChecking=yes',
+      '-o', `UserKnownHostsFile=${knownHosts}`,
+      '-i', identityFile,
+      '-p', port,
+      target,
+      `cd -- ${apiRoot} && ${phpCommand}`,
+    ],
+    input: CORS_FIX_PHP,
+  }
+}
+
 const READINESS_LINE_PATTERN = /^webCookieAuthActive=(true|false) productionMagicLinkMailerConfigured=(true|false) devHarnessEnabled=(true|false) emailCodeAuthEnabled=(true|false) loginCodePepperConfigured=(true|false) emailCodeAuthReady=(true|false)$/
 
 /**
@@ -163,6 +279,36 @@ export function readSafeCorsProbeResult(status, stdout, stderr) {
       localhost4173: result[6] === 'true',
       unknownCount: Number(result[7]),
     }
+  }
+
+  throw new Error('Remote command returned an unexpected response. Output was intentionally redacted.')
+}
+
+export function readSafeCorsFixResult(status, stdout, stderr) {
+  const normalizedStdout = stdout.replace(/\r\n/g, '\n')
+  const normalizedStderr = stderr.replace(/\r\n/g, '\n')
+
+  if (
+    status === 0
+    && normalizedStdout === 'CORS_CONFIG_UPDATED beforeCount=4 afterCount=1 backupCreated=true\n'
+    && normalizedStderr === ''
+  ) {
+    return { ok: true, beforeCount: 4, afterCount: 1, backupCreated: true }
+  }
+
+  const refused = /^CORS_CONFIG_REFUSED (source=(environment|file-missing)|reason=(precondition beforeCount=[0-9]{1,3}|config-shape|backup-dir|backup-failed|temp-write|temp-verify|replace-failed))\n$/.exec(normalizedStdout)
+  if (refused && normalizedStderr === '') {
+    return { ok: false, reason: refused[1] }
+  }
+
+  if (
+    normalizedStderr === ''
+    && (
+      normalizedStdout === 'CORS_CONFIG_ROLLED_BACK reason=postcondition\n'
+      || normalizedStdout === 'CORS_CONFIG_FAILED reason=postcondition rollback=false\n'
+    )
+  ) {
+    return { ok: false, reason: normalizedStdout.trim() }
   }
 
   throw new Error('Remote command returned an unexpected response. Output was intentionally redacted.')
