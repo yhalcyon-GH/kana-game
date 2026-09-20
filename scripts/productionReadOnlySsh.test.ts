@@ -55,6 +55,10 @@ describe('production read-only SSH invocation', () => {
     expect(remote).toContain('https://app.tamamizu.giganihongo.com')
     expect(remote).toContain('corsExact=')
     expect(remote).toContain('originCount=')
+    expect(remote).toContain('githubPages=')
+    expect(remote).toContain('localhost5173=')
+    expect(remote).toContain('localhost4173=')
+    expect(remote).toContain('unknownCount=')
     expect(remote).not.toMatch(/echo .*ALLOWED_ORIGINS|DB_PASSWORD|RESEND_API_KEY|LOGIN_CODE_PEPPER/)
     expect(remote).not.toMatch(/mysql|mariadb|paddle|migration/)
   })
@@ -144,20 +148,38 @@ describe('production read-only SSH invocation', () => {
   })
 
   it('accepts only redacted CORS probe output', () => {
-    expect(readSafeCorsProbeResult(0, 'corsExact=true originCount=1\n', '')).toEqual({
+    expect(readSafeCorsProbeResult(
+      0,
+      'corsExact=true originCount=1 prod=true githubPages=false localhost5173=false localhost4173=false unknownCount=0\n',
+      '',
+    )).toEqual({
       corsExact: true,
       originCount: 1,
+      prod: true,
+      githubPages: false,
+      localhost5173: false,
+      localhost4173: false,
+      unknownCount: 0,
     })
-    expect(readSafeCorsProbeResult(0, 'corsExact=false originCount=2\n', '')).toEqual({
+    expect(readSafeCorsProbeResult(
+      0,
+      'corsExact=false originCount=4 prod=true githubPages=true localhost5173=true localhost4173=true unknownCount=0\n',
+      '',
+    )).toEqual({
       corsExact: false,
-      originCount: 2,
+      originCount: 4,
+      prod: true,
+      githubPages: true,
+      localhost5173: true,
+      localhost4173: true,
+      unknownCount: 0,
     })
   })
 
   it('redacts unexpected CORS probe output instead of returning configured origins', () => {
     expect(() => readSafeCorsProbeResult(
       0,
-      'corsExact=false originCount=2 origins=https://secret.example\n',
+      'corsExact=false originCount=2 prod=true githubPages=false localhost5173=false localhost4173=false unknownCount=1 origins=https://secret.example\n',
       '',
     )).toThrow(/redacted/)
     expect(() => readSafeCorsProbeResult(1, '', 'config error: hidden-value\n')).toThrow(/redacted/)
