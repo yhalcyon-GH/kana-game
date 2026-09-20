@@ -39,7 +39,7 @@ Confirm that the public identity, support details, Paddle wording, refund promis
 
 **Completed 2026-09-20:** the human operator explicitly approved the current public Terms, Privacy Policy, Refund Policy, Support page, and explicit purchase acceptance UX for launch.
 
-## Remaining Gate — final GO/NO-GO
+## Completed Gate — final GO/NO-GO
 
 **Final read-only Production verification completed 2026-09-20:**
 
@@ -65,7 +65,7 @@ Expected:
 
 Existing DB/API rollback backups and restore procedure should remain understood. A destructive rollback rehearsal is optional; do not create a new Production write merely to prove it unless the human explicitly chooses to rehearse it.
 
-The final **GO/NO-GO decision is human-only**.
+**Completed 2026-09-20:** the human operator explicitly issued **GO**. Tamamizu is approved for normal customer traffic. No additional Production mutation was required for the GO decision because the reviewed frontend/backend and Paddle Live configuration were already active and validated.
 
 ## Stop conditions
 
@@ -82,3 +82,8 @@ Stop launch and investigate if any of the following appears:
 ## Safety boundary
 
 **NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL.** Do not perform new real Paddle charges/refunds, Paddle Live mutations, paid-service activation, Production DB writes, DNS changes, Production secret changes, email sends, or Production backend deployments without explicit approval.
+
+
+## Post-launch status
+
+Tamamizu entered **GO / launched** status on 2026-09-20. Pre-launch gates are closed. Continue ordinary monitoring and support. Re-open investigation only on concrete Production evidence such as repeated auth failures, Paddle webhook errors/retries, entitlement mismatches, repeated current server errors, or unexpected CORS drift.

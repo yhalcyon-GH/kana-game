@@ -239,9 +239,11 @@ Each item is tagged:
       deployed SHA, DB backup restore procedure, and the condition under
       which cutover would be aborted (e.g. any Live webhook signature
       failure, any entitlement mismatch during the test purchase).
-- [ ] **Human required** — Go/no-go: only proceed to real customer traffic
-      once every Live-operation item above has been completed successfully
-      and rolled back cleanly at least once in a rehearsal, if practical.
+- [x] **Human required** — Final GO/NO-GO. **GO explicitly granted 2026-09-20**
+      after final legal approval and final read-only Production checks passed.
+      Tamamizu is approved for normal customer traffic. A destructive rollback
+      rehearsal was not required for this GO; existing rollback backups and
+      procedures remain available.
 
 ## 8. 2026-09-16 Production validation log
 
@@ -282,11 +284,12 @@ other personal identifiers are included.
   It confirmed Web cookie auth active, the real mailer configured, the dev harness off,
   and Email OTP fully ready without exposing any secret values.
 
-**Still genuinely open after the later 2026-09-19/20 validation work:**
+**Final launch state after the later 2026-09-19/20 validation work:**
 
-- Production `error_log` visibility/retention setting and exact CORS allowed-origins configuration remain Human checks (§3/§6).
-- Final rollback/go-no-go decision (§7).
-- Final legal review, including the operator identity/contact, market/age scope, and checkout acceptance decisions recorded in `docs/final-legal-readiness-audit-2026-09-20.md`. **Human-approved 2026-09-20.**
+- Production error-log visibility/retention and exact CORS checks are complete.
+- Final legal review is complete and human-approved.
+- Final GO was explicitly granted on 2026-09-20.
+- No pre-launch Human Gate remains; only ordinary post-launch monitoring and any future gated Production/money changes remain.
 
 ## Notes
 
