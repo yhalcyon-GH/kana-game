@@ -8,7 +8,7 @@ const REQUIRED_BUILD_TAIL = [
   'run: npm run lint',
   'run: npm test',
   'run: npm run build',
-  'uses: actions/upload-pages-artifact@v3',
+  'uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3',
 ]
 
 function buildStepEntries(workflow: string): string[] {
