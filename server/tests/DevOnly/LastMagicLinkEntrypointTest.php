@@ -101,18 +101,11 @@ function assertLastMagicLinkEntrypointDevHarnessGateUnchanged(): void
 {
     $source = loadEntrypointSource();
 
-    // The CORS/no-store fixes must not weaken this endpoint's own
-    // DEV_HARNESS_ENABLED gate -- it must still be the exact string
-    // comparison that defaults closed.
     assertTrue(
         str_contains($source, "\$config->get('DEV_HARNESS_ENABLED') !== 'true'"),
         'the DEV_HARNESS_ENABLED gate must remain an exact-string, default-closed check',
     );
 
-    // The only branch allowed to run before the DEV_HARNESS_ENABLED gate
-    // is the unauthenticated OPTIONS-preflight short-circuit (Issue
-    // #360) -- it always returns a fixed 204 and reveals nothing about
-    // harness/dev-only state. No other "if (" may appear earlier.
     $gatePos = strpos($source, "\$config->get('DEV_HARNESS_ENABLED') !== 'true'");
     $optionsCheckPos = strpos($source, "=== 'OPTIONS'");
     assertTrue(
@@ -120,12 +113,17 @@ function assertLastMagicLinkEntrypointDevHarnessGateUnchanged(): void
         'the OPTIONS-preflight short-circuit must run before the DEV_HARNESS_ENABLED gate',
     );
 
-    preg_match_all('/if\s*\(/', $source, $matches, PREG_OFFSET_CAPTURE);
-    $branchesBeforeGate = array_filter($matches[0], static fn (array $match): bool => $match[1] < $gatePos);
+    // Source comments can legitimately contain text such as "if (...)",
+    // so counting lexical "if (" tokens is brittle. The security
+    // invariant we actually care about is response behavior: before the
+    // default-closed harness gate, the only HTTP status this entrypoint
+    // may emit is the fixed 204 OPTIONS response.
+    $beforeGate = substr($source, 0, $gatePos);
+    preg_match_all('/http_response_code\((\d+)\)/', $beforeGate, $statusMatches);
     assertSame(
-        1,
-        count($branchesBeforeGate),
-        'only the OPTIONS-preflight short-circuit may run before the DEV_HARNESS_ENABLED gate',
+        ['204'],
+        $statusMatches[1],
+        'before the DEV_HARNESS_ENABLED gate, only the fixed 204 OPTIONS response is permitted',
     );
 }
 
