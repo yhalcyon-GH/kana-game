@@ -142,7 +142,7 @@ if (!copy($configPath, $backupPath)) {
 
 $fileValues['ALLOWED_ORIGINS'] = 'https://app.tamamizu.giganihongo.com';
 $content = "<?php\n\ndeclare(strict_types=1);\n\nreturn " . var_export($fileValues, true) . ";\n";
-$tempPath = $configPath . '.cors-' . bin2hex(random_bytes(6)) . '.tmp';
+$tempPath = $backupDir . '/config-cors-staged-' . bin2hex(random_bytes(6)) . '.php';
 $written = file_put_contents($tempPath, $content, LOCK_EX);
 if ($written === false) {
     echo "CORS_CONFIG_REFUSED reason=temp-write\n";
