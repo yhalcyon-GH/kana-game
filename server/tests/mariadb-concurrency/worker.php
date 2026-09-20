@@ -45,6 +45,7 @@ $result = match ($scenario) {
     'webhook' => scenarioWebhook($pdo, $args, $barrier, $workerId),
     'otp_verify' => scenarioOtpVerify($pdo, $args, $barrier, $workerId),
     'otp_attempt_race' => scenarioOtpAttemptRace($pdo, $args, $barrier, $workerId),
+    'persistent_refresh_revoke' => scenarioPersistentRefreshRevoke($pdo, $args, $barrier, $workerId),
     default => ['error' => "unknown scenario: {$scenario}"],
 };
 
