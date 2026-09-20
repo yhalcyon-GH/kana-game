@@ -108,17 +108,57 @@ describe('Sandbox checkout controller', () => {
     expect(f.events.at(-1)).toEqual({ kind: 'loaded' })
   })
 
-  it('fails closed when a promo checkout loads without an actual Paddle discount', async () => {
-    const f = fixture()
-    await f.prepare('private-ref')
-    await f.controller.open('learner@example.com', 'EXPIRED', 'tamamizu-promo-checkout')
-    f.emit('checkout.loaded', 'private-ref', 'txn_1', {
-      currency_code: 'USD',
-      totals: { subtotal: 5, discount: 0, tax: 0, total: 5, balance: 5, credit: 0 },
-    })
-    expect(f.events.at(-1)).toEqual({ kind: 'promotion-unavailable' })
-    expect(f.close).toHaveBeenCalledOnce()
-    expect(f.events.some((value) => value.kind === 'loaded')).toBe(false)
+  it('waits for a delayed Paddle discount event instead of failing on the initial zero-discount load', async () => {
+    vi.useFakeTimers()
+    try {
+      const f = fixture()
+      await f.prepare('private-ref')
+      await f.controller.open('learner@example.com', 'tamamizu0304', 'tamamizu-promo-checkout')
+      f.emit('checkout.loaded', 'private-ref', 'txn_1', {
+        currency_code: 'USD',
+        totals: { subtotal: 5, discount: 0, tax: 0.35, total: 5.35, balance: 5.35, credit: 0 },
+      })
+      expect(f.events.some((value) => value.kind === 'promotion-unavailable')).toBe(false)
+      expect(f.events.some((value) => value.kind === 'loaded')).toBe(false)
+      expect(f.close).not.toHaveBeenCalled()
+
+      f.emit('checkout.discount.applied', 'private-ref', 'txn_1', {
+        currency_code: 'USD',
+        totals: { subtotal: 5, discount: 5, tax: 0, total: 0, balance: 0, credit: 0 },
+      })
+      expect(f.events).toContainEqual({
+        kind: 'summary',
+        summary: { currencyCode: 'USD', subtotal: 5, discount: 5, tax: 0, total: 0 },
+      })
+      expect(f.events.at(-1)).toEqual({ kind: 'loaded' })
+      expect(f.close).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(5000)
+      expect(f.events.some((value) => value.kind === 'promotion-unavailable')).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('fails closed after a bounded wait when Paddle never applies the promised discount', async () => {
+    vi.useFakeTimers()
+    try {
+      const f = fixture()
+      await f.prepare('private-ref')
+      await f.controller.open('learner@example.com', 'EXPIRED', 'tamamizu-promo-checkout')
+      f.emit('checkout.loaded', 'private-ref', 'txn_1', {
+        currency_code: 'USD',
+        totals: { subtotal: 5, discount: 0, tax: 0, total: 5, balance: 5, credit: 0 },
+      })
+      expect(f.events.some((value) => value.kind === 'promotion-unavailable')).toBe(false)
+      await vi.advanceTimersByTimeAsync(4999)
+      expect(f.close).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(1)
+      expect(f.events.at(-1)).toEqual({ kind: 'promotion-unavailable' })
+      expect(f.close).toHaveBeenCalledOnce()
+      expect(f.events.some((value) => value.kind === 'loaded')).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('guards duplicate preparation and open synchronously while initialization is pending', async () => {

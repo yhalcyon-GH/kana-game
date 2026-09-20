@@ -113,7 +113,7 @@ describe('production Sandbox purchase orchestration', () => {
     expect(f.result.current.status).toBe('open')
   })
 
-  it('surfaces a promo-specific unavailable state instead of allowing a full-price fallback', async () => {
+  it('keeps promo checkout hidden while waiting, then surfaces unavailable after the bounded window', async () => {
     const f = fixture()
     await f.start('EXPIRED', 'tamamizu-promo-checkout')
     act(() => callbacks.at(-1)?.({
@@ -126,6 +126,10 @@ describe('production Sandbox purchase orchestration', () => {
         totals: { subtotal: 5, discount: 0, tax: 0, total: 5, balance: 5, credit: 0 },
       },
     } as PaddleEventData))
+    expect(f.result.current.status).toBe('preparing')
+    expect(f.result.current.summary).toBeNull()
+    expect(sdk.close).not.toHaveBeenCalled()
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000) })
     expect(f.result.current.status).toBe('promotion-unavailable')
     expect(f.result.current.summary).toBeNull()
     expect(sdk.close).toHaveBeenCalledOnce()

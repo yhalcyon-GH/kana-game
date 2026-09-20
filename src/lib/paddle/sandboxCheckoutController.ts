@@ -60,10 +60,19 @@ export function createSandboxCheckoutController({ config, onEvent, loadPaddle = 
   let purchaseRef: string | null = null
   let transactionId: string | null = null
   let promotionExpected = false
+  let promotionVerified = false
+  let promotionVerificationTimer: ReturnType<typeof setTimeout> | null = null
   let paddle: Paddle | undefined
   let initialization: Promise<Paddle> | null = null
 
   const isCurrent = (attempt: number) => !disposed && attempt === generation
+
+  function clearPromotionVerificationTimer() {
+    if (promotionVerificationTimer !== null) {
+      clearTimeout(promotionVerificationTimer)
+      promotionVerificationTimer = null
+    }
+  }
 
   function clearAttempt(closeOverlay: boolean) {
     generation += 1
@@ -72,6 +81,8 @@ export function createSandboxCheckoutController({ config, onEvent, loadPaddle = 
     purchaseRef = null
     transactionId = null
     promotionExpected = false
+    promotionVerified = false
+    clearPromotionVerificationTimer()
     // Invalidate BEFORE closing: the SDK may synchronously dispatch closed.
     if (closeOverlay && checkoutOpen) {
       checkoutOpen = false
@@ -101,10 +112,34 @@ export function createSandboxCheckoutController({ config, onEvent, loadPaddle = 
     }
 
     const incomingId = event.data?.transaction_id
+
+    const verifyPromotion = (summary: CheckoutSummary | null): boolean => {
+      if (!promotionExpected || promotionVerified || !summary || summary.discount <= 0) return promotionVerified
+      promotionVerified = true
+      clearPromotionVerificationTimer()
+      onEvent({ kind: 'summary', summary })
+      onEvent({ kind: 'loaded' })
+      return true
+    }
+
     if (event.name !== 'checkout.loaded' && event.name !== 'checkout.completed') {
       if (transactionId !== null && incomingId === transactionId) {
+        if (promotionExpected && event.name === 'checkout.discount.removed') {
+          finish({ kind: 'promotion-unavailable' }, true)
+          return
+        }
         const summary = readCheckoutSummary(event.data)
-        if (summary) onEvent({ kind: 'summary', summary })
+        if (promotionExpected) {
+          if (promotionVerified && summary && summary.discount <= 0) {
+            finish({ kind: 'promotion-unavailable' }, true)
+            return
+          }
+          const wasVerified = promotionVerified
+          verifyPromotion(summary)
+          if (wasVerified && summary) onEvent({ kind: 'summary', summary })
+        } else if (summary) {
+          onEvent({ kind: 'summary', summary })
+        }
       }
       return
     }
@@ -119,22 +154,37 @@ export function createSandboxCheckoutController({ config, onEvent, loadPaddle = 
       finish({ kind: 'mismatch', phase, transactionMatches, purchaseRefMatches }, true)
       return
     }
+
+    const summary = readCheckoutSummary(event.data)
     if (phase === 'loaded') {
       transactionId = incomingId!
-      const summary = readCheckoutSummary(event.data)
-      // A campaign link promises a discount. If Paddle loads the checkout
-      // without one, fail closed instead of letting the buyer accidentally
-      // complete a full-price purchase.
-      if (promotionExpected && (!summary || summary.discount <= 0)) {
-        finish({ kind: 'promotion-unavailable' }, true)
+      if (promotionExpected) {
+        if (!verifyPromotion(summary) && promotionVerificationTimer === null) {
+          // Paddle may emit checkout.loaded before a prefilled discount has
+          // propagated. Keep the inline frame hidden and wait briefly for
+          // checkout.discount.applied / checkout.updated before failing closed.
+          promotionVerificationTimer = setTimeout(() => {
+            if (isCurrent(attempt) && active && promotionExpected && !promotionVerified) {
+              finish({ kind: 'promotion-unavailable' }, true)
+            }
+          }, 5000)
+        }
         return
       }
       if (summary) onEvent({ kind: 'summary', summary })
       onEvent({ kind: 'loaded' })
-    } else {
-      // A completion signal is only permission to check server entitlement.
-      finish({ kind: 'completed' }, false)
+      return
     }
+
+    if (promotionExpected) {
+      if (!summary || summary.discount <= 0) {
+        finish({ kind: 'promotion-unavailable' }, true)
+        return
+      }
+      verifyPromotion(summary)
+    }
+    // A completion signal is only permission to check server entitlement.
+    finish({ kind: 'completed' }, false)
   }
 
   async function prepare(loadPurchaseRef: () => Promise<string | null>): Promise<boolean> {
@@ -166,6 +216,7 @@ export function createSandboxCheckoutController({ config, onEvent, loadPaddle = 
     const attempt = generation
     active = true
     promotionExpected = Boolean(discountCode)
+    promotionVerified = false
     onEvent({ kind: 'opening' })
     if (!isCurrent(attempt)) return
     const eventCallback = (event: PaddleEventData) => handleEvent(attempt, event)
@@ -189,7 +240,9 @@ export function createSandboxCheckoutController({ config, onEvent, loadPaddle = 
       // retain their original generation and are inert after invalidation.
       paddle.Update({ eventCallback })
       if (!isCurrent(attempt) || !purchaseRef) return
-      onEvent({ kind: 'open' })
+      // Promo checkout stays in the "checking promotion" state until Paddle
+      // confirms a positive discount. This keeps a full-price frame hidden.
+      if (!promotionExpected) onEvent({ kind: 'open' })
       if (!isCurrent(attempt) || !purchaseRef) return
       checkoutOpen = true
       const settings = inlineTarget

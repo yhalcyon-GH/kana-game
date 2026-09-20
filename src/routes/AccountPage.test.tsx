@@ -136,6 +136,8 @@ describe('production Account purchase UI', () => {
     expect(options.discountCode).toBe('HALF50')
     expect(options.customData).toEqual({ purchase_ref: privateRef })
     expect(JSON.stringify(options.customData)).not.toContain('HALF50')
+    expect(screen.getByText('Checking your promotion with Paddle…')).toBeInTheDocument()
+    expect(screen.getByLabelText('Secure Paddle checkout')).toHaveClass('invisible')
 
     await act(async () => {
       emit('checkout.loaded', privateRef, 'txn_1', {
@@ -148,7 +150,33 @@ describe('production Account purchase UI', () => {
     expect(screen.getByLabelText('Promotion summary')).toHaveTextContent('$5.00')
     expect(screen.getByLabelText('Promotion summary')).toHaveTextContent('−$2.50')
     expect(screen.getByLabelText('Promotion summary')).toHaveTextContent('$2.50')
-    expect(screen.getByLabelText('Secure Paddle checkout')).not.toHaveClass('hidden')
+    expect(screen.getByLabelText('Secure Paddle checkout')).not.toHaveClass('invisible')
+  })
+
+  it('accepts a delayed Paddle discount event after checkout.loaded initially reports no discount', async () => {
+    await renderAccount('/account?promo=tamamizu0304')
+    await start()
+    await act(async () => {
+      emit('checkout.loaded', privateRef, 'txn_1', {
+        currency_code: 'USD',
+        totals: { subtotal: 5, discount: 0, tax: 0.35, total: 5.35, balance: 5.35, credit: 0 },
+      })
+    })
+    expect(screen.getByText('Checking your promotion with Paddle…')).toBeInTheDocument()
+    expect(screen.getByLabelText('Secure Paddle checkout')).toHaveClass('invisible')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+
+    await act(async () => {
+      emit('checkout.discount.applied', privateRef, 'txn_1', {
+        currency_code: 'USD',
+        totals: { subtotal: 5, discount: 5, tax: 0, total: 0, balance: 0, credit: 0 },
+      })
+    })
+    expect(screen.getByText('Promotion applied')).toBeInTheDocument()
+    expect(screen.getByText('100% OFF')).toBeInTheDocument()
+    expect(screen.getByText('FREE')).toBeInTheDocument()
+    expect(screen.getByLabelText('Secure Paddle checkout')).not.toHaveClass('invisible')
+    expect(sdk.close).not.toHaveBeenCalled()
   })
 
   it('shows FREE and no-payment-details guidance when Paddle calculates a zero-total promo checkout', async () => {
@@ -165,7 +193,7 @@ describe('production Account purchase UI', () => {
     expect(screen.getByText('No payment details are needed for this zero-total checkout.')).toBeInTheDocument()
   })
 
-  it('fails closed instead of exposing a full-price checkout when Paddle does not apply the promo', async () => {
+  it('waits before failing closed, keeping the full-price inline checkout hidden', async () => {
     await renderAccount('/account?promo=EXPIRED')
     await start()
     await act(async () => {
@@ -174,8 +202,15 @@ describe('production Account purchase UI', () => {
         totals: { subtotal: 5, discount: 0, tax: 0, total: 5, balance: 5, credit: 0 },
       })
     })
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.getByText('Checking your promotion with Paddle…')).toBeInTheDocument()
+    expect(screen.getByLabelText('Secure Paddle checkout')).toHaveClass('invisible')
+    expect(sdk.close).not.toHaveBeenCalled()
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000) })
     expect(screen.getByRole('alert')).toHaveTextContent('This promotion could not be applied.')
     expect(screen.queryByText('Promotion applied')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Secure Paddle checkout')).toHaveClass('invisible')
     expect(sdk.close).toHaveBeenCalledOnce()
   })
 
