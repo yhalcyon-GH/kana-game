@@ -286,7 +286,7 @@ other personal identifiers are included.
 
 - Production `error_log` visibility/retention setting and exact CORS allowed-origins configuration remain Human checks (§3/§6).
 - Final rollback/go-no-go decision (§7).
-- Final legal review, including the operator identity/contact, market/age scope, and checkout acceptance decisions recorded in `docs/final-legal-readiness-audit-2026-09-20.md`.
+- Final legal review, including the operator identity/contact, market/age scope, and checkout acceptance decisions recorded in `docs/final-legal-readiness-audit-2026-09-20.md`. **Human-approved 2026-09-20.**
 
 ## Notes
 
