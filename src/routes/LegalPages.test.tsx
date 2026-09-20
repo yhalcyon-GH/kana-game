@@ -11,10 +11,10 @@ function renderWithRouter(element: ReactElement) {
 }
 
 describe('SupportPage', () => {
-  it('publishes GigaNihongo support identity, the dedicated contact, and secret-handling guidance', () => {
+  it('publishes Tamamizu support identity, the dedicated contact, and secret-handling guidance', () => {
     renderWithRouter(<SupportPage />)
     expect(screen.getByRole('heading', { name: 'Support & Contact', level: 1 })).toBeInTheDocument()
-    expect(screen.getByText(/support is provided by GigaNihongo/i)).toBeInTheDocument()
+    expect(screen.getByText(/For Tamamizu support/i)).toBeInTheDocument()
     expect(screen.getByText(/Paddle\.com is the Merchant of Record/i)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'tamamizu.jp@gmail.com' })).toHaveAttribute(
       'href',
@@ -53,10 +53,10 @@ describe('TermsPage', () => {
     expect(disputes).toMatch(/consumer protection right or remedy/)
   })
 
-  it('identifies GigaNihongo as supplier and discloses Paddle and worldwide availability', () => {
+  it('identifies Tamamizu as supplier/operator and discloses Paddle and worldwide availability', () => {
     renderWithRouter(<TermsPage />)
     const supplier = screen.getByRole('heading', { name: 'Supplier and service identity', level: 2 }).parentElement?.textContent ?? ''
-    expect(supplier).toMatch(/GigaNihongo/)
+    expect(supplier).toMatch(/Tamamizu/)
     expect(supplier).toMatch(/operates from Thailand/)
     const paddle = screen.getByRole('heading', { name: 'Ordering through Paddle', level: 2 }).parentElement?.textContent ?? ''
     expect(paddle).toMatch(/Paddle\.com is the Merchant of Record/)
