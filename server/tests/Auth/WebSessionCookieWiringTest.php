@@ -144,6 +144,18 @@ function webSessionCookieWiringTests(): array
             assertUsesCredentialResolver('purchase-intent.php');
         },
 
+        'auth/request-link.php enables credentialed CORS and only sets a host-only browser-binding cookie for an actually issued Magic Link' => function () {
+            $source = loadServerSource('auth/request-link.php');
+
+            assertTrue(str_contains($source, "$cookieModeEnabled = $config->get('WEB_SESSION_COOKIE_ENABLED') === 'true';"), 'request-link must derive cookie mode from the same closed-by-default setting');
+            assertTrue(str_contains($source, 'new Cors($config->allowedOrigins(), null, $cookieModeEnabled)'), 'request-link must enable Access-Control-Allow-Credentials only in cookie mode');
+            assertTrue(str_contains($source, 'WebSessionCookie::MAGIC_LINK_BINDING_DEFAULT_NAME'), 'request-link must use the dedicated host-only binding-cookie name');
+            assertTrue(str_contains($source, 'random_bytes(32)'), 'browser binding must use a fresh 256-bit CSPRNG secret');
+            assertTrue(str_contains($source, '$service->requestLink($rawEmail, $clientIp, $rawBrowserBinding)'), 'the same raw binding must be passed to the token issuer');
+            assertTrue(str_contains($source, 'if ($issued && $rawBrowserBinding !== null)'), 'the cookie must not overwrite a prior valid binding when rate limiting/malformed input prevents issuing a new token');
+            assertTrue(str_contains($source, '$browserBindingCookie->issueHeader('), 'an issued production Magic Link must set the Secure+HttpOnly binding cookie');
+        },
+
         'auth/verify.php in cookie mode never places session_token in its own response' => function () {
             $source = loadServerSource('auth/verify.php');
 
@@ -229,6 +241,19 @@ function webSessionCookieWiringTests(): array
         // victim's cookie jar. This must be rejected before the
         // (one-time-use) token is even read, so a rejected attempt
         // never burns it for a legitimate follow-up attempt.
+        'auth/verify.php requires the browser binding before consuming a production Magic Link and clears stale persistent login on success' => function () {
+            $source = loadServerSource('auth/verify.php');
+
+            $bindingReadPos = strpos($source, '$browserBindingCookie->readToken($_COOKIE)');
+            $verifyCallPos = strpos($source, '$service->verify(');
+            assertTrue($bindingReadPos !== false && $verifyCallPos !== false, 'verify.php must read and pass the browser-binding cookie to the service');
+            assertTrue(str_contains($source, '$cookieModeEnabled,'), 'verify.php must require browser binding whenever Production cookie mode is enabled');
+
+            $rememberDeletePos = strpos($source, '$rememberCookie->deleteHeader()');
+            $sessionIssuePos = strpos($source, '$webSessionCookie->issueHeader(');
+            assertTrue($sessionIssuePos !== false && $rememberDeletePos !== false && $sessionIssuePos < $rememberDeletePos, 'successful Magic-Link session issue must be followed by stale remember-cookie deletion');
+        },
+
         'auth/verify.php rejects a cookie-mode request from a non-allowlisted Origin before the token is even read' => function () {
             $source = loadServerSource('auth/verify.php');
 
@@ -249,9 +274,17 @@ function webSessionCookieWiringTests(): array
             );
         },
 
-        'auth/verify.php constructs WebSessionCookie exactly once (no duplicate/conflicting instances)' => function () {
+        'auth/verify.php uses separate host-only session, remember, and Magic-Link-binding cookies in cookie mode' => function () {
             $source = loadServerSource('auth/verify.php');
-            assertSame(1, substr_count($source, 'new WebSessionCookie('), 'verify.php must construct WebSessionCookie exactly once, reused for both the Origin check and the later issueHeader() call');
+
+            assertSame(3, substr_count($source, 'new WebSessionCookie('), 'verify.php should construct session, remember, and Magic-Link-binding cookie helpers exactly once each');
+            assertTrue(str_contains($source, 'WebSessionCookie::MAGIC_LINK_BINDING_DEFAULT_NAME'), 'verify.php must read the dedicated browser-binding cookie');
+            assertTrue(str_contains($source, '$rememberCookie->deleteHeader()'), 'successful Magic-Link login must clear any stale remember cookie');
+            assertTrue(str_contains($source, '$browserBindingCookie->deleteHeader()'), 'successful Magic-Link login must clear its one-time browser-binding cookie');
+            assertTrue(
+                str_contains($source, '$browserBindingCookie->readToken($_COOKIE)'),
+                'verify.php must pass the HttpOnly browser-binding cookie into MagicLinkAuthService before the token can be consumed',
+            );
         },
 
         // Code-review finding: an ambiguous (Bearer != cookie) credential
