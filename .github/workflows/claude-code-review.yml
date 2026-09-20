@@ -11,10 +11,11 @@ on:
 
 jobs:
   claude-review:
-    # Draft/WIP iteration should not spend model usage. Reviewable PRs enter
-    # this cheap deterministic gate, but the model step only runs after an
-    # exact dedicated-line opt-in check below.
-    if: github.event.action == 'ready_for_review' || github.event.pull_request.draft == false
+    # Only an event performed by the repository owner may enter the paid
+    # review path. This prevents an untrusted PR author from spending the
+    # configured Claude credential merely by placing the opt-in marker in
+    # their own PR body. Draft/WIP iteration is still skipped as before.
+    if: github.actor == github.repository_owner && (github.event.action == 'ready_for_review' || github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -32,7 +33,17 @@ jobs:
             const hasExactMarkerLine = (body) =>
               (body ?? '').split(/\r?\n/).some((line) => line === marker);
 
-            const shouldRequestReview = (action, currentBody, previousBody = currentBody) => {
+            const shouldRequestReview = (
+              action,
+              currentBody,
+              previousBody = currentBody,
+              actor = context.actor,
+              repositoryOwner = context.repo.owner
+            ) => {
+              // Defense-in-depth in addition to the job-level if: even if
+              // that outer gate is changed later, an untrusted event actor
+              // must never be able to request paid model usage.
+              if (actor !== repositoryOwner) return false;
               if (!hasExactMarkerLine(currentBody)) return false;
               // On an edit, review only on the transition from no exact marker
               // to exact marker. This prevents unrelated edits or edits made
@@ -60,17 +71,21 @@ jobs:
             }
 
             const transitionCases = [
-              ['opened', '', 'summary\nAI review: Claude', true],
-              ['ready_for_review', '', 'AI review: Claude', true],
-              ['edited', 'summary', 'summary\nAI review: Claude', true],
-              ['edited', 'AI review: Claude', 'AI review: Claude\nnotes changed', false],
-              ['edited', 'summary', 'No AI review: Claude marker is requested.', false],
-              ['edited', 'AI review: Claude', 'summary', false],
+              ['opened', '', 'summary\nAI review: Claude', 'owner', 'owner', true],
+              ['ready_for_review', '', 'AI review: Claude', 'owner', 'owner', true],
+              ['edited', 'summary', 'summary\nAI review: Claude', 'owner', 'owner', true],
+              ['edited', 'AI review: Claude', 'AI review: Claude\nnotes changed', 'owner', 'owner', false],
+              ['edited', 'summary', 'No AI review: Claude marker is requested.', 'owner', 'owner', false],
+              ['edited', 'AI review: Claude', 'summary', 'owner', 'owner', false],
               // Title-only edit: body did not change, so previous=current.
-              ['edited', 'AI review: Claude', 'AI review: Claude', false],
+              ['edited', 'AI review: Claude', 'AI review: Claude', 'owner', 'owner', false],
+              // An untrusted PR author can copy the exact marker but still
+              // must never request paid model usage.
+              ['opened', '', 'AI review: Claude', 'outside-contributor', 'owner', false],
+              ['edited', 'summary', 'summary\nAI review: Claude', 'outside-contributor', 'owner', false],
             ];
-            for (const [action, previousBody, currentBody, expected] of transitionCases) {
-              const actual = shouldRequestReview(action, currentBody, previousBody);
+            for (const [action, previousBody, currentBody, actor, repositoryOwner, expected] of transitionCases) {
+              const actual = shouldRequestReview(action, currentBody, previousBody, actor, repositoryOwner);
               if (actual !== expected) {
                 throw new Error(`Claude review transition regression for ${action}: expected ${expected}, got ${actual}`);
               }
@@ -84,7 +99,13 @@ jobs:
             // title edit), treat previous body as current body so it cannot
             // create a false no-marker -> marker transition.
             const previousBody = bodyChanged ? (changes.body?.from ?? '') : currentBody;
-            const requested = shouldRequestReview(action, currentBody, previousBody);
+            const requested = shouldRequestReview(
+              action,
+              currentBody,
+              previousBody,
+              context.actor,
+              context.repo.owner
+            );
 
             core.setOutput('requested', requested.toString());
             core.info(`Claude review explicitly requested on this event: ${requested}`);
