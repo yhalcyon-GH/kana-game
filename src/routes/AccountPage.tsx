@@ -233,7 +233,7 @@ export default function AccountPage() {
                 {percentageOff !== null && <p className="text-2xl font-bold">{percentageOff}% OFF</p>}
               </div>
               <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-2 text-sm">
-                <dt>Base price</dt>
+                <dt>Subtotal</dt>
                 <dd className="text-right font-medium">{formatCheckoutAmount(purchase.summary.subtotal, purchase.summary.currencyCode)}</dd>
                 <dt>Discount</dt>
                 <dd className="text-right font-medium">−{formatCheckoutAmount(purchase.summary.discount, purchase.summary.currencyCode)}</dd>
@@ -245,7 +245,7 @@ export default function AccountPage() {
                 </dd>
               </dl>
               {purchase.summary.total === 0 && (
-                <p className="text-center text-sm font-semibold">No payment details are needed for this $0 checkout.</p>
+                <p className="text-center text-sm font-semibold">No payment details are needed for this zero-total checkout.</p>
               )}
             </div>
           )}
