@@ -35,6 +35,7 @@ namespace KanaGame\Paddle\Auth;
 final class WebSessionCookie
 {
     public const DEFAULT_NAME = '__Host-tamamizu_session';
+    public const MAGIC_LINK_BINDING_DEFAULT_NAME = '__Host-tamamizu_magic_link_binding';
 
     public function __construct(
         private readonly bool $enabled,
