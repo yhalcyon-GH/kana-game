@@ -143,8 +143,8 @@ Each item is tagged:
 - [x] **Live operation** — Run one real refund against that test purchase,
       confirm the adjustment webhook revokes entitlement and that any
       locally-stored learning progress is retained per the intended
-      refund-vs-progress policy (business decision, not a repo default to
-      infer). **Partially confirmed 2026-09-16** (see §8): one authorized
+      refund-vs-progress policy. Confirmed by combined Production + code evidence:
+      one authorized
       real refund completed with no manual DB edit and no webhook replay,
       and entitlement correctly went inactive with content re-locked on
       reload, confirming the real refund webhook path revokes access. Learning progress
@@ -154,19 +154,12 @@ Each item is tagged:
 - [x] **Human required** — Confirm the failed/cancelled checkout UX (user
       closes or cancels Paddle Checkout without completing) leaves the app
       in a sane, non-broken state. Confirmed 2026-09-19: closing/cancelling Checkout left Full Access locked and the app remained usable.
-- [ ] **Human required** — Confirm receipt/invoice/customer-portal access
-      works as Paddle provides it (Paddle-hosted, not custom-built here
-      unless the repo already implements a portal link). **Partially
-      confirmed 2026-09-16** (see §8): the purchase email and tax invoice
-      were received and correctly showed USD 5.00 + Thailand VAT USD 0.35 =
-      USD 5.35 with no seller home address exposed. Left unchecked because
-      the Paddle customer-portal link itself was not exercised. **Audited
-      2026-09-19** (see `docs/paddle-customer-portal-audit.md`): this repo
-      has no customer-portal link/config/API integration at all, so any
-      portal access today depends entirely on what Paddle's own receipt
-      email/dashboard provides. Adding an authenticated in-app portal-session
-      link would require creating a new Production Paddle API key, which is
-      itself a Human Gate — not implemented here.
+- [x] **Human required** — Confirm the buyer receives usable purchase records.
+      Confirmed 2026-09-16: the Paddle purchase email and tax invoice arrived and
+      showed the real total correctly. A 2026-09-19 repo audit found no in-app
+      customer-portal integration; for this one-time product, adding an authenticated
+      portal-session link is optional/non-blocking and would require a separate
+      Production Paddle API key Human Gate. See `docs/paddle-customer-portal-audit.md`.
 
 ## 5a. Webhook response timing (KEEP SYNC FOR LIVE — launch acceptable)
 
@@ -270,17 +263,15 @@ other personal identifiers are included.
   entitlement was inactive and paid content was re-locked, confirming the
   real refund webhook path revoked access.
 - Paddle payout details were configured by the human.
-- Production read-only preflight remains intentionally paused after its
-  prior redacted unexpected-response result; this pass did **not** restart
-  SSH diagnostics or any other Production read-only check.
+- Production read-only preflight was later repaired and rerun successfully on 2026-09-20.
+  It confirmed Web cookie auth active, the real mailer configured, the dev harness off,
+  and Email OTP fully ready without exposing any secret values.
 
 **Still genuinely open after the later 2026-09-19/20 validation work:**
 
-- Refund-vs-progress retention policy is decided (retain local progress) but the retained-progress state was not independently re-exercised during the real refund pass (§5).
-- Paddle customer-portal link itself (§5) remains optional/non-blocking; only the emailed receipt/invoice path is confirmed and repo audit found no in-app portal integration.
-- Production `error_log` location/rotation and exact CORS allowed-origins configuration remain Human checks (§3/§6).
-- Final rollback rehearsal/go-no-go decision (§7).
-- Final legal review.
+- Production `error_log` visibility/retention setting and exact CORS allowed-origins configuration remain Human checks (§3/§6).
+- Final rollback/go-no-go decision (§7).
+- Final legal review, including the operator identity/contact, market/age scope, and checkout acceptance decisions recorded in `docs/final-legal-readiness-audit-2026-09-20.md`.
 
 ## Notes
 
