@@ -162,7 +162,7 @@ describe('production Account purchase UI', () => {
     })
     expect(screen.getByText('100% OFF')).toBeInTheDocument()
     expect(screen.getByText('FREE')).toBeInTheDocument()
-    expect(screen.getByText('No payment details are needed for this $0 checkout.')).toBeInTheDocument()
+    expect(screen.getByText('No payment details are needed for this zero-total checkout.')).toBeInTheDocument()
   })
 
   it('fails closed instead of exposing a full-price checkout when Paddle does not apply the promo', async () => {
