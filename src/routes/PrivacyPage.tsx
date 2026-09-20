@@ -17,9 +17,8 @@ export function PrivacyPage() {
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Controller / operator</h2>
         <p>
-          Tamamizu is operated by GigaNihongo from Thailand. Where applicable privacy law uses terms such as data
-          controller or business, GigaNihongo is the party responsible for the personal data Tamamizu itself
-          processes. Privacy and account-deletion requests can be sent to{' '}
+          Tamamizu is operated from Thailand. Where applicable privacy law uses terms such as data controller or
+          business, Tamamizu is the party responsible for the personal data the service itself processes. Privacy and account-deletion requests can be sent to{' '}
           <a href="mailto:tamamizu.jp@gmail.com" className="underline">tamamizu.jp@gmail.com</a>.
         </p>
       </section>
@@ -243,7 +242,7 @@ export function PrivacyPage() {
         </p>
         <p>
           Depending on the law that applies to you, you may have rights to request access, correction, deletion,
-          restriction, objection, portability, or withdrawal of consent. Contact GigaNihongo using the address below
+          restriction, objection, portability, or withdrawal of consent. Contact Tamamizu using the address below
           to make a privacy request. Rights that are mandatory under applicable law are not limited by this policy.
         </p>
       </section>
