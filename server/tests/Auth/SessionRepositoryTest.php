@@ -15,6 +15,17 @@ function makeSessionsTestDb(): PDO
     $pdo = new PDO('sqlite::memory:');
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $pdo->exec(
+        'CREATE TABLE persistent_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            token_hash TEXT NOT NULL UNIQUE,
+            user_id TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            revoked_at TEXT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )',
+    );
+    $pdo->exec(
         'CREATE TABLE sessions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             token_hash TEXT NOT NULL UNIQUE,
@@ -94,6 +105,55 @@ function sessionRepositoryTests(): array
             assertTrue($repo->findActiveUserIdForRawToken('raw-session-a') === null, 'session linked to the persistent session must be revoked');
             assertTrue($repo->findActiveUserIdForRawToken('raw-session-b') === null, 'session linked to the persistent session must be revoked');
             assertTrue($repo->findActiveUserIdForRawToken('raw-session-c') !== null, 'a session with no persistent_session_id link must be untouched');
+        },
+
+        'a linked session stops authenticating as soon as its persistent parent is revoked' => function () {
+            $pdo = makeSessionsTestDb();
+            $repo = new SessionRepository($pdo);
+            $pdo->exec(
+                "INSERT INTO persistent_sessions (id, token_hash, user_id, expires_at, created_at, last_seen_at)
+                 VALUES (42, '" . hash('sha256', 'raw-parent') . "', 'user-1', datetime('now', '+90 days'), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+            );
+            $repo->create('user-1', 'raw-child', new \DateTimeImmutable('+24 hours'), 42);
+
+            assertSame('user-1', $repo->findActiveUserIdForRawToken('raw-child'), 'linked child should resolve while parent is active');
+
+            $pdo->exec("UPDATE persistent_sessions SET revoked_at = CURRENT_TIMESTAMP WHERE id = 42");
+
+            assertSame(null, $repo->findActiveUserIdForRawToken('raw-child'), 'revoking the parent must invalidate the linked child even if the child row itself is not yet revoked');
+        },
+
+        'a linked session stops authenticating when its persistent parent expires' => function () {
+            $pdo = makeSessionsTestDb();
+            $repo = new SessionRepository($pdo);
+            $pdo->exec(
+                "INSERT INTO persistent_sessions (id, token_hash, user_id, expires_at, created_at, last_seen_at)
+                 VALUES (43, '" . hash('sha256', 'expired-parent') . "', 'user-1', datetime('now', '-1 minute'), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+            );
+            $repo->create('user-1', 'raw-child-expired-parent', new \DateTimeImmutable('+24 hours'), 43);
+
+            assertSame(null, $repo->findActiveUserIdForRawToken('raw-child-expired-parent'), 'an expired parent must invalidate its linked child');
+        },
+
+        'revokeAllForUserExceptRawToken() revokes linked and Magic-Link sessions while preserving exactly the current raw token' => function () {
+            $pdo = makeSessionsTestDb();
+            $repo = new SessionRepository($pdo);
+            $pdo->exec(
+                "INSERT INTO persistent_sessions (id, token_hash, user_id, expires_at, created_at, last_seen_at)
+                 VALUES (44, '" . hash('sha256', 'parent') . "', 'user-1', datetime('now', '+90 days'), CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+            );
+            $repo->create('user-1', 'keep-current', new \DateTimeImmutable('+24 hours'), 44);
+            $repo->create('user-1', 'other-linked', new \DateTimeImmutable('+24 hours'), 44);
+            $repo->create('user-1', 'other-magic-link', new \DateTimeImmutable('+24 hours'), null);
+            $repo->create('user-2', 'other-user', new \DateTimeImmutable('+24 hours'), null);
+
+            $revoked = $repo->revokeAllForUserExceptRawToken('user-1', 'keep-current');
+
+            assertSame(2, $revoked, 'both other user-1 sessions should be revoked');
+            assertSame('user-1', $repo->findActiveUserIdForRawToken('keep-current'), 'current session must remain active');
+            assertSame(null, $repo->findActiveUserIdForRawToken('other-linked'), 'other linked session must be revoked');
+            assertSame(null, $repo->findActiveUserIdForRawToken('other-magic-link'), 'other unlinked Magic-Link session must be revoked');
+            assertSame('user-2', $repo->findActiveUserIdForRawToken('other-user'), 'another user must be untouched');
         },
 
         'create() without a persistentSessionId still works exactly as before (backward compatibility)' => function () {
