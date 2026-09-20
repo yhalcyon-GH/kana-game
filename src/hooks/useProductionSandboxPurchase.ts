@@ -7,7 +7,7 @@ import { readProductionSandboxConfig } from '../lib/paddle/sandboxConfig'
 
 type PurchaseStatus = 'idle' | 'preparing' | 'open' | 'processing' | 'still-confirming' | 'unavailable'
 type PurchaseActions = {
-  start: () => Promise<void>
+  start: (discountCode?: string) => Promise<void>
   retry: () => void
   invalidate: () => void
 }
@@ -111,7 +111,7 @@ export function useProductionSandboxPurchase() {
     })
 
     actions.current = {
-      start: async () => {
+      start: async (discountCode?: string) => {
         if (disposed || sessionStatus.current !== 'inactive' || !['idle', 'unavailable'].includes(currentStatus)) return
         invalidate()
         const attempt = generation
@@ -132,7 +132,7 @@ export function useProductionSandboxPurchase() {
           }
           return result.kind === 'created' ? result.purchaseRef : null
         })
-        if (prepared && isCurrent(attempt)) await controller.open(currentUserEmail.current ?? undefined)
+        if (prepared && isCurrent(attempt)) await controller.open(currentUserEmail.current ?? undefined, discountCode)
       },
       retry: () => {
         if (!disposed && currentStatus === 'still-confirming') void confirm()
@@ -147,7 +147,7 @@ export function useProductionSandboxPurchase() {
     }
   }, [apiBase, config, markSignedOut, refresh])
 
-  const start = useCallback(async () => { await actions.current?.start() }, [])
+  const start = useCallback(async (discountCode?: string) => { await actions.current?.start(discountCode) }, [])
   const retry = useCallback(() => actions.current?.retry(), [])
   const invalidate = useCallback(() => actions.current?.invalidate(), [])
   // Phase H2: exposes which environment (sandbox/live) this build is

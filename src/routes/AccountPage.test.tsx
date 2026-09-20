@@ -28,11 +28,15 @@ function Observer() {
   const { state } = useEntitlement()
   return <output aria-label="Server access">{state.status}</output>
 }
-function Tree({ showAccount = true }: { showAccount?: boolean }) {
-  return <MemoryRouter><EntitlementProvider><Observer />{showAccount && <AccountPage />}</EntitlementProvider></MemoryRouter>
+function Tree({ showAccount = true, initialPath = '/account' }: { showAccount?: boolean; initialPath?: string }) {
+  return (
+    <MemoryRouter initialEntries={[initialPath]}>
+      <EntitlementProvider><Observer />{showAccount && <AccountPage />}</EntitlementProvider>
+    </MemoryRouter>
+  )
 }
-async function renderAccount() {
-  const view = render(<Tree />)
+async function renderAccount(initialPath = '/account') {
+  const view = render(<Tree initialPath={initialPath} />)
   await act(async () => {})
   return view
 }
@@ -112,6 +116,31 @@ describe('production Account purchase UI', () => {
     fireEvent.click(acceptance)
     expect(acceptance).toBeChecked()
     expect(purchaseButton).toBeEnabled()
+  })
+
+  it('acknowledges a valid promo link and passes it only as Paddle discountCode', async () => {
+    await renderAccount('/account?promo=tamamizu0304')
+    expect(screen.getByText(/Promo code/)).toHaveTextContent('tamamizu0304')
+    await start()
+    const options = sdk.open.mock.calls[0][0]
+    expect(options.discountCode).toBe('tamamizu0304')
+    expect(options.customData).toEqual({ purchase_ref: privateRef })
+    expect(JSON.stringify(options.customData)).not.toContain('tamamizu0304')
+  })
+
+  it('ignores an invalid promo link and never passes it to Paddle', async () => {
+    await renderAccount('/account?promo=bad-code')
+    expect(screen.queryByText(/Promo code/)).not.toBeInTheDocument()
+    await start()
+    expect(sdk.open.mock.calls[0][0]).not.toHaveProperty('discountCode')
+  })
+
+  it('preserves a valid promo link when a signed-out buyer goes to sign in', async () => {
+    const pending = deferred<Response>()
+    fetchMock.mockReturnValueOnce(pending.promise)
+    render(<Tree initialPath="/account?promo=tamamizu0304" />)
+    await act(async () => { pending.resolve(json({}, 401)) })
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login?promo=tamamizu0304')
   })
 
   it.each([

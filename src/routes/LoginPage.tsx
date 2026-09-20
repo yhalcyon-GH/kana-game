@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useEntitlement } from '../components/EntitlementContext'
 import {
   fetchAuthCapabilities,
@@ -8,6 +8,7 @@ import {
   verifyLoginCode,
 } from '../lib/auth/productionAuthClient'
 import { readProductionAuthApiBase } from '../lib/auth/productionAuthApiBase'
+import { readCheckoutPromoCode } from '../lib/paddle/promoCode'
 
 const RESEND_COOLDOWN_SECONDS = 60
 
@@ -48,7 +49,10 @@ const INVALID_CODE_ERROR = 'Invalid or expired code. Please request a new code.'
 export default function LoginPage() {
   const apiBase = readProductionAuthApiBase()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { refresh } = useEntitlement()
+  const promoCode = readCheckoutPromoCode(searchParams)
+  const accountTarget = promoCode ? `/account?promo=${encodeURIComponent(promoCode)}` : '/account'
 
   const [mode, setMode] = useState<Mode>(() => (apiBase ? { kind: 'checking-capability' } : { kind: 'magic-link' }))
   const capabilityChecked = useRef(false)
@@ -93,7 +97,7 @@ export default function LoginPage() {
       onChallengeRefreshed={(challenge) => setMode({ kind: 'otp-code', email: mode.email, challenge })}
       onAuthenticated={() => {
         void refresh()
-        navigate('/account')
+        navigate(accountTarget)
       }}
     />
   )

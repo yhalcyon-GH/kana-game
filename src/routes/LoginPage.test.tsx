@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EntitlementContext, type EntitlementContextValue } from '../components/EntitlementContext'
 import LoginPage from './LoginPage'
@@ -11,13 +11,18 @@ function json(body: unknown, status = 200) {
 const fetchMock = vi.fn<typeof fetch>()
 const refresh = vi.fn<EntitlementContextValue['refresh']>().mockResolvedValue({ kind: 'stale' })
 
-function renderLogin() {
+function AccountDestination() {
+  const location = useLocation()
+  return <p>Account page{location.search}</p>
+}
+
+function renderLogin(initialEntry = '/login') {
   return render(
-    <MemoryRouter initialEntries={['/login']}>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <EntitlementContext.Provider value={{ state: { status: 'signed-out', user: null }, refresh, markSignedOut: vi.fn() }}>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/account" element={<p>Account page</p>} />
+          <Route path="/account" element={<AccountDestination />} />
         </Routes>
       </EntitlementContext.Provider>
     </MemoryRouter>,
@@ -160,6 +165,21 @@ describe('LoginPage — OTP code step', () => {
     await act(async () => { fireEvent.submit(screen.getByRole('button', { name: 'Verify code' }).closest('form')!) })
     expect(await screen.findByText('Account page')).toBeInTheDocument()
     expect(refresh).toHaveBeenCalledOnce()
+  })
+
+  it('preserves a valid promo query through successful OTP sign-in', async () => {
+    fetchMock.mockResolvedValueOnce(json({ email_code_auth: true }))
+    renderLogin('/login?promo=tamamizu0304')
+    await waitForCapabilityCheck()
+    fetchMock.mockResolvedValueOnce(json({ status: 'ok', challenge: 'opaque-challenge' }))
+    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'learner@example.com' } })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Send code' })) })
+
+    fetchMock.mockResolvedValueOnce(json({ user: { user_id: 'u1', email_normalized: 'learner@example.com' } }))
+    fireEvent.change(screen.getByLabelText('6-digit code'), { target: { value: '012345' } })
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Verify code' })) })
+
+    expect(await screen.findByText('Account page?promo=tamamizu0304')).toBeInTheDocument()
   })
 
   it('shows the exact invalid/expired copy on a wrong code and does NOT fall back to Magic Link', async () => {

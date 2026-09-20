@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useEntitlement } from '../components/EntitlementContext'
 import { logout, signOutOtherBrowsers } from '../lib/auth/productionAuthClient'
 import { readProductionAuthApiBase } from '../lib/auth/productionAuthApiBase'
+import { readCheckoutPromoCode } from '../lib/paddle/promoCode'
 import { useProductionSandboxPurchase } from '../hooks/useProductionSandboxPurchase'
 
 type PurchaseStatus = ReturnType<typeof useProductionSandboxPurchase>['status']
@@ -27,6 +28,9 @@ export default function AccountPage() {
   const apiBase = readProductionAuthApiBase()
   const { state, refresh, markSignedOut } = useEntitlement()
   const purchase = useProductionSandboxPurchase()
+  const [searchParams] = useSearchParams()
+  const promoCode = readCheckoutPromoCode(searchParams)
+  const promoSearch = promoCode ? `?promo=${encodeURIComponent(promoCode)}` : ''
   // Manual-refresh-only confirmation: never shown on initial load (the
   // provider's own startup/focus refreshes never touch this), and always
   // replaced -- never accumulated -- by the next manual refresh's outcome.
@@ -113,7 +117,7 @@ export default function AccountPage() {
       <div className="flex w-full max-w-sm flex-col items-center gap-6">
         <h1 className="text-2xl font-bold">Account</h1>
         <p role="status">Not signed in.</p>
-        <Link to="/login" className="w-full rounded-xl bg-blue-600 px-5 py-3 text-center font-semibold text-white hover:bg-blue-700">
+        <Link to={`/login${promoSearch}`} className="w-full rounded-xl bg-blue-600 px-5 py-3 text-center font-semibold text-white hover:bg-blue-700">
           Sign in
         </Link>
       </div>
@@ -189,6 +193,11 @@ export default function AccountPage() {
             Base price: USD 5.00. Applicable taxes may be included in or added to the price depending on your
             location. The final price is shown at checkout.
           </p>
+          {promoCode && (
+            <p role="status" className="rounded-xl border border-emerald-500 px-4 py-3 text-sm">
+              Promo code <span className="font-semibold">{promoCode}</span> will be applied at checkout.
+            </p>
+          )}
           <div className="flex w-full items-start gap-3 rounded-xl border border-neutral-300 p-4 text-left dark:border-neutral-700">
             <input
               id="purchase-policy-acceptance"
@@ -215,7 +224,7 @@ export default function AccountPage() {
           <button
             type="button"
             disabled={!purchase.configured || checkoutBusy || !purchasePoliciesAccepted}
-            onClick={() => void purchase.start()}
+            onClick={() => void purchase.start(promoCode)}
             className="w-full rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {purchaseButtonLabel}
