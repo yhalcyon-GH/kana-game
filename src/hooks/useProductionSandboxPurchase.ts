@@ -2,12 +2,12 @@ import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { useEntitlement } from '../components/EntitlementContext'
 import { createPurchaseIntent } from '../lib/auth/productionAuthClient'
 import { readProductionAuthApiBase } from '../lib/auth/productionAuthApiBase'
-import { createSandboxCheckoutController } from '../lib/paddle/sandboxCheckoutController'
+import { createSandboxCheckoutController, type CheckoutSummary } from '../lib/paddle/sandboxCheckoutController'
 import { readProductionSandboxConfig } from '../lib/paddle/sandboxConfig'
 
 type PurchaseStatus = 'idle' | 'preparing' | 'open' | 'processing' | 'still-confirming' | 'unavailable'
 type PurchaseActions = {
-  start: (discountCode?: string) => Promise<void>
+  start: (discountCode?: string, inlineTarget?: string) => Promise<void>
   retry: () => void
   invalidate: () => void
 }
@@ -32,6 +32,7 @@ export function useProductionSandboxPurchase() {
   const apiBase = readProductionAuthApiBase()
   const [config] = useState(readProductionSandboxConfig)
   const [status, setStatus] = useState<PurchaseStatus>('idle')
+  const [summary, setSummary] = useState<CheckoutSummary | null>(null)
   const sessionStatus = useRef(state.status)
   // Prefill-only: read fresh via a ref (like sessionStatus above) rather
   // than as a useLayoutEffect dependency below, so the controller/Paddle
@@ -62,6 +63,7 @@ export function useProductionSandboxPurchase() {
       polling?.abort()
       polling = null
       controller.invalidate()
+      setSummary(null)
       changeStatus('idle')
     }
     const isCurrent = (attempt: number) => !disposed && attempt === generation
@@ -98,6 +100,7 @@ export function useProductionSandboxPurchase() {
         switch (event.kind) {
           case 'preparing': case 'ready': case 'opening': changeStatus('preparing'); break
           case 'open': case 'loaded': changeStatus('open'); break
+          case 'summary': setSummary(event.summary); break
           // Completion ends checkout correlation. The controller ignores later
           // SDK closes (including auto-close); Account cancellation still aborts.
           case 'completed': void confirm(); break
@@ -111,7 +114,7 @@ export function useProductionSandboxPurchase() {
     })
 
     actions.current = {
-      start: async (discountCode?: string) => {
+      start: async (discountCode?: string, inlineTarget?: string) => {
         if (disposed || sessionStatus.current !== 'inactive' || !['idle', 'unavailable'].includes(currentStatus)) return
         invalidate()
         const attempt = generation
@@ -132,7 +135,7 @@ export function useProductionSandboxPurchase() {
           }
           return result.kind === 'created' ? result.purchaseRef : null
         })
-        if (prepared && isCurrent(attempt)) await controller.open(currentUserEmail.current ?? undefined, discountCode)
+        if (prepared && isCurrent(attempt)) await controller.open(currentUserEmail.current ?? undefined, discountCode, inlineTarget)
       },
       retry: () => {
         if (!disposed && currentStatus === 'still-confirming') void confirm()
@@ -147,7 +150,7 @@ export function useProductionSandboxPurchase() {
     }
   }, [apiBase, config, markSignedOut, refresh])
 
-  const start = useCallback(async (discountCode?: string) => { await actions.current?.start(discountCode) }, [])
+  const start = useCallback(async (discountCode?: string, inlineTarget?: string) => { await actions.current?.start(discountCode, inlineTarget) }, [])
   const retry = useCallback(() => actions.current?.retry(), [])
   const invalidate = useCallback(() => actions.current?.invalidate(), [])
   // Phase H2: exposes which environment (sandbox/live) this build is
@@ -155,5 +158,5 @@ export function useProductionSandboxPurchase() {
   // purchase language in Sandbox, ordinary purchase language in Live) --
   // null only when config itself is invalid/absent, matching `configured`.
   const environment = 'error' in config ? null : config.environment
-  return { status, configured: !('error' in config) && !!apiBase, environment, start, retry, cancel: invalidate, invalidate }
+  return { status, summary, configured: !('error' in config) && !!apiBase, environment, start, retry, cancel: invalidate, invalidate }
 }
