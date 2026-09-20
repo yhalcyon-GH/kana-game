@@ -8,7 +8,7 @@ require_once __DIR__ . '/../TestCase.php';
 require_once __DIR__ . '/WebSessionCookieWiringTest.php';
 
 /**
- * Source-inspection regression test (Issue #304) for the six entrypoints
+ * Source-inspection regression test for the session-adjacent entrypoints
  * that can emit a session-minting `Set-Cookie`: auth/me.php,
  * entitlement-me.php, purchase-intent.php, auth/verify.php,
  * auth/verify-code.php, and auth/logout.php. Each must send
@@ -60,6 +60,7 @@ function cacheControlWiringTests(): array
         'auth/verify.php',
         'auth/verify-code.php',
         'auth/logout.php',
+        'auth/sign-out-others.php',
     ];
 
     $tests = [];
