@@ -51,6 +51,13 @@ variables, is deliberately untracked. Never copy, display, download, or
 overwrite it as part of an application release. Creating or changing it is a
 Production-secret change and needs the owner's explicit approval.
 
+The Production root `api/.htaccess` is also deliberately **not** part of the
+release set. XServer deployments may use that host-owned file for `SetEnv`,
+rewrite rules, or other environment-specific configuration. Never replace,
+download, display, or merge it as part of an ordinary application release.
+Any host-level security-header/HSTS change is a separate Production
+configuration Human Gate.
+
 ## Human-only deployment gate
 
 Before uploading, the owner must securely preserve the currently deployed
@@ -73,13 +80,23 @@ readiness output. The CLI preflight must still return only its three redacted
 booleans. Do not run the browser request until the owner has approved the
 Production upload.
 
+After an approved upload, perform a read-only header verification against
+`/api/auth/capabilities.php`. Application code should emit
+`X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+`Referrer-Policy: no-referrer`, the restrictive Permissions Policy, and the
+JSON-API Content Security Policy. HSTS is intentionally **not** emitted by PHP:
+the application cannot safely infer the original HTTPS transport behind the
+hosting layer without a trusted-proxy contract. If HSTS is later enabled, do
+so only as a separate host-level Human Gate after confirming the actual
+XServer TLS/proxy configuration.
+
 ## Stop conditions
 
 Stop the deployment and restore the preserved prior application files if any
 of these is true:
 
 - the reviewed SHA or required CI results cannot be identified;
-- the release would overwrite or expose `config.php`;
+- the release would overwrite or expose `config.php` or the host-owned root `api/.htaccess`;
 - an excluded development or test endpoint would be web-served;
 - the `ops/` HTTP denial cannot be verified;
 - the redacted preflight reports an enabled development harness or an

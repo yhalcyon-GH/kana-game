@@ -8,23 +8,21 @@ require_once __DIR__ . '/../TestCase.php';
 require_once __DIR__ . '/WebSessionCookieWiringTest.php';
 
 /**
- * Source-inspection regression test (Issue #304) for the six entrypoints
- * that can emit a session-minting `Set-Cookie`: auth/me.php,
- * entitlement-me.php, purchase-intent.php, auth/verify.php,
- * auth/verify-code.php, and auth/logout.php. Each must send
- * `Cache-Control: no-store` unconditionally, before any response-status
- * branch, so no caching intermediary (proxy, CDN edge, browser prefetch
- * cache) can ever store or replay a response carrying a session Set-Cookie
- * to a different request/client -- see auth/me.php's doc comment and
- * docs/superpowers/specs/2026-09-17-email-otp-persistent-login-design.md
- * for the full rationale, including why the underlying refresh-on-GET
- * behavior itself was deliberately kept rather than moved behind a POST.
+ * Source-inspection regression test for session-adjacent entrypoints that
+ * must send `Cache-Control: no-store`: auth/me.php, entitlement-me.php,
+ * purchase-intent.php, auth/verify.php, auth/verify-code.php, auth/logout.php,
+ * and auth/sign-out-others.php.
+ *
+ * Some of these responses can mint or clear cookies; sign-out-others mutates
+ * authentication state without issuing a cookie. In all cases an intermediary
+ * must not cache and replay the response. The assertion is intentionally made
+ * before the normal REQUEST_METHOD branch so every non-preflight status path
+ * carries no-store.
  *
  * This is the same static-source-inspection approach already used by
- * WebSessionCookieWiringTest.php and the dev-only entrypoint tests, for
- * the same reason: these are plain top-level scripts with real
- * header()/$_COOKIE dependencies this repo's dependency-free CLI test
- * runner cannot exercise over real HTTP.
+ * WebSessionCookieWiringTest.php and the dev-only entrypoint tests, because
+ * these top-level scripts depend on real header()/$_COOKIE behavior that the
+ * dependency-free CLI test runner cannot exercise over HTTP.
  */
 function assertEntrypointSetsNoStoreBeforeFirstBranch(string $relativePath): void
 {
@@ -60,6 +58,7 @@ function cacheControlWiringTests(): array
         'auth/verify.php',
         'auth/verify-code.php',
         'auth/logout.php',
+        'auth/sign-out-others.php',
     ];
 
     $tests = [];

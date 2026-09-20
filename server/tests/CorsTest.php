@@ -10,6 +10,20 @@ require_once __DIR__ . '/TestCase.php';
 require_once __DIR__ . '/../src/Cors.php';
 
 /**
+ * @return list<string>
+ */
+function baselineSecurityHeaders(): array
+{
+    return [
+        'X-Content-Type-Options: nosniff',
+        'X-Frame-Options: DENY',
+        'Referrer-Policy: no-referrer',
+        'Permissions-Policy: camera=(), microphone=(), geolocation=()',
+        "Content-Security-Policy: default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+    ];
+}
+
+/**
  * @return array<string, callable(): void>
  */
 function corsTests(): array
@@ -80,7 +94,7 @@ function corsTests(): array
             );
         },
 
-        'applyPreflightHeaders() emits nothing for a disallowed origin' => function () {
+        'applyPreflightHeaders() emits only baseline security headers for a disallowed origin' => function () {
             $sent = [];
             $cors = new Cors(['https://yhalcyon-gh.github.io'], function (string $header) use (&$sent) {
                 $sent[] = $header;
@@ -88,7 +102,11 @@ function corsTests(): array
 
             $cors->applyPreflightHeaders('https://evil.example.com');
 
-            assertSame([], $sent, 'a disallowed origin must get no headers at all, including no preflight authorization headers');
+            assertSame(
+                baselineSecurityHeaders(),
+                $sent,
+                'a disallowed origin must get no CORS authorization headers, while baseline response hardening remains present',
+            );
         },
 
         'applyPreflightHeaders() never emits Access-Control-Allow-Credentials when not constructed as credentialed (the default)' => function () {
@@ -134,12 +152,13 @@ function corsTests(): array
 
             assertSame(
                 [
+                    ...baselineSecurityHeaders(),
                     'Access-Control-Allow-Origin: https://app.tamamizu.giganihongo.com',
                     'Vary: Origin',
                     'Access-Control-Allow-Credentials: true',
                 ],
                 $sent,
-                'credentialed mode must emit exactly these three headers, with the exact origin echoed back, never a wildcard',
+                'credentialed mode must emit baseline hardening plus the exact origin/credential CORS headers, never a wildcard',
             );
         },
 
@@ -157,7 +176,7 @@ function corsTests(): array
             assertFalse(str_contains($joined, 'Access-Control-Allow-Origin: *'), 'credentialed mode must never combine with a wildcard origin');
         },
 
-        'credentialed mode still emits nothing at all for a disallowed origin' => function () {
+        'credentialed mode never emits CORS authorization headers for a disallowed origin' => function () {
             $sent = [];
             $cors = new Cors(['https://app.tamamizu.giganihongo.com'], function (string $header) use (&$sent) {
                 $sent[] = $header;
@@ -165,7 +184,11 @@ function corsTests(): array
 
             $cors->applyHeaders('https://evil.example.com');
 
-            assertSame([], $sent, 'an unlisted origin must get no headers even in credentialed mode -- credentialed does not loosen the allowlist check');
+            assertSame(
+                baselineSecurityHeaders(),
+                $sent,
+                'an unlisted origin must get only baseline security headers -- credentialed mode does not loosen the allowlist check',
+            );
         },
 
         'applyHeaders() (non-preflight) emits exactly Access-Control-Allow-Origin and Vary for an allowed origin, nothing more' => function () {
@@ -181,13 +204,17 @@ function corsTests(): array
             $cors->applyHeaders('https://yhalcyon-gh.github.io');
 
             assertSame(
-                ['Access-Control-Allow-Origin: https://yhalcyon-gh.github.io', 'Vary: Origin'],
+                [
+                    ...baselineSecurityHeaders(),
+                    'Access-Control-Allow-Origin: https://yhalcyon-gh.github.io',
+                    'Vary: Origin',
+                ],
                 $sent,
-                'applyHeaders() must emit exactly these two headers, no preflight method/header policy',
+                'applyHeaders() must emit baseline hardening plus only the non-preflight CORS origin/Vary policy',
             );
         },
 
-        'applyHeaders() emits nothing for a disallowed origin' => function () {
+        'applyHeaders() emits baseline security headers but no CORS allow-origin for a disallowed origin' => function () {
             $sent = [];
             $cors = new Cors(['https://yhalcyon-gh.github.io'], function (string $header) use (&$sent) {
                 $sent[] = $header;
@@ -195,7 +222,18 @@ function corsTests(): array
 
             $cors->applyHeaders('https://evil.example.com');
 
-            assertSame([], $sent, 'a disallowed origin must get no Access-Control-Allow-Origin header at all');
+            assertSame(baselineSecurityHeaders(), $sent, 'a disallowed origin must get no Access-Control-Allow-Origin header');
+        },
+
+        'applyHeaders() emits baseline security headers for a no-Origin request' => function () {
+            $sent = [];
+            $cors = new Cors(['https://yhalcyon-gh.github.io'], function (string $header) use (&$sent) {
+                $sent[] = $header;
+            });
+
+            $cors->applyHeaders(null);
+
+            assertSame(baselineSecurityHeaders(), $sent, 'same-origin/non-browser responses must receive baseline security headers too');
         },
 
         'the default constructor (no injected callable) still calls PHP\'s real header() function' => function () {
