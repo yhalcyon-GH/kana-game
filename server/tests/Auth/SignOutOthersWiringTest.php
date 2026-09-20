@@ -43,15 +43,15 @@ function signOutOthersWiringTests(): array
         'sign-out-others.php rejects a remember cookie that belongs to a different account' => function () {
             $source = loadSignOutOthersSource();
             assertTrue(
-                str_contains($source, "$ownPersistentSession['user_id'] !== $resolution['user']['user_id']"),
+                str_contains($source, "\$ownPersistentSession['user_id'] !== \$resolution['user']['user_id']"),
                 'remember credential user must match the resolved current user before any revocation',
             );
         },
         'sign-out-others.php revokes every other normal session including unlinked Magic-Link sessions while preserving the exact current token' => function () {
             $source = loadSignOutOthersSource();
-            assertTrue(str_contains($source, "$currentSessionRawToken = $resolution['refreshed_session_token'] ?? $credential->token"), 'must preserve the actual session token used for this request, including a freshly refreshed one');
+            assertTrue(str_contains($source, "\$currentSessionRawToken = \$resolution['refreshed_session_token'] ?? \$credential->token"), 'must preserve the actual session token used for this request, including a freshly refreshed one');
             assertTrue(str_contains($source, 'revokeAllForUserExceptRawToken('), 'must revoke every other normal session, not only sessions linked to persistent credentials');
-            assertTrue(str_contains($source, "$webSessionCookie->issueHeader($resolution['refreshed_session_token']"), 'a remember-only caller that was refreshed must receive the newly preserved session cookie');
+            assertTrue(str_contains($source, "\$webSessionCookie->issueHeader(\$resolution['refreshed_session_token']"), 'a remember-only caller that was refreshed must receive the newly preserved session cookie');
         },
     ];
 }
