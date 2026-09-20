@@ -9,14 +9,16 @@ this stops short of.
 All logging described here uses PHP's built-in `error_log()`. There is
 no log-shipping/aggregation configured in this repo.
 
-**Remaining pre-launch Human Gate:** confirm that the Production domain's
-PHP error log is reachable and record the actual XServer save/retention
-setting chosen for this account. XServer's current official manual says
-the Server Panel exposes domain-level error logs generated daily for the
-past 7 days, with an optional "user-area save" setting for keeping older
-compressed logs under the domain's `log/` directory. The repository cannot
-see which optional setting this account currently uses, so it must not
-invent a longer retention period. See `docs/final-human-gates-runbook.md`.
+**Production verified 2026-09-20:** the XServer error log for `giganihongo.com`
+was reachable in Server Panel and reviewed for the launch-critical Tamamizu
+tags without copying request/customer data into the repository. No
+`paddle-webhook: stage=`, `request-code: mailer_unconfigured`,
+`request-link: mailer_unconfigured`, or PHP fatal/warning/parse/notice
+entries were found in the supplied log. XServer's "user-area save" setting
+for `giganihongo.com` was then set by the human operator to **9 weeks**.
+Treat that as the current operational retention setting; future changes in
+XServer should be reflected here. See Issue #326 for the redacted review
+record.
 
 ## Logging convention
 

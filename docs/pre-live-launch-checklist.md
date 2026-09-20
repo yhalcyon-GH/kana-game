@@ -89,11 +89,19 @@ Each item is tagged:
       [production-readonly-connection.md](./production-readonly-connection.md#email_code_auth-false-on-the-public-capability-probe--is-it-stale-or-is-it-off).
       If OTP is not intended to be live yet, `emailCodeAuthEnabled=false` is
       the expected, non-blocking state.
-- [ ] **Human required** — Confirm the real path `error_log` writes to on
-      this XServer plan, and that it is being watched/rotated. (Not
-      independently verifiable from the repo; do not guess a path.)
-- [ ] **Human required** — Confirm CORS allowed-origins in Production config
-      match the real Production frontend origin(s) only.
+- [x] **Human required** — Confirm the Production XServer error log is
+      reachable and has an explicit retention/save setting. Confirmed
+      2026-09-20 in XServer Server Panel: the `giganihongo.com` error log
+      was reachable and the user-area save period was set to **9 weeks**.
+      The reviewed log contained no launch-critical Paddle/auth-mailer/PHP
+      failure tags; see Issue #326 and `docs/observability.md`.
+- [x] **Human required** — Confirm CORS allowed-origins in Production config
+      match the real Production frontend origin(s) only. Confirmed and
+      corrected 2026-09-20 via the guarded runner: the effective allowlist
+      was reduced from the Production origin plus three known legacy
+      development/GitHub-Pages origins to exactly
+      `https://app.tamamizu.giganihongo.com`; backup and post-change
+      `production:status` checks passed. See Issue #323.
 - [x] **Human required** — Confirm session cookie behavior is correct in a real Production browser. Confirmed 2026-09-20 by successful OTP login, persistence across close/relaunch, and logout. Static cookie attributes remain enforced by the reviewed server implementation; no secret values were exposed.
 
 ## 4. Magic Link auth (end-to-end, real browser, Production)
@@ -214,9 +222,10 @@ Each item is tagged:
 - [x] **AI-verifiable** — Stage-tagged webhook logging and the
       `mailer_unconfigured` warning are present on `main` (see
       `docs/observability.md`).
-- [ ] **Human required** — Confirm Production logs are actually reachable
-      (see error_log path item above) so these warnings are seen in
-      practice, not just emitted.
+- [x] **Human required** — Confirm Production logs are actually reachable
+      so these warnings are seen in practice, not just emitted. Confirmed
+      2026-09-20 from XServer Server Panel; the supplied current-period log
+      was reviewed and user-area retention was set to 9 weeks.
 
 ## 7. Rollback / go-no-go
 

@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "current_main_sha": "df460468d0044bdde3505e1ee4fcccb416f2a476",
+  "current_main_sha": "c5fec3a6d6783d0f3db8cff3b40c75338d027bb8",
   "latest_completed_work": {
-    "kind": "prelaunch_ai_audit",
-    "number": 321,
-    "title": "Final pre-launch AI audit: privacy accuracy, CORS probe, human gates",
+    "kind": "production_human_gate",
+    "number": 326,
+    "title": "Production CORS and error-log/retention gates completed",
     "merged_at": "2026-09-20"
   },
   "open_prs": [
@@ -15,28 +15,28 @@
     }
   ],
   "active_work_item": {
-    "id": "final-human-gates",
+    "id": "final-legal-human-gates",
     "issue_number": null,
     "branch": null,
     "pull_request_number": null,
-    "status": "human_gates_only",
-    "goal": "AI-only pre-launch work is complete. Next steps are limited to the fixed read-only Production CORS check, XServer error-log/retention confirmation, explicit legal/operator decisions, and final human GO/NO-GO."
+    "status": "human_legal_decisions_required",
+    "goal": "Production technical cutover gates are complete. Remaining launch blockers are the explicit legal/operator decisions, final public legal-page approval, and final human GO/NO-GO."
   },
-  "next_machine_action": "Run `npm run resume` first and read `docs/final-human-gates-runbook.md`. Do not repeat completed migration 0006, Production API deployment, OTP enablement, Paddle Live purchase/refund, cancelled-checkout QA, PWA recovery/install QA, or OTP login/persistence/logout QA. Next Human Gate: run the new read-only `npm run production:cors-probe` from the existing local resume environment. It prints only whether the effective allowlist is exactly the intended Production frontend and the origin count; it never prints configured origin values.",
+  "next_machine_action": "Run `npm run resume` first. Do not repeat completed Production CORS correction, error-log review/retention setup, migration 0006, Production API deployment, OTP enablement, Paddle Live purchase/refund, cancelled-checkout QA, PWA recovery/install QA, or OTP login/persistence/logout QA. Next Human Gate is legal/operator decisions from `docs/final-legal-readiness-audit-2026-09-20.md`; after the human supplies those decisions, implement the approved public Terms/Privacy/Refund/Support wording and purchase acceptance UX, run exact-head CI/review, and merge before final GO/NO-GO.",
   "unresolved_ai_items": [],
   "human_gates": [
-    "Run the fixed read-only `npm run production:cors-probe`; expected pass is corsExact=true originCount=1. Any config correction if it fails is a separate Production config Human Gate.",
-    "Confirm XServer Production PHP error-log access and the actual domain retention/save setting; report only safe status/tags, not raw customer/request data.",
-    "Final legal/operator decisions recorded in `docs/final-legal-readiness-audit-2026-09-20.md`: public supplier/controller identity; support-phone requirement/public number if needed; checkout Terms/refund acceptance mechanism; Paddle Merchant-of-Record wording; launch geography/privacy scope; minor/guardian policy.",
-    "Final human legal approval of the resulting public Terms, Privacy Policy, Refund Policy, and Support page.",
+    "Final legal/operator decisions: public supplier/controller identity; support-phone requirement/public number if needed; checkout Terms/refund acceptance mechanism; Paddle Merchant-of-Record wording; launch geography/privacy scope; minor/guardian policy.",
+    "Final human legal approval of the resulting public Terms, Privacy Policy, Refund Policy, Support page, and purchase acceptance UX.",
     "Final human GO/NO-GO decision and any optional rollback rehearsal.",
     "Any new real-money, Paddle Live, paid-service, Production DB write, DNS, Production-secret, email-send, or Production deployment action beyond what is explicitly approved."
   ],
   "production_live_restrictions": "NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL. Real charges/refunds, Paddle Live transactions/configuration, paid-resource changes, Production DB writes, DNS changes, Production-secret changes, email sends, and Production deployments are Human Gates.",
   "last_verified_at": "2026-09-20",
-  "last_verified_by": "GitHub source-of-truth audit after PR #321 merge. PR #321 exact-head Pre-Live Safety, PR Verify, Browser Smoke, and independent Claude read-only review were clean. Main is df460468d0044bdde3505e1ee4fcccb416f2a476. AI-only pre-launch cleanup is complete; remaining work is Human Gates documented in docs/final-human-gates-runbook.md.",
+  "last_verified_by": "Human Production checks + GitHub source of truth. Production CORS was reduced to the single intended frontend origin with backup/postcondition verification and production:status passing. XServer error log was reachable, the supplied log had no launch-critical Paddle/auth-mailer/PHP failure tags, and giganihongo.com user-area error-log retention was set to 9 weeks. Technical cutover gates are complete; remaining blockers are legal/operator decisions and final human GO/NO-GO.",
   "known_non_blockers": [
     "Production Email OTP is enabled and real-device OTP login/persistence/logout QA passed on 2026-09-20.",
+    "Production CORS now allows only https://app.tamamizu.giganihongo.com; guarded correction and post-change production:status passed on 2026-09-20.",
+    "Production XServer error log is reachable; current supplied log contained no launch-critical Paddle webhook/auth-mailer/PHP failure tags, and user-area retention is set to 9 weeks.",
     "Legacy installed-PWA recovery is complete; future/current builds actively check registration.update() with bounded throttling.",
     "Production DB migration 0006 and reviewed API deployment are complete; 0007 remains intentionally dev-only.",
     "Production cancelled-checkout UX was human-tested successfully.",
