@@ -98,17 +98,20 @@ $rawEmailField = is_array($body) ? ($body['email'] ?? null) : null;
 $rawEmail = is_string($rawEmailField) ? $rawEmailField : '';
 
 // Production cookie-mode Magic Links are browser-bound. Generate a fresh
-// 256-bit binding secret for this request, store only its SHA-256 digest with
-// any token that is actually issued, and place the raw value only in a
-// short-lived Secure+HttpOnly host-only cookie. The cookie is sent only when
-// requestLink() actually issues/sends a token, so a rate-limited request does
-// not overwrite the binding for a still-usable previous link.
+// 256-bit binding secret for this browser (reusing the still-present binding
+// cookie across repeated link requests), store only its SHA-256 digest with
+// any token that is actually issued, and keep the raw value only in a
+// short-lived Secure+HttpOnly host-only cookie. Reuse matters: requesting a
+// second link must not make an earlier still-valid email unusable merely by
+// replacing its browser binding. The cookie is refreshed only when a link is
+// actually issued/sent, so rate-limited input cannot disturb a prior link.
 $browserBindingCookie = new WebSessionCookie(
     $cookieModeEnabled,
     WebSessionCookie::MAGIC_LINK_BINDING_DEFAULT_NAME,
 );
+$existingBrowserBinding = $browserBindingCookie->readToken($_COOKIE);
 $rawBrowserBinding = $cookieModeEnabled
-    ? rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=')
+    ? ($existingBrowserBinding ?? rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '='))
     : null;
 
 // server/src/Auth/RateLimiter.php's IP bucket deliberately reads ONLY
