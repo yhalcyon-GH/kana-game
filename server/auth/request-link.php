@@ -29,6 +29,7 @@ require __DIR__ . '/../src/Auth/RateLimiter.php';
 require __DIR__ . '/../src/Auth/ResendMailer.php';
 require __DIR__ . '/../src/Auth/SessionRepository.php';
 require __DIR__ . '/../src/Auth/UserRepository.php';
+require __DIR__ . '/../src/Auth/WebSessionCookie.php';
 require __DIR__ . '/../src/DevOnly/DevHarnessLoginCodeStore.php';
 require __DIR__ . '/../src/DevOnly/DevHarnessMagicLinkStore.php';
 require __DIR__ . '/../src/DevOnly/DevHarnessMailer.php';
@@ -43,6 +44,7 @@ use KanaGame\Paddle\Auth\RateLimiter;
 use KanaGame\Paddle\Auth\ResendMailer;
 use KanaGame\Paddle\Auth\SessionRepository;
 use KanaGame\Paddle\Auth\UserRepository;
+use KanaGame\Paddle\Auth\WebSessionCookie;
 use KanaGame\Paddle\Config;
 use KanaGame\Paddle\Cors;
 use KanaGame\Paddle\Db;
@@ -51,7 +53,8 @@ use KanaGame\Paddle\DevOnly\DevHarnessMagicLinkStore;
 use KanaGame\Paddle\DevOnly\DevHarnessMailer;
 
 $config = Config::load();
-$cors = new Cors($config->allowedOrigins());
+$cookieModeEnabled = $config->get('WEB_SESSION_COOKIE_ENABLED') === 'true';
+$cors = new Cors($config->allowedOrigins(), null, $cookieModeEnabled);
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
     $cors->applyPreflightHeaders($_SERVER['HTTP_ORIGIN'] ?? null);
@@ -61,6 +64,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
 
 $cors->applyHeaders($_SERVER['HTTP_ORIGIN'] ?? null);
 header('Content-Type: application/json');
+header('Cache-Control: no-store');
 
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     http_response_code(405);
@@ -92,6 +96,20 @@ $rawEmailField = is_array($body) ? ($body['email'] ?? null) : null;
 // response stays the same generic 200 either way — see
 // MagicLinkAuthService::requestLink()'s own doc comment.
 $rawEmail = is_string($rawEmailField) ? $rawEmailField : '';
+
+// Production cookie-mode Magic Links are browser-bound. Generate a fresh
+// 256-bit binding secret for this request, store only its SHA-256 digest with
+// any token that is actually issued, and place the raw value only in a
+// short-lived Secure+HttpOnly host-only cookie. The cookie is sent only when
+// requestLink() actually issues/sends a token, so a rate-limited request does
+// not overwrite the binding for a still-usable previous link.
+$browserBindingCookie = new WebSessionCookie(
+    $cookieModeEnabled,
+    WebSessionCookie::MAGIC_LINK_BINDING_DEFAULT_NAME,
+);
+$rawBrowserBinding = $cookieModeEnabled
+    ? rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=')
+    : null;
 
 // server/src/Auth/RateLimiter.php's IP bucket deliberately reads ONLY
 // REMOTE_ADDR — X-Forwarded-For is never trusted absent an explicit
@@ -185,7 +203,16 @@ try {
         $currentUser,
         $config->intWithDefault('MAGIC_LINK_TOKEN_EXPIRY_MINUTES', 15),
     );
-    $service->requestLink($rawEmail, $clientIp);
+    $issued = $service->requestLink($rawEmail, $clientIp, $rawBrowserBinding);
+    if ($issued && $rawBrowserBinding !== null) {
+        $bindingExpiresAt = new \DateTimeImmutable(
+            '+' . $config->intWithDefault('MAGIC_LINK_TOKEN_EXPIRY_MINUTES', 15) . ' minutes',
+        );
+        header(
+            'Set-Cookie: ' . $browserBindingCookie->issueHeader($rawBrowserBinding, $bindingExpiresAt),
+            false,
+        );
+    }
 } catch (\Throwable $e) {
     // NEVER log $e->getMessage() here — a DB/mailer exception could
     // itself contain a normalized email, a magic-link URL, or a raw
