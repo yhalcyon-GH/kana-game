@@ -59,8 +59,20 @@ final class SessionRepository
         $nowExpression = $this->nowExpression();
 
         $select = $this->pdo->prepare(
-            "SELECT user_id, token_hash FROM sessions
-             WHERE token_hash = :token_hash AND revoked_at IS NULL AND expires_at > {$nowExpression}
+            "SELECT s.user_id, s.token_hash
+             FROM sessions s
+             LEFT JOIN persistent_sessions p ON p.id = s.persistent_session_id
+             WHERE s.token_hash = :token_hash
+               AND s.revoked_at IS NULL
+               AND s.expires_at > {$nowExpression}
+               AND (
+                    s.persistent_session_id IS NULL
+                    OR (
+                        p.id IS NOT NULL
+                        AND p.revoked_at IS NULL
+                        AND p.expires_at > {$nowExpression}
+                    )
+               )
              LIMIT 1",
         );
         $select->execute(['token_hash' => $expectedHash]);
@@ -81,6 +93,33 @@ final class SessionRepository
         $touch->execute(['token_hash' => $expectedHash]);
 
         return $row['user_id'];
+    }
+
+    /**
+     * Revoke every other normal session for a user while preserving exactly
+     * the raw session token that authenticated the current request.
+     *
+     * This intentionally covers both sessions linked to persistent
+     * credentials and unlinked Magic-Link sessions. It is used by
+     * sign-out-others.php after persistent-session revocation, so a Magic Link
+     * session in another browser cannot survive "sign out other browsers".
+     */
+    public function revokeAllForUserExceptRawToken(string $userId, string $keepRawToken): int
+    {
+        $nowExpression = $this->nowExpression();
+        $statement = $this->pdo->prepare(
+            "UPDATE sessions
+             SET revoked_at = {$nowExpression}
+             WHERE user_id = :user_id
+               AND token_hash != :keep_token_hash
+               AND revoked_at IS NULL",
+        );
+        $statement->execute([
+            'user_id' => $userId,
+            'keep_token_hash' => hash('sha256', $keepRawToken),
+        ]);
+
+        return $statement->rowCount();
     }
 
     public function revoke(string $rawToken): void
