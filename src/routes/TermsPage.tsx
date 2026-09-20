@@ -19,8 +19,8 @@ export function TermsPage() {
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Supplier and service identity</h2>
         <p>
-          Tamamizu is the product and service brand. These Terms are provided by GigaNihongo, the supplier and
-          operator of Tamamizu. GigaNihongo operates from Thailand.
+          Tamamizu is the public-facing product, supplier, and operator name for this service. These Terms are
+          provided by Tamamizu, which operates from Thailand.
         </p>
       </section>
 
@@ -38,7 +38,7 @@ export function TermsPage() {
         <p>
           Our order process is conducted by our online reseller Paddle.com. Paddle.com is the Merchant of Record for
           all our orders. Paddle handles payment processing, transaction taxes, buyer order support, and returns for
-          purchases made through Paddle Checkout, while GigaNihongo remains responsible for Tamamizu and these Terms.
+          purchases made through Paddle Checkout, while Tamamizu remains responsible for the service and these Terms.
         </p>
       </section>
 
@@ -129,7 +129,7 @@ export function TermsPage() {
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Contact and related policies</h2>
         <p>
-          For questions, contact GigaNihongo through <Link to="/support" className="underline">Support &amp; Contact</Link>.
+          For questions, contact Tamamizu through <Link to="/support" className="underline">Support &amp; Contact</Link>.
           See also the <Link to="/privacy" className="underline">Privacy Policy</Link> and{' '}
           <Link to="/refund" className="underline">Refund Policy</Link>.
         </p>
