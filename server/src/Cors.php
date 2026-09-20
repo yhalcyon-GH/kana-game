@@ -5,14 +5,22 @@ declare(strict_types=1);
 namespace KanaGame\Paddle;
 
 /**
- * Allowlist-based CORS for the entitlement read endpoint (the webhook
- * endpoint is never called cross-origin from a browser and does not need
- * CORS headers at all — only entitlement.php uses this).
+ * Allowlist-based CORS plus baseline browser-response hardening for the
+ * public JSON API entrypoints that construct this class.
  *
  * Never emits `Access-Control-Allow-Origin: *`. The allowed origins come
  * from server-side config (ALLOWED_ORIGINS, comma-separated — see
- * server/config.example.php), not a hardcoded list, so Xserver deployment
+ * server/config.example.php), not a hardcoded list, so XServer deployment
  * can add/remove origins without a code change.
+ *
+ * The baseline security headers are emitted independently of whether the
+ * request Origin is allowlisted: CORS controls which browser origin can read
+ * the response, while nosniff/frame/referrer/permissions/CSP are response
+ * hardening and should also cover same-origin, no-Origin, and rejected-origin
+ * requests. HSTS is intentionally NOT set here because transport security is
+ * terminated by the hosting layer and this application has no trusted-proxy
+ * configuration with which to distinguish HTTPS from spoofable forwarded
+ * headers. HSTS remains a hosting-level Human Gate.
  */
 final class Cors
 {
@@ -75,6 +83,7 @@ final class Cors
      */
     public function applyHeaders(?string $requestOrigin): void
     {
+        $this->applyBaselineSecurityHeaders();
         if (!$this->isOriginAllowed($requestOrigin)) {
             return;
         }
@@ -99,6 +108,7 @@ final class Cors
      */
     public function applyPreflightHeaders(?string $requestOrigin): void
     {
+        $this->applyBaselineSecurityHeaders();
         if (!$this->isOriginAllowed($requestOrigin)) {
             return;
         }
@@ -109,5 +119,14 @@ final class Cors
         if ($this->credentialed) {
             ($this->sendHeader)('Access-Control-Allow-Credentials: true');
         }
+    }
+
+    private function applyBaselineSecurityHeaders(): void
+    {
+        ($this->sendHeader)('X-Content-Type-Options: nosniff');
+        ($this->sendHeader)('X-Frame-Options: DENY');
+        ($this->sendHeader)('Referrer-Policy: no-referrer');
+        ($this->sendHeader)('Permissions-Policy: camera=(), microphone=(), geolocation=()');
+        ($this->sendHeader)("Content-Security-Policy: default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'");
     }
 }
