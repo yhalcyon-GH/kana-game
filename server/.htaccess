@@ -1,0 +1,13 @@
+# Baseline security headers for the Production JSON API.
+//
+// This file is part of the reviewed release set. The API serves JSON rather
+// than HTML, so the policy intentionally denies document capabilities rather
+// than trying to enumerate frontend/Paddle origins here.
+<IfModule mod_headers.c>
+    Header always set Strict-Transport-Security "max-age=31536000"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "DENY"
+    Header always set Referrer-Policy "no-referrer"
+    Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    Header always set Content-Security-Policy "default-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+</IfModule>
