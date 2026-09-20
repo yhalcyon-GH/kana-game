@@ -74,6 +74,17 @@ describe('Sandbox checkout controller', () => {
     expect(options).not.toHaveProperty('discountId')
   })
 
+  it('prefills a public discountCode without mixing it into customData/correlation', async () => {
+    const f = fixture()
+    await f.prepare('private-ref')
+    await f.controller.open('learner@example.com', 'tamamizu0304')
+    const options = f.open.mock.calls[0][0]
+    expect(options.discountCode).toBe('tamamizu0304')
+    expect(options.customer).toEqual({ email: 'learner@example.com' })
+    expect(options.customData).toEqual({ purchase_ref: 'private-ref' })
+    expect(JSON.stringify(options.customData)).not.toContain('tamamizu0304')
+  })
+
   it('guards duplicate preparation and open synchronously while initialization is pending', async () => {
     const f = fixture()
     const intent = deferred<string | null>()
