@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "current_main_sha": "170ed543dd6112261e94fef54ff140dcd6d33bcf",
+  "current_main_sha": "df460468d0044bdde3505e1ee4fcccb416f2a476",
   "latest_completed_work": {
     "kind": "prelaunch_ai_audit",
-    "number": 320,
-    "title": "Final pre-launch AI audit: legal copy accuracy and checklist evidence",
-    "merged_at": "pending exact-head PR merge"
+    "number": 321,
+    "title": "Final pre-launch AI audit: privacy accuracy, CORS probe, human gates",
+    "merged_at": "2026-09-20"
   },
   "open_prs": [
     {
@@ -16,13 +16,13 @@
   ],
   "active_work_item": {
     "id": "final-human-gates",
-    "issue_number": 320,
-    "branch": "ops/issue-320-final-prelaunch-audit",
+    "issue_number": null,
+    "branch": null,
     "pull_request_number": null,
-    "status": "human_gates_only_after_audit",
-    "goal": "Finish the final AI-only legal/privacy/checklist audit, then proceed through the redacted Production CORS check, XServer error-log/retention confirmation, explicit legal/operator decisions, and final human GO/NO-GO."
+    "status": "human_gates_only",
+    "goal": "AI-only pre-launch work is complete. Next steps are limited to the fixed read-only Production CORS check, XServer error-log/retention confirmation, explicit legal/operator decisions, and final human GO/NO-GO."
   },
-  "next_machine_action": "Run `npm run resume` first and read `docs/final-human-gates-runbook.md`. Do not repeat completed migration 0006, Production API deployment, OTP enablement, Paddle Live purchase/refund, cancelled-checkout QA, PWA recovery/install QA, or OTP login/persistence/logout QA. After the final audit PR merges, the next step is Human Gate 1: run the new read-only `npm run production:cors-probe` from the existing local resume environment. It prints only whether the effective allowlist is exactly the intended Production frontend and the origin count; it never prints configured origin values.",
+  "next_machine_action": "Run `npm run resume` first and read `docs/final-human-gates-runbook.md`. Do not repeat completed migration 0006, Production API deployment, OTP enablement, Paddle Live purchase/refund, cancelled-checkout QA, PWA recovery/install QA, or OTP login/persistence/logout QA. Next Human Gate: run the new read-only `npm run production:cors-probe` from the existing local resume environment. It prints only whether the effective allowlist is exactly the intended Production frontend and the origin count; it never prints configured origin values.",
   "unresolved_ai_items": [],
   "human_gates": [
     "Run the fixed read-only `npm run production:cors-probe`; expected pass is corsExact=true originCount=1. Any config correction if it fails is a separate Production config Human Gate.",
@@ -34,7 +34,7 @@
   ],
   "production_live_restrictions": "NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL. Real charges/refunds, Paddle Live transactions/configuration, paid-resource changes, Production DB writes, DNS changes, Production-secret changes, email sends, and Production deployments are Human Gates.",
   "last_verified_at": "2026-09-20",
-  "last_verified_by": "GitHub/current-code audit + prior human Production QA. Current audit baseline main is 170ed543dd6112261e94fef54ff140dcd6d33bcf. The final AI pass corrected stale OTP/persistent-cookie privacy descriptions, removed an unverified fixed log-retention promise, closed repository-verifiable checklist items with existing exact-head CI evidence, added a redacted CORS probe, and documented exact remaining legal/operational Human Gates. No Production mutation or secret value was performed.",
+  "last_verified_by": "GitHub source-of-truth audit after PR #321 merge. PR #321 exact-head Pre-Live Safety, PR Verify, Browser Smoke, and independent Claude read-only review were clean. Main is df460468d0044bdde3505e1ee4fcccb416f2a476. AI-only pre-launch cleanup is complete; remaining work is Human Gates documented in docs/final-human-gates-runbook.md.",
   "known_non_blockers": [
     "Production Email OTP is enabled and real-device OTP login/persistence/logout QA passed on 2026-09-20.",
     "Legacy installed-PWA recovery is complete; future/current builds actively check registration.update() with bounded throttling.",
