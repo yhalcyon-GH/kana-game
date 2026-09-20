@@ -260,8 +260,8 @@ export function PrivacyPage() {
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Developer / operator</h2>
         <p>
-          Tamamizu: Hiragana &amp; Katakana is developed and operated under the GigaNihongo supplier brand. The
-          application source is published in the public{' '}
+          Tamamizu: Hiragana &amp; Katakana is developed and operated under the Tamamizu name. The application source
+          is published in the public{' '}
           <a href="https://github.com/yhalcyon-GH/kana-game" target="_blank" rel="noreferrer" className="underline">
             kana-game
           </a>{' '}
