@@ -116,10 +116,11 @@ describe('PrivacyPage', () => {
 
   it('provides a private support email for privacy inquiries', () => {
     render(<PrivacyPage />)
-    expect(screen.getByRole('link', { name: 'tamamizu.jp@gmail.com' })).toHaveAttribute(
-      'href',
-      'mailto:tamamizu.jp@gmail.com',
-    )
+    const privacyLinks = screen.getAllByRole('link', { name: 'tamamizu.jp@gmail.com' })
+    expect(privacyLinks.length).toBeGreaterThanOrEqual(1)
+    for (const link of privacyLinks) {
+      expect(link).toHaveAttribute('href', 'mailto:tamamizu.jp@gmail.com')
+    }
   })
 
   it('discloses that the static host may process ordinary request metadata under its own terms', () => {
