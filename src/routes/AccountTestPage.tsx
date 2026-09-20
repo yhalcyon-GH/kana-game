@@ -464,6 +464,8 @@ function describeCheckout(event: SandboxCheckoutEvent | null): { error: string; 
     case 'loaded': return { error: '', status: 'Checkout loaded and correlated.' }
     case 'completed': return { error: '', status: 'Checkout completed (sandbox). Entitlement is not granted client-side — check it below once the webhook has processed.' }
     case 'closed': return { error: '', status: 'Checkout closed. Create a new purchase intent to retry.' }
+    case 'summary': return { error: '', status: 'Checkout totals updated.' }
+    case 'promotion-unavailable': return { error: 'The promotion could not be applied.', status: 'Checkout unavailable.' }
     case 'unavailable': return { error: 'Could not prepare or open Paddle Sandbox Checkout. Create a new purchase intent to retry.', status: 'Checkout unavailable.' }
     case 'mismatch': return {
       error: `Checkout ${event.phase === 'completed' ? 'completion ' : ''}could not be correlated to the current purchase intent (transaction match: ${event.transactionMatches}, purchase_ref match: ${event.purchaseRefMatches}). Closed for safety — create a new purchase intent to retry.`,
