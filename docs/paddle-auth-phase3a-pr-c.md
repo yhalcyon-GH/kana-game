@@ -78,10 +78,13 @@ memory), and this phase sends no real email. The dev-only mechanism:
   implements `Mailer`; `request-link.php` substitutes it for its usual
   inline no-op `Mailer` **only** when `DEV_HARNESS_ENABLED` is the
   exact string `'true'`.
-- **`server/dev-only/last-magic-link.php`** — `GET ?email=<normalized>`,
-  refuses every request with `403` when the harness is disabled (the
-  default), matching an exact normalized-email lookup, never a list of
-  all pending links.
+- **`server/dev-only/last-magic-link.php`** — `POST {"email":
+  "<normalized>"}` (`application/json` required; Issue #360 moved this
+  off GET + a query string so a cross-site request can no longer reach
+  the server and burn the pending link as a side effect), refuses every
+  request with `403` when the harness is disabled (the default),
+  matching an exact normalized-email lookup, never a list of all
+  pending links.
 
 `DEV_HARNESS_ENABLED` defaults to unset/false — proven by
 `server/tests/ConfigTest.php`'s explicit self-check. `server/dev-only/`

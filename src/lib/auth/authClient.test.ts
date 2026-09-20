@@ -161,16 +161,21 @@ describe('logout', () => {
 })
 
 describe('fetchDevHarnessMagicLink', () => {
-  it('GETs the dev-only endpoint with the email as a query param and returns the magic_link_url', async () => {
+  it('POSTs the email as a JSON body to the dev-only endpoint and returns the magic_link_url', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
       new Response(JSON.stringify({ magic_link_url: 'https://example.com/kana-game/#/verify?token=raw' }), { status: 200 }),
     )
 
     const result = await fetchDevHarnessMagicLink(API_BASE, 'user@example.com')
 
-    const [url] = vi.mocked(fetch).mock.calls[0]
-    expect(url).toContain('/dev-only/last-magic-link.php')
-    expect(url).toContain('email=user%40example.com')
+    expect(fetch).toHaveBeenCalledWith(
+      `${API_BASE}/dev-only/last-magic-link.php`,
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com' }),
+      }),
+    )
     expect(result).toBe('https://example.com/kana-game/#/verify?token=raw')
   })
 
@@ -220,14 +225,19 @@ describe('verifyLoginCode', () => {
 })
 
 describe('fetchDevHarnessLoginCode', () => {
-  it('GETs the dev-only endpoint with the email as a query param and returns the login_code', async () => {
+  it('POSTs the email as a JSON body to the dev-only endpoint and returns the login_code', async () => {
     vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ login_code: '012345' }), { status: 200 }))
 
     const result = await fetchDevHarnessLoginCode(API_BASE, 'user@example.com')
 
-    const [url] = vi.mocked(fetch).mock.calls[0]
-    expect(url).toContain('/dev-only/last-login-code.php')
-    expect(url).toContain('email=user%40example.com')
+    expect(fetch).toHaveBeenCalledWith(
+      `${API_BASE}/dev-only/last-login-code.php`,
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'user@example.com' }),
+      }),
+    )
     expect(result).toBe('012345')
   })
 
