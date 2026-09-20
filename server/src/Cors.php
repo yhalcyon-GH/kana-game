@@ -76,10 +76,10 @@ final class Cors
     }
 
     /**
-     * Applies the appropriate CORS header for the given request Origin, if
-     * it's on the allowlist. Call before any output. Safe to call with a
-     * null/empty origin (same-origin or non-browser requests) — it simply
-     * does nothing in that case.
+     * Applies baseline security headers on every response and the appropriate
+     * CORS headers only when the request Origin is allowlisted. Safe to call
+     * with a null/empty origin (same-origin or non-browser requests): baseline
+     * hardening still applies, while no CORS authorization is emitted.
      */
     public function applyHeaders(?string $requestOrigin): void
     {
