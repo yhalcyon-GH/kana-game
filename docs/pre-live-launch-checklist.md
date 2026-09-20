@@ -122,6 +122,12 @@ Each item is tagged:
       refund/adjustment-before-transaction handling are covered by
       automated tests on `main` (see `server/tests/` and
       `server/src/Purchase/PurchaseWebhookHandler.php`).
+- [x] **AI-verifiable** — Require explicit acceptance of Tamamizu's
+      Terms & Conditions and Refund Policy before checkout can start. The
+      acceptance checkbox is unchecked by default, the purchase button is
+      disabled until it is checked, and the state is page-local rather than
+      persisted as tracking/profile data. Implemented under Issue #329 and
+      covered by AccountPage tests.
 - [x] **Human required** — Confirm Paddle environment consistency: the
       Production deployment's Paddle client token, price/product IDs, and
       webhook secret are all the **Live** set, not Sandbox, and that none of
