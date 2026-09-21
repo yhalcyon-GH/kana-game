@@ -52,7 +52,7 @@ final class PurchaseWebhookHandler
     // unlike refund, which uses one action with status
     // pending_approval/approved/rejected). Do NOT branch chargeback
     // handling on `data.status` -- action is the sole signal for what
-    // transition to apply; see applyChargebackTransition().
+    // transition to feed into the deterministic adjustment reducer.
     private const CHARGEBACK_ACTION = 'chargeback';
     private const CHARGEBACK_REVERSE_ACTION = 'chargeback_reverse';
     private const CHARGEBACK_WARNING_ACTION = 'chargeback_warning';
