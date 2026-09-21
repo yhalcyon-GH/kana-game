@@ -95,6 +95,20 @@ final class PendingAdjustmentRepository
         );
     }
 
+    public function markReconciled(string $paddleEventId): void
+    {
+        $nowExpression = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite'
+            ? "datetime('now')"
+            : 'NOW()';
+
+        $statement = $this->pdo->prepare(
+            "UPDATE pending_adjustments
+             SET reconciled_at = COALESCE(reconciled_at, {$nowExpression})
+             WHERE paddle_event_id = :event_id",
+        );
+        $statement->execute(['event_id' => $paddleEventId]);
+    }
+
     public function markAllReconciledForTransaction(string $paddleTransactionId): void
     {
         $nowExpression = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite'
