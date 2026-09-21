@@ -69,6 +69,15 @@ A release upload copies only the checked release sets above into the existing
 No database schema, Paddle Dashboard setting, DNS record, or secret is
 changed by this plan.
 
+For the Security & Safety Audit v1 backend release, database schema and backend
+source must move together under the Human Gate. After the fresh Production DB
+backup and before uploading the matching backend source, apply reviewed
+migration `0008_magic_link_browser_binding.sql` and then
+`0009_paddle_event_reconciliation.sql` in that order. Migration 0007 remains
+dev-only and intentionally skipped in Production. If either 0008 or 0009 is
+uncertain or fails, stop before uploading the new backend and use the rollback
+procedure rather than attempting an ad-hoc partial release.
+
 The `ops/` directory includes a committed Apache rule that rejects all HTTP
 requests. It exists solely so the fixed local SSH runner can execute:
 
