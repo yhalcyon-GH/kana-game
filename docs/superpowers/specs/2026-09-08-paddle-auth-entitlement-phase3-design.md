@@ -546,6 +546,33 @@ server call) says.
 
 ### Webhook: `adjustment.created` / `adjustment.updated`
 
+> **Current-state amendment — Security & Safety Audit v1 / Issue #365
+> (2026-09-21):** the incremental transition algorithm originally specified
+> below is historical and is superseded by deterministic normalized replay.
+> Every entitlement-affecting refund/chargeback-family adjustment handled by
+> the current backend is retained and replayed in
+> `occurred_at ASC, paddle_event_id ASC` order from an immutable
+> per-transaction baseline. For grants created by the current backend that
+> baseline is the original active `transaction.completed` state. For
+> pre-0009 grants, whose old direct-adjustment payloads were not retained, the
+> first new-code adjustment snapshots the already-materialized grant status
+> and `status_changed_at`. The old payment-event ledger does not retain
+> adjustment action/payload details, so the current backend deliberately does
+> not guess missing legacy semantics from it. Events older than that fixed
+> materialized-state boundary do not rewrite the snapshot.
+>
+> Refund semantics are also tightened: `pending_approval` may enter
+> `refund_pending`; approved partial refund preserves the current grant state,
+> while rejected refund may restore `refund_pending -> active`; approved full
+> refund enters `refunded`, and
+> **`refunded` is terminal across all later normalized adjustment events**.
+> In particular, a later rejected refund does not resurrect a fully refunded
+> grant. Chargeback-family actions are now implemented by the same reducer
+> (warning/chargeback and their matching reversals). See migration
+> `0009_paddle_event_reconciliation.sql`,
+> `GrantAdjustmentReducer`, and Issue #365 for the authoritative behavior.
+
+
 Point 3 requires modeling Paddle's actual adjustment status lifecycle
 instead of treating every `action=refund` event as an immediate,
 irreversible revoke:
@@ -974,3 +1001,48 @@ of the three PRs — all verification is local/CI.
   request crash on the `UNIQUE(email_normalized)` constraint instead of
   resolving to the winner's user; added the corresponding concurrency
   test.
+
+
+## Security Audit v1 cutover amendment (2026-09-21)
+
+Migration 0009 is not only a forward event-ordering change. The pre-0009
+transaction.completed/adjustment race may already have left a grant-backed
+`pending_adjustments` row unreconciled while the same Paddle event id is
+present in `payment_events`. Duplicate delivery therefore cannot be the
+repair mechanism. The reviewed cutover includes an idempotent operator-run
+reconciliation that locks each affected Paddle transaction, initializes a
+legacy baseline if necessary, replays retained normalized history, recomputes
+entitlement, and requires zero grant-backed unreconciled rows before cutover
+completion.
+
+A legacy baseline carries a coarse-precision marker because pre-0009
+`status_changed_at` was whole-second `DATETIME`. Within that ambiguous
+baseline second the reducer may conservatively revoke entitlement, but it
+fails closed rather than automatically restoring entitlement from a
+non-entitlement state.
+
+The 0009 baseline/history contract also changes rollback semantics. Once a
+0009-aware backend has processed a webhook, reverting only application files
+to the pre-0009 backend is prohibited: the old backend can mutate
+`transaction_grants` without maintaining baseline/history. The new backend
+detects such materialized/history divergence and fails closed, but the
+operational rollback must still be a forward fix/reconciliation-compatible
+build or a coordinated DB restore + webhook recovery under Human Gates.
+
+
+### Security Audit v1 deterministic-block handling (2026-09-21)
+
+If deterministic replay cannot be proven safe (legacy whole-second restoration,
+materialized/history divergence, missing baseline, or an unreconciled row that
+falls before the immutable baseline), the event is **quarantined**, not retried
+until Paddle eventually drops it. The event claim and normalized row commit
+with a non-PII `paddle_reconciliation_blocks` row and a fixed 200
+`quarantined` outcome. Unknown/runtime/database exceptions still escape as
+500 so Paddle retries normally.
+
+Every unresolved deterministic block sets `force_exclude_transaction=1`.
+Entitlement-bearing grant queries ignore only that Paddle transaction while the
+block is unresolved, so uncertain history cannot leave unproven access active
+and a separate valid repurchase is preserved. Only event ids actually replayed after
+the immutable baseline receive `reconciled_at`; skipped pre-baseline rows stay
+unreconciled and keep the cutover gate non-zero.

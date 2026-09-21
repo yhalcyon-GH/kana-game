@@ -68,4 +68,43 @@ final class Barrier
 
         file_put_contents("{$this->dir}/go", '1');
     }
+
+    /**
+     * Mark one named phase complete inside this per-iteration barrier.
+     * Phase names are restricted to a filesystem-safe subset because they
+     * become part of a marker filename.
+     */
+    public function signalPhase(string $phase): void
+    {
+        $this->assertSafePhaseName($phase);
+        file_put_contents("{$this->dir}/phase-{$phase}", '1');
+    }
+
+    /**
+     * Wait until another worker has marked a named phase complete.
+     * This is used when a test needs a deterministic multi-step ordering,
+     * not just a simultaneous start.
+     */
+    public function waitForPhase(string $phase, float $timeoutSeconds = 15.0): void
+    {
+        $this->assertSafePhaseName($phase);
+
+        $deadline = microtime(true) + $timeoutSeconds;
+        while (!is_file("{$this->dir}/phase-{$phase}")) {
+            if (microtime(true) > $deadline) {
+                throw new \RuntimeException(
+                    "Barrier timeout: phase {$phase} was not signaled within {$timeoutSeconds}s",
+                );
+            }
+            usleep(500);
+        }
+    }
+
+    private function assertSafePhaseName(string $phase): void
+    {
+        if ($phase === '' || preg_match('/\A[A-Za-z0-9_-]+\z/', $phase) !== 1) {
+            throw new \InvalidArgumentException('Barrier phase name contains unsafe characters');
+        }
+    }
+
 }

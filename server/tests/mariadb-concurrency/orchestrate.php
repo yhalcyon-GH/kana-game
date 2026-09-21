@@ -93,7 +93,7 @@ function resetTables(PDO $pdo): void
         'sessions', 'magic_link_tokens', 'dev_harness_magic_links',
         'persistent_sessions', 'email_login_challenges', 'rate_limits',
         'pending_adjustments', 'transaction_grants', 'purchase_intents',
-        'payment_events', 'entitlements', 'users',
+        'transaction_event_locks', 'paddle_reconciliation_blocks', 'payment_events', 'entitlements', 'users',
     ] as $table) {
         $pdo->exec("TRUNCATE TABLE {$table}");
     }
@@ -1113,6 +1113,223 @@ function runScenarioG(PDO $maintPdo, int $iterations): void
     }
 }
 
+// --------------------------------------------------------------------
+// Scenario H1/H2: transaction.completed races a full refund for the SAME
+// Paddle transaction id. Named phases are tied to the actual transaction-row
+// lock acquisition, not scheduler timing:
+//
+// H1: transaction.completed acquires the lock first, refund then enters and waits.
+// H2: refund acquires the lock first, transaction.completed then enters and waits.
+//
+// In either order, the per-transaction lock + complete history replay must
+// settle at refunded/inactive with no unreconciled missed adjustment.
+// --------------------------------------------------------------------
+function runScenarioH(PDO $maintPdo, int $iterations, bool $refundFirst): void
+{
+    $scenario = $refundFirst ? 'H2' : 'H1';
+    $GLOBALS['mariadbConcurrencyScenarioTally'][$scenario] = ['pass' => 0, 'fail' => 0];
+    $workerCount = 2;
+
+    for ($iter = 1; $iter <= $iterations; $iter++) {
+        resetTables($maintPdo);
+        [$userId, $rawRef] = seedUserAndIntent($maintPdo, "race-{$scenario}@example.invalid");
+
+        $txnId = "txn_{$scenario}";
+        $txnBody = \KanaGame\Paddle\Tests\pwhTransactionCompletedPayload(
+            "evt_{$scenario}_txn",
+            $txnId,
+            $rawRef,
+            '2026-01-01T00:00:00.100000Z',
+        );
+        $refundBody = \KanaGame\Paddle\Tests\pwhAdjustmentPayload(
+            "evt_{$scenario}_refund",
+            'adjustment.updated',
+            $txnId,
+            'refund',
+            'approved',
+            'full',
+            '2026-01-02T00:00:00.900000Z',
+        );
+
+        $dir = makeBarrierDir($scenario, $iter);
+        $firstBody = $refundFirst ? $refundBody : $txnBody;
+        $secondBody = $refundFirst ? $txnBody : $refundBody;
+
+        // Worker 0 cannot signal first-lock-held until the real
+        // TransactionEventLockRepository has completed its locking read.
+        // It then keeps that lock open until worker 1 proves it is about to
+        // enter the handler. Worker 1 subsequently blocks on the same row
+        // until worker 0 commits. This establishes the intended acquisition
+        // order without any guessed sleep/scheduler timing.
+        writeArgsFile($dir, 0, [
+            'body' => $firstBody,
+            'signature' => \KanaGame\Paddle\Tests\pwhSign($firstBody),
+            'signal_phase_after_transaction_lock' => 'first-lock-held',
+            'wait_for_phase_after_transaction_lock' => 'second-about-to-handle',
+        ]);
+        writeArgsFile($dir, 1, [
+            'body' => $secondBody,
+            'signature' => \KanaGame\Paddle\Tests\pwhSign($secondBody),
+            'wait_for_phase_before_handle' => 'first-lock-held',
+            'signal_phase_before_handle' => 'second-about-to-handle',
+        ]);
+
+        $iterationFailures = [];
+        try {
+            $results = runWorkers('webhook', $dir, $workerCount);
+            recordWebhookTimings($scenario, $results);
+
+            $exceptionWorkers = [];
+            foreach ($results as $i => $r) {
+                if (($r['exception_class'] ?? null) !== null) {
+                    $exceptionWorkers[] = [
+                        'worker' => $i,
+                        'class' => $r['exception_class'],
+                        'sqlstate' => $r['sqlstate'] ?? null,
+                    ];
+                }
+            }
+
+            checkInvariant(
+                $scenario,
+                $iter,
+                'no uncaught DB exception surfaced from either worker',
+                $exceptionWorkers === [],
+                ['exception_workers' => $exceptionWorkers],
+                $iterationFailures,
+            );
+
+            $verifyPdo = connectMariadbConcurrencyTestDb();
+            $grant = $verifyPdo->prepare(
+                'SELECT status, status_changed_at FROM transaction_grants WHERE paddle_transaction_id = ?',
+            );
+            $grant->execute([$txnId]);
+            $grantRow = $grant->fetch(PDO::FETCH_ASSOC);
+
+            $ent = $verifyPdo->prepare(
+                'SELECT active FROM entitlements WHERE internal_user_id = ? AND product_key = ?',
+            );
+            $ent->execute([$userId, 'full_tamamizu']);
+            $active = $ent->fetchColumn();
+
+            $unreconciled = $verifyPdo->prepare(
+                'SELECT COUNT(*) FROM pending_adjustments WHERE paddle_transaction_id = ? AND reconciled_at IS NULL',
+            );
+            $unreconciled->execute([$txnId]);
+            $unreconciledCount = (int) $unreconciled->fetchColumn();
+
+            $historyCount = $verifyPdo->prepare(
+                'SELECT COUNT(*) FROM pending_adjustments WHERE paddle_transaction_id = ?',
+            );
+            $historyCount->execute([$txnId]);
+            $normalizedHistoryCount = (int) $historyCount->fetchColumn();
+
+            checkInvariant(
+                $scenario,
+                $iter,
+                'transaction grant exists and settles refunded regardless of lock-acquisition order',
+                $grantRow !== false && $grantRow['status'] === 'refunded',
+                ['grant' => $grantRow],
+                $iterationFailures,
+            );
+            checkInvariant(
+                $scenario,
+                $iter,
+                'materialized entitlement is inactive after the raced full refund',
+                ((int) $active) === 0,
+                ['active' => $active],
+                $iterationFailures,
+            );
+            checkInvariant(
+                $scenario,
+                $iter,
+                'the adjustment remains retained as one normalized history row',
+                $normalizedHistoryCount === 1,
+                ['history_count' => $normalizedHistoryCount],
+                $iterationFailures,
+            );
+            checkInvariant(
+                $scenario,
+                $iter,
+                'no adjustment is left unreconciled after both webhook transactions settle',
+                $unreconciledCount === 0,
+                ['unreconciled_count' => $unreconciledCount],
+                $iterationFailures,
+            );
+
+            reportIterationOutcome(
+                $scenario,
+                $iter,
+                $iterationFailures,
+                $results,
+                ['refund_first' => $refundFirst],
+            );
+        } finally {
+            cleanupBarrierDir($dir);
+        }
+    }
+}
+
+// --------------------------------------------------------------------
+// Scenario H3: different Paddle transaction ids must not share a global
+// serialization point. Worker A keeps txn A's lock open while worker B
+// proves it can acquire txn B's lock before A commits.
+// --------------------------------------------------------------------
+function runScenarioH3(PDO $maintPdo, int $iterations): void
+{
+    $scenario = 'H3';
+    $GLOBALS['mariadbConcurrencyScenarioTally'][$scenario] = ['pass' => 0, 'fail' => 0];
+    $workerCount = 2;
+
+    for ($iter = 1; $iter <= $iterations; $iter++) {
+        resetTables($maintPdo);
+
+        $dir = makeBarrierDir($scenario, $iter);
+        writeArgsFile($dir, 0, [
+            'role' => 'holder',
+            'txn_id' => 'txn_H3_a',
+        ]);
+        writeArgsFile($dir, 1, [
+            'role' => 'other',
+            'txn_id' => 'txn_H3_b',
+        ]);
+
+        $iterationFailures = [];
+        try {
+            $results = runWorkers('independent_transaction_locks', $dir, $workerCount);
+
+            checkInvariant(
+                $scenario,
+                $iter,
+                'transaction B acquires its own event lock while transaction A still holds a different event lock',
+                ($results[0]['success'] ?? false) === true
+                    && ($results[1]['success'] ?? false) === true,
+                ['worker_results' => $results],
+                $iterationFailures,
+            );
+
+            $verifyPdo = connectMariadbConcurrencyTestDb();
+            $lockRows = (int) $verifyPdo->query(
+                "SELECT COUNT(*) FROM transaction_event_locks
+                 WHERE paddle_transaction_id IN ('txn_H3_a', 'txn_H3_b')",
+            )->fetchColumn();
+
+            checkInvariant(
+                $scenario,
+                $iter,
+                'different Paddle transaction ids persist two independent lock rows',
+                $lockRows === 2,
+                ['lock_rows' => $lockRows],
+                $iterationFailures,
+            );
+
+            reportIterationOutcome($scenario, $iter, $iterationFailures, $results, []);
+        } finally {
+            cleanupBarrierDir($dir);
+        }
+    }
+}
+
 // ========================================================================
 // Main
 // ========================================================================
@@ -1152,6 +1369,9 @@ $allScenarios = [
     'E' => fn () => runScenarioE($maintPdo, $iterations),
     'F' => fn () => runScenarioF($maintPdo, $iterations),
     'G' => fn () => runScenarioG($maintPdo, $iterations),
+    'H1' => fn () => runScenarioH($maintPdo, $iterations, false),
+    'H2' => fn () => runScenarioH($maintPdo, $iterations, true),
+    'H3' => fn () => runScenarioH3($maintPdo, $iterations),
 ];
 
 foreach ($allScenarios as $name => $runner) {

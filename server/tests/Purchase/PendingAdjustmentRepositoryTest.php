@@ -28,6 +28,11 @@ function makePendingAdjustmentsTestDb(): PDO
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )',
     );
+    $pdo->exec(
+        'CREATE TABLE transaction_grants (
+            paddle_transaction_id TEXT PRIMARY KEY
+        )',
+    );
     return $pdo;
 }
 
@@ -96,6 +101,74 @@ function pendingAdjustmentRepositoryTests(): array
 
             $reconciledAt = $pdo->query("SELECT reconciled_at FROM pending_adjustments WHERE paddle_event_id = 'evt_1'")->fetchColumn();
             assertTrue($reconciledAt !== null && $reconciledAt !== false, 'reconciled_at should be set');
+        },
+
+        'findAllForTransaction() retains reconciled history and orders equal-second events by precise timestamp then event id' => function () {
+            $pdo = makePendingAdjustmentsTestDb();
+            $repo = new PendingAdjustmentRepository($pdo);
+            $repo->queue('txn_hist', 'evt_z', 'refund', 'pending_approval', 'full', null, new \DateTimeImmutable('2026-01-01T00:00:00.100000Z'));
+            $repo->queue('txn_hist', 'evt_a', 'refund', 'approved', 'full', null, new \DateTimeImmutable('2026-01-01T00:00:00.900000Z'));
+            $repo->markReconciledEvents(['evt_z', 'evt_a']);
+
+            $history = $repo->findAllForTransaction('txn_hist');
+            assertSame(2, count($history), 'reconciled rows must remain replayable history');
+            assertSame('evt_z', $history[0]['paddle_event_id'], 'the .100000 event must sort before .900000');
+            assertSame('2026-01-01 00:00:00.100000', $history[0]['occurred_at'], 'fractional timestamp must be preserved');
+            assertSame('2026-01-01 00:00:00.900000', $history[1]['occurred_at'], 'later fractional timestamp must be preserved');
+            assertSame(0, count($repo->findUnreconciledForTransaction('txn_hist')), 'markAllReconciled should only change bookkeeping, not delete history');
+        },
+
+        'findAllForTransaction() uses paddle_event_id as a deterministic exact-timestamp tie breaker' => function () {
+            $repo = new PendingAdjustmentRepository(makePendingAdjustmentsTestDb());
+            $same = new \DateTimeImmutable('2026-01-01T00:00:00.500000Z');
+            $repo->queue('txn_tie', 'evt_z', 'refund', 'pending_approval', 'full', null, $same);
+            $repo->queue('txn_tie', 'evt_a', 'refund', 'approved', 'full', null, $same);
+
+            $history = $repo->findAllForTransaction('txn_tie');
+            assertSame('evt_a', $history[0]['paddle_event_id'], 'event-id order must not depend on delivery order when timestamps are identical');
+            assertSame('evt_z', $history[1]['paddle_event_id'], 'stable event-id tie breaker should be deterministic');
+        },
+
+        'cutover inventory returns only unreconciled transactions that already have grants' => function () {
+            $pdo = makePendingAdjustmentsTestDb();
+            $repo = new PendingAdjustmentRepository($pdo);
+            $repo->queue('txn_with_grant', 'evt_cutover_1', 'refund', 'approved', 'full', null, new \DateTimeImmutable('2026-01-01T00:00:00Z'));
+            $repo->queue('txn_without_grant', 'evt_cutover_2', 'refund', 'approved', 'full', null, new \DateTimeImmutable('2026-01-01T00:00:00Z'));
+            $pdo->exec("INSERT INTO transaction_grants (paddle_transaction_id) VALUES ('txn_with_grant')");
+
+            assertSame(
+                ['txn_with_grant'],
+                $repo->findUnreconciledTransactionIdsWithGrant(),
+                'adjustment-before-transaction rows without grants are not cutover defects',
+            );
+
+            $repo->markReconciledEvents(['evt_cutover_1']);
+            assertSame([], $repo->findUnreconciledTransactionIdsWithGrant(), 'reconciled grant-backed rows must leave the cutover inventory');
+        },
+
+        'findReconciledForTransaction() excludes newly queued rows while retaining materialized history' => function () {
+            $pdo = makePendingAdjustmentsTestDb();
+            $repo = new PendingAdjustmentRepository($pdo);
+            $repo->queue('txn_hist2', 'evt_old', 'refund', 'pending_approval', 'full', null, new \DateTimeImmutable('2026-01-01T00:00:00Z'));
+            $repo->markReconciled('evt_old');
+            $repo->queue('txn_hist2', 'evt_new', 'refund', 'approved', 'full', null, new \DateTimeImmutable('2026-01-02T00:00:00Z'));
+
+            $history = $repo->findReconciledForTransaction('txn_hist2');
+            assertSame(1, count($history), 'only previously materialized history belongs in the divergence guard');
+            assertSame('evt_old', $history[0]['paddle_event_id'], 'newly queued row must be excluded until replay succeeds');
+        },
+
+        'markReconciledEvents() leaves skipped rows unreconciled and operator-visible' => function () {
+            $pdo = makePendingAdjustmentsTestDb();
+            $repo = new PendingAdjustmentRepository($pdo);
+            $repo->queue('txn_skip', 'evt_before', 'refund', 'approved', 'full', null, new \DateTimeImmutable('2026-01-01T00:00:00Z'));
+            $repo->queue('txn_skip', 'evt_after', 'refund', 'approved', 'full', null, new \DateTimeImmutable('2026-01-02T00:00:00Z'));
+
+            $repo->markReconciledEvents(['evt_after']);
+
+            $remaining = $repo->findUnreconciledForTransaction('txn_skip');
+            assertSame(1, count($remaining), 'only reducer-confirmed replayed events may be stamped reconciled');
+            assertSame('evt_before', $remaining[0]['paddle_event_id'], 'skipped/pre-baseline event must remain visible');
         },
 
         'isEventKnown() returns true for a previously queued event id, false otherwise' => function () {

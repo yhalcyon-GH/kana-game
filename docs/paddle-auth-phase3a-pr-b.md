@@ -8,6 +8,29 @@ and Phase 2 ([`docs/paddle-webhook-poc.md`](paddle-webhook-poc.md))
 without altering Phase 2's `payment_events`/`entitlements` tables or
 `sandbox-test-user` PoC path.
 
+> **Current-state note — Security & Safety Audit v1 / Issue #365 (2026-09-21):**
+> this document records the original Phase 3A PR B baseline. The current
+> entitlement-reconciliation runtime supersedes the original refund,
+> out-of-order, chargeback, and MariaDB-verification behavior described below.
+> Migration `0009_paddle_event_reconciliation.sql` adds a per-Paddle-
+> transaction event lock and widens ordering timestamps to `DATETIME(6)`.
+> Every entitlement-affecting refund/chargeback-family adjustment processed by
+> the current backend is retained as normalized history. Grants created by the
+> current backend replay that full history from their original active state;
+> pre-0009 grants first snapshot their already-materialized status and
+> `status_changed_at` because old direct-adjustment payloads were not retained.
+> Post-baseline history is replayed in precise `occurred_at` order with
+> `paddle_event_id` as a stable tie-breaker. A full refund is terminal;
+> approved partial refund preserves the current grant state (pre-0009 behavior),
+> while a rejected refund may restore `refund_pending -> active` when
+> chronologically appropriate; chargeback and
+> matching reversal lifecycles are handled by the replay reducer. The real
+> MariaDB harness now verifies same-transaction races in both lock orders and
+> separately proves that different Paddle transaction ids do not globally
+> serialize. See Issue #365, migration 0009, and the current
+> `PurchaseWebhookHandler` / `GrantAdjustmentReducer` tests for the
+> authoritative current behavior.
+
 ## Scope
 
 **In this PR:** `purchase_intents` (atomic single-use consume), hashed
@@ -134,3 +157,47 @@ produce exactly one `transaction_grants` row. Not performed in this PR.
 
 Run `php server/tests/run-tests.php` — all PR A tests plus this PR's
 new tests must pass together.
+
+
+## Security Audit v1 cutover amendment (2026-09-21)
+
+Migration 0009 is not only a forward event-ordering change. The pre-0009
+transaction.completed/adjustment race may already have left a grant-backed
+`pending_adjustments` row unreconciled while the same Paddle event id is
+present in `payment_events`. Duplicate delivery therefore cannot be the
+repair mechanism. The reviewed cutover includes an idempotent operator-run
+reconciliation that locks each affected Paddle transaction, initializes a
+legacy baseline if necessary, replays retained normalized history, recomputes
+entitlement, and requires zero grant-backed unreconciled rows before cutover
+completion.
+
+A legacy baseline carries a coarse-precision marker because pre-0009
+`status_changed_at` was whole-second `DATETIME`. Within that ambiguous
+baseline second the reducer may conservatively revoke entitlement, but it
+fails closed rather than automatically restoring entitlement from a
+non-entitlement state.
+
+The 0009 baseline/history contract also changes rollback semantics. Once a
+0009-aware backend has processed a webhook, reverting only application files
+to the pre-0009 backend is prohibited: the old backend can mutate
+`transaction_grants` without maintaining baseline/history. The new backend
+detects such materialized/history divergence and fails closed, but the
+operational rollback must still be a forward fix/reconciliation-compatible
+build or a coordinated DB restore + webhook recovery under Human Gates.
+
+
+### Security Audit v1 reconciliation quarantine amendment (2026-09-21)
+
+Known deterministic replay invariants are not left as endless 500/retry poison
+pills. The current backend durably records the claimed Paddle event and
+normalized adjustment, inserts a non-PII row in
+`paddle_reconciliation_blocks`, and returns the fixed 200
+`quarantined` outcome. Every unresolved deterministic reconciliation block excludes only that Paddle
+transaction from entitlement-bearing grant queries until operator resolution.
+A separate healthy repurchase continues to count.
+
+Only reducer-confirmed post-baseline event ids are stamped
+`reconciled_at`. Any still-unreconciled pre-baseline row remains visible and
+is quarantined during cutover rather than being silently cleared. Production
+cutover is complete only when both grant-backed unreconciled transactions and
+unresolved reconciliation blocks are zero.

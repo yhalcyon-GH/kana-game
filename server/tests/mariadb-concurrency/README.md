@@ -24,12 +24,13 @@ test-only credentials generated in the workflow itself. It is never pointed at
 Production, never uses Production credentials, and never touches Production in
 any way.
 
-## What this PR does NOT do
+## Harness boundary
 
-This is a **diagnostic** PR. If a scenario here finds a real concurrency defect
-(e.g. entitlement write-skew under InnoDB `REPEATABLE READ`), this PR does
-**not** attempt to fix the underlying runtime code — see the top-level PR
-report for what was found and what remains as follow-up work.
+This directory is **diagnostic verification infrastructure**. Feature/security
+PRs may change runtime code and extend these scenarios, but the harness itself
+only exercises disposable CI databases and reports invariant violations. It
+never performs a Production migration, Production DB write, deployment, or
+Paddle mutation.
 
 ## Layout
 
@@ -40,17 +41,17 @@ report for what was found and what remains as follow-up work.
   `server/tests/Purchase/` purely to **reuse** their already-reviewed helper
   functions (`makeMagicLinkAuthServiceHarness`'s dependency wiring pattern,
   `makePurchaseWebhookHandler()`, `pwhSign()`, `pwhTransactionCompletedPayload()`,
-  `pwhAdjustmentPayload()`) and `TestCase.php`'s assertion helpers. No existing
-  test file is modified.
+  `pwhAdjustmentPayload()`) and `TestCase.php`'s assertion helpers rather than
+  duplicating that wiring inside the harness.
 - `Barrier.php` — a file-based ready/go barrier. Every worker process signals
   "ready" by creating a file, then polls (short `usleep` loop, not a single
   blind `sleep`) for a `go` file the orchestrator creates only once every
   worker has signaled ready. This is what makes each worker's racy operation
   actually start at (as close as this mechanism can guarantee) the same
   moment, rather than relying on guessed sleep offsets.
-- `scenarios.php` — one function per scenario (A, B, C1–C4, D, E, F, G), each run
-  inside a worker process against that worker's own dedicated `PDO`
-  connection. D: same OTP challenge/code raced across 3 workers — exactly
+- `scenarios.php` — one function per worker operation used by scenarios A, B,
+  C1–C4, D, E, F, G, H1, H2, and H3, each run inside a worker process against
+  that worker's own dedicated `PDO` connection. D: same OTP challenge/code raced across 3 workers — exactly
   one verifyCode() succeeds. E: a user at the 3-persistent-session cap, two
   concurrent 4th-login verifyCode() calls with distinct challenges — both
   succeed, the LRU row is evicted, and the active count never exceeds the
@@ -63,6 +64,18 @@ report for what was found and what remains as follow-up work.
   that sweep. The child row may exist unrevoked, but it must still be
   unauthenticatable because SessionRepository requires its persistent parent
   to remain active and unexpired.
+  H1/H2: `transaction.completed` races a full refund for the **same** Paddle
+  transaction id in both forced lock-acquisition orders. Named phase markers
+  are emitted **after the real transaction row lock is acquired**, and the
+  second worker is held until that marker exists; no guessed scheduler sleep is
+  used to claim an acquisition order. Both orders must settle with a refunded
+  grant, inactive entitlement, one retained normalized adjustment history row,
+  and no missed/unreconciled adjustment. These scenarios exercise the MariaDB
+  `transaction_event_locks` row lock added by security migration 0009.
+  H3: while one worker keeps transaction A's event-lock row locked inside an
+  open MariaDB transaction, a second worker must acquire transaction B's
+  different event-lock row before A commits. This directly proves the lock is
+  per Paddle transaction rather than a global serialization point.
 - `worker.php` — the actual separate-process entrypoint (`proc_open`s this,
   never calls a scenario function in-process). Reads scenario args from a
   per-iteration JSON file (never argv, never stdout) so raw secret values

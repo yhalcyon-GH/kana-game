@@ -13,6 +13,7 @@ use KanaGame\Paddle\Auth\PersistentSessionRepository;
 use KanaGame\Paddle\Auth\RateLimiter;
 use KanaGame\Paddle\Auth\SessionRepository;
 use KanaGame\Paddle\Auth\UserRepository;
+use KanaGame\Paddle\Purchase\TransactionEventLockRepository;
 use PDO;
 
 /**
@@ -83,9 +84,40 @@ function scenarioVerify(PDO $pdo, array $args, Barrier $barrier, int $workerId):
  */
 function scenarioWebhook(PDO $pdo, array $args, Barrier $barrier, int $workerId): array
 {
-    $handler = \KanaGame\Paddle\Tests\makePurchaseWebhookHandler($pdo);
+    $afterLockSignal = is_string($args['signal_phase_after_transaction_lock'] ?? null)
+        ? $args['signal_phase_after_transaction_lock']
+        : null;
+    $afterLockWait = is_string($args['wait_for_phase_after_transaction_lock'] ?? null)
+        ? $args['wait_for_phase_after_transaction_lock']
+        : null;
+
+    $transactionLocks = null;
+    if ($afterLockSignal !== null || $afterLockWait !== null) {
+        $transactionLocks = new \KanaGame\Paddle\Purchase\TransactionEventLockRepository(
+            $pdo,
+            static function (string $_transactionId) use ($barrier, $afterLockSignal, $afterLockWait): void {
+                if ($afterLockSignal !== null) {
+                    $barrier->signalPhase($afterLockSignal);
+                }
+                if ($afterLockWait !== null) {
+                    $barrier->waitForPhase($afterLockWait);
+                }
+            },
+        );
+    }
+
+    $handler = \KanaGame\Paddle\Tests\makePurchaseWebhookHandler($pdo, $transactionLocks);
 
     $barrier->signalReadyAndWaitForGo($workerId);
+
+    $beforeHandleWait = $args['wait_for_phase_before_handle'] ?? null;
+    if (is_string($beforeHandleWait)) {
+        $barrier->waitForPhase($beforeHandleWait);
+    }
+    $beforeHandleSignal = $args['signal_phase_before_handle'] ?? null;
+    if (is_string($beforeHandleSignal)) {
+        $barrier->signalPhase($beforeHandleSignal);
+    }
 
     // Timing-only instrumentation for the pre-Live sync-vs-async webhook
     // response-time investigation (see docs/pre-live-launch-checklist.md
@@ -238,10 +270,11 @@ function scenarioPersistentRefreshRevoke(PDO $pdo, array $args, Barrier $barrier
             $parent = $persistentSessions->findActiveByRawToken($args['raw_persistent_token']);
             $sawParentActive = $parent !== null;
 
-            // Give the revoke worker enough time to revoke the parent and
-            // sweep all children that exist at that moment. The subsequent
-            // create intentionally lands AFTER that sweep.
-            usleep(100_000);
+            // Do not rely on scheduler timing. Explicitly tell the revoke
+            // worker that the stale active-parent read has happened, then
+            // wait until that worker confirms parent revocation + child sweep.
+            $barrier->signalPhase('parent-read');
+            $barrier->waitForPhase('revoke-swept');
 
             if ($parent !== null) {
                 $sessions->create(
@@ -262,11 +295,12 @@ function scenarioPersistentRefreshRevoke(PDO $pdo, array $args, Barrier $barrier
         }
 
         if ($args['action'] === 'revoke') {
-            // Let the refresh worker complete the initial active-parent read,
-            // then revoke before the refresh worker creates its child.
-            usleep(25_000);
+            // Wait for the refresh worker's stale active-parent read, then
+            // complete revocation + child sweep before allowing child creation.
+            $barrier->waitForPhase('parent-read');
             $persistentSessions->revoke($args['persistent_session_id']);
             $sessions->revokeByPersistentSessionId($args['persistent_session_id']);
+            $barrier->signalPhase('revoke-swept');
 
             return [
                 'action' => 'revoke',
@@ -283,6 +317,71 @@ function scenarioPersistentRefreshRevoke(PDO $pdo, array $args, Barrier $barrier
             'action' => (string) ($args['action'] ?? 'unknown'),
             'saw_parent_active' => false,
             'child_created' => false,
+            'exception_class' => get_class($e),
+            'sqlstate' => $e instanceof \PDOException ? ($e->errorInfo[0] ?? null) : null,
+        ];
+    }
+}
+
+/**
+ * Scenario H3: prove per-transaction event locks do not globally serialize.
+ *
+ * Worker "holder" locks transaction A and keeps that DB transaction open.
+ * Worker "other" must then acquire transaction B's lock BEFORE holder commits.
+ * If both transaction ids shared one global serialization point, holder would
+ * time out waiting for "other-locked" and the scenario would fail.
+ *
+ * @param array{role: 'holder'|'other', txn_id: string} $args
+ * @return array{success: bool, role: string, exception_class: ?string, sqlstate: ?string}
+ */
+function scenarioIndependentTransactionLocks(PDO $pdo, array $args, Barrier $barrier, int $workerId): array
+{
+    $locks = new TransactionEventLockRepository($pdo);
+    $barrier->signalReadyAndWaitForGo($workerId);
+
+    try {
+        if ($args['role'] === 'holder') {
+            $pdo->beginTransaction();
+            $locks->lock($args['txn_id']);
+            $barrier->signalPhase('holder-locked');
+
+            // Keep transaction A's row lock open until transaction B has
+            // independently acquired its own row lock.
+            $barrier->waitForPhase('other-locked', 3.0);
+            $pdo->commit();
+
+            return [
+                'success' => true,
+                'role' => 'holder',
+                'exception_class' => null,
+                'sqlstate' => null,
+            ];
+        }
+
+        if ($args['role'] === 'other') {
+            $barrier->waitForPhase('holder-locked', 3.0);
+            $pdo->beginTransaction();
+            $locks->lock($args['txn_id']);
+            $barrier->signalPhase('other-locked');
+            $pdo->commit();
+
+            return [
+                'success' => true,
+                'role' => 'other',
+                'exception_class' => null,
+                'sqlstate' => null,
+            ];
+        }
+
+        throw new \InvalidArgumentException('unknown independent transaction lock role');
+    } catch (\Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+
+        return [
+            'success' => false,
+            'role' => (string) ($args['role'] ?? 'unknown'),
             'exception_class' => get_class($e),
             'sqlstate' => $e instanceof \PDOException ? ($e->errorInfo[0] ?? null) : null,
         ];

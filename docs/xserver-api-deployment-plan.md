@@ -37,7 +37,8 @@ preflight; use the XServer account's confirmed path, not an assumed path.
    - `server/entitlement-me.php`;
    - `server/purchase-intent.php`;
    - `server/paddle-webhook.php`;
-   - `server/ops/auth-readiness-check.php` and its `.htaccess` file.
+   - `server/ops/auth-readiness-check.php`, `server/ops/release-integrity-check.php`,
+     `server/ops/paddle-reconciliation-cutover.php`, and the shared `server/ops/.htaccess` deny rule.
 
 4. Confirm these are **not** included in the web-served release:
 
@@ -68,6 +69,63 @@ A release upload copies only the checked release sets above into the existing
 `api/` directory while preserving the existing Production configuration.
 No database schema, Paddle Dashboard setting, DNS record, or secret is
 changed by this plan.
+
+For the Security & Safety Audit v1 backend release, database schema and backend
+source must move together under the Human Gate. After the fresh Production DB
+backup and before uploading the matching backend source, apply reviewed
+migration `0008_magic_link_browser_binding.sql` and then
+`0009_paddle_event_reconciliation.sql` in that order. Migration 0009 adds nullable replay-baseline metadata (including an explicit
+legacy/coarse timestamp marker) but performs no speculative legacy-event
+backfill. Migration 0007 remains dev-only and intentionally skipped in
+Production.
+
+Before any database/schema write, inventory grant-backed unreconciled
+adjustments. After the fresh API rollback backup, stage **only** the reviewed
+`ops/paddle-reconciliation-cutover.php` under the already-denied `ops/`
+directory. Its `--check` path requires only the pre-0009 Config/Db runtime and
+executes a read-only SELECT against columns that already existed before 0009:
+
+    php ops/paddle-reconciliation-cutover.php --check
+
+This staging upload is still a Production backend file write and therefore
+requires the same explicit Human Gate, even though the command itself is
+read-only.
+
+Because the old backend can still create one last stranded row in the narrow
+schema-to-code cutover window, the required order is:
+
+1. fresh DB + API rollback backups;
+2. stage only the reviewed cutover CLI file and run the read-only `--check`;
+3. apply 0008, then 0009;
+4. immediately deploy the matching reviewed backend while preserving
+   `api/config.php` and root `api/.htaccess`;
+5. under the same explicitly approved Production security-cutover Human Gate,
+   run the idempotent repair:
+
+       php ops/paddle-reconciliation-cutover.php --apply --human-approved-security-cutover
+
+6. run `--check` again and require both
+   `grantBackedUnreconciledTransactions=0` **and**
+   `unresolvedReconciliationBlocks=0` before declaring cutover complete.
+
+The repair acquires the same per-transaction lock as live webhooks. Known
+non-reconstructable invariants are durably quarantined instead of relying on an
+infinite/finite 500 retry loop. The cutover continues to later transactions,
+but the affected normalized rows remain unreconciled and the final zero-count
+gate stays non-zero until an operator resolves them. Any unresolved deterministic reconciliation block conservatively excludes
+only that Paddle transaction while preserving any separate healthy repurchase. Treat any
+quarantine/non-zero result as a deployment stop condition.
+
+**Rollback boundary after 0009:** once the 0009-aware backend has processed any
+webhook, an application-files-only rollback to the pre-0009 backend is
+prohibited. Use a forward fix or a reconciliation-compatible rollback build.
+A true return to the old backend requires a coordinated DB restore to the
+pre-cutover backup plus controlled webhook pause/recovery; any Paddle Live
+configuration change for that is a separate Human Gate.
+
+If either migration is uncertain or fails before the new backend is exposed,
+stop before completing the cutover and follow the coordinated rollback plan
+rather than attempting an ad-hoc partial release.
 
 The `ops/` directory includes a committed Apache rule that rejects all HTTP
 requests. It exists solely so the fixed local SSH runner can execute:
@@ -102,7 +160,11 @@ of these is true:
 - the redacted preflight reports an enabled development harness or an
   unconfigured production Magic Link mailer;
 - a required database migration is uncertain, or a rollback procedure is
-  unavailable.
+  unavailable;
+- cutover reconciliation leaves any grant-backed unreconciled adjustment or
+  any unresolved `paddle_reconciliation_blocks` row;
+- the only proposed rollback is restoring pre-0009 application files while
+  leaving 0009 database/baseline state in place.
 
 A successful preflight is not approval for a real Magic Link email, Paddle
 Live configuration, a charge, a refund, or any database write.

@@ -27,6 +27,20 @@ function makeTransactionGrantsTestDb(): PDO
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )',
     );
+    $pdo->exec(
+        'CREATE TABLE paddle_reconciliation_blocks (
+            paddle_event_id TEXT PRIMARY KEY,
+            paddle_transaction_id TEXT NOT NULL,
+            reason_code TEXT NOT NULL,
+            action TEXT NOT NULL,
+            adjustment_status TEXT NOT NULL,
+            adjustment_type TEXT NOT NULL,
+            occurred_at TEXT NOT NULL,
+            force_exclude_transaction INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            resolved_at TEXT NULL
+        )',
+    );
     return $pdo;
 }
 
@@ -63,119 +77,77 @@ function transactionGrantRepositoryTests(): array
             assertFalse($secondCreated, 'the same transaction id must never create a second grant row');
         },
 
-        'hasEntitlementBearingGrant() returns false when no grant exists' => function () {
-            $repo = new TransactionGrantRepository(makeTransactionGrantsTestDb());
-            assertFalse($repo->hasEntitlementBearingGrant('user-none', 'full_tamamizu'), 'no grant should mean not entitled');
-        },
-
-        'hasEntitlementBearingGrant() returns true for refund_pending status (entitlement-bearing)' => function () {
+        'hasEntitlementBearingGrant() reflects replay-materialized status' => function () {
             $pdo = makeTransactionGrantsTestDb();
             $repo = new TransactionGrantRepository($pdo);
-            $occurredAt = new \DateTimeImmutable('2026-01-01 00:00:00');
-            $repo->create('txn_1', 'user-1', 'full_tamamizu', 1, $occurredAt);
-            $repo->updateStatus('txn_1', 'refund_pending', new \DateTimeImmutable('2026-01-02 00:00:00'));
+            $repo->create('txn_1', 'user-1', 'full_tamamizu', 1, new \DateTimeImmutable('2026-01-01 00:00:00'));
 
+            $repo->replaceStatusFromReplay('txn_1', 'refund_pending', new \DateTimeImmutable('2026-01-02 00:00:00'));
             assertTrue($repo->hasEntitlementBearingGrant('user-1', 'full_tamamizu'), 'refund_pending must still count as entitled');
-        },
 
-        'hasEntitlementBearingGrant() returns false for refunded status (not entitlement-bearing)' => function () {
-            $repo = new TransactionGrantRepository(makeTransactionGrantsTestDb());
-            $occurredAt = new \DateTimeImmutable('2026-01-01 00:00:00');
-            $repo->create('txn_1', 'user-1', 'full_tamamizu', 1, $occurredAt);
-            $repo->updateStatus('txn_1', 'refunded', new \DateTimeImmutable('2026-01-02 00:00:00'));
-
+            $repo->replaceStatusFromReplay('txn_1', 'refunded', new \DateTimeImmutable('2026-01-03 00:00:00'));
             assertFalse($repo->hasEntitlementBearingGrant('user-1', 'full_tamamizu'), 'refunded must not count as entitled');
         },
 
-        'updateStatus() applies a newer status transition' => function () {
+        'unresolved forced reconciliation block excludes only the blocked transaction from entitlement' => function () {
             $pdo = makeTransactionGrantsTestDb();
             $repo = new TransactionGrantRepository($pdo);
-            $occurredAt = new \DateTimeImmutable('2026-01-01 00:00:00');
-            $repo->create('txn_1', 'user-1', 'full_tamamizu', 1, $occurredAt);
+            $repo->create('txn_blocked', 'user-1', 'full_tamamizu', 1, new \DateTimeImmutable('2026-01-01T00:00:00Z'));
 
-            $applied = $repo->updateStatus('txn_1', 'refunded', new \DateTimeImmutable('2026-01-02 00:00:00'));
-            assertTrue($applied, 'a newer status transition should be applied');
+            $pdo->exec(
+                "INSERT INTO paddle_reconciliation_blocks
+                    (paddle_event_id, paddle_transaction_id, reason_code, action, adjustment_status, adjustment_type, occurred_at, force_exclude_transaction)
+                 VALUES
+                    ('evt_blocked', 'txn_blocked', 'replay_invariant', 'refund', 'approved', 'full', '2026-01-02 00:00:00.000000', 1)",
+            );
 
-            $status = $pdo->query("SELECT status FROM transaction_grants WHERE paddle_transaction_id = 'txn_1'")->fetchColumn();
-            assertSame('refunded', $status, 'status should now be refunded');
+            assertFalse($repo->hasEntitlementBearingGrant('user-1', 'full_tamamizu'), 'forced unresolved block must exclude the otherwise-active transaction');
+
+            $repo->create('txn_other', 'user-1', 'full_tamamizu', 2, new \DateTimeImmutable('2026-01-03T00:00:00Z'));
+            assertTrue($repo->hasEntitlementBearingGrant('user-1', 'full_tamamizu'), 'a separate healthy repurchase must still keep entitlement active');
+
+            $pdo->exec("UPDATE paddle_reconciliation_blocks SET resolved_at = '2026-01-04 00:00:00.000000' WHERE paddle_event_id = 'evt_blocked'");
+            assertTrue($repo->hasEntitlementBearingGrant('user-1', 'full_tamamizu'), 'resolved block no longer excludes its transaction');
         },
 
-        'updateStatus() discards a STALE (older occurred_at) status transition' => function () {
-            $pdo = makeTransactionGrantsTestDb();
-            $repo = new TransactionGrantRepository($pdo);
-            $repo->create('txn_1', 'user-1', 'full_tamamizu', 1, new \DateTimeImmutable('2026-01-01 00:00:00'));
-            // Newest known transition: refunded at 2026-01-03.
-            $repo->updateStatus('txn_1', 'refunded', new \DateTimeImmutable('2026-01-03 00:00:00'));
-
-            // A stale event (occurred_at 2026-01-02, older than the
-            // current status_changed_at of 2026-01-03) tries to move it
-            // back to refund_pending -- must be discarded.
-            $applied = $repo->updateStatus('txn_1', 'refund_pending', new \DateTimeImmutable('2026-01-02 00:00:00'));
-            assertFalse($applied, 'a stale (older) event must not be applied');
-
-            $status = $pdo->query("SELECT status FROM transaction_grants WHERE paddle_transaction_id = 'txn_1'")->fetchColumn();
-            assertSame('refunded', $status, 'status must remain refunded -- the stale event must not have overwritten it');
-        },
-
-        'updateStatus() on an unknown transaction id returns false without throwing' => function () {
-            $repo = new TransactionGrantRepository(makeTransactionGrantsTestDb());
-            assertFalse($repo->updateStatus('txn_never_existed', 'refunded', new \DateTimeImmutable()), 'an unknown transaction id should return false, not throw');
-        },
-
-        // -- Phase H1-3: $allowedFromStatuses guard --
-
-        '$allowedFromStatuses restricts a transition to grants currently in one of the listed statuses' => function () {
+        'replaceStatusFromReplay() may move changed_at backward when full replay corrects an arrival-order materialization' => function () {
             $pdo = makeTransactionGrantsTestDb();
             $repo = new TransactionGrantRepository($pdo);
             $repo->create('txn_1', 'user-1', 'full_tamamizu', 1, new \DateTimeImmutable('2026-01-01 00:00:00'));
-            // Current status is 'active' (default from create()).
 
-            $applied = $repo->updateStatus('txn_1', 'active', new \DateTimeImmutable('2026-01-02 00:00:00'), ['chargeback']);
-            assertFalse($applied, 'the transition must be refused -- current status "active" is not in the allowed-from list ["chargeback"]');
+            $repo->replaceStatusFromReplay('txn_1', 'chargeback_pending', new \DateTimeImmutable('2026-01-05 00:00:00'));
+            $repo->replaceStatusFromReplay('txn_1', 'chargeback', new \DateTimeImmutable('2026-01-02 00:00:00'));
 
-            $status = $pdo->query("SELECT status FROM transaction_grants WHERE paddle_transaction_id = 'txn_1'")->fetchColumn();
-            assertSame('active', $status, 'status must be unchanged after a refused transition');
+            $grant = $repo->findByTransactionId('txn_1');
+            assertSame('chargeback', $grant['status'], 'full replay must be able to correct the derived status');
+            assertSame('2026-01-02 00:00:00.000000', $grant['status_changed_at'], 'derived status timestamp may legitimately move backward after an older event arrives');
         },
 
-        '$allowedFromStatuses permits a transition when the current status matches' => function () {
+        'create() preserves fractional Paddle event time and replay replacement keeps microsecond precision' => function () {
             $pdo = makeTransactionGrantsTestDb();
             $repo = new TransactionGrantRepository($pdo);
-            $repo->create('txn_1', 'user-1', 'full_tamamizu', 1, new \DateTimeImmutable('2026-01-01 00:00:00'));
-            $repo->updateStatus('txn_1', 'chargeback', new \DateTimeImmutable('2026-01-02 00:00:00'));
+            $repo->create(
+                'txn_micro',
+                'user-1',
+                'full_tamamizu',
+                1,
+                new \DateTimeImmutable('2026-01-01T00:00:00.100000Z'),
+            );
 
-            $applied = $repo->updateStatus('txn_1', 'active', new \DateTimeImmutable('2026-01-03 00:00:00'), ['chargeback']);
-            assertTrue($applied, 'the transition must be applied -- current status "chargeback" is in the allowed-from list');
+            $grant = $repo->findByTransactionId('txn_micro');
+            assertSame('2026-01-01 00:00:00.100000', $grant['granted_at'], 'granted_at must keep microseconds');
 
-            $status = $pdo->query("SELECT status FROM transaction_grants WHERE paddle_transaction_id = 'txn_1'")->fetchColumn();
-            assertSame('active', $status, 'status should now be active');
+            $repo->replaceStatusFromReplay(
+                'txn_micro',
+                'refunded',
+                new \DateTimeImmutable('2026-01-01T00:00:00.900000Z'),
+            );
+            $grant = $repo->findByTransactionId('txn_micro');
+            assertSame('refunded', $grant['status'], 'replay replacement should set derived status');
+            assertSame('2026-01-01 00:00:00.900000', $grant['status_changed_at'], 'status_changed_at must keep microseconds');
         },
 
-        '$allowedFromStatuses is checked in addition to, not instead of, the occurred_at staleness guard' => function () {
-            $pdo = makeTransactionGrantsTestDb();
-            $repo = new TransactionGrantRepository($pdo);
-            $repo->create('txn_1', 'user-1', 'full_tamamizu', 1, new \DateTimeImmutable('2026-01-01 00:00:00'));
-            $repo->updateStatus('txn_1', 'chargeback', new \DateTimeImmutable('2026-01-05 00:00:00'));
-
-            // Current status IS in the allowed-from list, but occurred_at
-            // is older than the grant's current status_changed_at.
-            $applied = $repo->updateStatus('txn_1', 'active', new \DateTimeImmutable('2026-01-02 00:00:00'), ['chargeback']);
-            assertFalse($applied, 'a stale event must still be discarded even when the allowed-from-status check alone would pass');
-        },
-
-        'omitting $allowedFromStatuses (null) leaves refund transitions unrestricted by source status, as before Phase H1-3' => function () {
-            $pdo = makeTransactionGrantsTestDb();
-            $repo = new TransactionGrantRepository($pdo);
-            $repo->create('txn_1', 'user-1', 'full_tamamizu', 1, new \DateTimeImmutable('2026-01-01 00:00:00'));
-            $repo->updateStatus('txn_1', 'refunded', new \DateTimeImmutable('2026-01-02 00:00:00'));
-
-            // A "rejected" refund transition back to active must still
-            // work from ANY prior status when no allow-list is given --
-            // exactly the existing refund lifecycle.
-            $applied = $repo->updateStatus('txn_1', 'active', new \DateTimeImmutable('2026-01-03 00:00:00'));
-            assertTrue($applied, 'refund transitions must remain unrestricted by source status');
-        },
-
-        'findByTransactionId() returns the grant row for a known transaction' => function () {
+        'findByTransactionId() returns the grant row for a known transaction and null otherwise' => function () {
             $repo = new TransactionGrantRepository(makeTransactionGrantsTestDb());
             $occurredAt = new \DateTimeImmutable('2026-01-01 00:00:00');
             $repo->create('txn_1', 'user-1', 'full_tamamizu', 1, $occurredAt);
@@ -184,36 +156,26 @@ function transactionGrantRepositoryTests(): array
             assertTrue($grant !== null, 'a known transaction id should resolve');
             assertSame('user-1', $grant['user_id'], 'user_id should match');
             assertSame('active', $grant['status'], 'status should be active on creation');
-        },
-
-        'findByTransactionId() returns null for an unknown transaction' => function () {
-            $repo = new TransactionGrantRepository(makeTransactionGrantsTestDb());
             assertSame(null, $repo->findByTransactionId('txn_unknown'), 'unknown transaction id should return null');
         },
 
-        // -- Required scenario from the design spec: an old transaction
-        // refund must never revoke a newer valid purchase.
-        'repurchase scenario: transaction A active, transaction B later active, refund A -- B remains entitled' => function () {
+        'repurchase scenario: refunding transaction A leaves transaction B entitlement-bearing' => function () {
             $repo = new TransactionGrantRepository(makeTransactionGrantsTestDb());
             $repo->create('txn_A', 'user-1', 'full_tamamizu', 1, new \DateTimeImmutable('2026-01-01 00:00:00'));
             $repo->create('txn_B', 'user-1', 'full_tamamizu', 2, new \DateTimeImmutable('2026-01-05 00:00:00'));
 
-            assertTrue($repo->hasEntitlementBearingGrant('user-1', 'full_tamamizu'), 'user should be entitled with both A and B active');
+            $repo->replaceStatusFromReplay('txn_A', 'refunded', new \DateTimeImmutable('2026-01-10 00:00:00'));
 
-            $repo->updateStatus('txn_A', 'refunded', new \DateTimeImmutable('2026-01-10 00:00:00'));
-
-            assertTrue($repo->hasEntitlementBearingGrant('user-1', 'full_tamamizu'), 'user must remain entitled -- B is still active even though A was refunded');
-
-            $grantB = $repo->findByTransactionId('txn_B');
-            assertSame('active', $grantB['status'], 'B must be untouched by A\'s refund');
+            assertTrue($repo->hasEntitlementBearingGrant('user-1', 'full_tamamizu'), 'B must keep the user entitled after A is refunded');
+            assertSame('active', $repo->findByTransactionId('txn_B')['status'], 'B must be untouched by A\'s refund');
         },
 
-        'refund for one user cannot affect another user\'s entitlement' => function () {
+        'refund for one user cannot affect another user entitlement' => function () {
             $repo = new TransactionGrantRepository(makeTransactionGrantsTestDb());
             $repo->create('txn_user1', 'user-1', 'full_tamamizu', 1, new \DateTimeImmutable('2026-01-01 00:00:00'));
             $repo->create('txn_user2', 'user-2', 'full_tamamizu', 2, new \DateTimeImmutable('2026-01-01 00:00:00'));
 
-            $repo->updateStatus('txn_user1', 'refunded', new \DateTimeImmutable('2026-01-02 00:00:00'));
+            $repo->replaceStatusFromReplay('txn_user1', 'refunded', new \DateTimeImmutable('2026-01-02 00:00:00'));
 
             assertFalse($repo->hasEntitlementBearingGrant('user-1', 'full_tamamizu'), 'user-1 should be revoked');
             assertTrue($repo->hasEntitlementBearingGrant('user-2', 'full_tamamizu'), 'user-2 must be unaffected by user-1\'s refund');

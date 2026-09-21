@@ -1,10 +1,10 @@
 # Observability — minimal pre-Live logging
 
 Scope: a personal/solo-developer level of "can I tell what went wrong
-after the fact," not a monitoring platform. No external monitoring
-service, metrics system, or audit DB table is introduced here — see
-the design-tradeoff note at the end of this doc for the one open item
-this stops short of.
+after the fact," not a monitoring platform. No external monitoring or
+log-shipping service is introduced. Security Audit v1 adds one local,
+non-PII `paddle_reconciliation_blocks` quarantine table so deterministic
+reconciliation failures survive beyond Paddle's finite retry window.
 
 All logging described here uses PHP's built-in `error_log()`. There is
 no log-shipping/aggregation configured in this repo.
@@ -59,6 +59,7 @@ a Paddle event-type string:
 | `outcome=` value    | HTTP status | What it means |
 |----------------------|:---:|----------------|
 | `processed`          | 200 | A `transaction.completed`/adjustment/chargeback event was matched and applied. Normal, expected traffic. |
+| `quarantined`        | 200 | A signature-valid adjustment hit a known deterministic reconciliation invariant. Its event claim/history are durably retained, a non-PII quarantine row is created, and entitlement is conservatively recomputed. **Investigate unresolved quarantine rows promptly; this is not a normal success.** |
 | `duplicate`           | 200 | Paddle redelivered an event whose `event_id` was already claimed — normal retry behavior, already handled once. |
 | `ignored`             | 200 | A well-formed, signature-valid event that this deployment doesn't act on (wrong product/event type). If this appears at a high, sustained rate, it can mean the configured price/product ID no longer matches what Paddle is actually sending — worth checking manually. |
 | `malformed_payload`   | 400 | The request body didn't parse as the expected shape. Isolated occurrences are likely a Paddle-side anomaly; sustained occurrences suggest a payload-shape mismatch worth investigating. |
@@ -67,10 +68,21 @@ a Paddle event-type string:
 | `unknown`             | — | The classifier didn't recognize the status/message combination — should not happen; treat as a bug in the classifier itself if seen. |
 
 **If `paddle-webhook` 500s (`stage=*` lines) appear repeatedly:**
-investigate immediately — every purchase during that window is at risk
-of never granting entitlement, and Paddle's own retry/redelivery
-mechanism (visible in the Paddle dashboard) is the only thing giving
-you a second chance once the underlying cause is fixed.
+investigate immediately — these are transient/unknown failures and Paddle's
+retry/redelivery mechanism remains the recovery path.
+
+**If `outcome=quarantined` appears:** the handler deliberately returned 200
+because retrying the same deterministic invariant would be a poison loop.
+The `payment_events` claim, normalized adjustment row, and a row in
+`paddle_reconciliation_blocks` are durable. The quarantine row stores only
+Paddle identifiers/action metadata, a fixed reason code, and whether that
+transaction must be excluded from entitlement; no customer email, raw payload,
+or secret is stored. Any unresolved deterministic reconciliation block sets
+`force_exclude_transaction=1`, so that transaction stops counting toward
+entitlement until operator resolution while a separate healthy repurchase
+remains valid.
+Do not mark such a block resolved until the underlying transaction history has
+been manually reviewed/corrected under the appropriate Production DB Human Gate.
 
 ### `request-link: mailer_unconfigured` / `request-code: mailer_unconfigured`
 

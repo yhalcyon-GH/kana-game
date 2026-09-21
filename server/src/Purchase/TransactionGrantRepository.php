@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace KanaGame\Paddle\Purchase;
 
+require_once __DIR__ . '/../PaddleEventTime.php';
+
+use KanaGame\Paddle\PaddleEventTime;
 use PDO;
 
 /**
@@ -13,12 +16,14 @@ use PDO;
  * transaction can only ever change ITS OWN row, never a later
  * transaction's grant for the same user/product.
  *
- * Entitlement-bearing statuses: 'active', 'refund_pending'.
- * Non-entitlement-bearing: 'refunded', 'chargeback', 'chargeback_pending'
+ * Entitlement-bearing statuses: 'active', 'refund_pending', except while the
+ * transaction has an unresolved reconciliation block that explicitly forces
+ * exclusion. Non-entitlement-bearing: 'refunded', 'chargeback', 'chargeback_pending'
  * (Phase H1-3 — see PurchaseWebhookHandler's chargeback-family handling).
  *
- * updateStatus() discards a stale (older occurred_at) transition so a
- * late-arriving out-of-order event can never undo a newer one.
+ * Grant status is materialized only from the deterministic replay reducer.
+ * Per-event staleness/order decisions belong to that reducer, not this
+ * repository write primitive.
  */
 final class TransactionGrantRepository
 {
@@ -43,7 +48,7 @@ final class TransactionGrantRepository
         int $purchaseIntentId,
         \DateTimeImmutable $occurredAt,
     ): bool {
-        $occurredAtStr = $occurredAt->format('Y-m-d H:i:s');
+        $occurredAtStr = PaddleEventTime::format($occurredAt);
 
         try {
             $statement = $this->pdo->prepare(
@@ -70,63 +75,6 @@ final class TransactionGrantRepository
     }
 
     /**
-     * Applies a status transition ONLY if $occurredAt is not older than
-     * the grant's current status_changed_at — a stale out-of-order
-     * event is discarded (returns false) rather than overwriting a
-     * newer status. Returns false for an unknown transaction id.
-     *
-     * Phase H1-3: $allowedFromStatuses, when given, adds a second,
-     * INDEPENDENT guard alongside the occurred_at staleness check: the
-     * transition is only applied if the grant's CURRENT status is one
-     * of the listed values. This is what makes chargeback_reverse and
-     * chargeback_warning_reverse safe -- without it, an occurred_at
-     * that merely postdates a *previous* status_changed_at would be
-     * enough to blindly restore 'active' from ANY current status,
-     * including an already-finalized 'refunded' grant. With it, e.g.
-     * chargeback_reverse can only ever fire from 'chargeback' (never
-     * from 'refunded', never from 'chargeback_pending' -- that pairs
-     * exclusively with chargeback_warning_reverse). Omitted (null,
-     * the default) for the existing refund transitions, which are
-     * unrestricted by source status, preserving their current
-     * behavior exactly.
-     *
-     * @param list<string>|null $allowedFromStatuses
-     */
-    public function updateStatus(
-        string $paddleTransactionId,
-        string $newStatus,
-        \DateTimeImmutable $occurredAt,
-        ?array $allowedFromStatuses = null,
-    ): bool {
-        $occurredAtStr = $occurredAt->format('Y-m-d H:i:s');
-        $params = [
-            'status' => $newStatus,
-            'occurred_at' => $occurredAtStr,
-            'txn_id' => $paddleTransactionId,
-            'occurred_at2' => $occurredAtStr,
-        ];
-
-        $sql = 'UPDATE transaction_grants
-                SET status = :status, status_changed_at = :occurred_at
-                WHERE paddle_transaction_id = :txn_id AND status_changed_at <= :occurred_at2';
-
-        if ($allowedFromStatuses !== null) {
-            $placeholders = [];
-            foreach (array_values($allowedFromStatuses) as $index => $fromStatus) {
-                $key = "from_status_{$index}";
-                $placeholders[] = ":{$key}";
-                $params[$key] = $fromStatus;
-            }
-            $sql .= ' AND status IN (' . implode(',', $placeholders) . ')';
-        }
-
-        $statement = $this->pdo->prepare($sql);
-        $statement->execute($params);
-
-        return $statement->rowCount() === 1;
-    }
-
-    /**
      * Callers MUST hold the caller's per-user serialization lock (see
      * PurchaseWebhookHandler::lockUserForEntitlementUpdate()) before
      * calling this, and this is the only entitlement-affecting read
@@ -144,8 +92,15 @@ final class TransactionGrantRepository
     {
         $driver = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
         $placeholders = implode(',', array_fill(0, count(self::ENTITLEMENT_BEARING_STATUSES), '?'));
-        $sql = "SELECT 1 FROM transaction_grants
-             WHERE user_id = ? AND product_key = ? AND status IN ({$placeholders})
+        $sql = "SELECT 1 FROM transaction_grants g
+             WHERE g.user_id = ? AND g.product_key = ? AND g.status IN ({$placeholders})
+               AND NOT EXISTS (
+                   SELECT 1
+                   FROM paddle_reconciliation_blocks b
+                   WHERE b.paddle_transaction_id = g.paddle_transaction_id
+                     AND b.resolved_at IS NULL
+                     AND b.force_exclude_transaction = 1
+               )
              LIMIT 1";
         if ($driver !== 'sqlite') {
             $sql .= ' FOR UPDATE';
@@ -157,16 +112,55 @@ final class TransactionGrantRepository
     }
 
     /**
-     * @return array{paddle_transaction_id: string, user_id: string, product_key: string, purchase_intent_id: int, status: string}|null
+     * Replaces the materialized grant status after replaying all normalized
+     * history newer than this transaction's immutable replay baseline.
+     *
+     * Callers MUST hold both the per-transaction event lock and the per-user
+     * entitlement lock. There is deliberately no "changed_at must only move
+     * forward" predicate here: when a later-delivered OLDER event is inserted
+     * into the complete post-baseline history, the correct derived final state
+     * can change and its most recent status-changing event can legitimately be
+     * earlier than the previously materialized changed_at. The fixed baseline
+     * + full ordered replay, not arrival-time monotonicity, is the guard.
+     */
+    public function replaceStatusFromReplay(
+        string $paddleTransactionId,
+        string $status,
+        \DateTimeImmutable $changedAt,
+    ): bool {
+        $statement = $this->pdo->prepare(
+            'UPDATE transaction_grants
+             SET status = :status, status_changed_at = :changed_at
+             WHERE paddle_transaction_id = :txn_id',
+        );
+        $statement->execute([
+            'status' => $status,
+            'changed_at' => PaddleEventTime::format($changedAt),
+            'txn_id' => $paddleTransactionId,
+        ]);
+
+        return $statement->rowCount() === 1;
+    }
+
+    /**
+     * @return array{
+     *   paddle_transaction_id: string,
+     *   user_id: string,
+     *   product_key: string,
+     *   purchase_intent_id: int,
+     *   status: string,
+     *   granted_at: string,
+     *   status_changed_at: string
+     * }|null
      */
     public function findByTransactionId(string $paddleTransactionId): ?array
     {
         $statement = $this->pdo->prepare(
-            'SELECT paddle_transaction_id, user_id, product_key, purchase_intent_id, status
+            'SELECT paddle_transaction_id, user_id, product_key, purchase_intent_id, status, granted_at, status_changed_at
              FROM transaction_grants WHERE paddle_transaction_id = :txn_id LIMIT 1',
         );
         $statement->execute(['txn_id' => $paddleTransactionId]);
-        /** @var array{paddle_transaction_id: string, user_id: string, product_key: string, purchase_intent_id: int, status: string}|false $row */
+        /** @var array{paddle_transaction_id: string, user_id: string, product_key: string, purchase_intent_id: int, status: string, granted_at: string, status_changed_at: string}|false $row */
         $row = $statement->fetch();
 
         return $row === false ? null : $row;
