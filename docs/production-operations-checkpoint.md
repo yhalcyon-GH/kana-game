@@ -22,10 +22,14 @@ As of 2026-09-20:
   code are deployed together, keep the current Production backend unchanged.
 - Security migration `0009_paddle_event_reconciliation.sql` is **not yet
   applied** in Production. It adds the per-Paddle-transaction serialization
-  table and widens Paddle event-ordering timestamps to `DATETIME(6)`. Apply
-  it only after 0008, under the same Production DB backup/Human Gate, and
-  immediately before deploying the matching #365 backend source. Do not deploy
-  #365 backend code against a schema that has not applied 0009.
+  table plus nullable replay-baseline metadata and widens Paddle event-ordering
+  timestamps to `DATETIME(6)`. It does **not** guess/backfill missing legacy
+  adjustment payloads. The matching #365 backend initializes each legacy
+  transaction's baseline lazily from its already-materialized grant status and
+  `status_changed_at` while holding that transaction's lock. Apply 0009 only
+  after 0008, under the same Production DB backup/Human Gate, and immediately
+  before deploying the matching #365 backend source. Do not deploy #365
+  backend code against a schema that has not applied 0009.
 - Production email OTP configuration is enabled:
   - a distinct `LOGIN_CODE_PEPPER` is configured without exposing its value
   - `EMAIL_CODE_AUTH_ENABLED=true`
