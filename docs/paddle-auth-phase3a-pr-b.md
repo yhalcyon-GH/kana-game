@@ -8,6 +8,24 @@ and Phase 2 ([`docs/paddle-webhook-poc.md`](paddle-webhook-poc.md))
 without altering Phase 2's `payment_events`/`entitlements` tables or
 `sandbox-test-user` PoC path.
 
+> **Current-state note — Security & Safety Audit v1 / Issue #365 (2026-09-21):**
+> this document records the original Phase 3A PR B baseline. The current
+> entitlement-reconciliation runtime supersedes the original refund,
+> out-of-order, chargeback, and MariaDB-verification behavior described below.
+> Migration `0009_paddle_event_reconciliation.sql` adds a per-Paddle-
+> transaction event lock and widens ordering timestamps to `DATETIME(6)`.
+> Every entitlement-affecting refund/chargeback-family adjustment is retained
+> as normalized history and, once a grant exists, the complete history is
+> replayed in precise `occurred_at` order with `paddle_event_id` as a stable
+> tie-breaker. A full refund is terminal; approved partial/rejected refund
+> states restore active when chronologically appropriate; chargeback and
+> matching reversal lifecycles are handled by the replay reducer. The real
+> MariaDB harness now verifies same-transaction races in both lock orders and
+> separately proves that different Paddle transaction ids do not globally
+> serialize. See Issue #365, migration 0009, and the current
+> `PurchaseWebhookHandler` / `GrantAdjustmentReducer` tests for the
+> authoritative current behavior.
+
 ## Scope
 
 **In this PR:** `purchase_intents` (atomic single-use consume), hashed
