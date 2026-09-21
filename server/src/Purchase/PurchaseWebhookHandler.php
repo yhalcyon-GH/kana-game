@@ -84,7 +84,7 @@ final class PurchaseWebhookHandler
      * entitlement recompute runs inside ONE PDO transaction, owned
      * here (no repository called from this method may open its own
      * transaction — see PurchaseIntentRepository::consume(),
-     * TransactionGrantRepository::create()/updateStatus(),
+     * TransactionGrantRepository::create()/replaceStatusFromReplay(),
      * PendingAdjustmentRepository, EntitlementRepository::upsert(),
      * none of which do). Signature verification and payload parsing
      * happen BEFORE the transaction starts — they have no DB side
@@ -250,10 +250,17 @@ final class PurchaseWebhookHandler
             return false;
         }
 
-        // Rebuild the grant from its complete normalized adjustment
-        // history while this request still holds both the transaction lock
-        // and the per-user entitlement lock. With no adjustments this keeps
-        // the fresh grant active and simply materializes entitlement.
+        // A grant created by this code has complete normalized adjustment
+        // history from its birth onward, so its immutable replay baseline is
+        // the original active transaction.completed state. An empty event-id
+        // floor deliberately allows same-timestamp adjustment ids to replay.
+        $this->transactionLocks->initializeReplayBaseline(
+            $transactionId,
+            'active',
+            $occurredAt,
+            '',
+        );
+
         $this->replayAdjustmentHistory($transactionId);
 
         return true;
@@ -305,6 +312,15 @@ final class PurchaseWebhookHandler
             return true;
         }
 
+        // Legacy compatibility: before migration 0009, adjustments delivered
+        // after a grant existed changed transaction_grants directly and did
+        // NOT retain their normalized payload in pending_adjustments. On the
+        // first new-code adjustment for such a grant, snapshot its already-
+        // materialized state plus the latest previously processed adjustment
+        // sort key. That fixed baseline prevents partial legacy history from
+        // being replayed from a fictional "active" origin.
+        $this->initializeReplayBaselineForExistingGrant($grant, $eventId);
+
         $this->replayAdjustmentHistory($transactionId);
         return true;
     }
@@ -326,9 +342,20 @@ final class PurchaseWebhookHandler
 
         $this->lockUserForEntitlementUpdate($grant['user_id']);
 
+        $baseline = $this->transactionLocks->replayBaseline($transactionId);
+        if ($baseline === null) {
+            // Never guess an origin. A missing baseline means the matching
+            // migration/backend invariants are broken; throw so the outer
+            // transaction rolls back and Paddle retries instead of silently
+            // materializing a potentially unsafe entitlement state.
+            throw new \LogicException('missing Paddle reconciliation baseline');
+        }
+
         $history = $this->pendingAdjustments->findAllForTransaction($transactionId);
         $reduced = GrantAdjustmentReducer::reduce(
-            new \DateTimeImmutable($grant['granted_at']),
+            $baseline['status'],
+            new \DateTimeImmutable($baseline['occurred_at']),
+            $baseline['paddle_event_id'],
             $history,
         );
 
@@ -350,6 +377,59 @@ final class PurchaseWebhookHandler
         $this->pendingAdjustments->markAllReconciledForTransaction($transactionId);
     }
 
+
+    /**
+     * Establishes the one-time replay baseline for a grant created by the
+     * pre-0009 backend.
+     *
+     * The current event has already been claimed and normalized, so it is
+     * excluded when finding the latest PREVIOUSLY processed adjustment. The
+     * existing materialized grant status is the authoritative snapshot of
+     * those old events; the latest old event sort key becomes the replay
+     * floor. If there were no earlier adjustments, status_changed_at is the
+     * floor and an empty event id lets same-timestamp new adjustments replay.
+     *
+     * @param array{
+     *   paddle_transaction_id: string,
+     *   user_id: string,
+     *   product_key: string,
+     *   purchase_intent_id: int,
+     *   status: string,
+     *   granted_at: string,
+     *   status_changed_at: string
+     * } $grant
+     */
+    private function initializeReplayBaselineForExistingGrant(array $grant, string $currentEventId): void
+    {
+        if ($this->transactionLocks->replayBaseline($grant['paddle_transaction_id']) !== null) {
+            return;
+        }
+
+        $baselineAt = new \DateTimeImmutable($grant['status_changed_at']);
+        $baselineEventId = '';
+        $previousAdjustment = $this->events->latestAdjustmentForTransactionExcluding(
+            $grant['paddle_transaction_id'],
+            $currentEventId,
+        );
+
+        if ($previousAdjustment !== null) {
+            $previousAt = new \DateTimeImmutable($previousAdjustment['occurred_at']);
+            if ($previousAt > $baselineAt) {
+                $baselineAt = $previousAt;
+                $baselineEventId = $previousAdjustment['paddle_event_id'];
+            } elseif ($previousAt == $baselineAt) {
+                $baselineEventId = $previousAdjustment['paddle_event_id'];
+            }
+        }
+
+        $this->transactionLocks->initializeReplayBaseline(
+            $grant['paddle_transaction_id'],
+            $grant['status'],
+            $baselineAt,
+            $baselineEventId,
+        );
+    }
+
     /**
      * Common serialization point for Defect C3 (write-skew on
      * entitlements.active under concurrent grant mutations for the same
@@ -360,12 +440,9 @@ final class PurchaseWebhookHandler
      *
      * MUST be called after the current transaction's event claim and
      * identity/grant lookup, and BEFORE any grant-state mutation
-     * (transaction_grants create()/updateStatus()) for this user, on
-     * EVERY code path that can mutate a grant and then recompute
-     * entitlement: handleTransactionCompleted(), applyRefundTransition(),
-     * applyChargebackTransition() (which also covers
-     * reconcilePendingAdjustments(), since it goes through
-     * applyAdjustmentTransition() -> one of those two). This fixed
+     * (transaction_grants create()/replaceStatusFromReplay()) for this
+     * user, on EVERY code path that can mutate a grant and then recompute
+     * entitlement. This fixed
      * ordering -- event claim -> lookup -> this lock -> grant mutation
      * -> entitlement-bearing current read -> entitlement upsert ->
      * commit -- is identical on every path, which is what avoids
