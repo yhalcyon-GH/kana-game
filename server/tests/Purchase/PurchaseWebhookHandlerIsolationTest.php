@@ -34,10 +34,13 @@ function purchaseWebhookHandlerIsolationTests(): array
                 declare(strict_types=1);
                 require '{$srcDir}/Config.php';
                 require '{$srcDir}/PaddleSignature.php';
+                require '{$srcDir}/PaddleEventTime.php';
                 require '{$srcDir}/PaymentEventRepository.php';
                 require '{$srcDir}/EntitlementRepository.php';
                 require '{$srcDir}/ProductMatcher.php';
                 require '{$srcDir}/Purchase/PurchaseIntentRepository.php';
+                require '{$srcDir}/Purchase/TransactionEventLockRepository.php';
+                require '{$srcDir}/Purchase/GrantAdjustmentReducer.php';
                 require '{$srcDir}/Purchase/TransactionGrantRepository.php';
                 require '{$srcDir}/Purchase/PendingAdjustmentRepository.php';
                 require '{$srcDir}/Purchase/PurchaseWebhookHandler.php';
