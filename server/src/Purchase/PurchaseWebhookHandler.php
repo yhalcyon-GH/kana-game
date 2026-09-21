@@ -326,7 +326,8 @@ final class PurchaseWebhookHandler
     }
 
     /**
-     * Rebuild one grant from the complete normalized adjustment history.
+     * Rebuild one grant from its immutable baseline plus all retained
+     * normalized adjustment history after that baseline.
      *
      * Caller already holds the per-Paddle-transaction lock. We additionally
      * take the existing per-user lock before mutating the grant/materialized
