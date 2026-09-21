@@ -288,4 +288,3 @@ function scenarioPersistentRefreshRevoke(PDO $pdo, array $args, Barrier $barrier
         ];
     }
 }
-
