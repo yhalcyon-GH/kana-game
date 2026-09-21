@@ -1,64 +1,43 @@
 {
   "schema_version": 1,
-  "current_main_sha": "99b94729fb25023e4d0bd3fbe8d4b0ba8b776f82",
+  "current_main_sha": "d9882feb0a68e27ab0ac41ed68d215c5c1a384d3",
   "latest_completed_work": {
-    "kind": "post_launch_dependency_maintenance",
-    "number": 381,
-    "title": "Safe GitHub Actions and npm maintenance batch",
+    "kind": "post_launch_hardening_completion",
+    "number": 348,
+    "title": "Complete remaining post-launch security and maintenance gates",
     "merged_at": "2026-09-21"
   },
-  "open_prs": [
-    {
-      "number": 356,
-      "title": "Chore(deps): bump actions/deploy-pages from 4.0.5 to 5.0.1",
-      "status": "non_blocking_production_deploy_validation_gate"
-    },
-    {
-      "number": 294,
-      "title": "Add GitHub Agentic Workflows: Codex PR review + PR Verify failure investigator (docs/scaffolding; workflow files pending workflows-scope push)",
-      "status": "non_blocking_human_gate"
-    }
-  ],
+  "open_prs": [],
   "active_work_item": {
-    "id": "post-launch-human-gates",
-    "issue_number": 348,
+    "id": "post-launch-maintenance-complete",
+    "issue_number": null,
     "branch": null,
     "pull_request_number": null,
-    "status": "human_gate",
-    "goal": "AI-only post-launch maintenance is current. Remaining actionable security/operations work requires explicit Production/hosting/operator decisions."
+    "status": "complete",
+    "goal": "No queued launch or post-launch remediation remains. Resume only for new evidence, dependency maintenance, or a newly approved product/operations change."
   },
-  "next_machine_action": "Do not perform #348 Production ephemeral-data cleanup without explicit approval. If #348 is approved: fresh DB backup, deploy/stage reviewed cleanup code, run read-only --check, review counts, then guarded --apply, then re-check. Do not merge PR #356 until a Production Pages deployment-pipeline change is explicitly approved; v5 primarily moves deploy-pages to Node 24, while current GitHub-hosted runners already force legacy Node20 actions onto Node24. Issue #350 requires a hosting/CDN/DNS decision for meaningful frontend response headers. Issue #366 remains an accepted commercial residual unless stronger anti-extraction delivery is desired.",
+  "next_machine_action": "No queued AI work remains. On the next session, read live GitHub state and Production health before acting; do not repeat completed Production cutovers, cleanup activation, real-money tests, or hosting investigations without a new trigger.",
   "unresolved_ai_items": [],
   "human_gates": [
-    "Any new real-money, Paddle Live, paid-service, Production DB write, DNS, Production-secret, email-send, or Production backend deployment action beyond what is explicitly approved.",
-    "Issue #348 first Production ephemeral-data cleanup deployment/check/apply; any recurring cron/scheduler is a separate Production configuration Human Gate.",
-    "Issue #350 meaningful frontend response-header fix requires hosting/CDN/DNS control and explicit human approval.",
-    "PR #356 deploy-pages v5 changes the Production GitHub Pages deployment pipeline; keep deferred until explicitly approved."
+    "Any new real-money, Paddle Live, paid-service, Production DB write, DNS, Production-secret, email-send, Production backend deployment, or other new Production mutation requires fresh explicit human approval."
   ],
   "production_live_restrictions": "NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL. Real charges/refunds, Paddle Live transactions/configuration, paid-resource changes, Production DB writes, DNS changes, Production-secret changes, email sends, and Production deployments are Human Gates.",
-  "last_verified_at": "2026-09-21T16:12:54Z",
-  "last_verified_by": "Human explicitly approved and applied the #351 XServer .htaccess correction. Post-change checks confirmed nonexistent Tamamizu /api/* returns 404, capabilities returns 200, signed-out auth/me returns 401, ops readiness remains 403, and the parent WordPress site returns 200. Earlier Security Audit v1 Production cutover remains complete.",
+  "last_verified_at": "2026-09-21T16:37:25Z",
+  "last_verified_by": "Final post-launch closeout: #348 Production cleanup code was deployed after a fresh DB backup; initial preview found zero eligible rows, API protections remained healthy, and the human operator confirmed a recurring bounded cleanup Cron. PR #384 updated deploy-pages to v5.0.1 and the resulting GitHub Pages Production deployment completed successfully. #350 and #366 were closed as documented v1 accepted residuals; stale PRs #294 and #356 were closed.",
   "known_non_blockers": [
-    "Issue #351 resolved on 2026-09-21: Tamamizu was excluded from the parent WordPress rewrite after an explicitly approved XServer .htaccess change; post-change checks showed nonexistent /api/* = 404, auth capabilities = 200, signed-out auth/me = 401, ops readiness = 403, and parent giganihongo.com = 200.",
-    "Post-launch dependency maintenance completed: PR #379 updated pinned actions/checkout to v7.0.1 and cache restore/save to v6.1.0 with exact-head CI; PR #380 integrated jest-dom 7.0.1, zustand 5.0.15, jsdom 30.1.0, react-router-dom 7.18.4, and oxlint 1.83.0 with exact-head CI; PR #381 validated actions/github-script v9 opt-in logic without paid Claude execution.",
-    "PR #356 deploy-pages v5 is deferred because its meaningful validation occurs on Production Pages deployment; this is non-blocking.",
-    "Issue #350 remains Low and requires a hosting/CDN/DNS decision.",
-    "Issue #366 remains the accepted static/PWA premium-asset extraction limitation.",
-    "Issue #348 repository-side bounded cleanup merged in PR #377 with 30-day grace, 500-row-per-table batches, grant/FK preservation, guarded CLI, SQLite tests, and MariaDB 10.5/10.11 verification. Production activation is pending explicit approval.",
-    "Security Audit v1 Production cutover completed 2026-09-21: migrations 0008/0009 applied, matching reviewed backend deployed, release integrity passed, Paddle reconciliation 0/0.",
-    "The cutover initially left api/auth at mode 700, causing public auth HTTP 403; the human operator corrected only api/auth to 755. External verification then showed capabilities 200/email_code_auth=true, auth/me 401 while signed out, and ops readiness still 403.",
-    "Production Email OTP is enabled and real-device OTP login/persistence/logout QA passed on 2026-09-20.",
-    "Production CORS now allows only https://app.tamamizu.giganihongo.com; guarded correction and post-change production:status passed on 2026-09-20.",
-    "Production XServer error log is reachable; current supplied log contained no launch-critical Paddle webhook/auth-mailer/PHP failure tags, and user-area retention is set to 9 weeks.",
-    "Legacy installed-PWA recovery is complete; future/current builds actively check registration.update() with bounded throttling.",
-    "Production cancelled-checkout UX was human-tested successfully.",
-    "Refund policy is settled: full refund within 14 days; refund re-locks Full Access while local learning progress/history remains in the independent browser progress store.",
-    "Paddle Live product/price, one real purchase, and one real refund were already validated on 2026-09-16; do not repeat real-money tests for routine confidence.",
-    "Paddle purchase email/tax invoice were received; an in-app Customer Portal integration is optional/non-blocking and would require a separate Production Paddle API key Human Gate.",
-    "Open PR #294 is optional development-workflow tooling and does not block sale readiness."
+    "Issue #348 is complete: 30-day-grace bounded cleanup is deployed, the first Production preview found zero eligible rows in all five target categories, and recurring bounded cleanup is configured. No first-run DB deletion was necessary.",
+    "PR #384 updated actions/deploy-pages to v5.0.1 on current main; exact-head PR Verify, Browser Smoke, CodeQL, Pre-Live Safety, and Claude Code Review all passed, and the subsequent Production Pages deployment succeeded.",
+    "Issue #350 is closed as not planned for v1: meaningful frontend security headers require a broader hosting/CDN/DNS change; meta-only substitutes remain intentionally rejected.",
+    "Issue #366 is closed as not planned for v1: public/static premium-asset extraction remains an accepted commercial residual unless product value or piracy risk materially changes.",
+    "PR #294 was superseded and closed; the complete GitHub Agentic Workflow implementation already merged via PR #296.",
+    "Issue #351 remains resolved: nonexistent Tamamizu API paths return 404 while auth capabilities returns 200, signed-out auth/me returns 401, ops remains 403, and the parent WordPress site remains healthy.",
+    "Security Audit v1 Production cutover remains complete: migrations 0008/0009 applied, matching reviewed backend deployed, release integrity passed, and Paddle reconciliation finished with zero unresolved blocks.",
+    "Production Email OTP, exact Production CORS, real-device auth persistence/logout QA, cancelled-checkout UX, one real Paddle purchase, and one real refund were already validated; do not repeat them for routine confidence."
   ],
   "optional_post_launch": [
     "Re-evaluate a durable async webhook queue only if real Production latency or Paddle retry evidence warrants it.",
-    "Finish PR #294 Agentic Workflow setup if the user later approves workflow permission/API-key requirements."
+    "Revisit authenticated server/CDN delivery of premium assets only if piracy/redistribution becomes material or premium content value rises substantially.",
+    "Revisit a hosting/CDN migration for stronger frontend response headers when there is a broader hosting reason to do so.",
+    "An in-app Paddle Customer Portal integration remains optional and would require a separate Production Paddle API-key Human Gate."
   ]
 }
