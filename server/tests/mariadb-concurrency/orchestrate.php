@@ -1271,6 +1271,66 @@ function runScenarioH(PDO $maintPdo, int $iterations, bool $refundFirst): void
     }
 }
 
+// --------------------------------------------------------------------
+// Scenario H3: different Paddle transaction ids must not share a global
+// serialization point. Worker A keeps txn A's lock open while worker B
+// proves it can acquire txn B's lock before A commits.
+// --------------------------------------------------------------------
+function runScenarioH3(PDO $maintPdo, int $iterations): void
+{
+    $scenario = 'H3';
+    $GLOBALS['mariadbConcurrencyScenarioTally'][$scenario] = ['pass' => 0, 'fail' => 0];
+    $workerCount = 2;
+
+    for ($iter = 1; $iter <= $iterations; $iter++) {
+        resetTables($maintPdo);
+
+        $dir = makeBarrierDir($scenario, $iter);
+        writeArgsFile($dir, 0, [
+            'role' => 'holder',
+            'txn_id' => 'txn_H3_a',
+        ]);
+        writeArgsFile($dir, 1, [
+            'role' => 'other',
+            'txn_id' => 'txn_H3_b',
+        ]);
+
+        $iterationFailures = [];
+        try {
+            $results = runWorkers('independent_transaction_locks', $dir, $workerCount);
+
+            checkInvariant(
+                $scenario,
+                $iter,
+                'transaction B acquires its own event lock while transaction A still holds a different event lock',
+                ($results[0]['success'] ?? false) === true
+                    && ($results[1]['success'] ?? false) === true,
+                ['worker_results' => $results],
+                $iterationFailures,
+            );
+
+            $verifyPdo = connectMariadbConcurrencyTestDb();
+            $lockRows = (int) $verifyPdo->query(
+                "SELECT COUNT(*) FROM transaction_event_locks
+                 WHERE paddle_transaction_id IN ('txn_H3_a', 'txn_H3_b')",
+            )->fetchColumn();
+
+            checkInvariant(
+                $scenario,
+                $iter,
+                'different Paddle transaction ids persist two independent lock rows',
+                $lockRows === 2,
+                ['lock_rows' => $lockRows],
+                $iterationFailures,
+            );
+
+            reportIterationOutcome($scenario, $iter, $iterationFailures, $results, []);
+        } finally {
+            cleanupBarrierDir($dir);
+        }
+    }
+}
+
 // ========================================================================
 // Main
 // ========================================================================
@@ -1312,6 +1372,7 @@ $allScenarios = [
     'G' => fn () => runScenarioG($maintPdo, $iterations),
     'H1' => fn () => runScenarioH($maintPdo, $iterations, false),
     'H2' => fn () => runScenarioH($maintPdo, $iterations, true),
+    'H3' => fn () => runScenarioH3($maintPdo, $iterations),
 ];
 
 foreach ($allScenarios as $name => $runner) {
