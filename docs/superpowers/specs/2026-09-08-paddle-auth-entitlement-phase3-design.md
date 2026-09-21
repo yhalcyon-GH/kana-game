@@ -546,6 +546,30 @@ server call) says.
 
 ### Webhook: `adjustment.created` / `adjustment.updated`
 
+> **Current-state amendment — Security & Safety Audit v1 / Issue #365
+> (2026-09-21):** the incremental transition algorithm originally specified
+> below is historical and is superseded by deterministic normalized replay.
+> Every entitlement-affecting refund/chargeback-family adjustment handled by
+> the current backend is retained and replayed in
+> `occurred_at ASC, paddle_event_id ASC` order from an immutable
+> per-transaction baseline. For grants created by the current backend that
+> baseline is the original active `transaction.completed` state. For
+> pre-0009 grants, whose old direct-adjustment payloads were not retained, the
+> first new-code adjustment snapshots the already-materialized grant status
+> and the latest previously processed adjustment sort key; older/equal legacy
+> events cannot safely be reconstructed and do not rewrite that snapshot.
+>
+> Refund semantics are also tightened: `pending_approval` may enter
+> `refund_pending`; approved partial or rejected refund may restore
+> `refund_pending -> active`; approved full refund enters `refunded`, and
+> **`refunded` is terminal across all later normalized adjustment events**.
+> In particular, a later rejected refund does not resurrect a fully refunded
+> grant. Chargeback-family actions are now implemented by the same reducer
+> (warning/chargeback and their matching reversals). See migration
+> `0009_paddle_event_reconciliation.sql`,
+> `GrantAdjustmentReducer`, and Issue #365 for the authoritative behavior.
+
+
 Point 3 requires modeling Paddle's actual adjustment status lifecycle
 instead of treating every `action=refund` event as an immediate,
 irreversible revoke:
