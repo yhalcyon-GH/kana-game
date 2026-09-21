@@ -48,9 +48,9 @@ report for what was found and what remains as follow-up work.
   worker has signaled ready. This is what makes each worker's racy operation
   actually start at (as close as this mechanism can guarantee) the same
   moment, rather than relying on guessed sleep offsets.
-- `scenarios.php` — one function per scenario (A, B, C1–C4, D, E, F, G), each run
-  inside a worker process against that worker's own dedicated `PDO`
-  connection. D: same OTP challenge/code raced across 3 workers — exactly
+- `scenarios.php` — one function per worker operation used by scenarios A, B,
+  C1–C4, D, E, F, G, H1, and H2, each run inside a worker process against
+  that worker's own dedicated `PDO` connection. D: same OTP challenge/code raced across 3 workers — exactly
   one verifyCode() succeeds. E: a user at the 3-persistent-session cap, two
   concurrent 4th-login verifyCode() calls with distinct challenges — both
   succeed, the LRU row is evicted, and the active count never exceeds the
@@ -63,6 +63,13 @@ report for what was found and what remains as follow-up work.
   that sweep. The child row may exist unrevoked, but it must still be
   unauthenticatable because SessionRepository requires its persistent parent
   to remain active and unexpired.
+  H1/H2: `transaction.completed` races a full refund for the **same** Paddle
+  transaction id in both forced lock-acquisition orders. Both must settle with
+  a refunded grant, inactive entitlement, one retained normalized adjustment
+  history row, and no missed/unreconciled adjustment. These scenarios exercise
+  the MariaDB `transaction_event_locks` row lock added by security migration
+  0009; different Paddle transaction ids still use different rows and do not
+  globally serialize.
 - `worker.php` — the actual separate-process entrypoint (`proc_open`s this,
   never calls a scenario function in-process). Reads scenario args from a
   per-iteration JSON file (never argv, never stdout) so raw secret values
