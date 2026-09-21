@@ -121,3 +121,6 @@ jobs:
 
       - name: Run MariaDB concurrency verification harness
         run: php server/tests/mariadb-concurrency/orchestrate.php --iterations="${{ github.event.inputs.iterations || '20' }}"
+
+      - name: Verify ephemeral cleanup against real MariaDB foreign keys
+        run: php server/tests/mariadb-concurrency/ephemeral-cleanup.php
