@@ -26,10 +26,17 @@ As of 2026-09-20:
   timestamps to `DATETIME(6)`. It does **not** guess/backfill missing legacy
   adjustment payloads. The matching #365 backend initializes each legacy
   transaction's baseline lazily from its already-materialized grant status and
-  `status_changed_at` while holding that transaction's lock. Apply 0009 only
-  after 0008, under the same Production DB backup/Human Gate, and immediately
-  before deploying the matching #365 backend source. Do not deploy #365
-  backend code against a schema that has not applied 0009.
+  `status_changed_at` while holding that transaction's lock. The backend also
+  marks that legacy snapshot as whole-second/coarse and refuses ambiguous
+  same-second entitlement restoration. Apply 0009 only after 0008, under the
+  same Production DB backup/Human Gate, immediately before deploying the
+  matching #365 backend source. Do not deploy #365 backend code against a
+  schema that has not applied 0009.
+- The #365 cutover also requires the guarded one-time
+  `ops/paddle-reconciliation-cutover.php` inventory/repair to clear any
+  pre-existing **grant-backed unreconciled adjustments** left by the old race.
+  Duplicate Paddle delivery cannot be relied on to heal those because the old
+  event id may already be present in `payment_events`.
 - Production email OTP configuration is enabled:
   - a distinct `LOGIN_CODE_PEPPER` is configured without exposing its value
   - `EMAIL_CODE_AUTH_ENABLED=true`
@@ -99,7 +106,14 @@ The next security-release Human Gate, once the audited source changes are
 merged and reviewed, is a **single coordinated Production update**: preserve a
 DB/API rollback backup, apply migration 0008 then 0009, and deploy the matching
 reviewed backend source while preserving `api/config.php` and the host-owned
-root `api/.htaccess`. Until that explicit approval, keep Production unchanged.
+root `api/.htaccess`, then run the guarded idempotent Paddle cutover
+reconciliation and require a zero grant-backed-unreconciled count. Until that
+explicit approval, keep Production unchanged.
+
+After the 0009-aware backend has processed any webhook, **application-only
+rollback to the pre-0009 backend is not an allowed rollback path**. Use a
+forward fix/reconciliation-compatible build, or a coordinated pre-cutover DB
+restore plus controlled webhook recovery under the relevant Human Gates.
 
 Separately, the installed PWA still has a one-time, non-destructive recovery from old Build `419878e` to current Production. Because Build `419878e` predates PR #317, it cannot execute the new active `registration.update()` logic until it has updated once.
 

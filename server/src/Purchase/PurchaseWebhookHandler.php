@@ -9,6 +9,7 @@ require_once __DIR__ . '/GrantAdjustmentReducer.php';
 require_once __DIR__ . '/TransactionEventLockRepository.php';
 
 use KanaGame\Paddle\EntitlementRepository;
+use KanaGame\Paddle\PaddleEventTime;
 use KanaGame\Paddle\PaddleSignature;
 use KanaGame\Paddle\PaymentEventRepository;
 use KanaGame\Paddle\ProductMatcher;
@@ -259,6 +260,7 @@ final class PurchaseWebhookHandler
             'active',
             $occurredAt,
             '',
+            false,
         );
 
         $this->replayAdjustmentHistory($transactionId);
@@ -352,12 +354,15 @@ final class PurchaseWebhookHandler
             throw new \LogicException('missing Paddle reconciliation baseline');
         }
 
+        $this->assertMaterializedGrantMatchesReconciledHistory($grant, $baseline);
+
         $history = $this->pendingAdjustments->findAllForTransaction($transactionId);
         $reduced = GrantAdjustmentReducer::reduce(
             $baseline['status'],
             new \DateTimeImmutable($baseline['occurred_at']),
             $baseline['paddle_event_id'],
             $history,
+            $baseline['legacy_coarse'],
         );
 
         $this->grants->replaceStatusFromReplay(
@@ -378,6 +383,73 @@ final class PurchaseWebhookHandler
         $this->pendingAdjustments->markAllReconciledForTransaction($transactionId);
     }
 
+
+    public function reconcileLegacyUnreconciledAdjustments(): int
+    {
+        if ($this->pdo->inTransaction()) {
+            throw new \LogicException('cutover reconciliation requires no active caller transaction');
+        }
+
+        $reconciled = 0;
+        foreach ($this->pendingAdjustments->findUnreconciledTransactionIdsWithGrant() as $transactionId) {
+            $this->pdo->beginTransaction();
+            try {
+                $this->transactionLocks->lock($transactionId);
+                $grant = $this->grants->findByTransactionId($transactionId);
+                if ($grant === null) {
+                    $this->pdo->commit();
+                    continue;
+                }
+
+                $this->initializeReplayBaselineForExistingGrant($grant);
+                $this->replayAdjustmentHistory($transactionId);
+                $this->pdo->commit();
+                $reconciled++;
+            } catch (\Throwable $e) {
+                if ($this->pdo->inTransaction()) {
+                    $this->pdo->rollBack();
+                }
+                throw $e;
+            }
+        }
+
+        return $reconciled;
+    }
+
+    /**
+     * @param array{
+     *   paddle_transaction_id: string,
+     *   user_id: string,
+     *   product_key: string,
+     *   purchase_intent_id: int,
+     *   status: string,
+     *   granted_at: string,
+     *   status_changed_at: string
+     * } $grant
+     * @param array{status: string, occurred_at: string, paddle_event_id: string, legacy_coarse: bool} $baseline
+     */
+    private function assertMaterializedGrantMatchesReconciledHistory(array $grant, array $baseline): void
+    {
+        $previousHistory = $this->pendingAdjustments->findReconciledForTransaction(
+            $grant['paddle_transaction_id'],
+        );
+        $expected = GrantAdjustmentReducer::reduce(
+            $baseline['status'],
+            new \DateTimeImmutable($baseline['occurred_at']),
+            $baseline['paddle_event_id'],
+            $previousHistory,
+            $baseline['legacy_coarse'],
+        );
+
+        $actualChangedAt = PaddleEventTime::format(
+            new \DateTimeImmutable($grant['status_changed_at']),
+        );
+        $expectedChangedAt = PaddleEventTime::format($expected['changed_at']);
+
+        if ($grant['status'] !== $expected['status'] || $actualChangedAt !== $expectedChangedAt) {
+            throw new \LogicException('materialized Paddle grant diverged from reconciliation history');
+        }
+    }
 
     /**
      * Establishes the one-time replay baseline for a grant created by the
@@ -411,6 +483,7 @@ final class PurchaseWebhookHandler
             $grant['status'],
             new \DateTimeImmutable($grant['status_changed_at']),
             '',
+            true,
         );
     }
 

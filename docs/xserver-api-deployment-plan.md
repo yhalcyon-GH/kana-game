@@ -37,7 +37,8 @@ preflight; use the XServer account's confirmed path, not an assumed path.
    - `server/entitlement-me.php`;
    - `server/purchase-intent.php`;
    - `server/paddle-webhook.php`;
-   - `server/ops/auth-readiness-check.php` and its `.htaccess` file.
+   - `server/ops/auth-readiness-check.php`, `server/ops/release-integrity-check.php`,
+     `server/ops/paddle-reconciliation-cutover.php`, and the shared `server/ops/.htaccess` deny rule.
 
 4. Confirm these are **not** included in the web-served release:
 
@@ -73,13 +74,46 @@ For the Security & Safety Audit v1 backend release, database schema and backend
 source must move together under the Human Gate. After the fresh Production DB
 backup and before uploading the matching backend source, apply reviewed
 migration `0008_magic_link_browser_binding.sql` and then
-`0009_paddle_event_reconciliation.sql` in that order. Migration 0009 adds
-nullable replay-baseline metadata but performs no speculative legacy-event
-backfill; the matching backend initializes legacy baselines lazily under the
-per-transaction lock. Migration 0007 remains dev-only and intentionally
-skipped in Production. If either 0008 or 0009 is uncertain or fails, stop
-before uploading the new backend and use the rollback procedure rather than
-attempting an ad-hoc partial release.
+`0009_paddle_event_reconciliation.sql` in that order. Migration 0009 adds nullable replay-baseline metadata (including an explicit
+legacy/coarse timestamp marker) but performs no speculative legacy-event
+backfill. Migration 0007 remains dev-only and intentionally skipped in
+Production.
+
+Before the write phase, inventory grant-backed unreconciled adjustments with
+the guarded CLI command in its default read-only mode:
+
+    php ops/paddle-reconciliation-cutover.php --check
+
+Because the old backend can still create one last stranded row in the narrow
+schema-to-code cutover window, the required order is:
+
+1. fresh DB + API rollback backups;
+2. apply 0008, then 0009;
+3. immediately deploy the matching reviewed backend and CLI ops file while
+   preserving `api/config.php` and root `api/.htaccess`;
+4. under the same explicitly approved Production security-cutover Human Gate,
+   run the idempotent repair:
+
+       php ops/paddle-reconciliation-cutover.php --apply --human-approved-security-cutover
+
+5. run `--check` again and require
+   `grantBackedUnreconciledTransactions=0` before declaring cutover complete.
+
+The repair acquires the same per-transaction lock as live webhooks. If it
+encounters an ambiguous whole-second legacy reactivation or grant/history
+divergence, it fails closed without printing identifiers. Treat any blocked or
+non-zero result as a stop condition.
+
+**Rollback boundary after 0009:** once the 0009-aware backend has processed any
+webhook, an application-files-only rollback to the pre-0009 backend is
+prohibited. Use a forward fix or a reconciliation-compatible rollback build.
+A true return to the old backend requires a coordinated DB restore to the
+pre-cutover backup plus controlled webhook pause/recovery; any Paddle Live
+configuration change for that is a separate Human Gate.
+
+If either migration is uncertain or fails before the new backend is exposed,
+stop before completing the cutover and follow the coordinated rollback plan
+rather than attempting an ad-hoc partial release.
 
 The `ops/` directory includes a committed Apache rule that rejects all HTTP
 requests. It exists solely so the fixed local SSH runner can execute:
@@ -114,7 +148,11 @@ of these is true:
 - the redacted preflight reports an enabled development harness or an
   unconfigured production Magic Link mailer;
 - a required database migration is uncertain, or a rollback procedure is
-  unavailable.
+  unavailable;
+- cutover reconciliation is blocked or leaves any grant-backed unreconciled
+  adjustment;
+- the only proposed rollback is restoring pre-0009 application files while
+  leaving 0009 database/baseline state in place.
 
 A successful preflight is not approval for a real Magic Link email, Paddle
 Live configuration, a charge, a refund, or any database write.

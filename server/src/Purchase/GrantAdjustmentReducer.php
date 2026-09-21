@@ -14,6 +14,10 @@ namespace KanaGame\Paddle\Purchase;
  * snapshot of the already-materialized legacy state plus the latest previously
  * processed adjustment sort key; events at/before that key cannot safely be
  * reconstructed because the old direct path did not retain their payloads.
+ * A pre-0009 status_changed_at also had only whole-second precision. Such a
+ * baseline is marked legacy/coarse: within that ambiguous baseline second the
+ * reducer may conservatively remove entitlement, but it refuses any transition
+ * from a non-entitlement state back to an entitlement-bearing state.
  *
  * A fully approved refund is terminal across ALL later normalized adjustment
  * events. Rejected/partial refund events restore active only from
@@ -37,6 +41,7 @@ final class GrantAdjustmentReducer
         \DateTimeImmutable $baselineAt,
         string $baselineEventId,
         array $adjustments,
+        bool $baselineIsLegacyCoarse = false,
     ): array {
         $status = $baselineStatus;
         $changedAt = $baselineAt;
@@ -53,6 +58,12 @@ final class GrantAdjustmentReducer
             }
 
             $next = self::nextStatus($status, $adjustment);
+            if ($baselineIsLegacyCoarse
+                && self::isInSameWholeSecond($occurredAt, $baselineAt)
+                && self::restoresEntitlement($status, $next)
+            ) {
+                throw new \LogicException('ambiguous legacy coarse replay would restore entitlement');
+            }
             if ($next !== $status) {
                 $status = $next;
                 $changedAt = $occurredAt;
@@ -79,6 +90,21 @@ final class GrantAdjustmentReducer
         // timestamp" (the normal baseline for a newly-created grant), so
         // same-timestamp real adjustment ids remain eligible for replay.
         return $baselineEventId !== '' && strcmp($eventId, $baselineEventId) <= 0;
+    }
+
+    private static function isInSameWholeSecond(\DateTimeImmutable $a, \DateTimeImmutable $b): bool
+    {
+        return $a->format('Y-m-d H:i:s') === $b->format('Y-m-d H:i:s');
+    }
+
+    private static function restoresEntitlement(string $from, string $to): bool
+    {
+        return !self::isEntitlementBearing($from) && self::isEntitlementBearing($to);
+    }
+
+    private static function isEntitlementBearing(string $status): bool
+    {
+        return in_array($status, ['active', 'refund_pending'], true);
     }
 
     /**

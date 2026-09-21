@@ -53,6 +53,7 @@ function makePurchaseWebhookTestDb(): PDO
             replay_base_status TEXT NULL,
             replay_base_at TEXT NULL,
             replay_base_event_id TEXT NULL,
+            replay_base_is_legacy_coarse INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )',
     );
@@ -703,6 +704,7 @@ function purchaseWebhookHandlerTests(): array
             $baseline = (new TransactionEventLockRepository($pdo))->replayBaseline('txn_legacy_refunded');
             assertSame('refunded', $baseline['status'], 'legacy materialized status must be captured as the immutable replay baseline');
             assertSame('', $baseline['paddle_event_id'], 'legacy payload/action details must not be guessed from the coarse payment-event ledger');
+            assertTrue($baseline['legacy_coarse'], 'pre-0009 snapshot must be marked whole-second/coarse');
         },
 
         'legacy chargeback snapshot is preserved when first post-cutover event would differ from an active seed' => function () {
@@ -744,6 +746,120 @@ function purchaseWebhookHandlerTests(): array
                 $grants->findByTransactionId('txn_legacy_chargeback')['status'],
                 'warning must not downgrade a legacy chargeback to chargeback_pending',
             );
+        },
+
+        'cutover reconciliation repairs a pre-0009 grant-backed unreconciled full refund whose event id was already claimed' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $grants = new TransactionGrantRepository($pdo);
+            $grants->create(
+                'txn_stranded_pre0009',
+                'user-1',
+                'full_tamamizu',
+                9101,
+                new \DateTimeImmutable('2026-01-01T00:00:00Z'),
+            );
+            (new EntitlementRepository($pdo))->activate('user-1', 'full_tamamizu', 'txn_stranded_pre0009');
+
+            $pending = new PendingAdjustmentRepository($pdo);
+            $pending->queue(
+                'txn_stranded_pre0009',
+                'evt_stranded_refund',
+                'refund',
+                'approved',
+                'full',
+                null,
+                new \DateTimeImmutable('2026-01-02T00:00:00Z'),
+            );
+            (new PaymentEventRepository($pdo))->record(
+                'evt_stranded_refund',
+                'adjustment.updated',
+                'txn_stranded_pre0009',
+                new \DateTimeImmutable('2026-01-02T00:00:00Z'),
+            );
+
+            $handler = makePurchaseWebhookHandler($pdo);
+            assertSame(1, $handler->reconcileLegacyUnreconciledAdjustments(), 'cutover repair must process the stranded transaction exactly once');
+
+            assertSame('refunded', $grants->findByTransactionId('txn_stranded_pre0009')['status'], 'stranded approved full refund must be materialized');
+            assertFalse((new EntitlementRepository($pdo))->find('user-1', 'full_tamamizu')['active'], 'cutover repair must revoke entitlement');
+            assertSame(0, count($pending->findUnreconciledForTransaction('txn_stranded_pre0009')), 'no grant-backed pending adjustment may remain after repair');
+
+            $baseline = (new TransactionEventLockRepository($pdo))->replayBaseline('txn_stranded_pre0009');
+            assertTrue($baseline['legacy_coarse'], 'cutover snapshot of a pre-0009 grant must be marked coarse');
+            assertSame(0, $handler->reconcileLegacyUnreconciledAdjustments(), 'cutover repair must be idempotent after the row is reconciled');
+        },
+
+        'upgrade then legacy direct write then re-upgrade fails closed instead of replaying an old baseline over the refund' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $handler = makePurchaseWebhookHandler($pdo);
+            pwhMakeActiveGrant($pdo, $handler, 'user-1', 'raw-ref-rollback', 'evt_rollback_txn', 'txn_rollback');
+
+            $pdo->exec(
+                "UPDATE transaction_grants
+                 SET status = 'refunded', status_changed_at = '2026-01-02 00:00:00.000000'
+                 WHERE paddle_transaction_id = 'txn_rollback'",
+            );
+
+            $later = pwhAdjustmentPayload(
+                'evt_rollback_later',
+                'adjustment.created',
+                'txn_rollback',
+                'chargeback_reverse',
+                'n/a',
+                'n/a',
+                '2026-01-03T00:00:00Z',
+            );
+
+            $threw = false;
+            try {
+                $handler->handle($later, pwhSign($later));
+            } catch (\LogicException) {
+                $threw = true;
+            }
+
+            assertTrue($threw, 're-upgraded backend must detect grant/history divergence and fail closed');
+            assertSame('refunded', (new TransactionGrantRepository($pdo))->findByTransactionId('txn_rollback')['status'], 'legacy refund must never be overwritten by stale immutable baseline replay');
+            assertFalse((new PaymentEventRepository($pdo))->alreadyProcessed('evt_rollback_later'), 'failed-closed transaction must roll back the new event claim');
+            assertSame(0, count((new PendingAdjustmentRepository($pdo))->findUnreconciledForTransaction('txn_rollback')), 'failed-closed transaction must roll back the newly queued adjustment');
+        },
+
+        'legacy coarse chargeback baseline refuses a same-second reverse that would restore entitlement' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $grants = new TransactionGrantRepository($pdo);
+            $grants->create(
+                'txn_legacy_same_second',
+                'user-1',
+                'full_tamamizu',
+                9102,
+                new \DateTimeImmutable('2026-01-01T00:00:00Z'),
+            );
+            $pdo->exec(
+                "UPDATE transaction_grants
+                 SET status = 'chargeback', status_changed_at = '2026-01-02 00:00:00.000000'
+                 WHERE paddle_transaction_id = 'txn_legacy_same_second'",
+            );
+
+            $handler = makePurchaseWebhookHandler($pdo);
+            $reverse = pwhAdjustmentPayload(
+                'evt_legacy_same_second_reverse',
+                'adjustment.created',
+                'txn_legacy_same_second',
+                'chargeback_reverse',
+                'n/a',
+                'n/a',
+                '2026-01-02T00:00:00.900000Z',
+            );
+
+            $threw = false;
+            try {
+                $handler->handle($reverse, pwhSign($reverse));
+            } catch (\LogicException) {
+                $threw = true;
+            }
+
+            assertTrue($threw, 'same legacy whole-second entitlement restoration is ambiguous and must fail closed');
+            assertSame('chargeback', $grants->findByTransactionId('txn_legacy_same_second')['status'], 'ambiguous same-second reverse must not reactivate the grant');
+            assertFalse((new PaymentEventRepository($pdo))->alreadyProcessed('evt_legacy_same_second_reverse'), 'ambiguous event claim must roll back so operator remediation remains possible');
         },
 
         'fully refunded grant stays terminal when a later refund-family rejection arrives' => function () {

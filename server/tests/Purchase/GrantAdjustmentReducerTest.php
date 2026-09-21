@@ -116,5 +116,65 @@ function grantAdjustmentReducerTests(): array
             );
             assertSame('chargeback_pending', $result['status'], 'only event ids after the baseline tie-breaker should replay');
         },
+
+        'legacy coarse non-entitlement baseline rejects same-second entitlement restoration' => function () {
+            $threw = false;
+            try {
+                GrantAdjustmentReducer::reduce(
+                    'chargeback',
+                    new \DateTimeImmutable('2026-01-02T00:00:00.000000Z'),
+                    '',
+                    [[
+                        'paddle_event_id' => 'evt_reverse',
+                        'action' => 'chargeback_reverse',
+                        'adjustment_status' => 'n/a',
+                        'adjustment_type' => 'n/a',
+                        'items' => null,
+                        'occurred_at' => '2026-01-02 00:00:00.900000',
+                    ]],
+                    true,
+                );
+            } catch (\LogicException) {
+                $threw = true;
+            }
+            assertTrue($threw, 'whole-second legacy boundary must never guess in the entitlement-restoring direction');
+        },
+
+        'legacy coarse baseline still allows same-second conservative entitlement revocation' => function () {
+            $result = GrantAdjustmentReducer::reduce(
+                'active',
+                new \DateTimeImmutable('2026-01-02T00:00:00.000000Z'),
+                '',
+                [[
+                    'paddle_event_id' => 'evt_refund',
+                    'action' => 'refund',
+                    'adjustment_status' => 'approved',
+                    'adjustment_type' => 'full',
+                    'items' => null,
+                    'occurred_at' => '2026-01-02 00:00:00.900000',
+                ]],
+                true,
+            );
+            assertSame('refunded', $result['status'], 'ambiguous legacy second may revoke entitlement conservatively');
+        },
+
+        'legacy coarse restoration after the ambiguous baseline second remains allowed' => function () {
+            $result = GrantAdjustmentReducer::reduce(
+                'chargeback',
+                new \DateTimeImmutable('2026-01-02T00:00:00.000000Z'),
+                '',
+                [[
+                    'paddle_event_id' => 'evt_reverse_next_second',
+                    'action' => 'chargeback_reverse',
+                    'adjustment_status' => 'n/a',
+                    'adjustment_type' => 'n/a',
+                    'items' => null,
+                    'occurred_at' => '2026-01-02 00:00:01.000000',
+                ]],
+                true,
+            );
+            assertSame('active', $result['status'], 'precisely later event outside the legacy second is not ambiguous');
+        },
+
     ];
 }

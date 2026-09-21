@@ -100,6 +100,52 @@ final class PendingAdjustmentRepository
         );
     }
 
+    /**
+     * @return list<array{id: int, paddle_transaction_id: string, paddle_event_id: string, action: string, adjustment_status: string, adjustment_type: string, items: mixed, occurred_at: string}>
+     */
+    public function findReconciledForTransaction(string $paddleTransactionId): array
+    {
+        $statement = $this->pdo->prepare(
+            'SELECT id, paddle_transaction_id, paddle_event_id, action, adjustment_status, adjustment_type, items_json, occurred_at
+             FROM pending_adjustments
+             WHERE paddle_transaction_id = :txn_id
+               AND reconciled_at IS NOT NULL
+             ORDER BY occurred_at ASC, paddle_event_id ASC',
+        );
+        $statement->execute(['txn_id' => $paddleTransactionId]);
+        $rows = $statement->fetchAll();
+
+        return array_map(
+            static function (array $row): array {
+                $row['items'] = $row['items_json'] === null ? null : json_decode($row['items_json'], true);
+                unset($row['items_json']);
+                return $row;
+            },
+            $rows,
+        );
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function findUnreconciledTransactionIdsWithGrant(): array
+    {
+        $statement = $this->pdo->query(
+            'SELECT DISTINCT p.paddle_transaction_id
+             FROM pending_adjustments p
+             INNER JOIN transaction_grants g
+               ON g.paddle_transaction_id = p.paddle_transaction_id
+             WHERE p.reconciled_at IS NULL
+             ORDER BY p.paddle_transaction_id ASC',
+        );
+        $rows = $statement->fetchAll(PDO::FETCH_COLUMN);
+
+        return array_values(array_filter(
+            $rows,
+            static fn (mixed $value): bool => is_string($value) && $value !== '',
+        ));
+    }
+
     public function markReconciled(string $paddleEventId): void
     {
         $nowExpression = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite'

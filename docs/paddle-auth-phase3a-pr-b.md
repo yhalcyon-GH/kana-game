@@ -156,3 +156,30 @@ produce exactly one `transaction_grants` row. Not performed in this PR.
 
 Run `php server/tests/run-tests.php` — all PR A tests plus this PR's
 new tests must pass together.
+
+
+## Security Audit v1 cutover amendment (2026-09-21)
+
+Migration 0009 is not only a forward event-ordering change. The pre-0009
+transaction.completed/adjustment race may already have left a grant-backed
+`pending_adjustments` row unreconciled while the same Paddle event id is
+present in `payment_events`. Duplicate delivery therefore cannot be the
+repair mechanism. The reviewed cutover includes an idempotent operator-run
+reconciliation that locks each affected Paddle transaction, initializes a
+legacy baseline if necessary, replays retained normalized history, recomputes
+entitlement, and requires zero grant-backed unreconciled rows before cutover
+completion.
+
+A legacy baseline carries a coarse-precision marker because pre-0009
+`status_changed_at` was whole-second `DATETIME`. Within that ambiguous
+baseline second the reducer may conservatively revoke entitlement, but it
+fails closed rather than automatically restoring entitlement from a
+non-entitlement state.
+
+The 0009 baseline/history contract also changes rollback semantics. Once a
+0009-aware backend has processed a webhook, reverting only application files
+to the pre-0009 backend is prohibited: the old backend can mutate
+`transaction_grants` without maintaining baseline/history. The new backend
+detects such materialized/history divergence and fails closed, but the
+operational rollback must still be a forward fix/reconciliation-compatible
+build or a coordinated DB restore + webhook recovery under Human Gates.

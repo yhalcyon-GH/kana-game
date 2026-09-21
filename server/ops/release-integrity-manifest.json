@@ -8,6 +8,7 @@
     "purchase-intent.php",
     "paddle-webhook.php",
     "ops/.htaccess",
-    "ops/auth-readiness-check.php"
+    "ops/auth-readiness-check.php",
+    "ops/paddle-reconciliation-cutover.php"
   ]
 }

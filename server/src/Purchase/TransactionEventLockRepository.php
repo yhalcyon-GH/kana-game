@@ -87,12 +87,14 @@ final class TransactionEventLockRepository
         string $status,
         \DateTimeImmutable $baselineAt,
         string $baselineEventId,
+        bool $isLegacyCoarse = false,
     ): void {
         $statement = $this->pdo->prepare(
             'UPDATE transaction_event_locks
              SET replay_base_status = :status,
                  replay_base_at = :baseline_at,
-                 replay_base_event_id = :baseline_event_id
+                 replay_base_event_id = :baseline_event_id,
+                 replay_base_is_legacy_coarse = :legacy_coarse
              WHERE paddle_transaction_id = :txn_id
                AND replay_base_status IS NULL',
         );
@@ -100,17 +102,18 @@ final class TransactionEventLockRepository
             'status' => $status,
             'baseline_at' => PaddleEventTime::format($baselineAt),
             'baseline_event_id' => $baselineEventId,
+            'legacy_coarse' => $isLegacyCoarse ? 1 : 0,
             'txn_id' => $paddleTransactionId,
         ]);
     }
 
     /**
-     * @return array{status: string, occurred_at: string, paddle_event_id: string}|null
+     * @return array{status: string, occurred_at: string, paddle_event_id: string, legacy_coarse: bool}|null
      */
     public function replayBaseline(string $paddleTransactionId): ?array
     {
         $statement = $this->pdo->prepare(
-            'SELECT replay_base_status, replay_base_at, replay_base_event_id
+            'SELECT replay_base_status, replay_base_at, replay_base_event_id, replay_base_is_legacy_coarse
              FROM transaction_event_locks
              WHERE paddle_transaction_id = :txn_id
              LIMIT 1',
@@ -130,6 +133,7 @@ final class TransactionEventLockRepository
             'status' => $row['replay_base_status'],
             'occurred_at' => $row['replay_base_at'],
             'paddle_event_id' => $row['replay_base_event_id'],
+            'legacy_coarse' => ((int) ($row['replay_base_is_legacy_coarse'] ?? 0)) === 1,
         ];
     }
 }

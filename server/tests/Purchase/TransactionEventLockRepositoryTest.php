@@ -21,6 +21,7 @@ function makeTransactionEventLockTestDb(): PDO
             replay_base_status TEXT NULL,
             replay_base_at TEXT NULL,
             replay_base_event_id TEXT NULL,
+            replay_base_is_legacy_coarse INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )',
     );
@@ -57,6 +58,7 @@ function transactionEventLockRepositoryTests(): array
                 'chargeback',
                 new \DateTimeImmutable('2026-01-02T00:00:00.100000Z'),
                 'evt_old',
+                true,
             );
             $repo->initializeReplayBaseline(
                 'txn_1',
@@ -69,6 +71,7 @@ function transactionEventLockRepositoryTests(): array
             assertSame('chargeback', $baseline['status'], 'first baseline status must remain immutable');
             assertSame('2026-01-02 00:00:00.100000', $baseline['occurred_at'], 'first baseline timestamp must remain immutable');
             assertSame('evt_old', $baseline['paddle_event_id'], 'first baseline event id must remain immutable');
+            assertTrue($baseline['legacy_coarse'], 'legacy/coarse precision marker must remain immutable');
         },
     ];
 }
