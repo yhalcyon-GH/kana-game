@@ -20,6 +20,12 @@ As of 2026-09-20:
   applied only after the normal Production DB backup/Human Gate immediately
   before deploying the matching #364 backend source. Until both migration and
   code are deployed together, keep the current Production backend unchanged.
+- Security migration `0009_paddle_event_reconciliation.sql` is **not yet
+  applied** in Production. It adds the per-Paddle-transaction serialization
+  table and widens Paddle event-ordering timestamps to `DATETIME(6)`. Apply
+  it only after 0008, under the same Production DB backup/Human Gate, and
+  immediately before deploying the matching #365 backend source. Do not deploy
+  #365 backend code against a schema that has not applied 0009.
 - Production email OTP configuration is enabled:
   - a distinct `LOGIN_CODE_PEPPER` is configured without exposing its value
   - `EMAIL_CODE_AUTH_ENABLED=true`
@@ -85,9 +91,13 @@ Repeat a step only when its trigger occurs:
 
 ## Current next Human Gate
 
-The next required human action is **not** another deployment, migration, secret change, or Paddle test.
+The next security-release Human Gate, once the audited source changes are
+merged and reviewed, is a **single coordinated Production update**: preserve a
+DB/API rollback backup, apply migration 0008 then 0009, and deploy the matching
+reviewed backend source while preserving `api/config.php` and the host-owned
+root `api/.htaccess`. Until that explicit approval, keep Production unchanged.
 
-It is a one-time, non-destructive recovery of the user's already-installed PWA from old Build `419878e` to current Production. Because Build `419878e` predates PR #317, it cannot execute the new active `registration.update()` logic until it has updated once.
+Separately, the installed PWA still has a one-time, non-destructive recovery from old Build `419878e` to current Production. Because Build `419878e` predates PR #317, it cannot execute the new active `registration.update()` logic until it has updated once.
 
 Rules for this recovery:
 
