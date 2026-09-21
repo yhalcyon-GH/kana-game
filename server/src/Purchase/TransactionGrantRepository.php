@@ -20,8 +20,9 @@ use PDO;
  * Non-entitlement-bearing: 'refunded', 'chargeback', 'chargeback_pending'
  * (Phase H1-3 — see PurchaseWebhookHandler's chargeback-family handling).
  *
- * updateStatus() discards a stale (older occurred_at) transition so a
- * late-arriving out-of-order event can never undo a newer one.
+ * Grant status is materialized only from the deterministic replay reducer.
+ * Per-event staleness/order decisions belong to that reducer, not this
+ * repository write primitive.
  */
 final class TransactionGrantRepository
 {
@@ -73,63 +74,6 @@ final class TransactionGrantRepository
     }
 
     /**
-     * Applies a status transition ONLY if $occurredAt is not older than
-     * the grant's current status_changed_at — a stale out-of-order
-     * event is discarded (returns false) rather than overwriting a
-     * newer status. Returns false for an unknown transaction id.
-     *
-     * Phase H1-3: $allowedFromStatuses, when given, adds a second,
-     * INDEPENDENT guard alongside the occurred_at staleness check: the
-     * transition is only applied if the grant's CURRENT status is one
-     * of the listed values. This is what makes chargeback_reverse and
-     * chargeback_warning_reverse safe -- without it, an occurred_at
-     * that merely postdates a *previous* status_changed_at would be
-     * enough to blindly restore 'active' from ANY current status,
-     * including an already-finalized 'refunded' grant. With it, e.g.
-     * chargeback_reverse can only ever fire from 'chargeback' (never
-     * from 'refunded', never from 'chargeback_pending' -- that pairs
-     * exclusively with chargeback_warning_reverse). Omitted (null,
-     * the default) for the existing refund transitions, which are
-     * unrestricted by source status, preserving their current
-     * behavior exactly.
-     *
-     * @param list<string>|null $allowedFromStatuses
-     */
-    public function updateStatus(
-        string $paddleTransactionId,
-        string $newStatus,
-        \DateTimeImmutable $occurredAt,
-        ?array $allowedFromStatuses = null,
-    ): bool {
-        $occurredAtStr = PaddleEventTime::format($occurredAt);
-        $params = [
-            'status' => $newStatus,
-            'occurred_at' => $occurredAtStr,
-            'txn_id' => $paddleTransactionId,
-            'occurred_at2' => $occurredAtStr,
-        ];
-
-        $sql = 'UPDATE transaction_grants
-                SET status = :status, status_changed_at = :occurred_at
-                WHERE paddle_transaction_id = :txn_id AND status_changed_at <= :occurred_at2';
-
-        if ($allowedFromStatuses !== null) {
-            $placeholders = [];
-            foreach (array_values($allowedFromStatuses) as $index => $fromStatus) {
-                $key = "from_status_{$index}";
-                $placeholders[] = ":{$key}";
-                $params[$key] = $fromStatus;
-            }
-            $sql .= ' AND status IN (' . implode(',', $placeholders) . ')';
-        }
-
-        $statement = $this->pdo->prepare($sql);
-        $statement->execute($params);
-
-        return $statement->rowCount() === 1;
-    }
-
-    /**
      * Callers MUST hold the caller's per-user serialization lock (see
      * PurchaseWebhookHandler::lockUserForEntitlementUpdate()) before
      * calling this, and this is the only entitlement-affecting read
@@ -160,9 +104,16 @@ final class TransactionGrantRepository
     }
 
     /**
-     * Replaces the materialized grant status after replaying the complete
-     * normalized adjustment history for this Paddle transaction. Callers must
-     * hold the per-transaction event lock and the per-user entitlement lock.
+     * Replaces the materialized grant status after replaying all normalized
+     * history newer than this transaction's immutable replay baseline.
+     *
+     * Callers MUST hold both the per-transaction event lock and the per-user
+     * entitlement lock. There is deliberately no "changed_at must only move
+     * forward" predicate here: when a later-delivered OLDER event is inserted
+     * into the complete post-baseline history, the correct derived final state
+     * can change and its most recent status-changing event can legitimately be
+     * earlier than the previously materialized changed_at. The fixed baseline
+     * + full ordered replay, not arrival-time monotonicity, is the guard.
      */
     public function replaceStatusFromReplay(
         string $paddleTransactionId,
