@@ -14,10 +14,14 @@ without altering Phase 2's `payment_events`/`entitlements` tables or
 > out-of-order, chargeback, and MariaDB-verification behavior described below.
 > Migration `0009_paddle_event_reconciliation.sql` adds a per-Paddle-
 > transaction event lock and widens ordering timestamps to `DATETIME(6)`.
-> Every entitlement-affecting refund/chargeback-family adjustment is retained
-> as normalized history and, once a grant exists, the complete history is
-> replayed in precise `occurred_at` order with `paddle_event_id` as a stable
-> tie-breaker. A full refund is terminal; approved partial/rejected refund
+> Every entitlement-affecting refund/chargeback-family adjustment processed by
+> the current backend is retained as normalized history. Grants created by the
+> current backend replay that full history from their original active state;
+> pre-0009 grants first snapshot their already-materialized status and
+> `status_changed_at` because old direct-adjustment payloads were not retained.
+> Post-baseline history is replayed in precise `occurred_at` order with
+> `paddle_event_id` as a stable tie-breaker. A full refund is terminal;
+> approved partial/rejected refund
 > states restore active when chronologically appropriate; chargeback and
 > matching reversal lifecycles are handled by the replay reducer. The real
 > MariaDB harness now verifies same-transaction races in both lock orders and
