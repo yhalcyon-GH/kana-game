@@ -87,3 +87,27 @@ Stop launch and investigate if any of the following appears:
 ## Post-launch status
 
 Tamamizu entered **GO / launched** status on 2026-09-20. Pre-launch gates are closed. Continue ordinary monitoring and support. Re-open investigation only on concrete Production evidence such as repeated auth failures, Paddle webhook errors/retries, entitlement mismatches, repeated current server errors, or unexpected CORS drift.
+
+### 2026-09-21 Security Audit v1 Production cutover
+
+Completed under explicit human approval:
+
+- fresh Production DB and API rollback backups were created;
+- migrations `0008_magic_link_browser_binding.sql` and
+  `0009_paddle_event_reconciliation.sql` were applied;
+- the matching reviewed backend was deployed;
+- release-integrity passed;
+- Paddle reconciliation verified
+  `grantBackedUnreconciledTransactions=0` and
+  `unresolvedReconciliationBlocks=0`;
+- auth readiness and exact Production CORS checks passed;
+- the deployment's `api/auth/` directory mode was found at `700`, causing
+  public auth endpoints to return HTTP 403; the human operator changed only
+  that directory to `755`;
+- external verification then confirmed
+  `/api/auth/capabilities.php` HTTP 200 with
+  `email_code_auth=true`, `/api/auth/me.php` HTTP 401 while signed out,
+  and `/api/ops/auth-readiness-check.php` still HTTP 403.
+
+No real charge/refund, Paddle Live mutation, DNS change, or Production secret
+change was performed as part of this security cutover.

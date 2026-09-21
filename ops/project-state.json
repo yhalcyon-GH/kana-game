@@ -1,11 +1,11 @@
 {
   "schema_version": 1,
-  "current_main_sha": "680a58d2509a5282c0930cbbf59af5fb9edead21",
+  "current_main_sha": "4057cbb9537b47601ec7e0b199477d265c1ee5f2",
   "latest_completed_work": {
-    "kind": "human_launch_go",
-    "number": null,
-    "title": "Final human GO decision",
-    "merged_at": "2026-09-20"
+    "kind": "production_security_cutover",
+    "number": 374,
+    "title": "Security Audit v1 Production cutover and auth HTTP recovery",
+    "merged_at": "2026-09-21"
   },
   "open_prs": [
     {
@@ -19,23 +19,24 @@
     "issue_number": null,
     "branch": null,
     "pull_request_number": null,
-    "status": "launched",
-    "goal": "Tamamizu is launch-approved for normal customer traffic. Continue normal post-launch monitoring; no pre-launch Human Gates remain."
+    "status": "launched_security_cutover_complete",
+    "goal": "Tamamizu is launched and the Security Audit v1 Production cutover is complete. Continue ordinary post-launch monitoring; no security-cutover Human Gate remains."
   },
-  "next_machine_action": "Treat Tamamizu as launched/GO-approved from 2026-09-20. Do not repeat pre-launch checks merely because a chat/session changes. Monitor normal Production behavior and investigate only if real post-launch evidence appears (auth failures, webhook errors/retries, entitlement mismatches, repeated server errors, unexpected CORS, or support incidents). NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL remains in force for any new real charge/refund or paid/Production mutation.",
+  "next_machine_action": "Treat Security Audit v1 Production cutover as complete from 2026-09-21. Do not repeat migrations 0008/0009, the reviewed backend deployment, or the guarded Paddle reconciliation merely because a chat/session changes. Production reconciliation is 0/0. Public auth capability is restored after api/auth directory mode was corrected from 700 to 755. Continue normal monitoring and investigate only on concrete Production evidence. NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL remains in force.",
   "unresolved_ai_items": [],
   "human_gates": [
     "Any new real-money, Paddle Live, paid-service, Production DB write, DNS, Production-secret, email-send, or Production backend deployment action beyond what is explicitly approved."
   ],
   "production_live_restrictions": "NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL. Real charges/refunds, Paddle Live transactions/configuration, paid-resource changes, Production DB writes, DNS changes, Production-secret changes, email sends, and Production deployments are Human Gates.",
-  "last_verified_at": "2026-09-20",
-  "last_verified_by": "Human explicitly issued final GO after final legal approval and final read-only Production checks passed. Tamamizu is approved for normal customer traffic. No separate launch switch or Production mutation was required because the reviewed frontend/backend and Paddle Live configuration were already active and validated.",
+  "last_verified_at": "2026-09-21",
+  "last_verified_by": "Human explicitly approved the coordinated Security Audit v1 Production cutover. Fresh DB/API backups were created, migrations 0008/0009 and matching backend were applied, release integrity passed, reconciliation was 0/0, auth readiness/CORS passed, and public auth HTTP access was restored by correcting only api/auth from mode 700 to 755. External verification confirmed capabilities HTTP 200 with email_code_auth=true, auth/me HTTP 401 while signed out, and ops readiness HTTP 403.",
   "known_non_blockers": [
+    "Security Audit v1 Production cutover completed 2026-09-21: migrations 0008/0009 applied, matching reviewed backend deployed, release integrity passed, Paddle reconciliation 0/0.",
+    "The cutover initially left api/auth at mode 700, causing public auth HTTP 403; the human operator corrected only api/auth to 755. External verification then showed capabilities 200/email_code_auth=true, auth/me 401 while signed out, and ops readiness still 403.",
     "Production Email OTP is enabled and real-device OTP login/persistence/logout QA passed on 2026-09-20.",
     "Production CORS now allows only https://app.tamamizu.giganihongo.com; guarded correction and post-change production:status passed on 2026-09-20.",
     "Production XServer error log is reachable; current supplied log contained no launch-critical Paddle webhook/auth-mailer/PHP failure tags, and user-area retention is set to 9 weeks.",
     "Legacy installed-PWA recovery is complete; future/current builds actively check registration.update() with bounded throttling.",
-    "Production DB migration 0006 and reviewed API deployment are complete; 0007 remains intentionally dev-only.",
     "Production cancelled-checkout UX was human-tested successfully.",
     "Refund policy is settled: full refund within 14 days; refund re-locks Full Access while local learning progress/history remains in the independent browser progress store.",
     "Paddle Live product/price, one real purchase, and one real refund were already validated on 2026-09-16; do not repeat real-money tests for routine confidence.",
