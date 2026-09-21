@@ -52,7 +52,7 @@ Evidence was classified as repository/CI evidence, live read-only evidence, or n
 | Dev-harness one-time credential retrieval used state-changing GET behavior | Low | CLOSED | #360 / PR #363; retrieval is POST-only. |
 | Persistent-session / Magic-Link browser-binding and login-CSRF edge cases | Security hardening | CLOSED | #364 / PR #369; browser binding, persistent-session revocation/account-switch handling, and related regressions added. |
 | Paddle same-transaction races, out-of-order events, legacy migration boundary, rollback incompatibility, coarse timestamp ambiguity | Medium | CLOSED | #365 / PR #370; deterministic per-transaction locking, immutable replay baseline, DATETIME(6), cutover reconciliation, rollback guards, durable quarantine, exact replay bookkeeping, and real-MariaDB concurrency coverage. |
-| Stale auth / purchase-intent row retention | Low | OPEN RESIDUAL | #348; bounded-rate growth/data-minimization backlog. Production cleanup/schema/cron changes remain a Human Gate. |
+| Stale auth / purchase-intent row retention | Low | REPO FIXED / PROD PENDING | #348; bounded 30-day-grace cleanup repository/CLI plus SQLite and real-MariaDB FK coverage. First Production cleanup and any cron remain Human Gates. |
 | Frontend response security headers on GitHub Pages | Low | OPEN RESIDUAL | #350; live read-only scan found missing browser-security headers. Meaningful fix requires hosting/CDN/DNS change. |
 | Missing API paths return 500 instead of normal 404 | Low | OPEN RESIDUAL | #351; operational/error-handling hardening, host configuration Human Gate. |
 | Static/PWA premium assets are extractable by a technical client | Accepted commercial residual | OPEN RESIDUAL | #366; not an account/payment/server entitlement bypass. Stronger DRM requires server/CDN delivery redesign. |
@@ -158,7 +158,7 @@ Any Production DB migration/write, backend deployment, Paddle Live change, real 
 
 The remaining known items are deliberately separated from launch-blocking security defects:
 
-- **#348 — retention cleanup:** expired ephemeral auth/purchase-intent rows can accumulate over a long horizon. Access control and expiry checks are intact; this is storage/privacy hygiene.
+- **#348 — retention cleanup:** repository-side bounded cleanup now exists with a 30-day grace period, 500-row-per-table batches, explicit grant/FK preservation, and a guarded operator CLI. Production cleanup has not been activated merely by merging the code; the first DB mutation and any host cron remain Human Gates.
 - **#350 — frontend headers:** GitHub Pages does not currently emit the desired frontend security headers. A meaningful correction requires a hosting/CDN decision rather than meta-tag theater.
 - **#351 — missing-path 500:** unknown API routes currently produce 500 rather than 404 on the host. This weakens operational signal quality, not account/payment authorization.
 - **#366 — static premium assets:** a technically capable user can inspect/download assets shipped to the browser. This is an accepted v1 commercial/DRM limitation, not a server entitlement bypass.
