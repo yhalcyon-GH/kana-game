@@ -1115,10 +1115,11 @@ function runScenarioG(PDO $maintPdo, int $iterations): void
 
 // --------------------------------------------------------------------
 // Scenario H1/H2: transaction.completed races a full refund for the SAME
-// Paddle transaction id. The tiny delay forces each lock-acquisition order:
+// Paddle transaction id. Named phases are tied to the actual transaction-row
+// lock acquisition, not scheduler timing:
 //
-// H1: transaction.completed enters first, refund waits.
-// H2: refund queues first, transaction.completed waits.
+// H1: transaction.completed acquires the lock first, refund then enters and waits.
+// H2: refund acquires the lock first, transaction.completed then enters and waits.
 //
 // In either order, the per-transaction lock + complete history replay must
 // settle at refunded/inactive with no unreconciled missed adjustment.
@@ -1151,29 +1152,27 @@ function runScenarioH(PDO $maintPdo, int $iterations, bool $refundFirst): void
         );
 
         $dir = makeBarrierDir($scenario, $iter);
-        if ($refundFirst) {
-            writeArgsFile($dir, 0, [
-                'body' => $refundBody,
-                'signature' => \KanaGame\Paddle\Tests\pwhSign($refundBody),
-                'delay_us' => 0,
-            ]);
-            writeArgsFile($dir, 1, [
-                'body' => $txnBody,
-                'signature' => \KanaGame\Paddle\Tests\pwhSign($txnBody),
-                'delay_us' => 75_000,
-            ]);
-        } else {
-            writeArgsFile($dir, 0, [
-                'body' => $txnBody,
-                'signature' => \KanaGame\Paddle\Tests\pwhSign($txnBody),
-                'delay_us' => 0,
-            ]);
-            writeArgsFile($dir, 1, [
-                'body' => $refundBody,
-                'signature' => \KanaGame\Paddle\Tests\pwhSign($refundBody),
-                'delay_us' => 75_000,
-            ]);
-        }
+        $firstBody = $refundFirst ? $refundBody : $txnBody;
+        $secondBody = $refundFirst ? $txnBody : $refundBody;
+
+        // Worker 0 cannot signal first-lock-held until the real
+        // TransactionEventLockRepository has completed its locking read.
+        // It then keeps that lock open until worker 1 proves it is about to
+        // enter the handler. Worker 1 subsequently blocks on the same row
+        // until worker 0 commits. This establishes the intended acquisition
+        // order without any guessed sleep/scheduler timing.
+        writeArgsFile($dir, 0, [
+            'body' => $firstBody,
+            'signature' => \KanaGame\Paddle\Tests\pwhSign($firstBody),
+            'signal_phase_after_transaction_lock' => 'first-lock-held',
+            'wait_for_phase_after_transaction_lock' => 'second-about-to-handle',
+        ]);
+        writeArgsFile($dir, 1, [
+            'body' => $secondBody,
+            'signature' => \KanaGame\Paddle\Tests\pwhSign($secondBody),
+            'wait_for_phase_before_handle' => 'first-lock-held',
+            'signal_phase_before_handle' => 'second-about-to-handle',
+        ]);
 
         $iterationFailures = [];
         try {

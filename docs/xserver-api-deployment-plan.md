@@ -79,24 +79,32 @@ legacy/coarse timestamp marker) but performs no speculative legacy-event
 backfill. Migration 0007 remains dev-only and intentionally skipped in
 Production.
 
-Before the write phase, inventory grant-backed unreconciled adjustments with
-the guarded CLI command in its default read-only mode:
+Before any database/schema write, inventory grant-backed unreconciled
+adjustments. After the fresh API rollback backup, stage **only** the reviewed
+`ops/paddle-reconciliation-cutover.php` under the already-denied `ops/`
+directory. Its `--check` path requires only the pre-0009 Config/Db runtime and
+executes a read-only SELECT against columns that already existed before 0009:
 
     php ops/paddle-reconciliation-cutover.php --check
+
+This staging upload is still a Production backend file write and therefore
+requires the same explicit Human Gate, even though the command itself is
+read-only.
 
 Because the old backend can still create one last stranded row in the narrow
 schema-to-code cutover window, the required order is:
 
 1. fresh DB + API rollback backups;
-2. apply 0008, then 0009;
-3. immediately deploy the matching reviewed backend and CLI ops file while
-   preserving `api/config.php` and root `api/.htaccess`;
-4. under the same explicitly approved Production security-cutover Human Gate,
+2. stage only the reviewed cutover CLI file and run the read-only `--check`;
+3. apply 0008, then 0009;
+4. immediately deploy the matching reviewed backend while preserving
+   `api/config.php` and root `api/.htaccess`;
+5. under the same explicitly approved Production security-cutover Human Gate,
    run the idempotent repair:
 
        php ops/paddle-reconciliation-cutover.php --apply --human-approved-security-cutover
 
-5. run `--check` again and require
+6. run `--check` again and require
    `grantBackedUnreconciledTransactions=0` before declaring cutover complete.
 
 The repair acquires the same per-transaction lock as live webhooks. If it

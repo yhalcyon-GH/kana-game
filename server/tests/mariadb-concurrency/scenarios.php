@@ -84,12 +84,39 @@ function scenarioVerify(PDO $pdo, array $args, Barrier $barrier, int $workerId):
  */
 function scenarioWebhook(PDO $pdo, array $args, Barrier $barrier, int $workerId): array
 {
-    $handler = \KanaGame\Paddle\Tests\makePurchaseWebhookHandler($pdo);
+    $afterLockSignal = is_string($args['signal_phase_after_transaction_lock'] ?? null)
+        ? $args['signal_phase_after_transaction_lock']
+        : null;
+    $afterLockWait = is_string($args['wait_for_phase_after_transaction_lock'] ?? null)
+        ? $args['wait_for_phase_after_transaction_lock']
+        : null;
+
+    $transactionLocks = null;
+    if ($afterLockSignal !== null || $afterLockWait !== null) {
+        $transactionLocks = new \KanaGame\Paddle\Purchase\TransactionEventLockRepository(
+            $pdo,
+            static function (string $_transactionId) use ($barrier, $afterLockSignal, $afterLockWait): void {
+                if ($afterLockSignal !== null) {
+                    $barrier->signalPhase($afterLockSignal);
+                }
+                if ($afterLockWait !== null) {
+                    $barrier->waitForPhase($afterLockWait);
+                }
+            },
+        );
+    }
+
+    $handler = \KanaGame\Paddle\Tests\makePurchaseWebhookHandler($pdo, $transactionLocks);
 
     $barrier->signalReadyAndWaitForGo($workerId);
 
-    if (isset($args['delay_us']) && is_numeric($args['delay_us']) && (int) $args['delay_us'] > 0) {
-        usleep((int) $args['delay_us']);
+    $beforeHandleWait = $args['wait_for_phase_before_handle'] ?? null;
+    if (is_string($beforeHandleWait)) {
+        $barrier->waitForPhase($beforeHandleWait);
+    }
+    $beforeHandleSignal = $args['signal_phase_before_handle'] ?? null;
+    if (is_string($beforeHandleSignal)) {
+        $barrier->signalPhase($beforeHandleSignal);
     }
 
     // Timing-only instrumentation for the pre-Live sync-vs-async webhook

@@ -65,11 +65,13 @@ Paddle mutation.
   unauthenticatable because SessionRepository requires its persistent parent
   to remain active and unexpired.
   H1/H2: `transaction.completed` races a full refund for the **same** Paddle
-  transaction id in both forced lock-acquisition orders. Both must settle with
-  a refunded grant, inactive entitlement, one retained normalized adjustment
-  history row, and no missed/unreconciled adjustment. These scenarios exercise
-  the MariaDB `transaction_event_locks` row lock added by security migration
-  0009.
+  transaction id in both forced lock-acquisition orders. Named phase markers
+  are emitted **after the real transaction row lock is acquired**, and the
+  second worker is held until that marker exists; no guessed scheduler sleep is
+  used to claim an acquisition order. Both orders must settle with a refunded
+  grant, inactive entitlement, one retained normalized adjustment history row,
+  and no missed/unreconciled adjustment. These scenarios exercise the MariaDB
+  `transaction_event_locks` row lock added by security migration 0009.
   H3: while one worker keeps transaction A's event-lock row locked inside an
   open MariaDB transaction, a second worker must acquire transaction B's
   different event-lock row before A commits. This directly proves the lock is

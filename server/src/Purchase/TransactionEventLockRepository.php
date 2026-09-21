@@ -17,6 +17,8 @@ use PDO;
  * transaction (e.g. transaction.completed racing a refund). On MariaDB the
  * durable row is selected FOR UPDATE inside the webhook transaction.
  * Different Paddle transaction ids lock different rows and remain concurrent.
+ * The optional observer is diagnostic-only test instrumentation invoked after
+ * the row lock has actually been acquired; Production wiring never supplies it.
  *
  * The same durable row also stores a one-time replay baseline. Pre-0009 code
  * did not retain normalized payload history for adjustments delivered after a
@@ -26,8 +28,10 @@ use PDO;
  */
 final class TransactionEventLockRepository
 {
-    public function __construct(private readonly PDO $pdo)
-    {
+    public function __construct(
+        private readonly PDO $pdo,
+        private readonly ?\Closure $afterLockObserver = null,
+    ) {
     }
 
     public function lock(string $paddleTransactionId): void
@@ -52,6 +56,7 @@ final class TransactionEventLockRepository
             );
             $select->execute(['txn_id' => $paddleTransactionId]);
             $select->fetchColumn();
+            $this->notifyAfterLock($paddleTransactionId);
             return;
         }
 
@@ -73,6 +78,14 @@ final class TransactionEventLockRepository
         );
         $select->execute(['txn_id' => $paddleTransactionId]);
         $select->fetchColumn();
+        $this->notifyAfterLock($paddleTransactionId);
+    }
+
+    private function notifyAfterLock(string $paddleTransactionId): void
+    {
+        if ($this->afterLockObserver !== null) {
+            ($this->afterLockObserver)($paddleTransactionId);
+        }
     }
 
     /**

@@ -111,13 +111,13 @@ function makePurchaseWebhookTestDb(): PDO
     return $pdo;
 }
 
-function makePurchaseWebhookHandler(PDO $pdo): PurchaseWebhookHandler
+function makePurchaseWebhookHandler(PDO $pdo, ?TransactionEventLockRepository $transactionLocks = null): PurchaseWebhookHandler
 {
     return new PurchaseWebhookHandler(
         $pdo,
         new PaddleSignature(PWH_TEST_SECRET),
         new PaymentEventRepository($pdo),
-        new TransactionEventLockRepository($pdo),
+        $transactionLocks ?? new TransactionEventLockRepository($pdo),
         new PurchaseIntentRepository($pdo),
         new TransactionGrantRepository($pdo),
         new PendingAdjustmentRepository($pdo),
