@@ -177,3 +177,25 @@ of these is true:
 
 A successful preflight is not approval for a real Magic Link email, Paddle
 Live configuration, a charge, a refund, or any database write.
+
+## Optional ephemeral-data cleanup (#348)
+
+The reviewed repository may include `server/ops/ephemeral-data-cleanup.php`
+and `server/src/Ops/EphemeralDataCleanupRepository.php`. Their presence in
+GitHub does not authorize a Production cleanup or require an ordinary backend
+redeploy.
+
+When a Production cleanup is explicitly approved, stage/deploy only the
+reviewed cleanup CLI and matching repository code under the normal rollback
+rules, then run:
+
+    php ops/ephemeral-data-cleanup.php --check
+
+Review the count-only output before any mutation. The guarded mutation is:
+
+    php ops/ephemeral-data-cleanup.php --apply --human-approved-ephemeral-cleanup
+
+One invocation deletes at most 500 eligible rows per table after the documented
+30-day grace period. Run `--check` again afterward. A host cron/scheduler is a
+separate Production-configuration Human Gate and must not be created
+automatically.

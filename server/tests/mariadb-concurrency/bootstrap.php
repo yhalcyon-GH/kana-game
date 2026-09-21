@@ -44,6 +44,7 @@ require_once __DIR__ . '/../../src/Purchase/TransactionGrantRepository.php';
 require_once __DIR__ . '/../../src/Purchase/PendingAdjustmentRepository.php';
 require_once __DIR__ . '/../../src/Purchase/RefundCompleteness.php';
 require_once __DIR__ . '/../../src/Purchase/PurchaseWebhookHandler.php';
+require_once __DIR__ . '/../../src/Ops/EphemeralDataCleanupRepository.php';
 // Test-only helpers, reused verbatim (never modified) to keep this
 // harness's request wiring/payload shapes in lockstep with the
 // already-reviewed SQLite-backed suite -- see README.md. Requiring

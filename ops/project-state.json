@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "current_main_sha": "4057cbb9537b47601ec7e0b199477d265c1ee5f2",
+  "current_main_sha": "0f4b48095733c73d734080e3b711a6bd15fc2beb",
   "latest_completed_work": {
     "kind": "production_security_cutover",
     "number": 374,
@@ -12,18 +12,25 @@
       "number": 294,
       "title": "Add GitHub Agentic Workflows: Codex PR review + PR Verify failure investigator (docs/scaffolding; workflow files pending workflows-scope push)",
       "status": "non_blocking_human_gate"
+    },
+    {
+      "number": 377,
+      "title": "Bound stale auth and purchase-intent retention",
+      "status": "active_repo_side_security_followup"
     }
   ],
   "active_work_item": {
-    "id": "post-launch-monitoring",
-    "issue_number": null,
-    "branch": null,
-    "pull_request_number": null,
-    "status": "launched_security_cutover_complete",
-    "goal": "Tamamizu is launched and the Security Audit v1 Production cutover is complete. Continue ordinary post-launch monitoring; no security-cutover Human Gate remains."
+    "id": "security-retention-cleanup",
+    "issue_number": 348,
+    "branch": "chatgpt/issue-348-ephemeral-cleanup",
+    "pull_request_number": 377,
+    "status": "pr_open_repo_side",
+    "goal": "Complete repository-side bounded cleanup for stale auth/session and unreferenced expired purchase-intent rows. Production cleanup execution and any cron remain Human Gates."
   },
-  "next_machine_action": "Treat Security Audit v1 Production cutover as complete from 2026-09-21. Do not repeat migrations 0008/0009, the reviewed backend deployment, or the guarded Paddle reconciliation merely because a chat/session changes. Production reconciliation is 0/0. Public auth capability is restored after api/auth directory mode was corrected from 700 to 755. Continue normal monitoring and investigate only on concrete Production evidence. NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL remains in force.",
-  "unresolved_ai_items": [],
+  "next_machine_action": "Finish PR #377 at exact HEAD: require Server Unit Tests, MariaDB 10.5/10.11 verification, PR Verify, CodeQL, Browser Smoke, Pre-Live Safety, and review/thread gates. If green, merge repo-side cleanup. Keep Issue #348 open until an explicitly approved Production cleanup deployment/check/apply is completed. Do not perform Production DB cleanup or create a cron without explicit human approval.",
+  "unresolved_ai_items": [
+    "Issue #348 repo-side cleanup implementation is in PR #377; finish CI/review/merge autonomously."
+  ],
   "human_gates": [
     "Any new real-money, Paddle Live, paid-service, Production DB write, DNS, Production-secret, email-send, or Production backend deployment action beyond what is explicitly approved."
   ],

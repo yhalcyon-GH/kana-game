@@ -135,7 +135,7 @@ DB migrations, backend upload, Paddle Live changes, DNS/hosting, Production secr
 | CI token / paid-review abuse | SHA-pinned Actions, least privilege, owner-gated Claude review, branch rules | Not every org security setting was independently verified. |
 | Malicious dependency update | Dependabot visibility, CodeQL, PR checks, branch rules | Major dependency/Action upgrades still need review rather than blind merging. |
 | Premium-content extraction | None at DRM level once asset is shipped to browser | Accepted v1 commercial residual (#366); server/CDN delivery is the meaningful future fix. |
-| Long-horizon auth-table growth | Existing rate limits and expiry enforcement | Cleanup/TTL is still a Low backlog (#348). |
+| Long-horizon auth-table growth | Expiry enforcement plus bounded 30-day-grace cleanup tooling (#348) | Production activation/cron remains an operator Human Gate; account/transaction evidence is explicitly out of cleanup scope. |
 | Clickjacking/browser-header defense on frontend | HTTPS; no known raw HTML sink | GitHub Pages header limitation remains Low backlog (#350). |
 | Host missing-path errors appear as 500 | Application errors are fixed-tagged; known host behavior documented | Improve host-level 404 behavior under Human Gate (#351). |
 
@@ -177,9 +177,14 @@ These are operational security requirements, not optional release polish.
 
 ## Residual risks accepted or deferred
 
-### Low retention/data-minimization backlog — #348
+### Low retention/data-minimization follow-up — #348
 
-Expired/revoked auth artifacts and expired purchase intents are correctly rejected but not automatically purged on a documented schedule.
+Repository-side cleanup now defines a documented 30-day grace period for
+expired/settled one-time auth artifacts, expired/revoked sessions, and expired
+unconsumed purchase intents. Deletion is bounded per invocation and preserves
+transaction-grant-referenced intents plus persistent sessions that still have
+child session rows. The guarded CLI is not authority to mutate Production:
+first Production cleanup and any scheduler/cron remain explicit Human Gates.
 
 ### Frontend response headers — #350
 
