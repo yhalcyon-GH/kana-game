@@ -111,9 +111,20 @@ function ssh(config, remoteCommand, allowed = [0]) {
   return { status: result.status, stdout: result.stdout.trim() }
 }
 
-function npmRun(name) {
-  const command = process.platform === 'win32' ? 'npm.cmd' : 'npm'
-  const result = run(command, ['run', name], { stdio: 'inherit', env: process.env })
+export function productionCheckScript(name) {
+  const scripts = {
+    'production:release-integrity': 'scripts/productionReleaseIntegrity.mjs',
+    'production:preflight': 'scripts/productionReadOnlyPreflight.mjs',
+    'production:cors-probe': 'scripts/productionCorsProbe.mjs',
+  }
+  const script = scripts[name]
+  if (!script) fail(`unknown-production-check:${name}`)
+  return script
+}
+
+function runProductionCheck(name) {
+  const script = productionCheckScript(name)
+  const result = run(process.execPath, [script], { stdio: 'inherit', env: process.env })
   if (result.status !== 0) fail(`production-check-failed:${name}`)
 }
 
@@ -162,7 +173,7 @@ async function main() {
     const config = checkedEnvironment()
 
     phase = 'release-integrity'
-    npmRun('production:release-integrity')
+    runProductionCheck('production:release-integrity')
     console.log('RELEASE_INTEGRITY_OK')
 
     phase = 'current-reconciliation-check'
@@ -222,11 +233,11 @@ async function main() {
     console.log('ZERO_COUNT_OK')
 
     phase = 'auth-preflight'
-    npmRun('production:preflight')
+    runProductionCheck('production:preflight')
     console.log('AUTH_PREFLIGHT_OK')
 
     phase = 'cors-probe'
-    npmRun('production:cors-probe')
+    runProductionCheck('production:cors-probe')
     console.log('CORS_OK')
 
     phase = 'http-security'

@@ -3,6 +3,7 @@ import {
   decideReconciliation,
   parseApplyOutput,
   parseCheckOutput,
+  productionCheckScript,
 } from './productionSecurityCutoverFinalizer.mjs'
 
 describe('production security cutover finalizer parsing', () => {
@@ -51,6 +52,19 @@ describe('production security cutover finalizer parsing', () => {
       remainingGrantBackedUnreconciledTransactions: 0,
       unresolvedReconciliationBlocksAfter: 0,
     })
+  })
+
+  it('maps production checks directly to Node scripts without npm', () => {
+    expect(productionCheckScript('production:release-integrity')).toBe(
+      'scripts/productionReleaseIntegrity.mjs',
+    )
+    expect(productionCheckScript('production:preflight')).toBe(
+      'scripts/productionReadOnlyPreflight.mjs',
+    )
+    expect(productionCheckScript('production:cors-probe')).toBe(
+      'scripts/productionCorsProbe.mjs',
+    )
+    expect(() => productionCheckScript('production:unknown')).toThrow()
   })
 
   it('fails closed on malformed or incomplete output', () => {
