@@ -316,10 +316,10 @@ final class PurchaseWebhookHandler
         // after a grant existed changed transaction_grants directly and did
         // NOT retain their normalized payload in pending_adjustments. On the
         // first new-code adjustment for such a grant, snapshot its already-
-        // materialized state plus the latest previously processed adjustment
-        // sort key. That fixed baseline prevents partial legacy history from
-        // being replayed from a fictional "active" origin.
-        $this->initializeReplayBaselineForExistingGrant($grant, $eventId);
+        // materialized state and status_changed_at. That fixed baseline
+        // prevents partial legacy history from being replayed from a
+        // fictional "active" origin without guessing missing payload details.
+        $this->initializeReplayBaselineForExistingGrant($grant);
 
         $this->replayAdjustmentHistory($transactionId);
         return true;
@@ -382,12 +382,12 @@ final class PurchaseWebhookHandler
      * Establishes the one-time replay baseline for a grant created by the
      * pre-0009 backend.
      *
-     * The current event has already been claimed and normalized, so it is
-     * excluded when finding the latest PREVIOUSLY processed adjustment. The
-     * existing materialized grant status is the authoritative snapshot of
-     * those old events; the latest old event sort key becomes the replay
-     * floor. If there were no earlier adjustments, status_changed_at is the
-     * floor and an empty event id lets same-timestamp new adjustments replay.
+     * The already-materialized status + status_changed_at are the only
+     * trustworthy legacy snapshot: old direct adjustment payloads were not
+     * retained, and payment_events records event type/time but not adjustment
+     * action. Guessing from that ledger could mistake an unrelated legacy
+     * credit for an entitlement transition and suppress a legitimate delayed
+     * refund. We therefore do not infer missing legacy semantics.
      *
      * @param array{
      *   paddle_transaction_id: string,
@@ -399,34 +399,17 @@ final class PurchaseWebhookHandler
      *   status_changed_at: string
      * } $grant
      */
-    private function initializeReplayBaselineForExistingGrant(array $grant, string $currentEventId): void
+    private function initializeReplayBaselineForExistingGrant(array $grant): void
     {
         if ($this->transactionLocks->replayBaseline($grant['paddle_transaction_id']) !== null) {
             return;
         }
 
-        $baselineAt = new \DateTimeImmutable($grant['status_changed_at']);
-        $baselineEventId = '';
-        $previousAdjustment = $this->events->latestAdjustmentForTransactionExcluding(
-            $grant['paddle_transaction_id'],
-            $currentEventId,
-        );
-
-        if ($previousAdjustment !== null) {
-            $previousAt = new \DateTimeImmutable($previousAdjustment['occurred_at']);
-            if ($previousAt > $baselineAt) {
-                $baselineAt = $previousAt;
-                $baselineEventId = $previousAdjustment['paddle_event_id'];
-            } elseif ($previousAt == $baselineAt) {
-                $baselineEventId = $previousAdjustment['paddle_event_id'];
-            }
-        }
-
         $this->transactionLocks->initializeReplayBaseline(
             $grant['paddle_transaction_id'],
             $grant['status'],
-            $baselineAt,
-            $baselineEventId,
+            new \DateTimeImmutable($grant['status_changed_at']),
+            '',
         );
     }
 
