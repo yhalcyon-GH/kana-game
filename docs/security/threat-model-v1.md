@@ -1,6 +1,6 @@
 # Threat Model v1
 
-Date: 2026-09-21  
+Date: 2026-09-21
 Applies to repository state through main SHA `608d910c8a6eb1f025ca4b8dbfd4a74fe1c7e384`
 
 ## Purpose
