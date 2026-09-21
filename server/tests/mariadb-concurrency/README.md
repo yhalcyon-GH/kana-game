@@ -24,12 +24,13 @@ test-only credentials generated in the workflow itself. It is never pointed at
 Production, never uses Production credentials, and never touches Production in
 any way.
 
-## What this PR does NOT do
+## Harness boundary
 
-This is a **diagnostic** PR. If a scenario here finds a real concurrency defect
-(e.g. entitlement write-skew under InnoDB `REPEATABLE READ`), this PR does
-**not** attempt to fix the underlying runtime code — see the top-level PR
-report for what was found and what remains as follow-up work.
+This directory is **diagnostic verification infrastructure**. Feature/security
+PRs may change runtime code and extend these scenarios, but the harness itself
+only exercises disposable CI databases and reports invariant violations. It
+never performs a Production migration, Production DB write, deployment, or
+Paddle mutation.
 
 ## Layout
 
@@ -40,8 +41,8 @@ report for what was found and what remains as follow-up work.
   `server/tests/Purchase/` purely to **reuse** their already-reviewed helper
   functions (`makeMagicLinkAuthServiceHarness`'s dependency wiring pattern,
   `makePurchaseWebhookHandler()`, `pwhSign()`, `pwhTransactionCompletedPayload()`,
-  `pwhAdjustmentPayload()`) and `TestCase.php`'s assertion helpers. No existing
-  test file is modified.
+  `pwhAdjustmentPayload()`) and `TestCase.php`'s assertion helpers rather than
+  duplicating that wiring inside the harness.
 - `Barrier.php` — a file-based ready/go barrier. Every worker process signals
   "ready" by creating a file, then polls (short `usleep` loop, not a single
   blind `sleep`) for a `go` file the orchestrator creates only once every
