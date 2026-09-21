@@ -70,6 +70,15 @@ A release upload copies only the checked release sets above into the existing
 No database schema, Paddle Dashboard setting, DNS record, or secret is
 changed by this plan.
 
+After staging/copying from a Windows operator machine, normalize the web-served
+application permissions before declaring the deployment complete: directories
+under `api/auth/` must be traversable by the web server (`0755`) and the
+reviewed PHP entry files must be readable (`0644`). Do not use `cp -a` or
+SCP-preserved client-side modes as the final permission source for web-served
+directories. This normalization applies only to reviewed application files; it
+must not chmod, replace, display, or otherwise modify `api/config.php` or the
+host-owned root `api/.htaccess`.
+
 For the Security & Safety Audit v1 backend release, database schema and backend
 source must move together under the Human Gate. After the fresh Production DB
 backup and before uploading the matching backend source, apply reviewed
