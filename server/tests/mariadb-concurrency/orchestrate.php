@@ -93,7 +93,7 @@ function resetTables(PDO $pdo): void
         'sessions', 'magic_link_tokens', 'dev_harness_magic_links',
         'persistent_sessions', 'email_login_challenges', 'rate_limits',
         'pending_adjustments', 'transaction_grants', 'purchase_intents',
-        'transaction_event_locks', 'payment_events', 'entitlements', 'users',
+        'transaction_event_locks', 'paddle_reconciliation_blocks', 'payment_events', 'entitlements', 'users',
     ] as $table) {
         $pdo->exec("TRUNCATE TABLE {$table}");
     }
