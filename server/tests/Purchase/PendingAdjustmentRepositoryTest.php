@@ -98,6 +98,32 @@ function pendingAdjustmentRepositoryTests(): array
             assertTrue($reconciledAt !== null && $reconciledAt !== false, 'reconciled_at should be set');
         },
 
+        'findAllForTransaction() retains reconciled history and orders equal-second events by precise timestamp then event id' => function () {
+            $pdo = makePendingAdjustmentsTestDb();
+            $repo = new PendingAdjustmentRepository($pdo);
+            $repo->queue('txn_hist', 'evt_z', 'refund', 'pending_approval', 'full', null, new \DateTimeImmutable('2026-01-01T00:00:00.100000Z'));
+            $repo->queue('txn_hist', 'evt_a', 'refund', 'approved', 'full', null, new \DateTimeImmutable('2026-01-01T00:00:00.900000Z'));
+            $repo->markAllReconciledForTransaction('txn_hist');
+
+            $history = $repo->findAllForTransaction('txn_hist');
+            assertSame(2, count($history), 'reconciled rows must remain replayable history');
+            assertSame('evt_z', $history[0]['paddle_event_id'], 'the .100000 event must sort before .900000');
+            assertSame('2026-01-01 00:00:00.100000', $history[0]['occurred_at'], 'fractional timestamp must be preserved');
+            assertSame('2026-01-01 00:00:00.900000', $history[1]['occurred_at'], 'later fractional timestamp must be preserved');
+            assertSame(0, count($repo->findUnreconciledForTransaction('txn_hist')), 'markAllReconciled should only change bookkeeping, not delete history');
+        },
+
+        'findAllForTransaction() uses paddle_event_id as a deterministic exact-timestamp tie breaker' => function () {
+            $repo = new PendingAdjustmentRepository(makePendingAdjustmentsTestDb());
+            $same = new \DateTimeImmutable('2026-01-01T00:00:00.500000Z');
+            $repo->queue('txn_tie', 'evt_z', 'refund', 'pending_approval', 'full', null, $same);
+            $repo->queue('txn_tie', 'evt_a', 'refund', 'approved', 'full', null, $same);
+
+            $history = $repo->findAllForTransaction('txn_tie');
+            assertSame('evt_a', $history[0]['paddle_event_id'], 'event-id order must not depend on delivery order when timestamps are identical');
+            assertSame('evt_z', $history[1]['paddle_event_id'], 'stable event-id tie breaker should be deterministic');
+        },
+
         'isEventKnown() returns true for a previously queued event id, false otherwise' => function () {
             $repo = new PendingAdjustmentRepository(makePendingAdjustmentsTestDb());
             $repo->queue('txn_1', 'evt_1', 'refund', 'approved', 'full', null, new \DateTimeImmutable('2026-01-01 00:00:00'));
