@@ -43,10 +43,15 @@ For unattended multi-task or "Overnight mode" work, follow
 Gates, and morning-checkpoint expectations.
 
 Before choosing or changing infrastructure, external services, APIs, paid models,
-automation, or a human workaround, apply the canonical Cost Gate and Human
-fast-path policy in `docs/operational-gates.md`. In particular, any path that can
-create additional charges must be disclosed and explicitly approved before
-implementation or activation.
+automation, or a human workaround, apply the canonical Cost Gate and
+execution-efficiency/Human fast-path policy in `docs/operational-gates.md`.
+Choose the route by total completion time and reliability, not by maximizing AI
+autonomy. Do not build bespoke automation for a safe one-to-three-step human
+action that is clearly faster. After two failed AI attempts at the same
+execution boundary, stop and reassess; use the minimal human fast-path when it
+can likely resolve the boundary in about five minutes or less. In particular,
+any path that can create additional charges must be disclosed and explicitly
+approved before implementation or activation.
 
 ## Context and usage
 
