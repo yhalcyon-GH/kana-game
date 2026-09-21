@@ -21,18 +21,60 @@ If pricing or billing behavior is unclear, treat the path as potentially paid un
 
 Existing Human Gates remain stricter where applicable: real charges/refunds, Paddle Live mutations, paid resources, Production writes, DNS changes, Production secret changes, KYC, and final legal decisions still require explicit approval.
 
-## Human fast-path
+## Execution-efficiency gate and Human fast-path
 
-AI-first execution remains the default. Ask the human to perform a small action early only when all of the following are true:
+Do **not** optimize for "AI does everything." Optimize for the shortest reliable
+path to completion while preserving safety, auditability, and user control.
 
-- the AI route is blocked by a genuine tool/capability limitation, is repeatedly failing, or requires a brittle workaround;
-- the requested human action is safe, reversible, and permitted by policy;
-- the human can complete it substantially faster than continued AI workaround attempts;
-- the request is narrowly scoped and includes exact steps plus what the AI will do immediately afterward.
+Before starting a non-trivial tool-heavy workaround, compare the AI route with a
+small human action on:
 
-A permission denial, security guardrail, or Human Gate is not a tool limitation. Do not reframe a denied AI action as a request for the human to bypass the same guardrail. Surface the policy/permission decision explicitly instead.
+- expected total completion time, including debugging and retries;
+- reliability and reversibility;
+- whether the AI route depends on unavailable local credentials, local GUI
+  state, browser state, hardware, or host-specific controls;
+- human effort required by the manual route;
+- whether automation will be reused, or is only being built for a one-off
+  operation.
 
-Do not interrupt the human merely because manual work is marginally faster. Use this fast-path only when it materially reduces total completion time or avoids a fragile execution path.
+Prefer the Human fast-path **early**, even when an AI workaround is technically
+possible, when the human action is safe and materially simpler. Typical examples
+include checking or changing one visible setting, changing one file/folder
+permission, choosing one item in an admin panel, confirming one value, or
+performing a small local action that depends on credentials/devices unavailable
+to the AI.
+
+Do not build bespoke scripts, browser automation, deployment machinery, or
+multi-step recovery code merely to avoid a safe one-to-three-step human action
+that is likely to take only a few minutes.
+
+### Retry budget
+
+At any single execution boundary:
+
+- if the first AI failure reveals that a simple human route is clearly faster,
+  switch immediately to the Human fast-path;
+- after **two failed AI attempts at the same boundary**, stop creating further
+  workaround variants and explicitly reassess the human route;
+- if a safe human action can likely resolve the boundary in about five minutes
+  or less, request that action instead of attempting a third AI workaround;
+- only continue AI-side retries when the human route is materially difficult,
+  risky, destructive, unavailable, or would violate an existing Human Gate.
+
+The retry budget is a ceiling, not a target: do not wait for two failures when
+the manual route is obviously better from the start.
+
+When requesting human work, make it minimal and operational: state exactly what
+to click/run/change, the expected observable result, what **not** to touch, and
+what the AI will verify or continue immediately afterward.
+
+A permission denial, security guardrail, or Human Gate is not a tool limitation.
+Do not reframe a denied AI action as a request for the human to bypass the same
+guardrail. Surface the policy/permission decision explicitly instead.
+
+Visible GUI/browser automation is not a substitute for the Human fast-path when
+it would disrupt the user's desktop workflow. Follow the user's GUI-permission
+preference before opening or focusing visible interfaces.
 
 ## Decision order
 
@@ -40,7 +82,10 @@ When choosing an execution route:
 
 1. Check safety and existing Human Gates.
 2. Check incremental cost and apply the Cost Gate before implementation.
-3. Prefer a reliable free/already-paid route when it is fit for purpose.
-4. Prefer AI execution when it is reasonably efficient and robust.
-5. Use the Human fast-path when human intervention is clearly much faster and policy-safe.
-6. Record durable decisions in GitHub rather than relying on chat memory.
+3. Compare AI and human routes using the execution-efficiency gate.
+4. Prefer a reliable free/already-paid route when it is fit for purpose.
+5. Use AI execution when it is efficient, robust, and does not require a
+   needlessly complex one-off workaround.
+6. Use the Human fast-path early when it materially reduces total completion
+   time or avoids a fragile route; enforce the retry budget above.
+7. Record durable decisions in GitHub rather than relying on chat memory.

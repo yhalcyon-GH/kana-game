@@ -22,6 +22,21 @@ GitHub is the source of truth. Normal work flows through branch → pull request
 
 Do not automatically invoke model review. Claude Code review remains opt-in through its exact PR marker. Record the builder, reviewer, model/effort when known, retry count, and escalation reason in the PR template; use `N/A` when no model was used.
 
+## Execution efficiency and human escalation
+
+AI autonomy is not itself a success metric. Before building a tool/workaround,
+compare it with a bounded human action using the canonical policy in
+`docs/operational-gates.md`.
+
+Prefer the human route when it is safe, reversible, materially faster, and only
+requires a small number of obvious steps (for example one permission or admin
+setting). If one AI failure makes that superiority clear, escalate immediately.
+After two failed AI attempts at the same boundary, do not create a third
+workaround unless the human route is materially harder or riskier.
+
+When human intervention is selected, request the smallest possible action and
+resume AI verification/automation immediately after it.
+
 ## Non-negotiable human gates
 
 No money without explicit human approval. Never perform or configure any of the following without it:
