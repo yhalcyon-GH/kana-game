@@ -73,6 +73,7 @@ $testFiles = [
     __DIR__ . '/ObservabilityLoggingTest.php' => 'KanaGame\\Paddle\\Tests\\observabilityLoggingTests',
     __DIR__ . '/Ops/AuthReadinessCheckTest.php' => 'KanaGame\\Paddle\\Tests\\authReadinessCheckTests',
     __DIR__ . '/Ops/EphemeralDataCleanupRepositoryTest.php' => 'KanaGame\\Paddle\\Tests\\ephemeralDataCleanupRepositoryTests',
+    __DIR__ . '/Ops/EphemeralDataCleanupCliTest.php' => 'KanaGame\\Paddle\\Tests\\ephemeralDataCleanupCliTests',
     __DIR__ . '/Ops/ReleaseIntegrityCheckTest.php' => 'KanaGame\\Paddle\\Tests\\releaseIntegrityCheckTests',
 ];
 
