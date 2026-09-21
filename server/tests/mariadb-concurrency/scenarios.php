@@ -13,6 +13,7 @@ use KanaGame\Paddle\Auth\PersistentSessionRepository;
 use KanaGame\Paddle\Auth\RateLimiter;
 use KanaGame\Paddle\Auth\SessionRepository;
 use KanaGame\Paddle\Auth\UserRepository;
+use KanaGame\Paddle\Purchase\TransactionEventLockRepository;
 use PDO;
 
 /**
@@ -294,3 +295,69 @@ function scenarioPersistentRefreshRevoke(PDO $pdo, array $args, Barrier $barrier
         ];
     }
 }
+
+/**
+ * Scenario H3: prove per-transaction event locks do not globally serialize.
+ *
+ * Worker "holder" locks transaction A and keeps that DB transaction open.
+ * Worker "other" must then acquire transaction B's lock BEFORE holder commits.
+ * If both transaction ids shared one global serialization point, holder would
+ * time out waiting for "other-locked" and the scenario would fail.
+ *
+ * @param array{role: 'holder'|'other', txn_id: string} $args
+ * @return array{success: bool, role: string, exception_class: ?string, sqlstate: ?string}
+ */
+function scenarioIndependentTransactionLocks(PDO $pdo, array $args, Barrier $barrier, int $workerId): array
+{
+    $locks = new TransactionEventLockRepository($pdo);
+    $barrier->signalReadyAndWaitForGo($workerId);
+
+    try {
+        if ($args['role'] === 'holder') {
+            $pdo->beginTransaction();
+            $locks->lock($args['txn_id']);
+            $barrier->signalPhase('holder-locked');
+
+            // Keep transaction A's row lock open until transaction B has
+            // independently acquired its own row lock.
+            $barrier->waitForPhase('other-locked', 3.0);
+            $pdo->commit();
+
+            return [
+                'success' => true,
+                'role' => 'holder',
+                'exception_class' => null,
+                'sqlstate' => null,
+            ];
+        }
+
+        if ($args['role'] === 'other') {
+            $barrier->waitForPhase('holder-locked', 3.0);
+            $pdo->beginTransaction();
+            $locks->lock($args['txn_id']);
+            $barrier->signalPhase('other-locked');
+            $pdo->commit();
+
+            return [
+                'success' => true,
+                'role' => 'other',
+                'exception_class' => null,
+                'sqlstate' => null,
+            ];
+        }
+
+        throw new \InvalidArgumentException('unknown independent transaction lock role');
+    } catch (\Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+
+        return [
+            'success' => false,
+            'role' => (string) ($args['role'] ?? 'unknown'),
+            'exception_class' => get_class($e),
+            'sqlstate' => $e instanceof \PDOException ? ($e->errorInfo[0] ?? null) : null,
+        ];
+    }
+}
+
