@@ -8,10 +8,16 @@ namespace KanaGame\Paddle\Purchase;
  * Pure deterministic reduction of normalized Paddle adjustment history.
  *
  * Input rows MUST be sorted by precise occurred_at then paddle_event_id.
- * The reducer starts from the transaction.completed grant's original active
- * state and derives the same final status regardless of webhook arrival order.
- * "refunded" is terminal: later chargeback/reversal events never reactivate a
- * fully refunded grant.
+ * Reduction starts from an immutable per-transaction replay baseline.
+ * For grants created by the current code that baseline is the original
+ * transaction.completed active state. For a pre-0009 grant it is a one-time
+ * snapshot of the already-materialized legacy state plus the latest previously
+ * processed adjustment sort key; events at/before that key cannot safely be
+ * reconstructed because the old direct path did not retain their payloads.
+ *
+ * A fully approved refund is terminal across ALL later normalized adjustment
+ * events. Rejected/partial refund events restore active only from
+ * refund_pending; they never resurrect an already fully-refunded grant.
  */
 final class GrantAdjustmentReducer
 {
@@ -26,14 +32,23 @@ final class GrantAdjustmentReducer
      * }> $adjustments
      * @return array{status: string, changed_at: \DateTimeImmutable}
      */
-    public static function reduce(\DateTimeImmutable $grantedAt, array $adjustments): array
-    {
-        $status = 'active';
-        $changedAt = $grantedAt;
+    public static function reduce(
+        string $baselineStatus,
+        \DateTimeImmutable $baselineAt,
+        string $baselineEventId,
+        array $adjustments,
+    ): array {
+        $status = $baselineStatus;
+        $changedAt = $baselineAt;
 
         foreach ($adjustments as $adjustment) {
             $occurredAt = new \DateTimeImmutable($adjustment['occurred_at']);
-            if ($occurredAt < $grantedAt) {
+            if (self::isAtOrBeforeBaseline(
+                $occurredAt,
+                $adjustment['paddle_event_id'],
+                $baselineAt,
+                $baselineEventId,
+            )) {
                 continue;
             }
 
@@ -45,6 +60,25 @@ final class GrantAdjustmentReducer
         }
 
         return ['status' => $status, 'changed_at' => $changedAt];
+    }
+
+    private static function isAtOrBeforeBaseline(
+        \DateTimeImmutable $occurredAt,
+        string $eventId,
+        \DateTimeImmutable $baselineAt,
+        string $baselineEventId,
+    ): bool {
+        if ($occurredAt < $baselineAt) {
+            return true;
+        }
+        if ($occurredAt > $baselineAt) {
+            return false;
+        }
+
+        // Empty means "there was no baseline adjustment event at this exact
+        // timestamp" (the normal baseline for a newly-created grant), so
+        // same-timestamp real adjustment ids remain eligible for replay.
+        return $baselineEventId !== '' && strcmp($eventId, $baselineEventId) <= 0;
     }
 
     /**
