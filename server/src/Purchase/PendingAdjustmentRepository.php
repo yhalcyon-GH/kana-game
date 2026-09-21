@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace KanaGame\Paddle\Purchase;
 
+require_once __DIR__ . '/../PaddleEventTime.php';
+
+use KanaGame\Paddle\PaddleEventTime;
 use PDO;
 
 /**
@@ -56,25 +59,26 @@ final class PendingAdjustmentRepository
             'status' => $adjustmentStatus,
             'type' => $adjustmentType,
             'items_json' => $itemsJson,
-            'occurred_at' => $occurredAt->format('Y-m-d H:i:s'),
+            'occurred_at' => PaddleEventTime::format($occurredAt),
         ]);
     }
 
     /**
-     * Returns unreconciled adjustments for a transaction, ordered by
-     * occurred_at ascending (oldest first) — reconciliation applies
-     * them in the order Paddle says they actually happened, not
-     * arrival order.
+     * Returns the COMPLETE normalized adjustment history for a transaction.
+     * Reconciled rows are intentionally retained and replayed again whenever a
+     * new event arrives, so final state depends on Paddle chronology rather
+     * than webhook arrival order. The event id is a deterministic tie-breaker
+     * if two Paddle timestamps are exactly equal.
      *
      * @return list<array{id: int, paddle_transaction_id: string, paddle_event_id: string, action: string, adjustment_status: string, adjustment_type: string, items: mixed, occurred_at: string}>
      */
-    public function findUnreconciledForTransaction(string $paddleTransactionId): array
+    public function findAllForTransaction(string $paddleTransactionId): array
     {
         $statement = $this->pdo->prepare(
             'SELECT id, paddle_transaction_id, paddle_event_id, action, adjustment_status, adjustment_type, items_json, occurred_at
              FROM pending_adjustments
-             WHERE paddle_transaction_id = :txn_id AND reconciled_at IS NULL
-             ORDER BY occurred_at ASC',
+             WHERE paddle_transaction_id = :txn_id
+             ORDER BY occurred_at ASC, paddle_event_id ASC',
         );
         $statement->execute(['txn_id' => $paddleTransactionId]);
 
@@ -91,16 +95,40 @@ final class PendingAdjustmentRepository
         );
     }
 
-    public function markReconciled(string $paddleEventId): void
+    public function markAllReconciledForTransaction(string $paddleTransactionId): void
     {
         $nowExpression = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite'
             ? "datetime('now')"
             : 'NOW()';
 
         $statement = $this->pdo->prepare(
-            "UPDATE pending_adjustments SET reconciled_at = {$nowExpression} WHERE paddle_event_id = :event_id",
+            "UPDATE pending_adjustments
+             SET reconciled_at = COALESCE(reconciled_at, {$nowExpression})
+             WHERE paddle_transaction_id = :txn_id",
+        );
+        $statement->execute(['txn_id' => $paddleTransactionId]);
+    }
+
+    /**
+     * Backward-compatible test/diagnostic view of only not-yet-reconciled rows.
+     *
+     * @return list<array{id: int, paddle_transaction_id: string, paddle_event_id: string, action: string, adjustment_status: string, adjustment_type: string, items: mixed, occurred_at: string}>
+     */
+    public function findUnreconciledForTransaction(string $paddleTransactionId): array
+    {
+        return array_values(array_filter(
+            $this->findAllForTransaction($paddleTransactionId),
+            fn (array $row): bool => $this->isUnreconciledEvent($row['paddle_event_id']),
+        ));
+    }
+
+    private function isUnreconciledEvent(string $paddleEventId): bool
+    {
+        $statement = $this->pdo->prepare(
+            'SELECT 1 FROM pending_adjustments WHERE paddle_event_id = :event_id AND reconciled_at IS NULL LIMIT 1',
         );
         $statement->execute(['event_id' => $paddleEventId]);
+        return $statement->fetchColumn() !== false;
     }
 
     public function isEventKnown(string $paddleEventId): bool
