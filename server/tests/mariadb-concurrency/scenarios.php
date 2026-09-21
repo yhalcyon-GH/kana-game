@@ -242,10 +242,11 @@ function scenarioPersistentRefreshRevoke(PDO $pdo, array $args, Barrier $barrier
             $parent = $persistentSessions->findActiveByRawToken($args['raw_persistent_token']);
             $sawParentActive = $parent !== null;
 
-            // Give the revoke worker enough time to revoke the parent and
-            // sweep all children that exist at that moment. The subsequent
-            // create intentionally lands AFTER that sweep.
-            usleep(100_000);
+            // Do not rely on scheduler timing. Explicitly tell the revoke
+            // worker that the stale active-parent read has happened, then
+            // wait until that worker confirms parent revocation + child sweep.
+            $barrier->signalPhase('parent-read');
+            $barrier->waitForPhase('revoke-swept');
 
             if ($parent !== null) {
                 $sessions->create(
@@ -266,11 +267,12 @@ function scenarioPersistentRefreshRevoke(PDO $pdo, array $args, Barrier $barrier
         }
 
         if ($args['action'] === 'revoke') {
-            // Let the refresh worker complete the initial active-parent read,
-            // then revoke before the refresh worker creates its child.
-            usleep(25_000);
+            // Wait for the refresh worker's stale active-parent read, then
+            // complete revocation + child sweep before allowing child creation.
+            $barrier->waitForPhase('parent-read');
             $persistentSessions->revoke($args['persistent_session_id']);
             $sessions->revokeByPersistentSessionId($args['persistent_session_id']);
+            $barrier->signalPhase('revoke-swept');
 
             return [
                 'action' => 'revoke',
