@@ -152,8 +152,9 @@ final class EphemeralDataCleanupRepository
 
     private function count(string $table, string $predicate, string $cutoff): int
     {
-        $statement = $this->pdo->prepare("SELECT COUNT(*) FROM {$table} WHERE {$predicate}");
-        $statement->execute(['cutoff' => $cutoff]);
+        [$boundPredicate, $cutoffValues] = $this->bindCutoffPredicate($predicate, $cutoff);
+        $statement = $this->pdo->prepare("SELECT COUNT(*) FROM {$table} WHERE {$boundPredicate}");
+        $statement->execute($cutoffValues);
 
         return (int) $statement->fetchColumn();
     }
@@ -165,12 +166,13 @@ final class EphemeralDataCleanupRepository
             return 0;
         }
 
+        [$boundPredicate, $cutoffValues] = $this->bindCutoffPredicate($predicate, $cutoff);
         $placeholders = implode(', ', array_fill(0, count($ids), '?'));
         $sql = "DELETE FROM {$table}
                 WHERE id IN ({$placeholders})
-                  AND " . str_replace(':cutoff', '?', $predicate);
+                  AND {$boundPredicate}";
         $statement = $this->pdo->prepare($sql);
-        $statement->execute([...$ids, $cutoff]);
+        $statement->execute([...$ids, ...$cutoffValues]);
 
         return $statement->rowCount();
     }
@@ -178,16 +180,28 @@ final class EphemeralDataCleanupRepository
     /** @return list<int> */
     private function selectCandidateIds(string $table, string $predicate, string $cutoff): array
     {
+        [$boundPredicate, $cutoffValues] = $this->bindCutoffPredicate($predicate, $cutoff);
         $sql = "SELECT id FROM {$table}
-                WHERE {$predicate}
+                WHERE {$boundPredicate}
                 ORDER BY id ASC
                 LIMIT {$this->batchLimit}";
         $statement = $this->pdo->prepare($sql);
-        $statement->execute(['cutoff' => $cutoff]);
+        $statement->execute($cutoffValues);
 
         return array_map(
             static fn (mixed $id): int => (int) $id,
             $statement->fetchAll(PDO::FETCH_COLUMN),
         );
+    }
+
+    /** @return array{0:string,1:list<string>} */
+    private function bindCutoffPredicate(string $predicate, string $cutoff): array
+    {
+        $count = substr_count($predicate, ':cutoff');
+
+        return [
+            str_replace(':cutoff', '?', $predicate),
+            array_fill(0, $count, $cutoff),
+        ];
     }
 }
