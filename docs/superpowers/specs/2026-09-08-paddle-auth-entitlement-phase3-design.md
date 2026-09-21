@@ -556,8 +556,10 @@ server call) says.
 > baseline is the original active `transaction.completed` state. For
 > pre-0009 grants, whose old direct-adjustment payloads were not retained, the
 > first new-code adjustment snapshots the already-materialized grant status
-> and the latest previously processed adjustment sort key; older/equal legacy
-> events cannot safely be reconstructed and do not rewrite that snapshot.
+> and `status_changed_at`. The old payment-event ledger does not retain
+> adjustment action/payload details, so the current backend deliberately does
+> not guess missing legacy semantics from it. Events older than that fixed
+> materialized-state boundary do not rewrite the snapshot.
 >
 > Refund semantics are also tightened: `pending_approval` may enter
 > `refund_pending`; approved partial or rejected refund may restore
