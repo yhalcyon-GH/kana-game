@@ -175,6 +175,30 @@ function transactionGrantRepositoryTests(): array
             assertTrue($applied, 'refund transitions must remain unrestricted by source status');
         },
 
+        'create() preserves fractional Paddle event time and replay replacement can move status at microsecond precision' => function () {
+            $pdo = makeTransactionGrantsTestDb();
+            $repo = new TransactionGrantRepository($pdo);
+            $repo->create(
+                'txn_micro',
+                'user-1',
+                'full_tamamizu',
+                1,
+                new \DateTimeImmutable('2026-01-01T00:00:00.100000Z'),
+            );
+
+            $grant = $repo->findByTransactionId('txn_micro');
+            assertSame('2026-01-01 00:00:00.100000', $grant['granted_at'], 'granted_at must keep microseconds');
+
+            $repo->replaceStatusFromReplay(
+                'txn_micro',
+                'refunded',
+                new \DateTimeImmutable('2026-01-01T00:00:00.900000Z'),
+            );
+            $grant = $repo->findByTransactionId('txn_micro');
+            assertSame('refunded', $grant['status'], 'replay replacement should set derived status');
+            assertSame('2026-01-01 00:00:00.900000', $grant['status_changed_at'], 'status_changed_at must keep microseconds');
+        },
+
         'findByTransactionId() returns the grant row for a known transaction' => function () {
             $repo = new TransactionGrantRepository(makeTransactionGrantsTestDb());
             $occurredAt = new \DateTimeImmutable('2026-01-01 00:00:00');
