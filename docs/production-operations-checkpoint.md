@@ -4,7 +4,7 @@ This file exists to prevent repeated Human Gate work when a chat, agent, or loca
 
 ## Current durable Production state
 
-As of 2026-09-20:
+As of 2026-09-21:
 
 - Dedicated XServer SSH access for the fixed Production checks is working.
 - The local operator has a persistent resume helper at `C:\Users\halcy\tamamizu-resume.ps1`. Its contents are local-only and must not be copied into the repository.
@@ -15,29 +15,24 @@ As of 2026-09-20:
   - `persistent_sessions` exists
   - `sessions.persistent_session_id` exists
 - Migration `0007_dev_harness_login_codes.sql` is intentionally NOT applied in Production because it is dev-only.
-- Security migration `0008_magic_link_browser_binding.sql` is **not yet applied**
-  in Production. It is additive, does not depend on dev-only 0007, and must be
-  applied only after the normal Production DB backup/Human Gate immediately
-  before deploying the matching #364 backend source. Until both migration and
-  code are deployed together, keep the current Production backend unchanged.
-- Security migration `0009_paddle_event_reconciliation.sql` is **not yet
-  applied** in Production. It adds the per-Paddle-transaction serialization
-  table plus nullable replay-baseline metadata and widens Paddle event-ordering
-  timestamps to `DATETIME(6)` and adds a non-PII
-  `paddle_reconciliation_blocks` quarantine table. It does **not** guess/backfill missing legacy
-  adjustment payloads. The matching #365 backend initializes each legacy
-  transaction's baseline lazily from its already-materialized grant status and
-  `status_changed_at` while holding that transaction's lock. The backend also
-  marks that legacy snapshot as whole-second/coarse and refuses ambiguous
-  same-second entitlement restoration. Apply 0009 only after 0008, under the
-  same Production DB backup/Human Gate, immediately before deploying the
-  matching #365 backend source. Do not deploy #365 backend code against a
-  schema that has not applied 0009.
-- The #365 cutover also requires the guarded one-time
-  `ops/paddle-reconciliation-cutover.php` inventory/repair to clear any
-  pre-existing **grant-backed unreconciled adjustments** left by the old race.
-  Duplicate Paddle delivery cannot be relied on to heal those because the old
-  event id may already be present in `payment_events`.
+- Security migration `0008_magic_link_browser_binding.sql` was explicitly human-approved, applied, and verified on 2026-09-21.
+- Security migration `0009_paddle_event_reconciliation.sql` was explicitly human-approved, applied, and verified on 2026-09-21 together with the matching reviewed backend.
+- The guarded `ops/paddle-reconciliation-cutover.php` cutover completed with
+  `grantBackedUnreconciledTransactions=0` and
+  `unresolvedReconciliationBlocks=0`. No quarantine block remained.
+- A fresh Production DB backup and API rollback backup were created before the
+  0008/0009 cutover, and release-integrity passed after the reviewed backend
+  deployment.
+- The deployment initially left the web-served `api/auth/` directory at mode
+  `700`, causing every public `/api/auth/*` endpoint to return HTTP 403.
+  The human operator corrected only that directory to `755` on 2026-09-21.
+  External verification then returned:
+  - `/api/auth/capabilities.php` -> HTTP 200 with `email_code_auth=true`
+  - `/api/auth/me.php` -> HTTP 401 while signed out
+  - `/api/ops/auth-readiness-check.php` -> HTTP 403 as intended
+  Future Windows-to-XServer releases must normalize web-served `api/auth/`
+  directories to `0755` and reviewed PHP files to `0644`; do not propagate
+  client-side directory modes as the final Production permissions.
 - Production email OTP configuration is enabled:
   - a distinct `LOGIN_CODE_PEPPER` is configured without exposing its value
   - `EMAIL_CODE_AUTH_ENABLED=true`
@@ -103,14 +98,9 @@ Repeat a step only when its trigger occurs:
 
 ## Current next Human Gate
 
-The next security-release Human Gate, once the audited source changes are
-merged and reviewed, is a **single coordinated Production update**: preserve a
-DB/API rollback backup, apply migration 0008 then 0009, and deploy the matching
-reviewed backend source while preserving `api/config.php` and the host-owned
-root `api/.htaccess`, then run the guarded idempotent Paddle cutover
-reconciliation and require both zero grant-backed-unreconciled transactions
-and zero unresolved reconciliation-block rows. Until that explicit approval,
-keep Production unchanged.
+The Security Audit v1 Production cutover is complete as of 2026-09-21. There is
+no remaining security-release Human Gate for migrations 0008/0009 or the
+matching backend deployment. Return to ordinary post-launch monitoring.
 
 After the 0009-aware backend has processed any webhook, **application-only
 rollback to the pre-0009 backend is not an allowed rollback path**. Use a
