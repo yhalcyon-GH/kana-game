@@ -360,4 +360,3 @@ function scenarioIndependentTransactionLocks(PDO $pdo, array $args, Barrier $bar
         ];
     }
 }
-
