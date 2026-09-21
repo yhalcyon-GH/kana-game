@@ -31,69 +31,90 @@ function grantAdjustmentReducerTests(): array
         'occurred_at' => $occurredAt,
     ];
 
+    $reduceFresh = static fn (array $rows): array => GrantAdjustmentReducer::reduce(
+        'active',
+        new \DateTimeImmutable('2026-01-01T00:00:00.000000Z'),
+        '',
+        $rows,
+    );
+
     return [
-        'chargeback reversal restores active when chronological history contains its older predecessor' => function () use ($row) {
-            $result = GrantAdjustmentReducer::reduce(
-                new \DateTimeImmutable('2026-01-01T00:00:00.000000Z'),
-                [
-                    $row('evt_cb', 'chargeback', 'approved', 'full', '2026-01-02 00:00:00.100000'),
-                    $row('evt_rev', 'chargeback_reverse', 'approved', 'full', '2026-01-02 00:00:00.900000'),
-                ],
-            );
+        'chargeback reversal restores active when chronological history contains its older predecessor' => function () use ($row, $reduceFresh) {
+            $result = $reduceFresh([
+                $row('evt_cb', 'chargeback', 'approved', 'full', '2026-01-02 00:00:00.100000'),
+                $row('evt_rev', 'chargeback_reverse', 'approved', 'full', '2026-01-02 00:00:00.900000'),
+            ]);
             assertSame('active', $result['status'], 'chronological chargeback then reversal should restore active');
         },
 
-        'warning reversal restores active after an older warning' => function () use ($row) {
-            $result = GrantAdjustmentReducer::reduce(
-                new \DateTimeImmutable('2026-01-01T00:00:00.000000Z'),
-                [
-                    $row('evt_warn', 'chargeback_warning', 'approved', 'full', '2026-01-02 00:00:00.100000'),
-                    $row('evt_warn_rev', 'chargeback_warning_reverse', 'approved', 'full', '2026-01-02 00:00:00.900000'),
-                ],
-            );
+        'warning reversal restores active after an older warning' => function () use ($row, $reduceFresh) {
+            $result = $reduceFresh([
+                $row('evt_warn', 'chargeback_warning', 'approved', 'full', '2026-01-02 00:00:00.100000'),
+                $row('evt_warn_rev', 'chargeback_warning_reverse', 'approved', 'full', '2026-01-02 00:00:00.900000'),
+            ]);
             assertSame('active', $result['status'], 'warning followed by its reversal should restore active');
         },
 
-        'a full approved refund is terminal even when later chargeback-family events exist' => function () use ($row) {
-            $result = GrantAdjustmentReducer::reduce(
-                new \DateTimeImmutable('2026-01-01T00:00:00.000000Z'),
-                [
-                    $row('evt_refund', 'refund', 'approved', 'full', '2026-01-02 00:00:00.100000'),
-                    $row('evt_cb', 'chargeback', 'approved', 'full', '2026-01-03 00:00:00.100000'),
-                    $row('evt_rev', 'chargeback_reverse', 'approved', 'full', '2026-01-04 00:00:00.100000'),
-                ],
-            );
-            assertSame('refunded', $result['status'], 'fully refunded must never be reactivated by chargeback lifecycle');
+        'a full approved refund is terminal even against later refund-family and chargeback-family events' => function () use ($row, $reduceFresh) {
+            $result = $reduceFresh([
+                $row('evt_refund', 'refund', 'approved', 'full', '2026-01-02 00:00:00.100000'),
+                $row('evt_rejected', 'refund', 'rejected', 'full', '2026-01-03 00:00:00.100000'),
+                $row('evt_cb', 'chargeback', 'approved', 'full', '2026-01-04 00:00:00.100000'),
+                $row('evt_rev', 'chargeback_reverse', 'approved', 'full', '2026-01-05 00:00:00.100000'),
+            ]);
+            assertSame('refunded', $result['status'], 'fully refunded must never be reactivated by any later adjustment');
         },
 
-        'partial approved or rejected refund resolves refund_pending back to active' => function () use ($row) {
-            $partial = GrantAdjustmentReducer::reduce(
-                new \DateTimeImmutable('2026-01-01T00:00:00.000000Z'),
-                [
-                    $row('evt_pending', 'refund', 'pending_approval', 'full', '2026-01-02 00:00:00.100000'),
-                    $row('evt_partial', 'refund', 'approved', 'partial', '2026-01-02 00:00:00.900000'),
-                ],
-            );
+        'partial approved or rejected refund resolves refund_pending back to active' => function () use ($row, $reduceFresh) {
+            $partial = $reduceFresh([
+                $row('evt_pending', 'refund', 'pending_approval', 'full', '2026-01-02 00:00:00.100000'),
+                $row('evt_partial', 'refund', 'approved', 'partial', '2026-01-02 00:00:00.900000'),
+            ]);
             assertSame('active', $partial['status'], 'partial approval should end a pending full-refund state without revoking entitlement');
 
-            $rejected = GrantAdjustmentReducer::reduce(
-                new \DateTimeImmutable('2026-01-01T00:00:00.000000Z'),
-                [
-                    $row('evt_pending', 'refund', 'pending_approval', 'full', '2026-01-02 00:00:00.100000'),
-                    $row('evt_rejected', 'refund', 'rejected', 'full', '2026-01-02 00:00:00.900000'),
-                ],
-            );
+            $rejected = $reduceFresh([
+                $row('evt_pending', 'refund', 'pending_approval', 'full', '2026-01-02 00:00:00.100000'),
+                $row('evt_rejected', 'refund', 'rejected', 'full', '2026-01-02 00:00:00.900000'),
+            ]);
             assertSame('active', $rejected['status'], 'rejected refund should restore active from refund_pending');
         },
 
-        'an adjustment chronologically older than the granting transaction is ignored' => function () use ($row) {
+        'events chronologically before a new-grant baseline are ignored' => function () use ($row) {
             $result = GrantAdjustmentReducer::reduce(
+                'active',
                 new \DateTimeImmutable('2026-01-02T00:00:00.500000Z'),
+                '',
                 [
                     $row('evt_old', 'refund', 'approved', 'full', '2026-01-02 00:00:00.100000'),
                 ],
             );
-            assertSame('active', $result['status'], 'pre-grant adjustment must not rewrite the grant');
+            assertSame('active', $result['status'], 'pre-baseline adjustment must not rewrite the grant');
+        },
+
+        'legacy baseline preserves already-materialized status and replays only newer normalized history' => function () use ($row) {
+            $result = GrantAdjustmentReducer::reduce(
+                'chargeback',
+                new \DateTimeImmutable('2026-01-03T00:00:00.500000Z'),
+                'evt_legacy_highwater',
+                [
+                    $row('evt_legacy_old', 'chargeback_warning', 'approved', 'full', '2026-01-02 00:00:00.100000'),
+                    $row('evt_new_reverse', 'chargeback_reverse', 'approved', 'full', '2026-01-04 00:00:00.100000'),
+                ],
+            );
+            assertSame('active', $result['status'], 'newer post-baseline reverse should apply to the legacy chargeback snapshot');
+        },
+
+        'same-timestamp event-id floor excludes legacy rows but permits later ids deterministically' => function () use ($row) {
+            $result = GrantAdjustmentReducer::reduce(
+                'active',
+                new \DateTimeImmutable('2026-01-02T00:00:00.100000Z'),
+                'evt_m',
+                [
+                    $row('evt_a', 'chargeback', 'approved', 'full', '2026-01-02 00:00:00.100000'),
+                    $row('evt_z', 'chargeback_warning', 'approved', 'full', '2026-01-02 00:00:00.100000'),
+                ],
+            );
+            assertSame('chargeback_pending', $result['status'], 'only event ids after the baseline tie-breaker should replay');
         },
     ];
 }
