@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace KanaGame\Paddle\Purchase;
 
+require_once __DIR__ . '/../PaddleEventTime.php';
+
+use KanaGame\Paddle\PaddleEventTime;
 use PDO;
 
 /**
@@ -43,7 +46,7 @@ final class TransactionGrantRepository
         int $purchaseIntentId,
         \DateTimeImmutable $occurredAt,
     ): bool {
-        $occurredAtStr = $occurredAt->format('Y-m-d H:i:s');
+        $occurredAtStr = PaddleEventTime::format($occurredAt);
 
         try {
             $statement = $this->pdo->prepare(
@@ -98,7 +101,7 @@ final class TransactionGrantRepository
         \DateTimeImmutable $occurredAt,
         ?array $allowedFromStatuses = null,
     ): bool {
-        $occurredAtStr = $occurredAt->format('Y-m-d H:i:s');
+        $occurredAtStr = PaddleEventTime::format($occurredAt);
         $params = [
             'status' => $newStatus,
             'occurred_at' => $occurredAtStr,
@@ -157,16 +160,48 @@ final class TransactionGrantRepository
     }
 
     /**
-     * @return array{paddle_transaction_id: string, user_id: string, product_key: string, purchase_intent_id: int, status: string}|null
+     * Replaces the materialized grant status after replaying the complete
+     * normalized adjustment history for this Paddle transaction. Callers must
+     * hold the per-transaction event lock and the per-user entitlement lock.
+     */
+    public function replaceStatusFromReplay(
+        string $paddleTransactionId,
+        string $status,
+        \DateTimeImmutable $changedAt,
+    ): bool {
+        $statement = $this->pdo->prepare(
+            'UPDATE transaction_grants
+             SET status = :status, status_changed_at = :changed_at
+             WHERE paddle_transaction_id = :txn_id',
+        );
+        $statement->execute([
+            'status' => $status,
+            'changed_at' => PaddleEventTime::format($changedAt),
+            'txn_id' => $paddleTransactionId,
+        ]);
+
+        return $statement->rowCount() === 1;
+    }
+
+    /**
+     * @return array{
+     *   paddle_transaction_id: string,
+     *   user_id: string,
+     *   product_key: string,
+     *   purchase_intent_id: int,
+     *   status: string,
+     *   granted_at: string,
+     *   status_changed_at: string
+     * }|null
      */
     public function findByTransactionId(string $paddleTransactionId): ?array
     {
         $statement = $this->pdo->prepare(
-            'SELECT paddle_transaction_id, user_id, product_key, purchase_intent_id, status
+            'SELECT paddle_transaction_id, user_id, product_key, purchase_intent_id, status, granted_at, status_changed_at
              FROM transaction_grants WHERE paddle_transaction_id = :txn_id LIMIT 1',
         );
         $statement->execute(['txn_id' => $paddleTransactionId]);
-        /** @var array{paddle_transaction_id: string, user_id: string, product_key: string, purchase_intent_id: int, status: string}|false $row */
+        /** @var array{paddle_transaction_id: string, user_id: string, product_key: string, purchase_intent_id: int, status: string, granted_at: string, status_changed_at: string}|false $row */
         $row = $statement->fetch();
 
         return $row === false ? null : $row;
