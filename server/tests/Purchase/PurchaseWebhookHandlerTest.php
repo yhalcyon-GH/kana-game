@@ -10,15 +10,19 @@ use KanaGame\Paddle\PaymentEventRepository;
 use KanaGame\Paddle\Purchase\PendingAdjustmentRepository;
 use KanaGame\Paddle\Purchase\PurchaseIntentRepository;
 use KanaGame\Paddle\Purchase\PurchaseWebhookHandler;
+use KanaGame\Paddle\Purchase\TransactionEventLockRepository;
 use KanaGame\Paddle\Purchase\TransactionGrantRepository;
 use PDO;
 
 require_once __DIR__ . '/../TestCase.php';
 require_once __DIR__ . '/../../src/PaddleSignature.php';
+require_once __DIR__ . '/../../src/PaddleEventTime.php';
 require_once __DIR__ . '/../../src/PaymentEventRepository.php';
 require_once __DIR__ . '/../../src/EntitlementRepository.php';
 require_once __DIR__ . '/../../src/ProductMatcher.php';
 require_once __DIR__ . '/../../src/Purchase/PurchaseIntentRepository.php';
+require_once __DIR__ . '/../../src/Purchase/TransactionEventLockRepository.php';
+require_once __DIR__ . '/../../src/Purchase/GrantAdjustmentReducer.php';
 require_once __DIR__ . '/../../src/Purchase/TransactionGrantRepository.php';
 require_once __DIR__ . '/../../src/Purchase/PendingAdjustmentRepository.php';
 require_once __DIR__ . '/../../src/Purchase/RefundCompleteness.php';
@@ -40,6 +44,12 @@ function makePurchaseWebhookTestDb(): PDO
             paddle_transaction_id TEXT NULL,
             occurred_at TEXT NOT NULL,
             processed_at TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )',
+    );
+    $pdo->exec(
+        'CREATE TABLE transaction_event_locks (
+            paddle_transaction_id TEXT PRIMARY KEY,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )',
     );
@@ -103,6 +113,7 @@ function makePurchaseWebhookHandler(PDO $pdo): PurchaseWebhookHandler
         $pdo,
         new PaddleSignature(PWH_TEST_SECRET),
         new PaymentEventRepository($pdo),
+        new TransactionEventLockRepository($pdo),
         new PurchaseIntentRepository($pdo),
         new TransactionGrantRepository($pdo),
         new PendingAdjustmentRepository($pdo),
