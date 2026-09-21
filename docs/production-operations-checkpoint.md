@@ -145,3 +145,16 @@ Routine updates must not require uninstalling the installed PWA or clearing site
 - Production DB writes/migrations require explicit human approval.
 - Production deployments require explicit human approval.
 - Production secret, DNS, Paddle Live, paid-resource, and email-send mutations remain Human Gates.
+
+
+## 2026-09-21 final post-launch maintenance closeout
+
+The remaining explicitly approved post-launch hardening and maintenance gates are complete:
+
+- Issue #348 ephemeral-data retention cleanup is active in Production. A fresh DB backup was taken before activation; the reviewed cleanup CLI/repository files were deployed; the initial read-only preview reported zero eligible rows across magic-link tokens, email login challenges, sessions, persistent sessions, and purchase intents, so no first-run deletion was necessary. HTTP protection and signed-out auth controls remained healthy. The owner then configured the approved recurring bounded cleanup Cron. The 30-day grace period, per-table batch limit, grant/FK preservation rules, and guarded CLI remain authoritative.
+- Issue #350 was closed as a documented v1 accepted hosting constraint. Meaningful frontend response headers still require a broader hosting/CDN/DNS change; meta-only CSP/frame-busting substitutes remain intentionally rejected.
+- Issue #366 was closed as the documented v1 accepted commercial residual for static/PWA premium assets. Revisit only on the issue's stated piracy/value/subscription triggers.
+- PR #384 updated `actions/deploy-pages` to v5.0.1 after exact-head CI/review passed. The resulting Production GitHub Pages deployment completed successfully.
+- Stale PR #356 was superseded by #384 and closed. Stale PR #294 was superseded by the already-merged complete Agentic Workflow implementation in PR #296 and closed.
+
+At this checkpoint there is no queued launch-blocking or post-launch remediation work. Future Production writes, Paddle Live or real-money actions, DNS/hosting changes, secrets, paid resources, or deployments remain fresh Human Gates under `docs/operational-gates.md`. Do not repeat completed validation merely to recreate confidence; act again only on new evidence or a new approved change.
