@@ -702,6 +702,23 @@ function purchaseWebhookHandlerTests(): array
             $grant = (new TransactionGrantRepository($pdo))->findByTransactionId('txn_micro_order');
             assertSame('refunded', $grant['status'], 'older same-second pending event must never overwrite newer full refund');
             assertSame('2026-01-02 00:00:00.900000', $grant['status_changed_at'], 'newer fractional timestamp must remain materialized');
+
+            $eventTimes = $pdo->query(
+                "SELECT paddle_event_id, occurred_at
+                 FROM payment_events
+                 WHERE paddle_event_id IN ('evt_micro_approved', 'evt_micro_pending')
+                 ORDER BY paddle_event_id ASC",
+            )->fetchAll(PDO::FETCH_KEY_PAIR);
+            assertSame(
+                '2026-01-02 00:00:00.900000',
+                $eventTimes['evt_micro_approved'] ?? null,
+                'payment_events must preserve the newer Paddle event microseconds',
+            );
+            assertSame(
+                '2026-01-02 00:00:00.100000',
+                $eventTimes['evt_micro_pending'] ?? null,
+                'payment_events must preserve the older Paddle event microseconds',
+            );
         },
 
         'chargeback_reverse delivered before its older chargeback is replayed to active once both events exist' => function () {
