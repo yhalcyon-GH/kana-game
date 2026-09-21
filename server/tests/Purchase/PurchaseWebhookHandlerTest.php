@@ -1493,11 +1493,9 @@ function purchaseWebhookHandlerTests(): array
             $grants = new TransactionGrantRepository($pdo);
             assertSame('chargeback', $grants->findByTransactionId('txn_term4')['status'], 'sanity check: chargeback should apply');
 
-            // A refund lifecycle event is unrelated to the chargeback
-            // guard system entirely -- applyRefundTransition() has no
-            // source-status restriction (unchanged, pre-existing
-            // behavior), so an approved full refund still applies
-            // regardless of the current chargeback state.
+            // A full approved refund is terminal even when it follows a
+            // chargeback. The reducer applies this from any non-refunded
+            // state, then refuses every later adjustment from resurrecting it.
             $refundBody = pwhAdjustmentPayload('evt_term4_refund', 'adjustment.updated', 'txn_term4', 'refund', 'approved', 'full', '2026-01-03T00:00:00Z');
             $handler->handle($refundBody, pwhSign($refundBody));
 
