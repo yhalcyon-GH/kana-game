@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "current_main_sha": "a3076fab1663ec15966f9c06cc169610e32f2c3a",
+  "current_main_sha": "99b94729fb25023e4d0bd3fbe8d4b0ba8b776f82",
   "latest_completed_work": {
     "kind": "post_launch_dependency_maintenance",
     "number": 381,
@@ -27,22 +27,21 @@
     "status": "human_gate",
     "goal": "AI-only post-launch maintenance is current. Remaining actionable security/operations work requires explicit Production/hosting/operator decisions."
   },
-  "next_machine_action": "Do not perform #348 Production ephemeral-data cleanup without explicit approval. If #348 is approved: fresh DB backup, deploy/stage reviewed cleanup code, run read-only --check, review counts, then guarded --apply, then re-check. Do not merge PR #356 until a Production Pages deployment-pipeline change is explicitly approved; v5 primarily moves deploy-pages to Node 24, while current GitHub-hosted runners already force legacy Node20 actions onto Node24. Issue #351 requires XServer host/error-handling diagnosis; prefer a short human Server Panel/error-log check over AI workaround automation. Issue #350 requires a hosting/CDN/DNS decision for meaningful frontend response headers. Issue #366 remains an accepted commercial residual unless stronger anti-extraction delivery is desired.",
+  "next_machine_action": "Do not perform #348 Production ephemeral-data cleanup without explicit approval. If #348 is approved: fresh DB backup, deploy/stage reviewed cleanup code, run read-only --check, review counts, then guarded --apply, then re-check. Do not merge PR #356 until a Production Pages deployment-pipeline change is explicitly approved; v5 primarily moves deploy-pages to Node 24, while current GitHub-hosted runners already force legacy Node20 actions onto Node24. Issue #350 requires a hosting/CDN/DNS decision for meaningful frontend response headers. Issue #366 remains an accepted commercial residual unless stronger anti-extraction delivery is desired.",
   "unresolved_ai_items": [],
   "human_gates": [
     "Any new real-money, Paddle Live, paid-service, Production DB write, DNS, Production-secret, email-send, or Production backend deployment action beyond what is explicitly approved.",
     "Issue #348 first Production ephemeral-data cleanup deployment/check/apply; any recurring cron/scheduler is a separate Production configuration Human Gate.",
     "Issue #350 meaningful frontend response-header fix requires hosting/CDN/DNS control and explicit human approval.",
-    "Issue #351 missing-path 500 correction requires XServer hosting/server configuration Human Gate.",
     "PR #356 deploy-pages v5 changes the Production GitHub Pages deployment pipeline; keep deferred until explicitly approved."
   ],
   "production_live_restrictions": "NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL. Real charges/refunds, Paddle Live transactions/configuration, paid-resource changes, Production DB writes, DNS changes, Production-secret changes, email sends, and Production deployments are Human Gates.",
-  "last_verified_at": "2026-09-21",
-  "last_verified_by": "Human explicitly approved the coordinated Security Audit v1 Production cutover. Fresh DB/API backups were created, migrations 0008/0009 and matching backend were applied, release integrity passed, reconciliation was 0/0, auth readiness/CORS passed, and public auth HTTP access was restored by correcting only api/auth from mode 700 to 755. External verification confirmed capabilities HTTP 200 with email_code_auth=true, auth/me HTTP 401 while signed out, and ops readiness HTTP 403.",
+  "last_verified_at": "2026-09-21T16:12:54Z",
+  "last_verified_by": "Human explicitly approved and applied the #351 XServer .htaccess correction. Post-change checks confirmed nonexistent Tamamizu /api/* returns 404, capabilities returns 200, signed-out auth/me returns 401, ops readiness remains 403, and the parent WordPress site returns 200. Earlier Security Audit v1 Production cutover remains complete.",
   "known_non_blockers": [
+    "Issue #351 resolved on 2026-09-21: Tamamizu was excluded from the parent WordPress rewrite after an explicitly approved XServer .htaccess change; post-change checks showed nonexistent /api/* = 404, auth capabilities = 200, signed-out auth/me = 401, ops readiness = 403, and parent giganihongo.com = 200.",
     "Post-launch dependency maintenance completed: PR #379 updated pinned actions/checkout to v7.0.1 and cache restore/save to v6.1.0 with exact-head CI; PR #380 integrated jest-dom 7.0.1, zustand 5.0.15, jsdom 30.1.0, react-router-dom 7.18.4, and oxlint 1.83.0 with exact-head CI; PR #381 validated actions/github-script v9 opt-in logic without paid Claude execution.",
     "PR #356 deploy-pages v5 is deferred because its meaningful validation occurs on Production Pages deployment; this is non-blocking.",
-    "Issue #351 remains Low operational hardening and requires XServer host-level diagnosis.",
     "Issue #350 remains Low and requires a hosting/CDN/DNS decision.",
     "Issue #366 remains the accepted static/PWA premium-asset extraction limitation.",
     "Issue #348 repository-side bounded cleanup merged in PR #377 with 30-day grace, 500-row-per-table batches, grant/FK preservation, guarded CLI, SQLite tests, and MariaDB 10.5/10.11 verification. Production activation is pending explicit approval.",
