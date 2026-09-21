@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
-  "current_main_sha": "0f4b48095733c73d734080e3b711a6bd15fc2beb",
+  "current_main_sha": "0244615ce1c3c3dbc847efeb4358348e07b72b0a",
   "latest_completed_work": {
-    "kind": "production_security_cutover",
-    "number": 374,
-    "title": "Security Audit v1 Production cutover and auth HTTP recovery",
+    "kind": "repo_side_security_retention_cleanup",
+    "number": 377,
+    "title": "Bound stale auth and purchase-intent retention",
     "merged_at": "2026-09-21"
   },
   "open_prs": [
@@ -12,32 +12,27 @@
       "number": 294,
       "title": "Add GitHub Agentic Workflows: Codex PR review + PR Verify failure investigator (docs/scaffolding; workflow files pending workflows-scope push)",
       "status": "non_blocking_human_gate"
-    },
-    {
-      "number": 377,
-      "title": "Bound stale auth and purchase-intent retention",
-      "status": "active_repo_side_security_followup"
     }
   ],
   "active_work_item": {
     "id": "security-retention-cleanup",
     "issue_number": 348,
-    "branch": "chatgpt/issue-348-ephemeral-cleanup",
-    "pull_request_number": 377,
-    "status": "pr_open_repo_side",
-    "goal": "Complete repository-side bounded cleanup for stale auth/session and unreferenced expired purchase-intent rows. Production cleanup execution and any cron remain Human Gates."
+    "branch": null,
+    "pull_request_number": null,
+    "status": "production_human_gate",
+    "goal": "Repository-side cleanup is complete. Production first cleanup deployment/check/apply and any cron/scheduler remain explicit Human Gates."
   },
-  "next_machine_action": "Finish PR #377 at exact HEAD: require Server Unit Tests, MariaDB 10.5/10.11 verification, PR Verify, CodeQL, Browser Smoke, Pre-Live Safety, and review/thread gates. If green, merge repo-side cleanup. Keep Issue #348 open until an explicitly approved Production cleanup deployment/check/apply is completed. Do not perform Production DB cleanup or create a cron without explicit human approval.",
-  "unresolved_ai_items": [
-    "Issue #348 repo-side cleanup implementation is in PR #377; finish CI/review/merge autonomously."
-  ],
+  "next_machine_action": "Issue #348 repo-side implementation is merged. Do not mutate Production for #348 without explicit approval. If approved, use the reviewed guarded cleanup flow: fresh DB backup, deploy/stage only reviewed cleanup code under normal Production rules, run `php ops/ephemeral-data-cleanup.php --check`, review count-only output, then run `--apply --human-approved-ephemeral-cleanup`, then re-check. Any cron/scheduler is a separate Human Gate.",
+  "unresolved_ai_items": [],
   "human_gates": [
-    "Any new real-money, Paddle Live, paid-service, Production DB write, DNS, Production-secret, email-send, or Production backend deployment action beyond what is explicitly approved."
+    "Any new real-money, Paddle Live, paid-service, Production DB write, DNS, Production-secret, email-send, or Production backend deployment action beyond what is explicitly approved.",
+    "Issue #348 first Production ephemeral-data cleanup deployment/check/apply; any recurring cron/scheduler is a separate Production configuration Human Gate."
   ],
   "production_live_restrictions": "NO MONEY WITHOUT EXPLICIT HUMAN APPROVAL. Real charges/refunds, Paddle Live transactions/configuration, paid-resource changes, Production DB writes, DNS changes, Production-secret changes, email sends, and Production deployments are Human Gates.",
   "last_verified_at": "2026-09-21",
   "last_verified_by": "Human explicitly approved the coordinated Security Audit v1 Production cutover. Fresh DB/API backups were created, migrations 0008/0009 and matching backend were applied, release integrity passed, reconciliation was 0/0, auth readiness/CORS passed, and public auth HTTP access was restored by correcting only api/auth from mode 700 to 755. External verification confirmed capabilities HTTP 200 with email_code_auth=true, auth/me HTTP 401 while signed out, and ops readiness HTTP 403.",
   "known_non_blockers": [
+    "Issue #348 repository-side bounded cleanup merged in PR #377 with 30-day grace, 500-row-per-table batches, grant/FK preservation, guarded CLI, SQLite tests, and MariaDB 10.5/10.11 verification. Production activation is pending explicit approval.",
     "Security Audit v1 Production cutover completed 2026-09-21: migrations 0008/0009 applied, matching reviewed backend deployed, release integrity passed, Paddle reconciliation 0/0.",
     "The cutover initially left api/auth at mode 700, causing public auth HTTP 403; the human operator corrected only api/auth to 755. External verification then showed capabilities 200/email_code_auth=true, auth/me 401 while signed out, and ops readiness still 403.",
     "Production Email OTP is enabled and real-device OTP login/persistence/logout QA passed on 2026-09-20.",
