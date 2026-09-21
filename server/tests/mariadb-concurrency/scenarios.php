@@ -87,6 +87,10 @@ function scenarioWebhook(PDO $pdo, array $args, Barrier $barrier, int $workerId)
 
     $barrier->signalReadyAndWaitForGo($workerId);
 
+    if (isset($args['delay_us']) && is_numeric($args['delay_us']) && (int) $args['delay_us'] > 0) {
+        usleep((int) $args['delay_us']);
+    }
+
     // Timing-only instrumentation for the pre-Live sync-vs-async webhook
     // response-time investigation (see docs/pre-live-launch-checklist.md
     // item 5a). Measures ONLY the handler's own DB-bound processing time
