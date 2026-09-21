@@ -39,7 +39,7 @@
   "last_verified_at": "2026-09-21T16:12:54Z",
   "last_verified_by": "Human explicitly approved and applied the #351 XServer .htaccess correction. Post-change checks confirmed nonexistent Tamamizu /api/* returns 404, capabilities returns 200, signed-out auth/me returns 401, ops readiness remains 403, and the parent WordPress site returns 200. Earlier Security Audit v1 Production cutover remains complete.",
   "known_non_blockers": [
-    "Issue #351 resolved on 2026-09-21: parent WordPress rewrite was excluding Tamamizu after an explicitly approved XServer .htaccess change; post-change checks showed nonexistent /api/* = 404, auth capabilities = 200, signed-out auth/me = 401, ops readiness = 403, and parent giganihongo.com = 200.",
+    "Issue #351 resolved on 2026-09-21: Tamamizu was excluded from the parent WordPress rewrite after an explicitly approved XServer .htaccess change; post-change checks showed nonexistent /api/* = 404, auth capabilities = 200, signed-out auth/me = 401, ops readiness = 403, and parent giganihongo.com = 200.",
     "Post-launch dependency maintenance completed: PR #379 updated pinned actions/checkout to v7.0.1 and cache restore/save to v6.1.0 with exact-head CI; PR #380 integrated jest-dom 7.0.1, zustand 5.0.15, jsdom 30.1.0, react-router-dom 7.18.4, and oxlint 1.83.0 with exact-head CI; PR #381 validated actions/github-script v9 opt-in logic without paid Claude execution.",
     "PR #356 deploy-pages v5 is deferred because its meaningful validation occurs on Production Pages deployment; this is non-blocking.",
     "Issue #350 remains Low and requires a hosting/CDN/DNS decision.",
