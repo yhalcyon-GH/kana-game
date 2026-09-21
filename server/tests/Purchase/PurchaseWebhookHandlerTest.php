@@ -659,6 +659,130 @@ function purchaseWebhookHandlerTests(): array
             assertSame('refunded', $grants->findByTransactionId('txn_stalequeue')['status'], 'reconciliation must apply refunded (newest), not be overwritten by the stale pending_approval');
         },
 
+        'same-second microsecond ordering keeps newer full refund terminal when older pending arrives later' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $intents = new PurchaseIntentRepository($pdo);
+            $intents->create('user-1', 'full_tamamizu', 'raw-ref-micro', new \DateTimeImmutable('+30 minutes'));
+            $handler = makePurchaseWebhookHandler($pdo);
+
+            $txnBody = pwhTransactionCompletedPayload(
+                'evt_micro_txn',
+                'txn_micro_order',
+                'raw-ref-micro',
+                '2026-01-01T00:00:00.000000Z',
+            );
+            $handler->handle($txnBody, pwhSign($txnBody));
+
+            // Newer full approval arrives first.
+            $approved = pwhAdjustmentPayload(
+                'evt_micro_approved',
+                'adjustment.updated',
+                'txn_micro_order',
+                'refund',
+                'approved',
+                'full',
+                '2026-01-02T00:00:00.900000Z',
+            );
+            $handler->handle($approved, pwhSign($approved));
+
+            // Older pending state arrives later. Whole-second truncation
+            // would make these compare equal and let delivery order leak into
+            // state; DATETIME(6)+full replay must keep refunded.
+            $olderPending = pwhAdjustmentPayload(
+                'evt_micro_pending',
+                'adjustment.created',
+                'txn_micro_order',
+                'refund',
+                'pending_approval',
+                'full',
+                '2026-01-02T00:00:00.100000Z',
+            );
+            $handler->handle($olderPending, pwhSign($olderPending));
+
+            $grant = (new TransactionGrantRepository($pdo))->findByTransactionId('txn_micro_order');
+            assertSame('refunded', $grant['status'], 'older same-second pending event must never overwrite newer full refund');
+            assertSame('2026-01-02 00:00:00.900000', $grant['status_changed_at'], 'newer fractional timestamp must remain materialized');
+        },
+
+        'chargeback_reverse delivered before its older chargeback is replayed to active once both events exist' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $handler = makePurchaseWebhookHandler($pdo);
+            pwhMakeActiveGrant($pdo, $handler, 'user-1', 'raw-ref-revfirst', 'evt_revfirst_txn', 'txn_revfirst');
+
+            $reverseFirst = pwhAdjustmentPayload(
+                'evt_revfirst_reverse',
+                'adjustment.created',
+                'txn_revfirst',
+                'chargeback_reverse',
+                'n/a',
+                'n/a',
+                '2026-01-03T00:00:00.900000Z',
+            );
+            $handler->handle($reverseFirst, pwhSign($reverseFirst));
+            assertSame('active', (new TransactionGrantRepository($pdo))->findByTransactionId('txn_revfirst')['status'], 'reversal alone has no predecessor and should leave active');
+
+            $olderChargeback = pwhAdjustmentPayload(
+                'evt_revfirst_chargeback',
+                'adjustment.created',
+                'txn_revfirst',
+                'chargeback',
+                'n/a',
+                'n/a',
+                '2026-01-03T00:00:00.100000Z',
+            );
+            $handler->handle($olderChargeback, pwhSign($olderChargeback));
+
+            $grant = (new TransactionGrantRepository($pdo))->findByTransactionId('txn_revfirst');
+            assertSame('active', $grant['status'], 'full chronological replay must apply older chargeback then newer reversal');
+            assertTrue((new EntitlementRepository($pdo))->find('user-1', 'full_tamamizu')['active'], 'entitlement should remain active after replayed reversal');
+        },
+
+        'chargeback_warning_reverse delivered before older warning is replayed to active once warning arrives' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $handler = makePurchaseWebhookHandler($pdo);
+            pwhMakeActiveGrant($pdo, $handler, 'user-1', 'raw-ref-warnrev', 'evt_warnrev_txn', 'txn_warnrev');
+
+            $reverseFirst = pwhAdjustmentPayload(
+                'evt_warnrev_reverse',
+                'adjustment.created',
+                'txn_warnrev',
+                'chargeback_warning_reverse',
+                'n/a',
+                'n/a',
+                '2026-01-03T00:00:00.900000Z',
+            );
+            $handler->handle($reverseFirst, pwhSign($reverseFirst));
+
+            $warningLaterDelivery = pwhAdjustmentPayload(
+                'evt_warnrev_warning',
+                'adjustment.created',
+                'txn_warnrev',
+                'chargeback_warning',
+                'n/a',
+                'n/a',
+                '2026-01-03T00:00:00.100000Z',
+            );
+            $handler->handle($warningLaterDelivery, pwhSign($warningLaterDelivery));
+
+            assertSame('active', (new TransactionGrantRepository($pdo))->findByTransactionId('txn_warnrev')['status'], 'warning history must replay before its chronologically newer reversal');
+        },
+
+        'fully refunded grant stays terminal through later chargeback and reversal events' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $handler = makePurchaseWebhookHandler($pdo);
+            pwhMakeActiveGrant($pdo, $handler, 'user-1', 'raw-ref-terminal', 'evt_terminal_txn', 'txn_terminal');
+
+            $refund = pwhAdjustmentPayload('evt_terminal_refund', 'adjustment.updated', 'txn_terminal', 'refund', 'approved', 'full', '2026-01-02T00:00:00.100000Z');
+            $handler->handle($refund, pwhSign($refund));
+            $chargeback = pwhAdjustmentPayload('evt_terminal_cb', 'adjustment.created', 'txn_terminal', 'chargeback', 'n/a', 'n/a', '2026-01-03T00:00:00.100000Z');
+            $handler->handle($chargeback, pwhSign($chargeback));
+            $reverse = pwhAdjustmentPayload('evt_terminal_rev', 'adjustment.created', 'txn_terminal', 'chargeback_reverse', 'n/a', 'n/a', '2026-01-04T00:00:00.100000Z');
+            $handler->handle($reverse, pwhSign($reverse));
+
+            assertSame('refunded', (new TransactionGrantRepository($pdo))->findByTransactionId('txn_terminal')['status'], 'refunded is terminal under deterministic history replay');
+            assertFalse((new EntitlementRepository($pdo))->find('user-1', 'full_tamamizu')['active'], 'terminal refund must keep entitlement revoked');
+        },
+
         'reconciliation is idempotent -- redelivering the same transaction.completed does not double-reconcile' => function () {
             $pdo = makePurchaseWebhookTestDb();
             $intents = new PurchaseIntentRepository($pdo);
