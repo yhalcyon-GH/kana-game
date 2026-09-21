@@ -1,7 +1,7 @@
 # Security & Safety Audit v1
 
-Date: 2026-09-21  
-Repository baseline reviewed: `77c5240440bb58eba7c73ebf5b44bf94c0001f88`  
+Date: 2026-09-21
+Repository baseline reviewed: `77c5240440bb58eba7c73ebf5b44bf94c0001f88`
 Final remediation main SHA: `608d910c8a6eb1f025ca4b8dbfd4a74fe1c7e384`
 
 ## Executive summary
