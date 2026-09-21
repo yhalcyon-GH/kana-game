@@ -9,6 +9,7 @@ use KanaGame\Paddle\Auth\FakeMailer;
 use KanaGame\Paddle\Auth\MagicLinkAuthService;
 use KanaGame\Paddle\Auth\MagicLinkTokenRepository;
 use KanaGame\Paddle\Auth\MagicLinkUrlBuilder;
+use KanaGame\Paddle\Auth\PersistentSessionRepository;
 use KanaGame\Paddle\Auth\RateLimiter;
 use KanaGame\Paddle\Auth\SessionRepository;
 use KanaGame\Paddle\Auth\UserRepository;
@@ -197,6 +198,91 @@ function scenarioOtpAttemptRace(PDO $pdo, array $args, Barrier $barrier, int $wo
         return [
             'success' => false,
             'reason' => null,
+            'exception_class' => get_class($e),
+            'sqlstate' => $e instanceof \PDOException ? ($e->errorInfo[0] ?? null) : null,
+        ];
+    }
+}
+
+/**
+ * Scenario G: deterministically reproduce the dangerous refresh-vs-revoke
+ * interleaving identified in Security Audit #364.
+ *
+ * Worker "refresh" first observes an active remember credential, then pauses.
+ * Worker "revoke" revokes that persistent row and sweeps its existing children.
+ * The refresh worker then creates a linked child AFTER the sweep, reproducing
+ * the orphaned-but-unrevoked child row the real race can leave behind.
+ *
+ * The security invariant under test is not "the orphan row cannot exist" --
+ * it can -- but "that child can never authenticate once its persistent parent
+ * is revoked/expired." SessionRepository enforces that invariant at lookup.
+ *
+ * @param array{
+ *   action: 'refresh'|'revoke',
+ *   raw_persistent_token: string,
+ *   raw_child_session_token: string,
+ *   user_id: string,
+ *   persistent_session_id: int
+ * } $args
+ * @return array{action: string, saw_parent_active: bool, child_created: bool, exception_class: ?string, sqlstate: ?string}
+ */
+function scenarioPersistentRefreshRevoke(PDO $pdo, array $args, Barrier $barrier, int $workerId): array
+{
+    $persistentSessions = new PersistentSessionRepository($pdo);
+    $sessions = new SessionRepository($pdo);
+
+    $barrier->signalReadyAndWaitForGo($workerId);
+
+    try {
+        if ($args['action'] === 'refresh') {
+            $parent = $persistentSessions->findActiveByRawToken($args['raw_persistent_token']);
+            $sawParentActive = $parent !== null;
+
+            // Give the revoke worker enough time to revoke the parent and
+            // sweep all children that exist at that moment. The subsequent
+            // create intentionally lands AFTER that sweep.
+            usleep(100_000);
+
+            if ($parent !== null) {
+                $sessions->create(
+                    $args['user_id'],
+                    $args['raw_child_session_token'],
+                    new \DateTimeImmutable('+24 hours'),
+                    $args['persistent_session_id'],
+                );
+            }
+
+            return [
+                'action' => 'refresh',
+                'saw_parent_active' => $sawParentActive,
+                'child_created' => $parent !== null,
+                'exception_class' => null,
+                'sqlstate' => null,
+            ];
+        }
+
+        if ($args['action'] === 'revoke') {
+            // Let the refresh worker complete the initial active-parent read,
+            // then revoke before the refresh worker creates its child.
+            usleep(25_000);
+            $persistentSessions->revoke($args['persistent_session_id']);
+            $sessions->revokeByPersistentSessionId($args['persistent_session_id']);
+
+            return [
+                'action' => 'revoke',
+                'saw_parent_active' => false,
+                'child_created' => false,
+                'exception_class' => null,
+                'sqlstate' => null,
+            ];
+        }
+
+        throw new \InvalidArgumentException('unknown persistent refresh/revoke action');
+    } catch (\Throwable $e) {
+        return [
+            'action' => (string) ($args['action'] ?? 'unknown'),
+            'saw_parent_active' => false,
+            'child_created' => false,
             'exception_class' => get_class($e),
             'sqlstate' => $e instanceof \PDOException ? ($e->errorInfo[0] ?? null) : null,
         ];

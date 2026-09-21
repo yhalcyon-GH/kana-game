@@ -45,9 +45,21 @@ function makeMagicLinkAuthServiceTestDb(): PDO
             email_normalized TEXT NOT NULL,
             user_id TEXT NULL,
             token_hash TEXT NOT NULL UNIQUE,
+            browser_binding_hash TEXT NULL,
             expires_at TEXT NOT NULL,
             used_at TEXT NULL,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )',
+    );
+    $pdo->exec(
+        'CREATE TABLE persistent_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            token_hash TEXT NOT NULL UNIQUE,
+            user_id TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            revoked_at TEXT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )',
     );
     $pdo->exec(
@@ -202,6 +214,40 @@ function magicLinkAuthServiceTests(): array
             $h['service']->requestLink('final-victim@example.com', '203.0.113.9');
 
             assertSame(20, count($h['mailer']->sent), 'the 21st request from this one IP must not trigger a mailer call, even for a never-before-seen email');
+        },
+
+        'production-style browser binding rejects a wrong browser without consuming the one-time Magic Link' => function () {
+            $h = makeMagicLinkAuthServiceHarness();
+            $issued = $h['service']->requestLink(
+                'bound-service@example.com',
+                '203.0.113.1',
+                'correct-browser-binding',
+            );
+            assertTrue($issued, 'valid request should issue a Magic Link');
+            $rawToken = extractTokenFromUrl($h['mailer']->sent[0]['url']);
+
+            $wrongBrowser = $h['service']->verify($rawToken, 'wrong-browser-binding', true);
+            assertFalse($wrongBrowser->success, 'wrong browser binding must fail generically');
+
+            $correctBrowser = $h['service']->verify($rawToken, 'correct-browser-binding', true);
+            assertTrue($correctBrowser->success, 'wrong-browser attempt must not consume the token');
+            assertSame(
+                'bound-service@example.com',
+                $correctBrowser->user['email_normalized'],
+                'correct requesting browser should resolve the intended account',
+            );
+        },
+
+        'production-style verification rejects an unbound pre-migration token while dev verification remains backward compatible' => function () {
+            $h = makeMagicLinkAuthServiceHarness();
+            $h['service']->requestLink('unbound@example.com', '203.0.113.1');
+            $rawToken = extractTokenFromUrl($h['mailer']->sent[0]['url']);
+
+            $productionAttempt = $h['service']->verify($rawToken, null, true);
+            assertFalse($productionAttempt->success, 'cookie-mode production must reject an unbound token');
+
+            $devAttempt = $h['service']->verify($rawToken, null, false);
+            assertTrue($devAttempt->success, 'dev/Bearer mode should keep existing unbound Magic Link behavior');
         },
 
         'verify() with a freshly issued token succeeds and creates a session' => function () {

@@ -963,6 +963,156 @@ function runScenarioF(PDO $maintPdo, int $iterations): void
     }
 }
 
+
+
+// --------------------------------------------------------------------
+// Scenario G: persistent-session refresh races with parent revocation.
+//
+// This intentionally forces the worst ordering:
+//   1) refresh worker observes the parent active,
+//   2) revoke worker revokes parent + sweeps current children,
+//   3) refresh worker creates a linked child after that sweep.
+//
+// The child row may therefore exist with revoked_at=NULL. The security
+// invariant is that SessionRepository must still refuse to authenticate it
+// because its persistent parent is no longer active.
+// --------------------------------------------------------------------
+function runScenarioG(PDO $maintPdo, int $iterations): void
+{
+    $scenario = 'G';
+    $GLOBALS['mariadbConcurrencyScenarioTally'][$scenario] = ['pass' => 0, 'fail' => 0];
+    $workerCount = 2;
+
+    for ($iter = 1; $iter <= $iterations; $iter++) {
+        resetTables($maintPdo);
+
+        $userId = (new UserRepository($maintPdo))->findOrCreateByEmail('race-g@example.invalid')['id'];
+        $persistentRepo = new \KanaGame\Paddle\Auth\PersistentSessionRepository($maintPdo);
+        $rawPersistentToken = rawSecretToken();
+        $persistentId = $persistentRepo->create(
+            $userId,
+            $rawPersistentToken,
+            new \DateTimeImmutable('+90 days'),
+        );
+        $rawChildSessionToken = rawSecretToken();
+
+        $dir = makeBarrierDir($scenario, $iter);
+        $sharedArgs = [
+            'raw_persistent_token' => $rawPersistentToken,
+            'raw_child_session_token' => $rawChildSessionToken,
+            'user_id' => $userId,
+            'persistent_session_id' => $persistentId,
+        ];
+        writeArgsFile($dir, 0, ['action' => 'refresh'] + $sharedArgs);
+        writeArgsFile($dir, 1, ['action' => 'revoke'] + $sharedArgs);
+
+        $iterationFailures = [];
+        try {
+            $results = runWorkers('persistent_refresh_revoke', $dir, $workerCount);
+
+            $exceptionWorkers = [];
+            foreach ($results as $i => $r) {
+                if (($r['exception_class'] ?? null) !== null) {
+                    $exceptionWorkers[] = [
+                        'worker' => $i,
+                        'class' => $r['exception_class'],
+                        'sqlstate' => $r['sqlstate'] ?? null,
+                    ];
+                }
+            }
+
+            checkInvariant(
+                $scenario,
+                $iter,
+                'no uncaught DB exception surfaced from either worker',
+                $exceptionWorkers === [],
+                ['exception_workers' => $exceptionWorkers],
+                $iterationFailures,
+            );
+            checkInvariant(
+                $scenario,
+                $iter,
+                'refresh worker observed the persistent parent active before revocation',
+                ($results[0]['saw_parent_active'] ?? false) === true,
+                ['refresh_result' => $results[0]],
+                $iterationFailures,
+            );
+            checkInvariant(
+                $scenario,
+                $iter,
+                'refresh worker created the child after its stale active-parent read',
+                ($results[0]['child_created'] ?? false) === true,
+                ['refresh_result' => $results[0]],
+                $iterationFailures,
+            );
+
+            $verifyPdo = connectMariadbConcurrencyTestDb();
+            $parentStmt = $verifyPdo->prepare(
+                'SELECT revoked_at FROM persistent_sessions WHERE id = ?',
+            );
+            $parentStmt->execute([$persistentId]);
+            $parentRevokedAt = $parentStmt->fetchColumn();
+
+            $childStmt = $verifyPdo->prepare(
+                'SELECT revoked_at FROM sessions WHERE token_hash = ?',
+            );
+            $childStmt->execute([hash('sha256', $rawChildSessionToken)]);
+            $childRevokedAt = $childStmt->fetchColumn();
+            $childExists = $childRevokedAt !== false;
+
+            checkInvariant(
+                $scenario,
+                $iter,
+                'persistent parent is revoked after the race',
+                $parentRevokedAt !== false && $parentRevokedAt !== null,
+                ['parent_revoked' => $parentRevokedAt !== null],
+                $iterationFailures,
+            );
+            checkInvariant(
+                $scenario,
+                $iter,
+                'the forced interleaving produced a post-sweep child row',
+                $childExists,
+                ['child_exists' => $childExists],
+                $iterationFailures,
+            );
+            checkInvariant(
+                $scenario,
+                $iter,
+                'the post-sweep child is not relying on its own revoked_at flag for safety',
+                $childExists && $childRevokedAt === null,
+                ['child_revoked_at_is_null' => $childRevokedAt === null],
+                $iterationFailures,
+            );
+
+            $sessionRepo = new \KanaGame\Paddle\Auth\SessionRepository($verifyPdo);
+            $resolvedUserId = $sessionRepo->findActiveUserIdForRawToken($rawChildSessionToken);
+            checkInvariant(
+                $scenario,
+                $iter,
+                'a child created after the revoke sweep still cannot authenticate because its persistent parent is revoked',
+                $resolvedUserId === null,
+                ['resolved_user_id_is_null' => $resolvedUserId === null],
+                $iterationFailures,
+            );
+
+            reportIterationOutcome(
+                $scenario,
+                $iter,
+                $iterationFailures,
+                $results,
+                [
+                    'parent_revoked' => $parentRevokedAt !== null,
+                    'child_exists' => $childExists,
+                    'child_row_revoked' => $childRevokedAt !== null && $childRevokedAt !== false,
+                ],
+            );
+        } finally {
+            cleanupBarrierDir($dir);
+        }
+    }
+}
+
 // ========================================================================
 // Main
 // ========================================================================
@@ -1001,6 +1151,7 @@ $allScenarios = [
     'D' => fn () => runScenarioD($maintPdo, $iterations),
     'E' => fn () => runScenarioE($maintPdo, $iterations),
     'F' => fn () => runScenarioF($maintPdo, $iterations),
+    'G' => fn () => runScenarioG($maintPdo, $iterations),
 ];
 
 foreach ($allScenarios as $name => $runner) {

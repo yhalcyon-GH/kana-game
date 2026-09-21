@@ -19,15 +19,31 @@ final class MagicLinkTokenRepository
     {
     }
 
-    public function issue(string $emailNormalized, string $rawToken, \DateTimeImmutable $expiresAt): void
-    {
+    public function issue(
+        string $emailNormalized,
+        string $rawToken,
+        \DateTimeImmutable $expiresAt,
+        ?string $rawBrowserBinding = null,
+    ): void {
         $statement = $this->pdo->prepare(
-            'INSERT INTO magic_link_tokens (email_normalized, token_hash, expires_at, created_at)
-             VALUES (:email, :token_hash, :expires_at, CURRENT_TIMESTAMP)',
+            'INSERT INTO magic_link_tokens (
+                email_normalized,
+                token_hash,
+                browser_binding_hash,
+                expires_at,
+                created_at
+             ) VALUES (
+                :email,
+                :token_hash,
+                :browser_binding_hash,
+                :expires_at,
+                CURRENT_TIMESTAMP
+             )',
         );
         $statement->execute([
             'email' => $emailNormalized,
             'token_hash' => hash('sha256', $rawToken),
+            'browser_binding_hash' => $rawBrowserBinding === null ? null : hash('sha256', $rawBrowserBinding),
             'expires_at' => $expiresAt->format('Y-m-d H:i:s'),
         ]);
     }
@@ -52,6 +68,50 @@ final class MagicLinkTokenRepository
         $statement->execute(['token_hash' => $tokenHash]);
 
         return $statement->rowCount() === 1;
+    }
+
+    /**
+     * Verify the browser-binding secret without consuming the Magic Link.
+     *
+     * Cookie-mode callers set $requireBinding=true so a token issued without
+     * a binding (including a pre-migration token) is rejected rather than
+     * silently downgrading the login-CSRF defense. Dev/Bearer callers leave
+     * it false, where an unbound dev token remains valid.
+     */
+    public function browserBindingMatches(
+        string $rawToken,
+        ?string $rawBrowserBinding,
+        bool $requireBinding,
+    ): bool {
+        $expectedTokenHash = hash('sha256', $rawToken);
+        $nowExpression = $this->nowExpression();
+
+        $statement = $this->pdo->prepare(
+            "SELECT token_hash, browser_binding_hash
+             FROM magic_link_tokens
+             WHERE token_hash = :token_hash
+               AND used_at IS NULL
+               AND expires_at > {$nowExpression}
+             LIMIT 1",
+        );
+        $statement->execute(['token_hash' => $expectedTokenHash]);
+        /** @var array{token_hash: string, browser_binding_hash: ?string}|false $row */
+        $row = $statement->fetch();
+
+        if ($row === false || !hash_equals($expectedTokenHash, $row['token_hash'])) {
+            return false;
+        }
+
+        $storedBindingHash = $row['browser_binding_hash'];
+        if ($storedBindingHash === null || $storedBindingHash === '') {
+            return !$requireBinding;
+        }
+
+        if ($rawBrowserBinding === null || $rawBrowserBinding === '') {
+            return false;
+        }
+
+        return hash_equals($storedBindingHash, hash('sha256', $rawBrowserBinding));
     }
 
     public function findEmailForRawToken(string $rawToken): ?string

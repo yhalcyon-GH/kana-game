@@ -20,6 +20,7 @@ function makeMagicLinkTestDb(): PDO
             email_normalized TEXT NOT NULL,
             user_id TEXT NULL,
             token_hash TEXT NOT NULL UNIQUE,
+            browser_binding_hash TEXT NULL,
             expires_at TEXT NOT NULL,
             used_at TEXT NULL,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -68,6 +69,48 @@ function magicLinkTokenRepositoryTests(): array
                     'the raw token value must never appear in a persisted column',
                 );
             }
+        },
+
+        'issue() stores only a hash of the optional browser binding and matches it for an active token' => function () {
+            $pdo = makeMagicLinkTestDb();
+            $repo = new MagicLinkTokenRepository($pdo);
+            $repo->issue(
+                'bound@example.com',
+                'bound-token',
+                new \DateTimeImmutable('+15 minutes'),
+                'raw-browser-binding',
+            );
+
+            $stored = $pdo->query("SELECT browser_binding_hash FROM magic_link_tokens WHERE email_normalized = 'bound@example.com'")->fetchColumn();
+            assertSame(hash('sha256', 'raw-browser-binding'), $stored, 'only the SHA-256 browser binding hash may be stored');
+            assertFalse(str_contains((string) $stored, 'raw-browser-binding'), 'raw browser binding must never be persisted');
+
+            assertTrue(
+                $repo->browserBindingMatches('bound-token', 'raw-browser-binding', true),
+                'the correct binding must match a bound active token',
+            );
+            assertFalse(
+                $repo->browserBindingMatches('bound-token', 'wrong-binding', true),
+                'a wrong binding must fail',
+            );
+            assertFalse(
+                $repo->browserBindingMatches('bound-token', null, true),
+                'a missing binding must fail when cookie-mode binding is required',
+            );
+        },
+
+        'unbound tokens remain valid for dev/Bearer verification but are rejected when production binding is required' => function () {
+            $repo = new MagicLinkTokenRepository(makeMagicLinkTestDb());
+            $repo->issue('dev@example.com', 'dev-token', new \DateTimeImmutable('+15 minutes'));
+
+            assertTrue(
+                $repo->browserBindingMatches('dev-token', null, false),
+                'an unbound dev token is valid when binding is not required',
+            );
+            assertFalse(
+                $repo->browserBindingMatches('dev-token', null, true),
+                'cookie-mode verification must fail closed for an unbound token',
+            );
         },
 
         'findEmailForRawToken() returns the associated email for a known token' => function () {

@@ -10,8 +10,8 @@ require_once __DIR__ . '/WebSessionCookieWiringTest.php';
 /**
  * Source-inspection regression test for session-adjacent entrypoints that
  * must send `Cache-Control: no-store`: auth/me.php, entitlement-me.php,
- * purchase-intent.php, auth/verify.php, auth/verify-code.php, auth/logout.php,
- * and auth/sign-out-others.php.
+ * purchase-intent.php, auth/request-link.php, auth/verify.php,
+ * auth/verify-code.php, auth/logout.php, and auth/sign-out-others.php.
  *
  * Some of these responses can mint or clear cookies; sign-out-others mutates
  * authentication state without issuing a cookie. In all cases an intermediary
@@ -55,6 +55,7 @@ function cacheControlWiringTests(): array
         'auth/me.php',
         'entitlement-me.php',
         'purchase-intent.php',
+        'auth/request-link.php',
         'auth/verify.php',
         'auth/verify-code.php',
         'auth/logout.php',

@@ -93,6 +93,7 @@ export async function requestMagicLink(apiBase: string, email: string): Promise<
   try {
     await fetch(`${apiBase}/auth/request-link.php`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
     })

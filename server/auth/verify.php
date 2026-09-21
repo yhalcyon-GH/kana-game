@@ -63,9 +63,18 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     exit;
 }
 
+$cookieModeEnabled = $config->get('WEB_SESSION_COOKIE_ENABLED') === 'true';
 $webSessionCookie = new WebSessionCookie(
-    $config->get('WEB_SESSION_COOKIE_ENABLED') === 'true',
+    $cookieModeEnabled,
     $config->get('WEB_SESSION_COOKIE_NAME') ?? WebSessionCookie::DEFAULT_NAME,
+);
+$rememberCookie = new WebSessionCookie(
+    $cookieModeEnabled,
+    $config->get('PERSISTENT_LOGIN_COOKIE_NAME') ?? '__Host-tamamizu_remember',
+);
+$browserBindingCookie = new WebSessionCookie(
+    $cookieModeEnabled,
+    WebSessionCookie::MAGIC_LINK_BINDING_DEFAULT_NAME,
 );
 
 // CSRF/session-fixation defense-in-depth: when cookie mode is enabled,
@@ -127,7 +136,11 @@ try {
         $currentUser,
         $config->intWithDefault('MAGIC_LINK_TOKEN_EXPIRY_MINUTES', 15),
     );
-    $result = $service->verify($rawToken);
+    $result = $service->verify(
+        $rawToken,
+        $browserBindingCookie->readToken($_COOKIE),
+        $cookieModeEnabled,
+    );
 } catch (\Throwable $e) {
     error_log('verify.php: ' . get_class($e));
     http_response_code(500);
@@ -156,6 +169,14 @@ if ($webSessionCookie->isEnabled()) {
     // untouched.
     $expiresAt = new \DateTimeImmutable('+' . $config->intWithDefault('SESSION_EXPIRY_HOURS', 24) . ' hours');
     header('Set-Cookie: ' . $webSessionCookie->issueHeader($result->sessionToken, $expiresAt), false);
+
+    // Magic-Link login intentionally does not create/extend persistent login.
+    // Clear any remember credential already present in this browser so a
+    // previous account cannot silently reappear after this new session
+    // expires. The short-lived browser-binding cookie is single-purpose too.
+    header('Set-Cookie: ' . $rememberCookie->deleteHeader(), false);
+    header('Set-Cookie: ' . $browserBindingCookie->deleteHeader(), false);
+
     echo json_encode(['user' => $userPayload]);
     exit;
 }
