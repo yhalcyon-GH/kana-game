@@ -38,10 +38,13 @@ require __DIR__ . '/src/PaddleEnvironmentConfig.php';
 require __DIR__ . '/src/Db.php';
 require __DIR__ . '/src/WebhookResult.php';
 require __DIR__ . '/src/PaddleSignature.php';
+require __DIR__ . '/src/PaddleEventTime.php';
 require __DIR__ . '/src/PaymentEventRepository.php';
 require __DIR__ . '/src/EntitlementRepository.php';
 require __DIR__ . '/src/ProductMatcher.php';
 require __DIR__ . '/src/Purchase/PurchaseIntentRepository.php';
+require __DIR__ . '/src/Purchase/TransactionEventLockRepository.php';
+require __DIR__ . '/src/Purchase/GrantAdjustmentReducer.php';
 require __DIR__ . '/src/Purchase/TransactionGrantRepository.php';
 require __DIR__ . '/src/Purchase/PendingAdjustmentRepository.php';
 require __DIR__ . '/src/Purchase/RefundCompleteness.php';
@@ -56,6 +59,7 @@ use KanaGame\Paddle\PaymentEventRepository;
 use KanaGame\Paddle\Purchase\PendingAdjustmentRepository;
 use KanaGame\Paddle\Purchase\PurchaseIntentRepository;
 use KanaGame\Paddle\Purchase\PurchaseWebhookHandler;
+use KanaGame\Paddle\Purchase\TransactionEventLockRepository;
 use KanaGame\Paddle\Purchase\TransactionGrantRepository;
 
 header('Content-Type: application/json');
@@ -125,6 +129,7 @@ $handler = new PurchaseWebhookHandler(
     $pdo,
     new PaddleSignature($environmentConfig->webhookSecret),
     new PaymentEventRepository($pdo),
+    new TransactionEventLockRepository($pdo),
     new PurchaseIntentRepository($pdo),
     new TransactionGrantRepository($pdo),
     new PendingAdjustmentRepository($pdo),
