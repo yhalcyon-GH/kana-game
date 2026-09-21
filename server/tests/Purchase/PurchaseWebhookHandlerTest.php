@@ -50,6 +50,9 @@ function makePurchaseWebhookTestDb(): PDO
     $pdo->exec(
         'CREATE TABLE transaction_event_locks (
             paddle_transaction_id TEXT PRIMARY KEY,
+            replay_base_status TEXT NULL,
+            replay_base_at TEXT NULL,
+            replay_base_event_id TEXT NULL,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )',
     );
@@ -657,6 +660,132 @@ function purchaseWebhookHandlerTests(): array
 
             $grants = new TransactionGrantRepository($pdo);
             assertSame('refunded', $grants->findByTransactionId('txn_stalequeue')['status'], 'reconciliation must apply refunded (newest), not be overwritten by the stale pending_approval');
+        },
+
+        'legacy refunded grant with no normalized history cannot be reactivated after 0009 cutover' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $grants = new TransactionGrantRepository($pdo);
+            $grants->create(
+                'txn_legacy_refunded',
+                'user-1',
+                'full_tamamizu',
+                9001,
+                new \DateTimeImmutable('2026-01-01T00:00:00Z'),
+            );
+            // Simulate the pre-0009 direct path: grant/payment-event state was
+            // materialized, but no pending_adjustments history row existed.
+            $pdo->exec(
+                "UPDATE transaction_grants
+                 SET status = 'refunded', status_changed_at = '2026-01-02 00:00:00.000000'
+                 WHERE paddle_transaction_id = 'txn_legacy_refunded'",
+            );
+            (new PaymentEventRepository($pdo))->record(
+                'evt_legacy_refund',
+                'adjustment.updated',
+                'txn_legacy_refunded',
+                new \DateTimeImmutable('2026-01-02T00:00:00Z'),
+            );
+
+            $handler = makePurchaseWebhookHandler($pdo);
+            $laterRejected = pwhAdjustmentPayload(
+                'evt_after_cutover_rejected',
+                'adjustment.updated',
+                'txn_legacy_refunded',
+                'refund',
+                'rejected',
+                'full',
+                '2026-01-03T00:00:00Z',
+            );
+            $handler->handle($laterRejected, pwhSign($laterRejected));
+
+            $grant = $grants->findByTransactionId('txn_legacy_refunded');
+            assertSame('refunded', $grant['status'], 'legacy full refund must remain terminal instead of replaying from fictional active state');
+            $baseline = (new TransactionEventLockRepository($pdo))->replayBaseline('txn_legacy_refunded');
+            assertSame('refunded', $baseline['status'], 'legacy materialized status must be captured as the immutable replay baseline');
+            assertSame('evt_legacy_refund', $baseline['paddle_event_id'], 'latest previously processed legacy adjustment must become the baseline tie-breaker');
+        },
+
+        'legacy chargeback snapshot is preserved when first post-cutover event would differ from an active seed' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $grants = new TransactionGrantRepository($pdo);
+            $grants->create(
+                'txn_legacy_chargeback',
+                'user-1',
+                'full_tamamizu',
+                9002,
+                new \DateTimeImmutable('2026-01-01T00:00:00Z'),
+            );
+            $pdo->exec(
+                "UPDATE transaction_grants
+                 SET status = 'chargeback', status_changed_at = '2026-01-02 00:00:00.000000'
+                 WHERE paddle_transaction_id = 'txn_legacy_chargeback'",
+            );
+            (new PaymentEventRepository($pdo))->record(
+                'evt_legacy_chargeback',
+                'adjustment.created',
+                'txn_legacy_chargeback',
+                new \DateTimeImmutable('2026-01-02T00:00:00Z'),
+            );
+
+            $handler = makePurchaseWebhookHandler($pdo);
+            $warning = pwhAdjustmentPayload(
+                'evt_after_cutover_warning',
+                'adjustment.created',
+                'txn_legacy_chargeback',
+                'chargeback_warning',
+                'n/a',
+                'n/a',
+                '2026-01-03T00:00:00Z',
+            );
+            $handler->handle($warning, pwhSign($warning));
+
+            assertSame(
+                'chargeback',
+                $grants->findByTransactionId('txn_legacy_chargeback')['status'],
+                'warning must not downgrade a legacy chargeback to chargeback_pending',
+            );
+        },
+
+        'fully refunded grant stays terminal when a later refund-family rejection arrives' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $handler = makePurchaseWebhookHandler($pdo);
+            pwhMakeActiveGrant(
+                $pdo,
+                $handler,
+                'user-1',
+                'raw-ref-terminal-refund',
+                'evt_terminal_txn',
+                'txn_terminal_refund',
+            );
+
+            $approved = pwhAdjustmentPayload(
+                'evt_terminal_approved',
+                'adjustment.updated',
+                'txn_terminal_refund',
+                'refund',
+                'approved',
+                'full',
+                '2026-01-02T00:00:00Z',
+            );
+            $handler->handle($approved, pwhSign($approved));
+
+            $rejectedLater = pwhAdjustmentPayload(
+                'evt_terminal_rejected',
+                'adjustment.updated',
+                'txn_terminal_refund',
+                'refund',
+                'rejected',
+                'full',
+                '2026-01-03T00:00:00Z',
+            );
+            $handler->handle($rejectedLater, pwhSign($rejectedLater));
+
+            $grant = (new TransactionGrantRepository($pdo))->findByTransactionId('txn_terminal_refund');
+            assertSame('refunded', $grant['status'], 'approved full refund must be terminal across later refund-family events');
+            assertFalse(
+                (new EntitlementRepository($pdo))->find('user-1', 'full_tamamizu')['active'],
+                'later rejected refund must never resurrect entitlement after a full approved refund',
+            );
         },
 
         'same-second microsecond ordering keeps newer full refund terminal when older pending arrives later' => function () {
