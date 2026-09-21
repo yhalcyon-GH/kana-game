@@ -65,12 +65,13 @@ function grantAdjustmentReducerTests(): array
             assertSame('refunded', $result['status'], 'fully refunded must never be reactivated by any later adjustment');
         },
 
-        'partial approved or rejected refund resolves refund_pending back to active' => function () use ($row, $reduceFresh) {
+        'approved partial refund preserves refund_pending while rejected refund restores active' => function () use ($row, $reduceFresh) {
             $partial = $reduceFresh([
                 $row('evt_pending', 'refund', 'pending_approval', 'full', '2026-01-02 00:00:00.100000'),
                 $row('evt_partial', 'refund', 'approved', 'partial', '2026-01-02 00:00:00.900000'),
             ]);
-            assertSame('active', $partial['status'], 'partial approval should end a pending full-refund state without revoking entitlement');
+            assertSame('refund_pending', $partial['status'], 'approved partial refund must preserve the pre-0009 no-status-change behavior');
+            assertSame('2026-01-02 00:00:00.100000', $partial['changed_at']->format('Y-m-d H:i:s.u'), 'partial approval must not advance changed_at when status does not change');
 
             $rejected = $reduceFresh([
                 $row('evt_pending', 'refund', 'pending_approval', 'full', '2026-01-02 00:00:00.100000'),
@@ -89,6 +90,8 @@ function grantAdjustmentReducerTests(): array
                 ],
             );
             assertSame('active', $result['status'], 'pre-baseline adjustment must not rewrite the grant');
+            assertSame(['evt_old'], $result['skipped_event_ids'], 'pre-baseline event must be explicitly reported as skipped');
+            assertSame([], $result['replayed_event_ids'], 'skipped event must never be reported as reconciled/replayed');
         },
 
         'legacy baseline preserves already-materialized status and replays only newer normalized history' => function () use ($row) {

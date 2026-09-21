@@ -10,6 +10,7 @@ use KanaGame\Paddle\PaymentEventRepository;
 use KanaGame\Paddle\Purchase\PendingAdjustmentRepository;
 use KanaGame\Paddle\Purchase\PurchaseIntentRepository;
 use KanaGame\Paddle\Purchase\PurchaseWebhookHandler;
+use KanaGame\Paddle\Purchase\ReconciliationBlockRepository;
 use KanaGame\Paddle\Purchase\TransactionEventLockRepository;
 use KanaGame\Paddle\Purchase\TransactionGrantRepository;
 use PDO;
@@ -25,6 +26,7 @@ require_once __DIR__ . '/../../src/Purchase/TransactionEventLockRepository.php';
 require_once __DIR__ . '/../../src/Purchase/GrantAdjustmentReducer.php';
 require_once __DIR__ . '/../../src/Purchase/TransactionGrantRepository.php';
 require_once __DIR__ . '/../../src/Purchase/PendingAdjustmentRepository.php';
+require_once __DIR__ . '/../../src/Purchase/ReconciliationBlockRepository.php';
 require_once __DIR__ . '/../../src/Purchase/RefundCompleteness.php';
 require_once __DIR__ . '/../../src/Purchase/PurchaseWebhookHandler.php';
 
@@ -108,6 +110,20 @@ function makePurchaseWebhookTestDb(): PDO
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )',
     );
+    $pdo->exec(
+        'CREATE TABLE paddle_reconciliation_blocks (
+            paddle_event_id TEXT PRIMARY KEY,
+            paddle_transaction_id TEXT NOT NULL,
+            reason_code TEXT NOT NULL,
+            action TEXT NOT NULL,
+            adjustment_status TEXT NOT NULL,
+            adjustment_type TEXT NOT NULL,
+            occurred_at TEXT NOT NULL,
+            force_exclude_transaction INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            resolved_at TEXT NULL
+        )',
+    );
     return $pdo;
 }
 
@@ -121,6 +137,7 @@ function makePurchaseWebhookHandler(PDO $pdo, ?TransactionEventLockRepository $t
         new PurchaseIntentRepository($pdo),
         new TransactionGrantRepository($pdo),
         new PendingAdjustmentRepository($pdo),
+        new ReconciliationBlockRepository($pdo),
         new EntitlementRepository($pdo),
         PWH_TEST_PRICE_ID,
         PWH_TEST_PRODUCT_ID,
@@ -789,11 +806,13 @@ function purchaseWebhookHandlerTests(): array
             assertSame(0, $handler->reconcileLegacyUnreconciledAdjustments(), 'cutover repair must be idempotent after the row is reconciled');
         },
 
-        'upgrade then legacy direct write then re-upgrade fails closed instead of replaying an old baseline over the refund' => function () {
+        'upgrade then legacy direct write then re-upgrade quarantines instead of replaying an old baseline over the refund' => function () {
             $pdo = makePurchaseWebhookTestDb();
             $handler = makePurchaseWebhookHandler($pdo);
             pwhMakeActiveGrant($pdo, $handler, 'user-1', 'raw-ref-rollback', 'evt_rollback_txn', 'txn_rollback');
 
+            // Simulate the old backend's direct materialization during an
+            // application-only rollback.
             $pdo->exec(
                 "UPDATE transaction_grants
                  SET status = 'refunded', status_changed_at = '2026-01-02 00:00:00.000000'
@@ -810,20 +829,21 @@ function purchaseWebhookHandlerTests(): array
                 '2026-01-03T00:00:00Z',
             );
 
-            $threw = false;
-            try {
-                $handler->handle($later, pwhSign($later));
-            } catch (\LogicException) {
-                $threw = true;
-            }
+            $result = $handler->handle($later, pwhSign($later));
 
-            assertTrue($threw, 're-upgraded backend must detect grant/history divergence and fail closed');
+            assertSame(200, $result->statusCode, 'deterministic divergence must be durably quarantined rather than retry-poisoned');
+            assertTrue(str_starts_with($result->message, 'event quarantined'), 'operator-visible outcome must distinguish quarantine');
             assertSame('refunded', (new TransactionGrantRepository($pdo))->findByTransactionId('txn_rollback')['status'], 'legacy refund must never be overwritten by stale immutable baseline replay');
-            assertFalse((new PaymentEventRepository($pdo))->alreadyProcessed('evt_rollback_later'), 'failed-closed transaction must roll back the new event claim');
-            assertSame(0, count((new PendingAdjustmentRepository($pdo))->findUnreconciledForTransaction('txn_rollback')), 'failed-closed transaction must roll back the newly queued adjustment');
+            assertTrue((new PaymentEventRepository($pdo))->alreadyProcessed('evt_rollback_later'), 'quarantined event claim must remain durable after commit');
+            assertSame(1, count((new PendingAdjustmentRepository($pdo))->findUnreconciledForTransaction('txn_rollback')), 'quarantined normalized row must remain unreconciled for operator remediation');
+
+            $block = (new ReconciliationBlockRepository($pdo))->find('evt_rollback_later');
+            assertSame('materialized_history_divergence', $block['reason_code'], 'quarantine must record a fixed non-PII reason code');
+            assertTrue($block['force_exclude_transaction'], 'already-refunded legacy grant must remain excluded from entitlement');
+            assertFalse((new EntitlementRepository($pdo))->find('user-1', 'full_tamamizu')['active'], 'quarantine recompute must preserve revoked entitlement');
         },
 
-        'legacy coarse chargeback baseline refuses a same-second reverse that would restore entitlement' => function () {
+        'legacy coarse chargeback baseline quarantines a same-second reverse without reactivating entitlement' => function () {
             $pdo = makePurchaseWebhookTestDb();
             $grants = new TransactionGrantRepository($pdo);
             $grants->create(
@@ -850,16 +870,140 @@ function purchaseWebhookHandlerTests(): array
                 '2026-01-02T00:00:00.900000Z',
             );
 
-            $threw = false;
-            try {
-                $handler->handle($reverse, pwhSign($reverse));
-            } catch (\LogicException) {
-                $threw = true;
-            }
+            $result = $handler->handle($reverse, pwhSign($reverse));
 
-            assertTrue($threw, 'same legacy whole-second entitlement restoration is ambiguous and must fail closed');
+            assertSame(200, $result->statusCode, 'ambiguous same-second restoration must be durably quarantined');
             assertSame('chargeback', $grants->findByTransactionId('txn_legacy_same_second')['status'], 'ambiguous same-second reverse must not reactivate the grant');
-            assertFalse((new PaymentEventRepository($pdo))->alreadyProcessed('evt_legacy_same_second_reverse'), 'ambiguous event claim must roll back so operator remediation remains possible');
+            assertTrue((new PaymentEventRepository($pdo))->alreadyProcessed('evt_legacy_same_second_reverse'), 'quarantine must retain the event claim instead of relying on finite retries');
+            $block = (new ReconciliationBlockRepository($pdo))->find('evt_legacy_same_second_reverse');
+            assertSame('legacy_coarse_restore', $block['reason_code'], 'ambiguous legacy restore must have a fixed operator-visible reason');
+            assertTrue($block['force_exclude_transaction'], 'chargeback transaction must remain excluded');
+        },
+
+        'cutover refuses to stamp a pre-baseline unreconciled refund as reconciled and quarantines it' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $grants = new TransactionGrantRepository($pdo);
+            $grants->create(
+                'txn_prebaseline_unreconciled',
+                'user-1',
+                'full_tamamizu',
+                9201,
+                new \DateTimeImmutable('2026-01-01T00:00:00Z'),
+            );
+            (new EntitlementRepository($pdo))->activate('user-1', 'full_tamamizu', 'txn_prebaseline_unreconciled');
+            $pdo->exec(
+                "UPDATE transaction_grants
+                 SET status = 'active', status_changed_at = '2026-01-03 00:00:00.000000'
+                 WHERE paddle_transaction_id = 'txn_prebaseline_unreconciled'",
+            );
+
+            $pending = new PendingAdjustmentRepository($pdo);
+            $pending->queue(
+                'txn_prebaseline_unreconciled',
+                'evt_prebaseline_refund',
+                'refund',
+                'approved',
+                'full',
+                null,
+                new \DateTimeImmutable('2026-01-02T00:00:00Z'),
+            );
+            (new PaymentEventRepository($pdo))->record(
+                'evt_prebaseline_refund',
+                'adjustment.updated',
+                'txn_prebaseline_unreconciled',
+                new \DateTimeImmutable('2026-01-02T00:00:00Z'),
+            );
+
+            $handler = makePurchaseWebhookHandler($pdo);
+            assertSame(0, $handler->reconcileLegacyUnreconciledAdjustments(), 'pre-baseline row cannot be counted as successfully reconciled');
+            assertSame(1, count($pending->findUnreconciledForTransaction('txn_prebaseline_unreconciled')), 'skipped pre-baseline row must remain unreconciled');
+
+            $block = (new ReconciliationBlockRepository($pdo))->find('evt_prebaseline_refund');
+            assertSame('prebaseline_unreconciled', $block['reason_code'], 'cutover must create durable operator signal instead of false zero-count success');
+            assertTrue($block['force_exclude_transaction'], 'blocked full refund must exclude this transaction from entitlement');
+            assertFalse((new EntitlementRepository($pdo))->find('user-1', 'full_tamamizu')['active'], 'blocked full refund must conservatively revoke when no healthy repurchase exists');
+        },
+
+        'blocked full refund is acknowledged durably and revokes only the affected transaction contribution' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $handler = makePurchaseWebhookHandler($pdo);
+            pwhMakeActiveGrant($pdo, $handler, 'user-1', 'raw-ref-blocked-a', 'evt_blocked_a_txn', 'txn_blocked_a');
+            pwhMakeActiveGrant($pdo, $handler, 'user-1', 'raw-ref-blocked-b', 'evt_blocked_b_txn', 'txn_blocked_b');
+
+            // Corrupt only A's materialized timestamp to simulate a legacy
+            // application-only direct write without normalized history.
+            $pdo->exec(
+                "UPDATE transaction_grants
+                 SET status_changed_at = '2026-01-01 00:00:01.000000'
+                 WHERE paddle_transaction_id = 'txn_blocked_a'",
+            );
+
+            $refund = pwhAdjustmentPayload(
+                'evt_blocked_a_refund',
+                'adjustment.updated',
+                'txn_blocked_a',
+                'refund',
+                'approved',
+                'full',
+                '2026-01-02T00:00:00Z',
+            );
+            $result = $handler->handle($refund, pwhSign($refund));
+
+            assertSame(200, $result->statusCode, 'deterministic invariant failure must not become an endless Paddle 500 retry');
+            assertTrue(str_starts_with($result->message, 'event quarantined'), 'blocked event must be distinguishable operationally');
+            assertTrue((new PaymentEventRepository($pdo))->alreadyProcessed('evt_blocked_a_refund'), 'event claim must survive quarantine commit');
+
+            $block = (new ReconciliationBlockRepository($pdo))->find('evt_blocked_a_refund');
+            assertTrue($block['force_exclude_transaction'], 'full approved refund must force-exclude the affected transaction');
+            assertTrue((new EntitlementRepository($pdo))->find('user-1', 'full_tamamizu')['active'], 'healthy repurchase B must keep global entitlement active');
+            assertTrue((new TransactionGrantRepository($pdo))->hasEntitlementBearingGrant('user-1', 'full_tamamizu'), 'entitlement query must ignore blocked A but still count healthy B');
+        },
+
+        'legacy refund_pending plus reconciled approved partial refund does not poison later replay' => function () {
+            $pdo = makePurchaseWebhookTestDb();
+            $grants = new TransactionGrantRepository($pdo);
+            $grants->create(
+                'txn_legacy_partial',
+                'user-1',
+                'full_tamamizu',
+                9202,
+                new \DateTimeImmutable('2026-01-01T00:00:00Z'),
+            );
+            (new EntitlementRepository($pdo))->activate('user-1', 'full_tamamizu', 'txn_legacy_partial');
+            $pdo->exec(
+                "UPDATE transaction_grants
+                 SET status = 'refund_pending', status_changed_at = '2026-01-02 00:00:00.000000'
+                 WHERE paddle_transaction_id = 'txn_legacy_partial'",
+            );
+
+            $pending = new PendingAdjustmentRepository($pdo);
+            $pending->queue(
+                'txn_legacy_partial',
+                'evt_legacy_partial_approved',
+                'refund',
+                'approved',
+                'partial',
+                null,
+                new \DateTimeImmutable('2026-01-03T00:00:00Z'),
+            );
+            $pending->markReconciled('evt_legacy_partial_approved');
+
+            $handler = makePurchaseWebhookHandler($pdo);
+            $warning = pwhAdjustmentPayload(
+                'evt_legacy_partial_warning',
+                'adjustment.created',
+                'txn_legacy_partial',
+                'chargeback_warning',
+                'n/a',
+                'n/a',
+                '2026-01-04T00:00:00Z',
+            );
+            $result = $handler->handle($warning, pwhSign($warning));
+
+            assertSame(200, $result->statusCode, 'approved partial legacy history must match the old no-status-change behavior');
+            assertFalse(str_starts_with($result->message, 'event quarantined'), 'old approved-partial semantics must not create a false divergence block');
+            assertSame('chargeback_pending', $grants->findByTransactionId('txn_legacy_partial')['status'], 'later valid event must still replay normally');
+            assertSame(null, (new ReconciliationBlockRepository($pdo))->find('evt_legacy_partial_warning'), 'no quarantine should be created for compatible legacy partial history');
         },
 
         'fully refunded grant stays terminal when a later refund-family rejection arrives' => function () {

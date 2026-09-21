@@ -43,6 +43,7 @@ function purchaseWebhookHandlerIsolationTests(): array
                 require '{$srcDir}/Purchase/GrantAdjustmentReducer.php';
                 require '{$srcDir}/Purchase/TransactionGrantRepository.php';
                 require '{$srcDir}/Purchase/PendingAdjustmentRepository.php';
+                require '{$srcDir}/Purchase/ReconciliationBlockRepository.php';
                 require '{$srcDir}/Purchase/PurchaseWebhookHandler.php';
 
                 use KanaGame\\Paddle\\PaddleSignature;
@@ -51,6 +52,7 @@ function purchaseWebhookHandlerIsolationTests(): array
                 use KanaGame\\Paddle\\Purchase\\PendingAdjustmentRepository;
                 use KanaGame\\Paddle\\Purchase\\PurchaseIntentRepository;
                 use KanaGame\\Paddle\\Purchase\\PurchaseWebhookHandler;
+                use KanaGame\\Paddle\\Purchase\\ReconciliationBlockRepository;
                 use KanaGame\\Paddle\\Purchase\\TransactionEventLockRepository;
                 use KanaGame\\Paddle\\Purchase\\TransactionGrantRepository;
 
@@ -66,7 +68,8 @@ function purchaseWebhookHandlerIsolationTests(): array
                 \$pdo->exec('CREATE TABLE entitlements (id INTEGER PRIMARY KEY AUTOINCREMENT, internal_user_id TEXT NOT NULL, product_key TEXT NOT NULL, active INTEGER NOT NULL DEFAULT 0, paddle_transaction_id TEXT NULL, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE (internal_user_id, product_key))');
                 \$pdo->exec('CREATE TABLE purchase_intents (id INTEGER PRIMARY KEY AUTOINCREMENT, purchase_ref_hash TEXT NOT NULL UNIQUE, user_id TEXT NOT NULL, product_key TEXT NOT NULL, expires_at TEXT NOT NULL, consumed_at TEXT NULL, paddle_transaction_id TEXT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)');
                 \$pdo->exec('CREATE TABLE transaction_grants (paddle_transaction_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, product_key TEXT NOT NULL, purchase_intent_id INTEGER NOT NULL UNIQUE, status TEXT NOT NULL DEFAULT "active", granted_at TEXT NOT NULL, status_changed_at TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)');
-                \$pdo->exec('CREATE TABLE pending_adjustments (id INTEGER PRIMARY KEY AUTOINCREMENT, paddle_transaction_id TEXT NOT NULL, action TEXT NOT NULL, occurred_at TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)');
+                \$pdo->exec('CREATE TABLE pending_adjustments (id INTEGER PRIMARY KEY AUTOINCREMENT, paddle_transaction_id TEXT NOT NULL, paddle_event_id TEXT NOT NULL UNIQUE, action TEXT NOT NULL, adjustment_status TEXT NOT NULL, adjustment_type TEXT NOT NULL, items_json TEXT NULL, occurred_at TEXT NOT NULL, reconciled_at TEXT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)');
+                \$pdo->exec('CREATE TABLE paddle_reconciliation_blocks (paddle_event_id TEXT PRIMARY KEY, paddle_transaction_id TEXT NOT NULL, reason_code TEXT NOT NULL, action TEXT NOT NULL, adjustment_status TEXT NOT NULL, adjustment_type TEXT NOT NULL, occurred_at TEXT NOT NULL, force_exclude_transaction INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, resolved_at TEXT NULL)');
 
                 \$handler = new PurchaseWebhookHandler(
                     \$pdo,
@@ -76,6 +79,7 @@ function purchaseWebhookHandlerIsolationTests(): array
                     new PurchaseIntentRepository(\$pdo),
                     new TransactionGrantRepository(\$pdo),
                     new PendingAdjustmentRepository(\$pdo),
+                    new ReconciliationBlockRepository(\$pdo),
                     new EntitlementRepository(\$pdo),
                     'pri_full_tamamizu',
                     'pro_full_tamamizu',

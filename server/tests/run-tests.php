@@ -56,6 +56,7 @@ $testFiles = [
     __DIR__ . '/Purchase/TransactionEventLockRepositoryTest.php' => 'KanaGame\\Paddle\\Tests\\transactionEventLockRepositoryTests',
     __DIR__ . '/Purchase/TransactionGrantRepositoryTest.php' => 'KanaGame\\Paddle\\Tests\\transactionGrantRepositoryTests',
     __DIR__ . '/Purchase/PendingAdjustmentRepositoryTest.php' => 'KanaGame\\Paddle\\Tests\\pendingAdjustmentRepositoryTests',
+    __DIR__ . '/Purchase/ReconciliationBlockRepositoryTest.php' => 'KanaGame\\Paddle\\Tests\\reconciliationBlockRepositoryTests',
     __DIR__ . '/Purchase/GrantAdjustmentReducerTest.php' => 'KanaGame\\Paddle\\Tests\\grantAdjustmentReducerTests',
     __DIR__ . '/Purchase/PurchaseIntentServiceTest.php' => 'KanaGame\\Paddle\\Tests\\purchaseIntentServiceTests',
     __DIR__ . '/Purchase/PurchaseIntentEndpointTest.php' => 'KanaGame\\Paddle\\Tests\\purchaseIntentEndpointTests',

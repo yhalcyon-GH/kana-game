@@ -21,8 +21,9 @@ without altering Phase 2's `payment_events`/`entitlements` tables or
 > `status_changed_at` because old direct-adjustment payloads were not retained.
 > Post-baseline history is replayed in precise `occurred_at` order with
 > `paddle_event_id` as a stable tie-breaker. A full refund is terminal;
-> approved partial/rejected refund
-> states restore active when chronologically appropriate; chargeback and
+> approved partial refund preserves the current grant state (pre-0009 behavior),
+> while a rejected refund may restore `refund_pending -> active` when
+> chronologically appropriate; chargeback and
 > matching reversal lifecycles are handled by the replay reducer. The real
 > MariaDB harness now verifies same-transaction races in both lock orders and
 > separately proves that different Paddle transaction ids do not globally
@@ -183,3 +184,20 @@ to the pre-0009 backend is prohibited: the old backend can mutate
 detects such materialized/history divergence and fails closed, but the
 operational rollback must still be a forward fix/reconciliation-compatible
 build or a coordinated DB restore + webhook recovery under Human Gates.
+
+
+### Security Audit v1 reconciliation quarantine amendment (2026-09-21)
+
+Known deterministic replay invariants are not left as endless 500/retry poison
+pills. The current backend durably records the claimed Paddle event and
+normalized adjustment, inserts a non-PII row in
+`paddle_reconciliation_blocks`, and returns the fixed 200
+`quarantined` outcome. Every unresolved deterministic reconciliation block excludes only that Paddle
+transaction from entitlement-bearing grant queries until operator resolution.
+A separate healthy repurchase continues to count.
+
+Only reducer-confirmed post-baseline event ids are stamped
+`reconciled_at`. Any still-unreconciled pre-baseline row remains visible and
+is quarantined during cutover rather than being silently cleared. Production
+cutover is complete only when both grant-backed unreconciled transactions and
+unresolved reconciliation blocks are zero.

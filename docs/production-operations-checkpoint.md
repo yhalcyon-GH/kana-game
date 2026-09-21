@@ -23,7 +23,8 @@ As of 2026-09-20:
 - Security migration `0009_paddle_event_reconciliation.sql` is **not yet
   applied** in Production. It adds the per-Paddle-transaction serialization
   table plus nullable replay-baseline metadata and widens Paddle event-ordering
-  timestamps to `DATETIME(6)`. It does **not** guess/backfill missing legacy
+  timestamps to `DATETIME(6)` and adds a non-PII
+  `paddle_reconciliation_blocks` quarantine table. It does **not** guess/backfill missing legacy
   adjustment payloads. The matching #365 backend initializes each legacy
   transaction's baseline lazily from its already-materialized grant status and
   `status_changed_at` while holding that transaction's lock. The backend also
@@ -107,8 +108,9 @@ merged and reviewed, is a **single coordinated Production update**: preserve a
 DB/API rollback backup, apply migration 0008 then 0009, and deploy the matching
 reviewed backend source while preserving `api/config.php` and the host-owned
 root `api/.htaccess`, then run the guarded idempotent Paddle cutover
-reconciliation and require a zero grant-backed-unreconciled count. Until that
-explicit approval, keep Production unchanged.
+reconciliation and require both zero grant-backed-unreconciled transactions
+and zero unresolved reconciliation-block rows. Until that explicit approval,
+keep Production unchanged.
 
 After the 0009-aware backend has processed any webhook, **application-only
 rollback to the pre-0009 backend is not an allowed rollback path**. Use a

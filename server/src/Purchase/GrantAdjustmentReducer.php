@@ -20,8 +20,9 @@ namespace KanaGame\Paddle\Purchase;
  * from a non-entitlement state back to an entitlement-bearing state.
  *
  * A fully approved refund is terminal across ALL later normalized adjustment
- * events. Rejected/partial refund events restore active only from
- * refund_pending; they never resurrect an already fully-refunded grant.
+ * events. A rejected refund restores active only from refund_pending. An
+ * approved partial refund preserves the current grant state, matching the
+ * pre-0009 behavior; neither path can resurrect an already fully-refunded grant.
  */
 final class GrantAdjustmentReducer
 {
@@ -34,7 +35,7 @@ final class GrantAdjustmentReducer
      *   items: mixed,
      *   occurred_at: string
      * }> $adjustments
-     * @return array{status: string, changed_at: \DateTimeImmutable}
+     * @return array{status: string, changed_at: \DateTimeImmutable, replayed_event_ids: list<string>, skipped_event_ids: list<string>}
      */
     public static function reduce(
         string $baselineStatus,
@@ -45,6 +46,8 @@ final class GrantAdjustmentReducer
     ): array {
         $status = $baselineStatus;
         $changedAt = $baselineAt;
+        $replayedEventIds = [];
+        $skippedEventIds = [];
 
         foreach ($adjustments as $adjustment) {
             $occurredAt = new \DateTimeImmutable($adjustment['occurred_at']);
@@ -54,6 +57,7 @@ final class GrantAdjustmentReducer
                 $baselineAt,
                 $baselineEventId,
             )) {
+                $skippedEventIds[] = $adjustment['paddle_event_id'];
                 continue;
             }
 
@@ -68,9 +72,15 @@ final class GrantAdjustmentReducer
                 $status = $next;
                 $changedAt = $occurredAt;
             }
+            $replayedEventIds[] = $adjustment['paddle_event_id'];
         }
 
-        return ['status' => $status, 'changed_at' => $changedAt];
+        return [
+            'status' => $status,
+            'changed_at' => $changedAt,
+            'replayed_event_ids' => $replayedEventIds,
+            'skipped_event_ids' => $skippedEventIds,
+        ];
     }
 
     private static function isAtOrBeforeBaseline(
@@ -134,7 +144,11 @@ final class GrantAdjustmentReducer
                     : $current;
             }
 
-            if (($status === 'approved' && !$isFullRefund) || $status === 'rejected') {
+            if ($status === 'approved' && !$isFullRefund) {
+                return $current;
+            }
+
+            if ($status === 'rejected') {
                 return $current === 'refund_pending' ? 'active' : $current;
             }
 

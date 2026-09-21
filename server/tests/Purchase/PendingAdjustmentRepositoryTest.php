@@ -108,7 +108,7 @@ function pendingAdjustmentRepositoryTests(): array
             $repo = new PendingAdjustmentRepository($pdo);
             $repo->queue('txn_hist', 'evt_z', 'refund', 'pending_approval', 'full', null, new \DateTimeImmutable('2026-01-01T00:00:00.100000Z'));
             $repo->queue('txn_hist', 'evt_a', 'refund', 'approved', 'full', null, new \DateTimeImmutable('2026-01-01T00:00:00.900000Z'));
-            $repo->markAllReconciledForTransaction('txn_hist');
+            $repo->markReconciledEvents(['evt_z', 'evt_a']);
 
             $history = $repo->findAllForTransaction('txn_hist');
             assertSame(2, count($history), 'reconciled rows must remain replayable history');
@@ -142,7 +142,7 @@ function pendingAdjustmentRepositoryTests(): array
                 'adjustment-before-transaction rows without grants are not cutover defects',
             );
 
-            $repo->markAllReconciledForTransaction('txn_with_grant');
+            $repo->markReconciledEvents(['evt_cutover_1']);
             assertSame([], $repo->findUnreconciledTransactionIdsWithGrant(), 'reconciled grant-backed rows must leave the cutover inventory');
         },
 
@@ -156,6 +156,19 @@ function pendingAdjustmentRepositoryTests(): array
             $history = $repo->findReconciledForTransaction('txn_hist2');
             assertSame(1, count($history), 'only previously materialized history belongs in the divergence guard');
             assertSame('evt_old', $history[0]['paddle_event_id'], 'newly queued row must be excluded until replay succeeds');
+        },
+
+        'markReconciledEvents() leaves skipped rows unreconciled and operator-visible' => function () {
+            $pdo = makePendingAdjustmentsTestDb();
+            $repo = new PendingAdjustmentRepository($pdo);
+            $repo->queue('txn_skip', 'evt_before', 'refund', 'approved', 'full', null, new \DateTimeImmutable('2026-01-01T00:00:00Z'));
+            $repo->queue('txn_skip', 'evt_after', 'refund', 'approved', 'full', null, new \DateTimeImmutable('2026-01-02T00:00:00Z'));
+
+            $repo->markReconciledEvents(['evt_after']);
+
+            $remaining = $repo->findUnreconciledForTransaction('txn_skip');
+            assertSame(1, count($remaining), 'only reducer-confirmed replayed events may be stamped reconciled');
+            assertSame('evt_before', $remaining[0]['paddle_event_id'], 'skipped/pre-baseline event must remain visible');
         },
 
         'isEventKnown() returns true for a previously queued event id, false otherwise' => function () {

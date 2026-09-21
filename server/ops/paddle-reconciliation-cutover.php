@@ -54,11 +54,29 @@ function countGrantBackedUnreconciledAdjustments(\PDO $pdo): int
     return (int) $statement->fetchColumn();
 }
 
+/**
+ * Returns null before migration 0009 creates the quarantine table.
+ */
+function countUnresolvedReconciliationBlocksIfAvailable(\PDO $pdo): ?int
+{
+    $table = $pdo->query("SHOW TABLES LIKE 'paddle_reconciliation_blocks'")->fetchColumn();
+    if ($table === false) {
+        return null;
+    }
+    return (int) $pdo->query(
+        'SELECT COUNT(*) FROM paddle_reconciliation_blocks WHERE resolved_at IS NULL',
+    )->fetchColumn();
+}
+
 $before = countGrantBackedUnreconciledAdjustments($pdo);
+$blocksBefore = countUnresolvedReconciliationBlocksIfAvailable($pdo);
 fwrite(STDOUT, "grantBackedUnreconciledTransactions={$before}\n");
+if ($blocksBefore !== null) {
+    fwrite(STDOUT, "unresolvedReconciliationBlocks={$blocksBefore}\n");
+}
 
 if (!$apply) {
-    exit($before === 0 ? 0 : 1);
+    exit($before === 0 && ($blocksBefore === null || $blocksBefore === 0) ? 0 : 1);
 }
 
 // Everything below is needed only by the mutating repair. Deferring these
@@ -76,6 +94,7 @@ require __DIR__ . '/../src/Purchase/TransactionEventLockRepository.php';
 require __DIR__ . '/../src/Purchase/GrantAdjustmentReducer.php';
 require __DIR__ . '/../src/Purchase/TransactionGrantRepository.php';
 require __DIR__ . '/../src/Purchase/PendingAdjustmentRepository.php';
+require __DIR__ . '/../src/Purchase/ReconciliationBlockRepository.php';
 require __DIR__ . '/../src/Purchase/RefundCompleteness.php';
 require __DIR__ . '/../src/Purchase/PurchaseWebhookHandler.php';
 
@@ -90,6 +109,7 @@ try {
         new \KanaGame\Paddle\Purchase\PurchaseIntentRepository($pdo),
         new \KanaGame\Paddle\Purchase\TransactionGrantRepository($pdo),
         $pending,
+        new \KanaGame\Paddle\Purchase\ReconciliationBlockRepository($pdo),
         new \KanaGame\Paddle\EntitlementRepository($pdo),
         $environmentConfig->priceId,
         $environmentConfig->productId,
@@ -102,6 +122,11 @@ try {
 }
 
 $after = countGrantBackedUnreconciledAdjustments($pdo);
-fwrite(STDOUT, "reconciledTransactions={$processed} remainingGrantBackedUnreconciledTransactions={$after}\n");
+$blocksAfter = countUnresolvedReconciliationBlocksIfAvailable($pdo);
+if ($blocksAfter === null) {
+    fwrite(STDERR, "BLOCKED: migration 0009 quarantine table is missing.\n");
+    exit(2);
+}
+fwrite(STDOUT, "reconciledTransactions={$processed} remainingGrantBackedUnreconciledTransactions={$after} unresolvedReconciliationBlocks={$blocksAfter}\n");
 
-exit($after === 0 ? 0 : 1);
+exit($after === 0 && $blocksAfter === 0 ? 0 : 1);

@@ -160,18 +160,17 @@ final class PendingAdjustmentRepository
         $statement->execute(['event_id' => $paddleEventId]);
     }
 
-    public function markAllReconciledForTransaction(string $paddleTransactionId): void
+    /**
+     * Marks only rows the reducer positively replayed after the immutable
+     * baseline. Pre-baseline rows must stay unreconciled and operator-visible.
+     *
+     * @param list<string> $paddleEventIds
+     */
+    public function markReconciledEvents(array $paddleEventIds): void
     {
-        $nowExpression = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite'
-            ? "datetime('now')"
-            : 'NOW()';
-
-        $statement = $this->pdo->prepare(
-            "UPDATE pending_adjustments
-             SET reconciled_at = COALESCE(reconciled_at, {$nowExpression})
-             WHERE paddle_transaction_id = :txn_id",
-        );
-        $statement->execute(['txn_id' => $paddleTransactionId]);
+        foreach (array_values(array_unique($paddleEventIds)) as $paddleEventId) {
+            $this->markReconciled($paddleEventId);
+        }
     }
 
     /**

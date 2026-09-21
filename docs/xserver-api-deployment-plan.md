@@ -104,13 +104,17 @@ schema-to-code cutover window, the required order is:
 
        php ops/paddle-reconciliation-cutover.php --apply --human-approved-security-cutover
 
-6. run `--check` again and require
-   `grantBackedUnreconciledTransactions=0` before declaring cutover complete.
+6. run `--check` again and require both
+   `grantBackedUnreconciledTransactions=0` **and**
+   `unresolvedReconciliationBlocks=0` before declaring cutover complete.
 
-The repair acquires the same per-transaction lock as live webhooks. If it
-encounters an ambiguous whole-second legacy reactivation or grant/history
-divergence, it fails closed without printing identifiers. Treat any blocked or
-non-zero result as a stop condition.
+The repair acquires the same per-transaction lock as live webhooks. Known
+non-reconstructable invariants are durably quarantined instead of relying on an
+infinite/finite 500 retry loop. The cutover continues to later transactions,
+but the affected normalized rows remain unreconciled and the final zero-count
+gate stays non-zero until an operator resolves them. Any unresolved deterministic reconciliation block conservatively excludes
+only that Paddle transaction while preserving any separate healthy repurchase. Treat any
+quarantine/non-zero result as a deployment stop condition.
 
 **Rollback boundary after 0009:** once the 0009-aware backend has processed any
 webhook, an application-files-only rollback to the pre-0009 backend is
@@ -157,8 +161,8 @@ of these is true:
   unconfigured production Magic Link mailer;
 - a required database migration is uncertain, or a rollback procedure is
   unavailable;
-- cutover reconciliation is blocked or leaves any grant-backed unreconciled
-  adjustment;
+- cutover reconciliation leaves any grant-backed unreconciled adjustment or
+  any unresolved `paddle_reconciliation_blocks` row;
 - the only proposed rollback is restoring pre-0009 application files while
   leaving 0009 database/baseline state in place.
 

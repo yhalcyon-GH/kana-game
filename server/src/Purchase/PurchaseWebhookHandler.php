@@ -7,6 +7,7 @@ namespace KanaGame\Paddle\Purchase;
 require_once __DIR__ . '/../WebhookResult.php';
 require_once __DIR__ . '/GrantAdjustmentReducer.php';
 require_once __DIR__ . '/TransactionEventLockRepository.php';
+require_once __DIR__ . '/ReconciliationBlockRepository.php';
 
 use KanaGame\Paddle\EntitlementRepository;
 use KanaGame\Paddle\PaddleEventTime;
@@ -42,6 +43,8 @@ use PDO;
  */
 final class PurchaseWebhookHandler
 {
+    private bool $quarantinedCurrentEvent = false;
+
     private const EVENT_TRANSACTION_COMPLETED = 'transaction.completed';
     private const EVENT_ADJUSTMENT_CREATED = 'adjustment.created';
     private const EVENT_ADJUSTMENT_UPDATED = 'adjustment.updated';
@@ -74,6 +77,7 @@ final class PurchaseWebhookHandler
         private readonly PurchaseIntentRepository $intents,
         private readonly TransactionGrantRepository $grants,
         private readonly PendingAdjustmentRepository $pendingAdjustments,
+        private readonly ReconciliationBlockRepository $reconciliationBlocks,
         private readonly EntitlementRepository $entitlements,
         private readonly string $expectedPriceId,
         private readonly string $expectedProductId,
@@ -104,9 +108,17 @@ final class PurchaseWebhookHandler
      * the still-unconsumed purchase_intent) rather than being
      * permanently locked out by a claim that survived a rollback of
      * everything else.
+     *
+     * The deliberate exception is a small fixed set of deterministic
+     * reconciliation-invariant failures. Retrying those cannot change the
+     * result, so handleAdjustment() converts only those cases into a durable
+     * quarantine record and commits the event/history with a fixed 200 outcome.
+     * Unknown exceptions still reach this outer rollback/rethrow path.
      */
     public function handle(string $rawBody, ?string $signatureHeader): WebhookResult
     {
+        $this->quarantinedCurrentEvent = false;
+
         if ($signatureHeader === null || $signatureHeader === '' || !$this->signature->verify($rawBody, $signatureHeader)) {
             return WebhookResult::invalidSignature();
         }
@@ -172,6 +184,10 @@ final class PurchaseWebhookHandler
             // just rolled back, which is exactly the silent-failure
             // mode this transaction wrap exists to prevent.
             throw $e;
+        }
+
+        if ($this->quarantinedCurrentEvent) {
+            return WebhookResult::quarantined($eventType);
         }
 
         return $handled ? WebhookResult::processed($eventType) : WebhookResult::ignoredEvent($eventType);
@@ -321,9 +337,33 @@ final class PurchaseWebhookHandler
         // materialized state and status_changed_at. That fixed baseline
         // prevents partial legacy history from being replayed from a
         // fictional "active" origin without guessing missing payload details.
-        $this->initializeReplayBaselineForExistingGrant($grant);
+        try {
+            $this->initializeReplayBaselineForExistingGrant($grant);
+            $this->replayAdjustmentHistory($transactionId);
+        } catch (\LogicException $e) {
+            // Only known, fixed reconciliation invariant failures are
+            // deterministic quarantine cases. Any other LogicException is a
+            // code bug and must keep the normal 500/retry behavior.
+            $reasonCode = $this->reconciliationReasonCode($e);
+            if ($reasonCode === null) {
+                throw $e;
+            }
 
-        $this->replayAdjustmentHistory($transactionId);
+            $this->quarantineAdjustment(
+                $eventId,
+                $grant,
+                [
+                    'action' => $action,
+                    'adjustment_status' => $adjustmentStatus,
+                    'adjustment_type' => $adjustmentType,
+                    'items' => $items,
+                    'occurred_at' => PaddleEventTime::format($occurredAt),
+                ],
+                $reasonCode,
+            );
+            $this->quarantinedCurrentEvent = true;
+        }
+
         return true;
     }
 
@@ -365,6 +405,17 @@ final class PurchaseWebhookHandler
             $baseline['legacy_coarse'],
         );
 
+        // Never silently stamp a pre-baseline row reconciled. A row the reducer
+        // skipped may represent a pre-0009 event whose effect cannot be safely
+        // reconstructed. If it is still unreconciled, surface a durable block.
+        $unreconciledIds = array_column(
+            $this->pendingAdjustments->findUnreconciledForTransaction($transactionId),
+            'paddle_event_id',
+        );
+        if (array_intersect($reduced['skipped_event_ids'], $unreconciledIds) !== []) {
+            throw new \LogicException('prebaseline unreconciled Paddle adjustment');
+        }
+
         $this->grants->replaceStatusFromReplay(
             $transactionId,
             $reduced['status'],
@@ -380,7 +431,7 @@ final class PurchaseWebhookHandler
         // Rows are deliberately retained after reconciliation so a later,
         // out-of-order event can replay the full history. reconciled_at is
         // operational bookkeeping, not a deletion/skip signal.
-        $this->pendingAdjustments->markAllReconciledForTransaction($transactionId);
+        $this->pendingAdjustments->markReconciledEvents($reduced['replayed_event_ids']);
     }
 
 
@@ -405,6 +456,20 @@ final class PurchaseWebhookHandler
                 $this->replayAdjustmentHistory($transactionId);
                 $this->pdo->commit();
                 $reconciled++;
+            } catch (\LogicException $e) {
+                if ($this->pdo->inTransaction()) {
+                    $this->pdo->rollBack();
+                }
+                $reasonCode = $this->reconciliationReasonCode($e);
+                if ($reasonCode === null) {
+                    throw $e;
+                }
+                // One poisoned legacy transaction must not prevent repair of
+                // every later transaction. Persist a block for all of its
+                // unreconciled rows, conservatively recompute entitlement,
+                // then continue; the cutover zero/block-count gate remains
+                // non-zero until an operator resolves it.
+                $this->quarantineCutoverTransaction($transactionId, $reasonCode);
             } catch (\Throwable $e) {
                 if ($this->pdo->inTransaction()) {
                     $this->pdo->rollBack();
@@ -449,6 +514,109 @@ final class PurchaseWebhookHandler
         if ($grant['status'] !== $expected['status'] || $actualChangedAt !== $expectedChangedAt) {
             throw new \LogicException('materialized Paddle grant diverged from reconciliation history');
         }
+    }
+
+    /**
+     * @param array{
+     *   paddle_transaction_id: string,
+     *   user_id: string,
+     *   product_key: string,
+     *   purchase_intent_id: int,
+     *   status: string,
+     *   granted_at: string,
+     *   status_changed_at: string
+     * } $grant
+     * @param array{action:string,adjustment_status:string,adjustment_type:string,items:mixed,occurred_at:string} $adjustment
+     */
+    private function quarantineAdjustment(
+        string $eventId,
+        array $grant,
+        array $adjustment,
+        string $reasonCode,
+    ): void {
+        $forceExclude = $this->blockedAdjustmentRequiresTransactionExclusion();
+
+        $this->reconciliationBlocks->record(
+            $eventId,
+            $grant['paddle_transaction_id'],
+            $reasonCode,
+            $adjustment['action'],
+            $adjustment['adjustment_status'],
+            $adjustment['adjustment_type'],
+            new \DateTimeImmutable($adjustment['occurred_at']),
+            $forceExclude,
+        );
+
+        $this->lockUserForEntitlementUpdate($grant['user_id']);
+        $this->recomputeEntitlement(
+            $grant['user_id'],
+            $grant['product_key'],
+            $grant['paddle_transaction_id'],
+        );
+    }
+
+    private function quarantineCutoverTransaction(string $transactionId, string $reasonCode): void
+    {
+        $this->pdo->beginTransaction();
+        try {
+            $this->transactionLocks->lock($transactionId);
+            $grant = $this->grants->findByTransactionId($transactionId);
+            if ($grant === null) {
+                $this->pdo->commit();
+                return;
+            }
+
+            $rows = $this->pendingAdjustments->findUnreconciledForTransaction($transactionId);
+            $this->lockUserForEntitlementUpdate($grant['user_id']);
+
+            foreach ($rows as $row) {
+                $forceExclude = $this->blockedAdjustmentRequiresTransactionExclusion();
+                $this->reconciliationBlocks->record(
+                    $row['paddle_event_id'],
+                    $transactionId,
+                    $reasonCode,
+                    $row['action'],
+                    $row['adjustment_status'],
+                    $row['adjustment_type'],
+                    new \DateTimeImmutable($row['occurred_at']),
+                    $forceExclude,
+                );
+            }
+
+            $this->recomputeEntitlement(
+                $grant['user_id'],
+                $grant['product_key'],
+                $transactionId,
+            );
+            $this->pdo->commit();
+        } catch (\Throwable $e) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            throw $e;
+        }
+    }
+
+    /**
+     * Once deterministic replay cannot prove one transaction's history, that
+     * transaction is not safe to count as entitlement-bearing in either
+     * direction. Exclude only this transaction until operator resolution;
+     * another healthy repurchase for the same user/product still counts.
+     */
+    private function blockedAdjustmentRequiresTransactionExclusion(): bool
+    {
+        return true;
+    }
+
+    private function reconciliationReasonCode(\LogicException $e): ?string
+    {
+        return match ($e->getMessage()) {
+            'ambiguous legacy coarse replay would restore entitlement' => 'legacy_coarse_restore',
+            'materialized Paddle grant diverged from reconciliation history' => 'materialized_history_divergence',
+            'missing Paddle reconciliation baseline' => 'missing_baseline',
+            'prebaseline unreconciled Paddle adjustment' => 'prebaseline_unreconciled',
+            default => null,
+        };
     }
 
     /**

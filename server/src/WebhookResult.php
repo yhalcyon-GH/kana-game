@@ -46,6 +46,11 @@ final class WebhookResult
         return new self(200, "event processed: {$eventType}");
     }
 
+    public static function quarantined(string $eventType): self
+    {
+        return new self(200, "event quarantined: {$eventType}");
+    }
+
     public static function serverError(): self
     {
         return new self(500, 'temporary server error');

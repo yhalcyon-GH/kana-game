@@ -89,7 +89,7 @@ function observabilityLoggingTests(): array
 
         'paddle-webhook.php outcome classifier maps every WebhookResult status to a fixed enum-like tag' => function () {
             $source = loadSource('paddle-webhook.php');
-            foreach (['invalid_signature', 'malformed_payload', 'server_error', 'duplicate', 'ignored', 'processed', 'unknown'] as $tag) {
+            foreach (['invalid_signature', 'malformed_payload', 'server_error', 'duplicate', 'ignored', 'processed', 'quarantined', 'unknown'] as $tag) {
                 assertTrue(str_contains($source, "'{$tag}'"), "expected outcome classifier to produce the fixed tag '{$tag}'");
             }
         },

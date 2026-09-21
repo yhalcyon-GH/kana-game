@@ -27,6 +27,20 @@ function makeTransactionGrantsTestDb(): PDO
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )',
     );
+    $pdo->exec(
+        'CREATE TABLE paddle_reconciliation_blocks (
+            paddle_event_id TEXT PRIMARY KEY,
+            paddle_transaction_id TEXT NOT NULL,
+            reason_code TEXT NOT NULL,
+            action TEXT NOT NULL,
+            adjustment_status TEXT NOT NULL,
+            adjustment_type TEXT NOT NULL,
+            occurred_at TEXT NOT NULL,
+            force_exclude_transaction INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            resolved_at TEXT NULL
+        )',
+    );
     return $pdo;
 }
 
@@ -73,6 +87,27 @@ function transactionGrantRepositoryTests(): array
 
             $repo->replaceStatusFromReplay('txn_1', 'refunded', new \DateTimeImmutable('2026-01-03 00:00:00'));
             assertFalse($repo->hasEntitlementBearingGrant('user-1', 'full_tamamizu'), 'refunded must not count as entitled');
+        },
+
+        'unresolved forced reconciliation block excludes only the blocked transaction from entitlement' => function () {
+            $pdo = makeTransactionGrantsTestDb();
+            $repo = new TransactionGrantRepository($pdo);
+            $repo->create('txn_blocked', 'user-1', 'full_tamamizu', 1, new \DateTimeImmutable('2026-01-01T00:00:00Z'));
+
+            $pdo->exec(
+                "INSERT INTO paddle_reconciliation_blocks
+                    (paddle_event_id, paddle_transaction_id, reason_code, action, adjustment_status, adjustment_type, occurred_at, force_exclude_transaction)
+                 VALUES
+                    ('evt_blocked', 'txn_blocked', 'replay_invariant', 'refund', 'approved', 'full', '2026-01-02 00:00:00.000000', 1)",
+            );
+
+            assertFalse($repo->hasEntitlementBearingGrant('user-1', 'full_tamamizu'), 'forced unresolved block must exclude the otherwise-active transaction');
+
+            $repo->create('txn_other', 'user-1', 'full_tamamizu', 2, new \DateTimeImmutable('2026-01-03T00:00:00Z'));
+            assertTrue($repo->hasEntitlementBearingGrant('user-1', 'full_tamamizu'), 'a separate healthy repurchase must still keep entitlement active');
+
+            $pdo->exec("UPDATE paddle_reconciliation_blocks SET resolved_at = '2026-01-04 00:00:00.000000' WHERE paddle_event_id = 'evt_blocked'");
+            assertTrue($repo->hasEntitlementBearingGrant('user-1', 'full_tamamizu'), 'resolved block no longer excludes its transaction');
         },
 
         'replaceStatusFromReplay() may move changed_at backward when full replay corrects an arrival-order materialization' => function () {

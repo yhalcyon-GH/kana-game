@@ -562,8 +562,9 @@ server call) says.
 > materialized-state boundary do not rewrite the snapshot.
 >
 > Refund semantics are also tightened: `pending_approval` may enter
-> `refund_pending`; approved partial or rejected refund may restore
-> `refund_pending -> active`; approved full refund enters `refunded`, and
+> `refund_pending`; approved partial refund preserves the current grant state,
+> while rejected refund may restore `refund_pending -> active`; approved full
+> refund enters `refunded`, and
 > **`refunded` is terminal across all later normalized adjustment events**.
 > In particular, a later rejected refund does not resurrect a fully refunded
 > grant. Chargeback-family actions are now implemented by the same reducer
@@ -1027,3 +1028,21 @@ to the pre-0009 backend is prohibited: the old backend can mutate
 detects such materialized/history divergence and fails closed, but the
 operational rollback must still be a forward fix/reconciliation-compatible
 build or a coordinated DB restore + webhook recovery under Human Gates.
+
+
+### Security Audit v1 deterministic-block handling (2026-09-21)
+
+If deterministic replay cannot be proven safe (legacy whole-second restoration,
+materialized/history divergence, missing baseline, or an unreconciled row that
+falls before the immutable baseline), the event is **quarantined**, not retried
+until Paddle eventually drops it. The event claim and normalized row commit
+with a non-PII `paddle_reconciliation_blocks` row and a fixed 200
+`quarantined` outcome. Unknown/runtime/database exceptions still escape as
+500 so Paddle retries normally.
+
+Every unresolved deterministic block sets `force_exclude_transaction=1`.
+Entitlement-bearing grant queries ignore only that Paddle transaction while the
+block is unresolved, so uncertain history cannot leave unproven access active
+and a separate valid repurchase is preserved. Only event ids actually replayed after
+the immutable baseline receive `reconciled_at`; skipped pre-baseline rows stay
+unreconciled and keep the cutover gate non-zero.

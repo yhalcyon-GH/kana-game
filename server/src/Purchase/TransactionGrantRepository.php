@@ -16,8 +16,9 @@ use PDO;
  * transaction can only ever change ITS OWN row, never a later
  * transaction's grant for the same user/product.
  *
- * Entitlement-bearing statuses: 'active', 'refund_pending'.
- * Non-entitlement-bearing: 'refunded', 'chargeback', 'chargeback_pending'
+ * Entitlement-bearing statuses: 'active', 'refund_pending', except while the
+ * transaction has an unresolved reconciliation block that explicitly forces
+ * exclusion. Non-entitlement-bearing: 'refunded', 'chargeback', 'chargeback_pending'
  * (Phase H1-3 — see PurchaseWebhookHandler's chargeback-family handling).
  *
  * Grant status is materialized only from the deterministic replay reducer.
@@ -91,8 +92,15 @@ final class TransactionGrantRepository
     {
         $driver = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
         $placeholders = implode(',', array_fill(0, count(self::ENTITLEMENT_BEARING_STATUSES), '?'));
-        $sql = "SELECT 1 FROM transaction_grants
-             WHERE user_id = ? AND product_key = ? AND status IN ({$placeholders})
+        $sql = "SELECT 1 FROM transaction_grants g
+             WHERE g.user_id = ? AND g.product_key = ? AND g.status IN ({$placeholders})
+               AND NOT EXISTS (
+                   SELECT 1
+                   FROM paddle_reconciliation_blocks b
+                   WHERE b.paddle_transaction_id = g.paddle_transaction_id
+                     AND b.resolved_at IS NULL
+                     AND b.force_exclude_transaction = 1
+               )
              LIMIT 1";
         if ($driver !== 'sqlite') {
             $sql .= ' FOR UPDATE';
