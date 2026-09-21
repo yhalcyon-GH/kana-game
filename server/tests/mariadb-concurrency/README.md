@@ -90,6 +90,12 @@ Paddle mutation.
   **separate, fresh verification connection** after all workers have
   finished. Exits non-zero (and prints full non-secret diagnostic detail) on
   the first invariant violation, without retrying or silently continuing.
+- `ephemeral-cleanup.php` — runs after the concurrency scenarios against the
+  same disposable MariaDB matrix and verifies the bounded ephemeral-data
+  cleanup with real foreign keys: stale auth rows are removed, active
+  credentials survive, a stale persistent parent is removed only after its
+  stale child session is gone, and an expired purchase intent referenced by
+  `transaction_grants` is preserved while an unreferenced one is deleted.
 
 ## Running it yourself
 
