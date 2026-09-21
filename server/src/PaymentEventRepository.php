@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace KanaGame\Paddle;
 
+require_once __DIR__ . '/PaddleEventTime.php';
+
 use PDO;
 
 /**
@@ -55,7 +57,7 @@ final class PaymentEventRepository
             'event_id' => $paddleEventId,
             'event_type' => $eventType,
             'transaction_id' => $paddleTransactionId,
-            'occurred_at' => $occurredAt->format('Y-m-d H:i:s'),
+            'occurred_at' => PaddleEventTime::format($occurredAt),
             'processed_at' => (new \DateTimeImmutable())->format('Y-m-d H:i:s'),
         ]);
     }
