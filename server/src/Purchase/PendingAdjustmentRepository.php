@@ -64,11 +64,16 @@ final class PendingAdjustmentRepository
     }
 
     /**
-     * Returns the COMPLETE normalized adjustment history for a transaction.
+     * Returns all RETAINED normalized adjustment history for a transaction.
      * Reconciled rows are intentionally retained and replayed again whenever a
-     * new event arrives, so final state depends on Paddle chronology rather
-     * than webhook arrival order. The event id is a deterministic tie-breaker
-     * if two Paddle timestamps are exactly equal.
+     * new event arrives, so post-baseline state depends on Paddle chronology
+     * rather than webhook arrival order. The event id is a deterministic
+     * tie-breaker if two Paddle timestamps are exactly equal.
+     *
+     * Pre-0009 direct adjustments delivered after a grant already existed were
+     * not stored here. PurchaseWebhookHandler therefore establishes one fixed
+     * legacy replay baseline before using this retained history; this method
+     * must not imply that those unrecoverable old payloads exist.
      *
      * @return list<array{id: int, paddle_transaction_id: string, paddle_event_id: string, action: string, adjustment_status: string, adjustment_type: string, items: mixed, occurred_at: string}>
      */
