@@ -99,49 +99,6 @@ final class PaymentEventRepository
     }
 
 
-    /**
-     * Returns the chronologically latest adjustment event that was already
-     * claimed for this Paddle transaction before the current event.
-     *
-     * The current event is excluded explicitly because claim() runs before
-     * transaction locking/normalization. This lets #365 establish a safe
-     * one-time replay baseline for legacy grants whose old direct adjustment
-     * payloads were not retained in pending_adjustments.
-     *
-     * @return array{paddle_event_id: string, occurred_at: string}|null
-     */
-    public function latestAdjustmentForTransactionExcluding(
-        string $paddleTransactionId,
-        string $excludedEventId,
-    ): ?array {
-        $statement = $this->pdo->prepare(
-            "SELECT paddle_event_id, occurred_at
-             FROM payment_events
-             WHERE paddle_transaction_id = :txn_id
-               AND event_type IN ('adjustment.created', 'adjustment.updated')
-               AND paddle_event_id <> :excluded_event_id
-             ORDER BY occurred_at DESC, paddle_event_id DESC
-             LIMIT 1",
-        );
-        $statement->execute([
-            'txn_id' => $paddleTransactionId,
-            'excluded_event_id' => $excludedEventId,
-        ]);
-
-        $row = $statement->fetch(PDO::FETCH_ASSOC);
-        if (!is_array($row)
-            || !is_string($row['paddle_event_id'] ?? null)
-            || !is_string($row['occurred_at'] ?? null)
-        ) {
-            return null;
-        }
-
-        return [
-            'paddle_event_id' => $row['paddle_event_id'],
-            'occurred_at' => $row['occurred_at'],
-        ];
-    }
-
     private function isUniqueConstraintViolation(\PDOException $e): bool
     {
         return $e->getCode() === '23000' || str_contains($e->getMessage(), 'UNIQUE constraint failed');
