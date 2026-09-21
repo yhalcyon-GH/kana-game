@@ -702,7 +702,7 @@ function purchaseWebhookHandlerTests(): array
             assertSame('refunded', $grant['status'], 'legacy full refund must remain terminal instead of replaying from fictional active state');
             $baseline = (new TransactionEventLockRepository($pdo))->replayBaseline('txn_legacy_refunded');
             assertSame('refunded', $baseline['status'], 'legacy materialized status must be captured as the immutable replay baseline');
-            assertSame('evt_legacy_refund', $baseline['paddle_event_id'], 'latest previously processed legacy adjustment must become the baseline tie-breaker');
+            assertSame('', $baseline['paddle_event_id'], 'legacy payload/action details must not be guessed from the coarse payment-event ledger');
         },
 
         'legacy chargeback snapshot is preserved when first post-cutover event would differ from an active seed' => function () {
