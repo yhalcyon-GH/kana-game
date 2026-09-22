@@ -69,6 +69,29 @@ describe('NavBar top row', () => {
     renderNav()
     expect(screen.queryByRole('link', { name: /^About$/ })).not.toBeInTheDocument()
   })
+
+  // Issue #387: Home/Review/Saved keep the equal-share flex-1 sizing so they
+  // get the useful remaining width, while icon-only Account/Settings shrink
+  // to their own content instead of wasting space as equal-width columns.
+  it('gives Home/Review/Saved an equal flex-1 share, while Account/Settings shrink to their icon content', () => {
+    renderNav()
+    for (const name of [/^Home$/, /^Review$/, /^Saved$/]) {
+      expect(screen.getByRole('link', { name }).className).toMatch(/\bflex-1\b/)
+    }
+    const account = screen.getByRole('link', { name: 'Account' })
+    const settings = screen.getByRole('link', { name: 'Settings' })
+    expect(account.className).not.toMatch(/\bflex-1\b/)
+    expect(account.className).toMatch(/\bshrink-0\b/)
+    expect(settings.className).not.toMatch(/\bflex-1\b/)
+    expect(settings.className).toMatch(/\bshrink-0\b/)
+  })
+
+  it('keeps Account/Settings accessible names and one-row layout unchanged by the spacing adjustment', () => {
+    renderNav()
+    expect(screen.getByRole('link', { name: 'Account' })).toHaveAttribute('href', '/account')
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings')
+    expect(screen.getByRole('link', { name: 'Account' }).closest('nav')).toHaveClass('flex-nowrap')
+  })
 })
 
 describe('NavBar Review badge', () => {

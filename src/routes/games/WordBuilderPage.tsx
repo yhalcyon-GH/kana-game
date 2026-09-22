@@ -273,11 +273,15 @@ function WordBuilderSession({ rowIdOverride }: Props) {
       <div className="flex max-w-full flex-wrap justify-center gap-2">
         {slots.map((key, i) => {
           const tile = key ? tray.find((t) => t.key === key) : undefined
+          const slotLabel = tile
+            ? `${tile.glyph} placed in slot ${i + 1} of ${slots.length}. Activate to remove.`
+            : `Empty slot ${i + 1} of ${slots.length}`
           return (
             <button
               key={i}
               type="button"
               onClick={() => handleSlotClick(i)}
+              aria-label={slotLabel}
               className="flex h-14 w-14 flex-col items-center justify-center rounded-xl border-2 border-dashed border-neutral-300 dark:border-neutral-600"
             >
               <span className={`font-kana font-bold whitespace-nowrap ${tile && [...tile.glyph].length > 1 ? 'text-base' : 'text-2xl'}`}>

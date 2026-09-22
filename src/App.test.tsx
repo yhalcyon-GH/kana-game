@@ -519,26 +519,28 @@ describe('character-set learnStyle with yōon (multi-glyph, one-mora characters)
   })
 })
 
-// Shortened category-page descriptions (mobile readability pass) — exact
-// replacement copy for all four script-group pages.
-describe('category page descriptions (shortened copy)', () => {
-  it('Hiragana page shows the shortened description', () => {
+// Category-page explanatory copy (Issue #387, audit item 6). Hiragana/
+// Katakana dropped their redundant "Learn ... with everyday words."
+// sentence entirely — the rows below already teach that. Yōon and っ・ー
+// keep an explanation, reworded to actually clarify the roles/give examples.
+describe('category page descriptions (Issue #387 audit item 6)', () => {
+  it('Hiragana page has no redundant description paragraph', () => {
     renderAt('/hiragana')
-    expect(screen.getByText('Learn hiragana with everyday words.')).toBeInTheDocument()
+    expect(screen.queryByText('Learn hiragana with everyday words.')).not.toBeInTheDocument()
   })
 
-  it('Katakana page shows the shortened description', () => {
+  it('Katakana page has no redundant description paragraph', () => {
     renderAt('/katakana')
-    expect(screen.getByText('Learn katakana with everyday words.')).toBeInTheDocument()
+    expect(screen.queryByText('Learn katakana with everyday words.')).not.toBeInTheDocument()
   })
 
-  it('Yōon page shows the shortened description', () => {
+  it('Yōon page explains the small ゃゅょ sounds with examples', () => {
     renderAt('/youon')
-    expect(screen.getByText('Learn small ゃゅょ sounds like きゃ / kya.')).toBeInTheDocument()
+    expect(screen.getByText('Learn small ゃゅょ sounds like きゃ / kya, しゅ / shu, and ちょ / cho.')).toBeInTheDocument()
   })
 
-  it('Sokuon/Chōon (っ・ー) page shows the shortened description', () => {
+  it('Sokuon/Chōon (っ・ー) page clarifies the two roles', () => {
     renderAt('/other')
-    expect(screen.getByText('Learn small っ/ッ and long vowel ー.')).toBeInTheDocument()
+    expect(screen.getByText('Learn small っ/ッ for a short stop, and ー for a long vowel.')).toBeInTheDocument()
   })
 })

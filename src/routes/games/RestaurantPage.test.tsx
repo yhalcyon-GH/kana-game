@@ -389,6 +389,29 @@ describe('RestaurantPage', () => {
     expect(bubble.compareDocumentPosition(template) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
+  // Issue #387 (production observation): the two-item template wrapped
+  // awkwardly on narrow mobile screens. The blanks are shortened (2
+  // underscores per blank instead of the one-item template's 4) so the
+  // whole sentence fits more cleanly at narrow widths — the Japanese
+  // wording/meaning and the one-item template stay unchanged.
+  it('shortens the blanks in the two-item order template (questions 5-8) without changing the wording/meaning', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    renderPage()
+    for (let question = 1; question < 5; question++) {
+      clickTargetAnswer()
+      fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    }
+    expect(currentTargetDishes()).toHaveLength(2)
+    expect(screen.getByTestId('restaurant-order-template')).toHaveTextContent('すみません、＿＿ と ＿＿ おねがいします。')
+  })
+
+  it('keeps the one-item order template (questions 1-4) unchanged by the two-item fix', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    renderPage()
+    expect(currentTargetDishes()).toHaveLength(1)
+    expect(screen.getByTestId('restaurant-order-template')).toHaveTextContent('すみません、＿＿＿＿ おねがいします。')
+  })
+
   it('keeps showing the target image/emoji and English up front in the bubble — Restaurant gameplay is unchanged by the layout move (Issue #160)', () => {
     renderPage()
     const bubble = screen.getByTestId('restaurant-target-bubble')
