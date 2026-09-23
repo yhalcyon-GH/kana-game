@@ -193,6 +193,61 @@ describe('production Account purchase UI', () => {
     expect(screen.getByText('No payment details are needed for this zero-total checkout.')).toBeInTheDocument()
   })
 
+  // -- Issue #389: simplified single-CTA stage once Paddle verifies a zero-total promo is open --
+
+  it('requires policy acceptance and the initial Continue action before a verified Free checkout opens', async () => {
+    await renderAccount('/account?promo=FREE100')
+    const acceptance = screen.getByRole('checkbox', { name: /I agree to Tamamizu's Terms & Conditions and Refund Policy/i })
+    const continueButton = screen.getByRole('button', { name: 'Continue with test promotion' })
+    expect(acceptance).not.toBeChecked()
+    expect(continueButton).toBeDisabled()
+    expect(screen.getByText('Promotion link detected')).toBeInTheDocument()
+    fireEvent.click(continueButton)
+    expect(requestCount('/purchase-intent.php')).toBe(0)
+  })
+
+  it('enters a simplified Free checkout stage once Paddle verifies a zero-total promo is open, hiding pre-checkout clutter behind one purchase action', async () => {
+    await renderAccount('/account?promo=FREE100')
+    await start()
+    await act(async () => {
+      emit('checkout.loaded', privateRef, 'txn_1', {
+        currency_code: 'USD',
+        totals: { subtotal: 5, discount: 5, tax: 0, total: 0, balance: 0, credit: 0 },
+      })
+    })
+
+    expect(screen.getByText('One last step — tap “Complete checkout” below to get Tamamizu for free.')).toBeInTheDocument()
+    expect(screen.getByText('FREE')).toBeInTheDocument()
+    expect(screen.getByLabelText('Secure Paddle checkout')).not.toHaveClass('invisible')
+    expect(screen.getByRole('button', { name: 'Cancel checkout' })).toBeInTheDocument()
+
+    expect(screen.queryByText('Promotion link detected')).not.toBeInTheDocument()
+    expect(screen.queryByRole('checkbox', { name: /I agree to Tamamizu's Terms & Conditions and Refund Policy/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Terms & Conditions' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Refund Policy' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Privacy Policy' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Support & Contact' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Continue with test promotion' })).not.toBeInTheDocument()
+    expect(screen.queryByText('Your promotion is applied. Complete checkout below.')).not.toBeInTheDocument()
+  })
+
+  it('does not enter the Free-only simplified stage for a non-zero promo total', async () => {
+    await renderAccount('/account?promo=HALF50')
+    await start()
+    await act(async () => {
+      emit('checkout.loaded', privateRef, 'txn_1', {
+        currency_code: 'USD',
+        totals: { subtotal: 5, discount: 2.5, tax: 0, total: 2.5, balance: 2.5, credit: 0 },
+      })
+    })
+
+    expect(screen.queryByText(/One last step/)).not.toBeInTheDocument()
+    expect(screen.getByText('Your promotion is applied. Complete checkout below.')).toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: /I agree to Tamamizu's Terms & Conditions and Refund Policy/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Continue with test promotion' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Secure Paddle checkout')).not.toHaveClass('invisible')
+  })
+
   it('waits before failing closed, keeping the full-price inline checkout hidden', async () => {
     await renderAccount('/account?promo=EXPIRED')
     await start()
