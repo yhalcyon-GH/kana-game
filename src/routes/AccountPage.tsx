@@ -168,6 +168,10 @@ export default function AccountPage() {
   const percentageOff = purchase.summary
     ? inferPercentageOff(purchase.summary.subtotal, purchase.summary.discount)
     : null
+  // Paddle's own authoritative zero-total verification (never a promo code
+  // name or hard-coded campaign) drives the simplified single-CTA stage --
+  // see issue #389. Paid/partial promotions keep the full pre-checkout flow.
+  const verifiedFreeCheckoutOpen = Boolean(promoCode) && purchase.status === 'open' && purchase.summary?.total === 0
 
   return (
     <div className="flex w-full max-w-sm flex-col items-center gap-6">
@@ -219,7 +223,7 @@ export default function AccountPage() {
             Base price: USD 5.00. Applicable taxes may be included in or added to the price depending on your
             location. {promoCode ? 'Paddle will verify your promotion and calculate the final total.' : 'The final price is shown at checkout.'}
           </p>
-          {promoCode && (
+          {promoCode && !verifiedFreeCheckoutOpen && (
             <div role="status" className="flex flex-col gap-1 rounded-xl border border-emerald-500 px-4 py-3 text-left text-sm">
               <strong className="text-base">Promotion link detected</strong>
               <span>Code: <span className="font-semibold">{promoCode}</span></span>
@@ -249,44 +253,55 @@ export default function AccountPage() {
               )}
             </div>
           )}
-          <div className="flex w-full items-start gap-3 rounded-xl border border-neutral-300 p-4 text-left dark:border-neutral-700">
-            <input
-              id="purchase-policy-acceptance"
-              type="checkbox"
-              checked={purchasePoliciesAccepted}
-              disabled={!purchase.configured || checkoutBusy}
-              onChange={(event) => setPurchasePoliciesAccepted(event.target.checked)}
-              className="mt-1 h-4 w-4 shrink-0"
-            />
-            <div className="flex flex-col gap-1">
-              <label htmlFor="purchase-policy-acceptance" className="font-semibold text-neutral-900 dark:text-neutral-100">
-                I agree to Tamamizu&apos;s Terms &amp; Conditions and Refund Policy.
-              </label>
-              <p className="text-sm text-neutral-600 dark:text-neutral-300">
-                Read the <Link to="/terms" className="underline">Terms &amp; Conditions</Link> and{' '}
-                <Link to="/refund" className="underline">Refund Policy</Link> before purchasing.
-              </p>
+          {!verifiedFreeCheckoutOpen && (
+            <div className="flex w-full items-start gap-3 rounded-xl border border-neutral-300 p-4 text-left dark:border-neutral-700">
+              <input
+                id="purchase-policy-acceptance"
+                type="checkbox"
+                checked={purchasePoliciesAccepted}
+                disabled={!purchase.configured || checkoutBusy}
+                onChange={(event) => setPurchasePoliciesAccepted(event.target.checked)}
+                className="mt-1 h-4 w-4 shrink-0"
+              />
+              <div className="flex flex-col gap-1">
+                <label htmlFor="purchase-policy-acceptance" className="font-semibold text-neutral-900 dark:text-neutral-100">
+                  I agree to Tamamizu&apos;s Terms &amp; Conditions and Refund Policy.
+                </label>
+                <p className="text-sm text-neutral-600 dark:text-neutral-300">
+                  Read the <Link to="/terms" className="underline">Terms &amp; Conditions</Link> and{' '}
+                  <Link to="/refund" className="underline">Refund Policy</Link> before purchasing.
+                </p>
+              </div>
             </div>
-          </div>
-          <p className="text-sm text-neutral-600 dark:text-neutral-300">
-            You can also review the <Link to="/privacy" className="underline">Privacy Policy</Link> and{' '}
-            <Link to="/support" className="underline">Support &amp; Contact</Link>.
-          </p>
-          <button
-            type="button"
-            disabled={!purchase.configured || checkoutBusy || !purchasePoliciesAccepted}
-            onClick={() => void purchase.start(promoCode, promoCode ? PROMO_CHECKOUT_TARGET : undefined)}
-            className="w-full rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {purchaseButtonLabel}
-          </button>
+          )}
+          {!verifiedFreeCheckoutOpen && (
+            <p className="text-sm text-neutral-600 dark:text-neutral-300">
+              You can also review the <Link to="/privacy" className="underline">Privacy Policy</Link> and{' '}
+              <Link to="/support" className="underline">Support &amp; Contact</Link>.
+            </p>
+          )}
+          {!verifiedFreeCheckoutOpen && (
+            <button
+              type="button"
+              disabled={!purchase.configured || checkoutBusy || !purchasePoliciesAccepted}
+              onClick={() => void purchase.start(promoCode, promoCode ? PROMO_CHECKOUT_TARGET : undefined)}
+              className="w-full rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {purchaseButtonLabel}
+            </button>
+          )}
           {!purchase.configured && <p role="status">{unavailableConfigMessage}</p>}
           {purchase.status === 'preparing' && <p role="status">{preparingMessage}</p>}
-          {purchase.status === 'open' && <p role="status">{openMessage}</p>}
+          {purchase.status === 'open' && !verifiedFreeCheckoutOpen && <p role="status">{openMessage}</p>}
           {purchase.status === 'unavailable' && <p role="status">{checkoutUnavailableMessage}</p>}
           {purchase.status === 'promotion-unavailable' && (
             <p role="alert" className="rounded-xl border border-amber-500 p-4 text-sm">
               This promotion could not be applied. Please try the link again or contact Support before purchasing.
+            </p>
+          )}
+          {verifiedFreeCheckoutOpen && (
+            <p role="status" className="rounded-xl border-2 border-emerald-500 p-4 text-center text-base font-semibold">
+              One last step — tap “Complete checkout” below to get Tamamizu for free.
             </p>
           )}
           {promoCode && (
