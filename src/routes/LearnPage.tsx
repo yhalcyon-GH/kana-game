@@ -337,6 +337,7 @@ export function LearnPage() {
     // Similar Letters lesson. リ is intentionally not mapped, so it shows
     // nothing here — matching the dedicated lesson's own omission of it.
     const explanationImage = getSimilarLetterExplanationImage(char.id)
+    const isLastCharOfSingleBatch = !isMultiBatch && charIndexInBatch === currentBatchIds.length - 1
     return (
       <div className="flex flex-col items-center gap-6">
         <h1 className="text-2xl font-bold">{row.label} — new characters</h1>
@@ -378,18 +379,25 @@ export function LearnPage() {
             still steps back one character at a time. Both always target the
             FULL-row recap/words, regardless of which batch is showing —
             recording the jump's origin so Back can return here instead of
-            wherever normal progression would land (see handleRecapBack). */}
+            wherever normal progression would land (see handleRecapBack).
+            On the final character of an unbatched/single-batch row, the
+            primary button above already reads "See them all" and goes to
+            the same place, so the jump link here would be an exact
+            duplicate — omit it just there; "See the words" stays since it
+            leads somewhere different. */}
         <div className="flex gap-4 text-sm">
-          <button
-            type="button"
-            onClick={() => {
-              setJumpOrigin({ batchIndex, charIndexInBatch })
-              setStep('recap')
-            }}
-            className="text-neutral-500 underline hover:text-blue-600 dark:text-neutral-400 dark:hover:text-blue-400"
-          >
-            See them all
-          </button>
+          {!isLastCharOfSingleBatch && (
+            <button
+              type="button"
+              onClick={() => {
+                setJumpOrigin({ batchIndex, charIndexInBatch })
+                setStep('recap')
+              }}
+              className="text-neutral-500 underline hover:text-blue-600 dark:text-neutral-400 dark:hover:text-blue-400"
+            >
+              See them all
+            </button>
+          )}
           <button
             type="button"
             onClick={() => {

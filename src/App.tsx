@@ -180,7 +180,6 @@ function App() {
                 element={
                   <CategoryRowsPage
                     title="ひらがな"
-                    description="Learn hiragana with everyday words."
                     categoryIds={[DEFAULT_CATEGORY_ID]}
                     askTamamizuKanaIntroVariant="hiragana"
                   />
@@ -191,7 +190,6 @@ function App() {
                 element={
                   <CategoryRowsPage
                     title="カタカナ"
-                    description="Learn katakana with everyday words."
                     categoryIds={[KATAKANA_CATEGORY_ID]}
                     askTamamizuKanaIntroVariant="katakana"
                   />
@@ -205,7 +203,7 @@ function App() {
                     // may not read any kana yet, let alone kanji, see
                     // ScriptCategory.displayLabel's comment.
                     title={CATEGORIES_BY_ID[YOUON_CATEGORY_ID].displayLabel!}
-                    description="Learn small ゃゅょ sounds like きゃ / kya."
+                    description="Learn small ゃゅょ sounds like きゃ / kya, しゅ / shu, and ちょ / cho."
                     // Special Katakana (ファ/ティ/シェ/...) is presented as a
                     // continuation of this SAME page, right after Yōon — see
                     // curriculum.ts's SPECIAL_KATAKANA_CATEGORY_ID. Bundling
@@ -221,7 +219,7 @@ function App() {
                 element={
                   <CategoryRowsPage
                     title="っ・ー"
-                    description="Learn small っ/ッ and long vowel ー."
+                    description="Learn small っ/ッ for a short stop, and ー for a long vowel."
                     categoryIds={OTHER_CATEGORY_IDS}
                   />
                 }

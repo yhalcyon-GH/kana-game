@@ -67,7 +67,7 @@ describe('Review Guide (Issue #40)', () => {
 
     expect(summary.getByText('Retry')).toBeInTheDocument()
     expect(summary.getByText("Practice this round's mistakes.")).toBeInTheDocument()
-    expect(summary.getByText('Practice saved kana and words anytime.')).toBeInTheDocument()
+    expect(summary.getByText('Practice kana and words you missed anytime.')).toBeInTheDocument()
   })
 
   it('styles the Retry legend green, not amber', () => {
@@ -87,7 +87,7 @@ describe('Review Guide (Issue #40)', () => {
     const [, spokenText] = tts.speak.mock.calls[0]
     expect(spokenText).toBe(content.speechText)
     expect(spokenText).not.toContain("Practice this round's mistakes.")
-    expect(spokenText).not.toContain('Practice saved kana and words anytime.')
+    expect(spokenText).not.toContain('Practice kana and words you missed anytime.')
   })
 
   it('dismisses without navigating or changing the Review target', () => {

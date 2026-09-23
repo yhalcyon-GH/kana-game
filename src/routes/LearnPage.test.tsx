@@ -24,15 +24,6 @@ function renderLearn(path: string) {
   )
 }
 
-// "See them all" appears twice on the last character of the last batch —
-// once as the primary action button (leads to that batch's own recap) and
-// once as the always-present jump-ahead link (leads straight to the
-// full-row recap) — see LearnPage.tsx. The primary button renders first in
-// document order.
-function clickPrimarySeeThemAll() {
-  fireEvent.click(screen.getAllByText('See them all')[0])
-}
-
 // ka-row: 10 characters, 2 micro-batches of 5 (か行, が行) — see
 // curriculum.ts's learnBatches.
 describe('LearnPage micro-batches: a 10-character row (ka-row)', () => {
@@ -241,11 +232,13 @@ describe('LearnPage: rows with no learnBatches keep the old flow (no intermediat
     expect(screen.getByText('1 / 6')).toBeInTheDocument()
     for (let i = 0; i < 5; i++) fireEvent.click(screen.getByText('Next'))
     expect(screen.getByText('6 / 6')).toBeInTheDocument()
-    // "See them all" appears twice here too — primary button + jump link —
-    // both leading to the same destination for an unbatched row.
-    expect(screen.getAllByText('See them all')).toHaveLength(2)
+    // The primary button becomes "See them all" here; the jump-ahead link
+    // that would show the exact same label/destination is omitted so it
+    // doesn't duplicate the primary action (Issue #387, audit P3-2).
+    expect(screen.getAllByText('See them all')).toHaveLength(1)
+    expect(screen.getByText('See the words')).toBeInTheDocument()
     expect(screen.queryByText('See this set')).not.toBeInTheDocument()
-    clickPrimarySeeThemAll()
+    fireEvent.click(screen.getByText('See them all'))
     expect(screen.getByText(/all together/)).toBeInTheDocument()
     expect(screen.queryByText(/— Set /)).not.toBeInTheDocument()
   })
@@ -254,6 +247,30 @@ describe('LearnPage: rows with no learnBatches keep the old flow (no intermediat
     renderLearn('/learn/hiragana/na-row')
     expect(screen.getByText('1 / 5')).toBeInTheDocument()
     expect(screen.queryByText(/Set \d/)).not.toBeInTheDocument()
+  })
+})
+
+// Issue #387 (audit P3-2): the jump-ahead "See them all" link must only be
+// hidden on the exact screen where the primary button already reads "See
+// them all" — everywhere else it stays, since it's the only way to skip
+// ahead there.
+describe('LearnPage: "See them all" duplicate removal is scoped to the exact last-character screen', () => {
+  it('an earlier (non-last) character of an unbatched row still shows the jump-ahead "See them all" link', () => {
+    renderLearn('/learn/hiragana/a-row')
+    expect(screen.getByText('1 / 6')).toBeInTheDocument()
+    expect(screen.getByText('Next')).toBeInTheDocument()
+    expect(screen.getAllByText('See them all')).toHaveLength(1)
+  })
+
+  it('the last character of a multi-batch row\'s final batch still shows both "See this set" and the "See them all" jump link (no duplicate there)', () => {
+    renderLearn('/learn/hiragana/ka-row')
+    for (let i = 0; i < 4; i++) fireEvent.click(screen.getByText('Next'))
+    fireEvent.click(screen.getByText('See this set'))
+    fireEvent.click(screen.getByText('Next set'))
+    for (let i = 0; i < 4; i++) fireEvent.click(screen.getByText('Next'))
+    expect(screen.getByText('Set 2 / 2 · 5 / 5')).toBeInTheDocument()
+    expect(screen.getByText('See this set')).toBeInTheDocument()
+    expect(screen.getAllByText('See them all')).toHaveLength(1)
   })
 })
 

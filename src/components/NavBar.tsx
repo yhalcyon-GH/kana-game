@@ -31,6 +31,16 @@ export function NavBar() {
           : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
     }`
 
+  // Account/Settings are icon-only, so unlike Home/Review/Saved above they
+  // don't need an equal flex-1 share of the row — that used to leave
+  // conspicuous empty space around each small icon. `shrink-0` sizes them to
+  // their own content instead, letting the three label+icon items above
+  // take the freed-up width (Issue #387, top-nav spacing).
+  const iconItemClass = ({ isActive }: { isActive: boolean }) =>
+    `flex shrink-0 items-center justify-center rounded-lg px-3 py-1.5 ${
+      isActive ? 'text-blue-600 dark:text-blue-400' : 'text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200'
+    }`
+
   return (
     <div className="border-b border-neutral-200 dark:border-neutral-700">
       <nav className="flex flex-nowrap items-center justify-center gap-1 py-2">
@@ -59,7 +69,7 @@ export function NavBar() {
           </span>
         </NavLink>
 
-        <NavLink to="/account" aria-label="Account" title="Account" className={itemClass}>
+        <NavLink to="/account" aria-label="Account" title="Account" className={iconItemClass}>
           <img
             src={`${import.meta.env.BASE_URL}nav-icons/account.webp`}
             alt=""
@@ -68,7 +78,7 @@ export function NavBar() {
           />
         </NavLink>
 
-        <NavLink to="/settings" aria-label="Settings" className={itemClass}>
+        <NavLink to="/settings" aria-label="Settings" className={iconItemClass}>
           <span className="text-lg leading-none" aria-hidden="true">⚙️</span>
         </NavLink>
       </nav>

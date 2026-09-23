@@ -98,7 +98,15 @@ export function RestaurantPage({ checkpointId = 'na-row' }: { checkpointId?: str
       </div>
 
       <p data-testid="restaurant-order-template" className="font-kana w-full text-center text-[clamp(.8rem,4vw,1.125rem)]" lang="ja">
-        {targets.length === 1 ? 'すみません、＿＿＿＿ おねがいします。' : 'すみません、＿＿＿＿ と ＿＿＿＿ おねがいします。'}
+        {targets.length === 1
+          ? 'すみません、＿＿＿＿ おねがいします。'
+          // Shorter blanks than the one-item template (2 underscores per
+          // blank instead of 4) — the two-item sentence has more fixed text
+          // around it (と + a second blank), so it wraps awkwardly on
+          // narrow mobile widths at the one-item blank length. Shortening
+          // the blanks is the smallest fix; the Japanese wording/meaning is
+          // unchanged (Issue #387).
+          : 'すみません、＿＿ と ＿＿ おねがいします。'}
       </p>
 
       {isResult && (

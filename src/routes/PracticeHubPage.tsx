@@ -285,7 +285,7 @@ export function PracticeHubPage({ rowIdOverride }: Props = {}) {
       {!isReview && <HubBreadcrumb rowId={rowId} categoryId={categoryId!} />}
       <h1 className="text-2xl font-bold">{isReview ? 'Review' : `${isSummary ? '📋 ' : isSimilarLetters ? '🔍 ' : ''}${row!.label}`}</h1>
       {isReview && (
-        <p className="text-base text-neutral-500 dark:text-neutral-400">Practice saved kana and words ({reviewCount} item{reviewCount === 1 ? '' : 's'})</p>
+        <p className="text-base text-neutral-500 dark:text-neutral-400">Practice kana and words you missed ({reviewCount} item{reviewCount === 1 ? '' : 's'})</p>
       )}
 
       {showReviewGuide && <ReviewGuide onDismiss={dismissReviewReplay} />}

@@ -138,6 +138,69 @@ describe('WordBuilderPage editable placement', () => {
   })
 })
 
+// Issue #387 (audit P2-4): answer-slot buttons have no visible text of their
+// own besides the placed glyph (or nothing, when empty), so screen reader
+// users need an accessible name that spells out position/state and, once
+// filled, that activating the slot removes the placement — without adding
+// any new visible explanatory text.
+describe('WordBuilderPage answer-slot accessibility labels', () => {
+  function renderArowBuilder() {
+    return render(
+      <MemoryRouter initialEntries={['/practice/hiragana/a-row/word-builder']}>
+        <Routes>
+          <Route path="/practice/:categoryId/:rowId/word-builder" element={<WordBuilderPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+  }
+
+  const slots = (container: HTMLElement) => Array.from(container.querySelectorAll<HTMLButtonElement>('button.border-dashed'))
+  const tray = (container: HTMLElement) => Array.from(container.querySelectorAll<HTMLButtonElement>('button.font-kana:not(.border-dashed)'))
+
+  it('gives each empty slot an accessible name including its position and empty state', () => {
+    const { container } = renderArowBuilder()
+    const slotButtons = slots(container)
+    expect(slotButtons.length).toBeGreaterThan(0)
+    slotButtons.forEach((button, i) => {
+      expect(button).toHaveAccessibleName(`Empty slot ${i + 1} of ${slotButtons.length}`)
+    })
+  })
+
+  it('updates the accessible name once a tile is placed, naming the placed kana and that activating it removes the placement', () => {
+    const { container } = renderArowBuilder()
+    const firstTray = tray(container)[0]
+    const glyph = firstTray.textContent
+    fireEvent.click(firstTray)
+
+    const filledSlot = slots(container)[0]
+    expect(filledSlot).toHaveAccessibleName(`${glyph} placed in slot 1 of ${slots(container).length}. Activate to remove.`)
+  })
+
+  it('reverts to the empty accessible name after removing a placed tile', () => {
+    const { container } = renderArowBuilder()
+    const firstTray = tray(container)[0]
+    fireEvent.click(firstTray)
+    fireEvent.click(slots(container)[0])
+
+    expect(slots(container)[0]).toHaveAccessibleName(`Empty slot 1 of ${slots(container).length}`)
+  })
+
+  it('does not add any new visible explanatory text to the slot itself', () => {
+    const { container } = renderArowBuilder()
+    const firstTray = tray(container)[0]
+    const glyph = firstTray.textContent
+    fireEvent.click(firstTray)
+
+    const filledSlot = slots(container)[0]
+    // Visible text content stays exactly the glyph (plus the pre-existing
+    // hidden/invisible romaji hint) — the new label lives only in the
+    // accessible name (aria-label), not in rendered text.
+    expect(filledSlot.textContent).toContain(glyph)
+    expect(filledSlot.textContent).not.toContain('Activate to remove')
+    expect(filledSlot.textContent).not.toContain('placed in slot')
+  })
+})
+
 const MEANING_TO_GLYPHS: Record<string, [string, string]> = { love: ['あ', 'い'], house: ['い', 'え'] }
 
 function finishVisibleWordBuilderSessionKeepingHouseWeak(container: HTMLElement) {

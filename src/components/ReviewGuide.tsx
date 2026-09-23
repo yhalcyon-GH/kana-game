@@ -54,7 +54,7 @@ export function ReviewGuide({ onDismiss }: Props = {}) {
         </div>
         <div>
           <dt className="font-semibold text-orange-600 dark:text-orange-400">Review</dt>
-          <dd className="text-neutral-600 dark:text-neutral-400">Practice saved kana and words anytime.</dd>
+          <dd className="text-neutral-600 dark:text-neutral-400">Practice kana and words you missed anytime.</dd>
         </div>
       </dl>
       <button

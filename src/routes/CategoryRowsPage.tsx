@@ -63,7 +63,10 @@ function splitRowsAtCheckpoints(rows: GojuonRow[], checkpoints: PracticeCheckpoi
 
 type Props = {
   title: string
-  description: string
+  // Optional — Hiragana/Katakana dropped their redundant "Learn ... with
+  // everyday words." sentence (Issue #387, audit item 6) since the page
+  // already shows that in its rows; other category pages still pass one.
+  description?: string
   // Which categories' rows to show on this page — a plain array rather
   // than a single categoryId since "その他" bundles several categories
   // (sokuon/chōon) into one page. See App.tsx for how each page
@@ -159,7 +162,9 @@ export function CategoryRowsPage({ title, description, categoryIds, askTamamizuK
   return (
     <div className="flex flex-col items-center gap-6">
       <h1 className="text-3xl font-bold">{title}</h1>
-      <p className="max-w-md text-center text-base text-neutral-500 sm:text-lg dark:text-neutral-400">{description}</p>
+      {description && (
+        <p className="max-w-md text-center text-base text-neutral-500 sm:text-lg dark:text-neutral-400">{description}</p>
+      )}
       {askTamamizuKanaIntroVariant && (
         <AskTamamizuButton
           imageSrc={`${import.meta.env.BASE_URL}${
