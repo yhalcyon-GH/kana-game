@@ -111,6 +111,88 @@ function resendMailerTests(): array
             assertTrue($threw, 'a transport failure must propagate as an exception, never a silent success');
         },
 
+        'sendMagicLink() names the official domain and anti-installer copy in text and HTML, with escaping intact' => function () {
+            $captured = null;
+            $mailer = new ResendMailer(
+                'test-api-key',
+                'noreply@example.com',
+                'Tamamizu',
+                function (string $url, array $headers, string $body, int $timeout) use (&$captured) {
+                    $captured = json_decode($body, true);
+                    return ['status' => 200, 'body' => '{}'];
+                },
+            );
+
+            $mailer->sendMagicLink('user@example.com', 'https://app.tamamizu.giganihongo.com/#/verify?token=raw-token-value');
+
+            assertTrue(str_contains($captured['text'], 'app.tamamizu.giganihongo.com'), 'text body must name the official domain');
+            assertTrue(str_contains($captured['text'], 'does not send app installers or executable attachments'), 'text body must state Tamamizu never sends installers/attachments');
+            assertTrue(str_contains($captured['html'], 'app.tamamizu.giganihongo.com'), 'HTML body must name the official domain');
+            assertTrue(str_contains($captured['html'], 'does not send app installers or executable attachments'), 'HTML body must state Tamamizu never sends installers/attachments');
+            // Exactly one <a> tag — the actual Magic Link — no extra links added by the anti-phishing copy.
+            assertSame(1, substr_count($captured['html'], '<a '), 'HTML body must contain exactly one link: the magic link itself');
+        },
+
+        'sendMagicLink() still HTML-escapes a magic link URL containing special characters, alongside the new anti-phishing copy' => function () {
+            $captured = null;
+            $mailer = new ResendMailer(
+                'test-api-key',
+                'noreply@example.com',
+                'Tamamizu',
+                function (string $url, array $headers, string $body, int $timeout) use (&$captured) {
+                    $captured = json_decode($body, true);
+                    return ['status' => 200, 'body' => '{}'];
+                },
+            );
+
+            $mailer->sendMagicLink('user@example.com', 'https://app.tamamizu.giganihongo.com/#/verify?token=a&b"c');
+
+            assertTrue(str_contains($captured['html'], 'a&amp;b&quot;c'), 'the magic link href must remain HTML-escaped');
+            assertFalse(str_contains($captured['html'], 'a&b"c'), 'the raw unescaped token must not appear in the HTML body');
+        },
+
+        'sendLoginCode() names the official domain and anti-installer copy in text and HTML, with escaping intact' => function () {
+            $captured = null;
+            $mailer = new ResendMailer(
+                'test-api-key',
+                'noreply@example.com',
+                'Tamamizu',
+                function (string $url, array $headers, string $body, int $timeout) use (&$captured) {
+                    $captured = json_decode($body, true);
+                    return ['status' => 200, 'body' => '{}'];
+                },
+            );
+
+            $mailer->sendLoginCode('user@example.com', '123456');
+
+            assertTrue(str_contains($captured['text'], 'app.tamamizu.giganihongo.com'), 'text body must name the official domain');
+            assertTrue(str_contains($captured['text'], 'Enter this code only at the official Tamamizu site'), 'text body must instruct entering the code only on the official site');
+            assertTrue(str_contains($captured['text'], 'does not send app installers or executable attachments'), 'text body must state Tamamizu never sends installers/attachments');
+            assertTrue(str_contains($captured['html'], 'app.tamamizu.giganihongo.com'), 'HTML body must name the official domain');
+            assertTrue(str_contains($captured['html'], 'Enter this code only at the official Tamamizu site'), 'HTML body must instruct entering the code only on the official site');
+            assertTrue(str_contains($captured['html'], 'does not send app installers or executable attachments'), 'HTML body must state Tamamizu never sends installers/attachments');
+            // No links at all in the OTP email.
+            assertFalse(str_contains($captured['html'], '<a '), 'the OTP email must not contain any link');
+        },
+
+        'sendLoginCode() still HTML-escapes the code value' => function () {
+            $captured = null;
+            $mailer = new ResendMailer(
+                'test-api-key',
+                'noreply@example.com',
+                'Tamamizu',
+                function (string $url, array $headers, string $body, int $timeout) use (&$captured) {
+                    $captured = json_decode($body, true);
+                    return ['status' => 200, 'body' => '{}'];
+                },
+            );
+
+            $mailer->sendLoginCode('user@example.com', '<script>alert(1)</script>');
+
+            assertFalse(str_contains($captured['html'], '<script>alert(1)</script>'), 'the code must be HTML-escaped, never rendered as raw markup');
+            assertTrue(str_contains($captured['html'], htmlspecialchars('<script>alert(1)</script>', ENT_QUOTES)), 'the escaped code must still appear in the HTML body');
+        },
+
         'sendMagicLink() passes the configured timeout through to the transport' => function () {
             $seenTimeout = null;
             $mailer = new ResendMailer(

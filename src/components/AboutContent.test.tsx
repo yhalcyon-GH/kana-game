@@ -52,6 +52,21 @@ describe('AboutContent', () => {
     expect(screen.getByRole('link', { name: 'Third-Party Notices' })).toHaveAttribute('href', '/third-party-notices')
   })
 
+  it('shows official install/anti-phishing guidance naming the official domain and no installer files', () => {
+    render(
+      <MemoryRouter>
+        <AboutContent />
+      </MemoryRouter>,
+    )
+    const officialLink = screen.getByRole('link', { name: 'app.tamamizu.giganihongo.com' })
+    expect(officialLink).toHaveAttribute('href', 'https://app.tamamizu.giganihongo.com/')
+
+    const bodyText = document.body.textContent ?? ''
+    expect(bodyText).toMatch(/Add to Home Screen/i)
+    expect(bodyText).toMatch(/does not distribute an APK, EXE, MSI, or DMG/i)
+    expect(bodyText).toMatch(/never sends app installers or attachments by email/i)
+  })
+
   it('shows a build identifier and hides Send Feedback when unconfigured', () => {
     render(
       <MemoryRouter>

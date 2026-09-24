@@ -50,6 +50,7 @@ describe('activeProvider selection', () => {
   it('delegates to the Umami provider when a valid provider+website-id config is present', async () => {
     vi.stubEnv('VITE_ANALYTICS_PROVIDER', 'umami')
     vi.stubEnv('VITE_UMAMI_WEBSITE_ID', 'test-id')
+    vi.stubEnv('VITE_UMAMI_HOST_URL', window.location.origin)
     vi.resetModules()
     const umamiTrack = vi.fn()
     window.umami = { track: umamiTrack }

@@ -11,12 +11,35 @@ provider-neutral feedback abstraction (`src/lib/feedback/`), instrumented
 into the app's main learning flows, so that connecting a real analytics or
 feedback service later is a small, isolated change instead of a rewrite.
 
+## Security posture: same-origin only (2026-09 hardening, audit #391)
+
+Audit #391 found that Production was loading `https://cloud.umami.is/script.js`
+— third-party JavaScript from a different origin than the Tamamizu page
+itself — globally, including on auth/account surfaces, whenever
+`VITE_ANALYTICS_PROVIDER`/`VITE_UMAMI_WEBSITE_ID` repository Variables were
+set with no explicit `VITE_UMAMI_HOST_URL` (see the previous version of
+this doc and `docs/feedback-analytics-provider-decision.md`, which both
+described Umami Cloud as the intended normal Production destination — that
+description is now superseded by this section).
+
+`src/lib/analytics/umamiProvider.ts` now refuses to inject any script tag
+unless the configured `VITE_UMAMI_HOST_URL`'s resolved origin EXACTLY
+matches `window.location.origin` (see `umamiConfig.ts`'s
+`isUmamiHostAllowed`). There is no default/fallback host anymore. A
+cross-origin host — including the previous implicit Umami Cloud default —
+fails closed to no script injection at all; `track()` calls still run
+safely and simply no-op since `window.umami` is never set. This means the
+current `cloud.umami.is` Production configuration is effectively disabled
+until a same-origin/self-hosted Umami instance is deliberately provided.
+
 ## What this deliberately is NOT
 
 - **No third-party analytics provider is enabled.** `src/lib/analytics/track.ts`
   ships with `noopProvider` in production (a dev-only console provider is
   used in `npm run dev`) — no event this app calls `track()` for is sent
-  anywhere over the network today.
+  anywhere over the network today. Even when the Umami provider flag and
+  website id ARE configured, the script only ever loads from a same-origin
+  host — see "Security posture" above.
 - **No feedback service is connected.** The Send Feedback UI only appears
   if `VITE_FEEDBACK_URL` is set at build time; it is unset in this release,
   so the entry point does not render at all (see `src/lib/feedback/`). When
