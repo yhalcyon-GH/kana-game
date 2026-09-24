@@ -3,6 +3,7 @@ import {
   checkAllowScriptsCoverage,
   checkAllowScriptsHasNoStalePackageEntries,
   checkAllowScriptsKeysAreExactVersions,
+  checkNpmrcStrictAllowScripts,
   checkWorkflowActionsArePinnedToFullSha,
   checkWorkflowRejectsPullRequestTarget,
   extractWorkflowActionRefs,
@@ -89,6 +90,21 @@ describe('checkAllowScriptsKeysAreExactVersions', () => {
 
   it('rejects a wildcard version', () => {
     expect(checkAllowScriptsKeysAreExactVersions({ 'esbuild@*': true })).toHaveLength(1)
+  })
+})
+
+
+describe('checkNpmrcStrictAllowScripts', () => {
+  it('passes only when strict-allow-scripts is explicitly true', () => {
+    expect(checkNpmrcStrictAllowScripts('strict-allow-scripts=true\n')).toEqual([])
+  })
+
+  it('fails when the setting is missing', () => {
+    expect(checkNpmrcStrictAllowScripts('fund=false\n')).toHaveLength(1)
+  })
+
+  it('fails when the setting is explicitly false', () => {
+    expect(checkNpmrcStrictAllowScripts('strict-allow-scripts=false\n')).toHaveLength(1)
   })
 })
 
