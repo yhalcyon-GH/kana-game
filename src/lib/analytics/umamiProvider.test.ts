@@ -38,6 +38,18 @@ describe('createUmamiProvider', () => {
     expect(document.head.querySelector('script[data-website-id]')).toBeNull()
   })
 
+  it('is a true no-op for cross-origin config even if window.umami already exists', () => {
+    vi.stubEnv('VITE_UMAMI_HOST_URL', 'https://cloud.umami.is')
+    const umamiTrack = vi.fn()
+    window.umami = { track: umamiTrack }
+
+    const provider = createUmamiProvider()
+    provider.track('lesson_started')
+
+    expect(document.head.querySelector('script[data-website-id]')).toBeNull()
+    expect(umamiTrack).not.toHaveBeenCalled()
+  })
+
   it('uses a configured same-origin custom host URL when set', () => {
     vi.stubEnv('VITE_UMAMI_HOST_URL', `${window.location.origin}/`)
     createUmamiProvider()
