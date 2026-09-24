@@ -19,7 +19,6 @@ jobs:
     with:
       scan-args: |-
         --recursive
-        --skip-git
         ./
       upload-sarif: false
       fail-on-vuln: true
@@ -34,7 +33,6 @@ jobs:
     with:
       scan-args: |-
         --recursive
-        --skip-git
         ./
       upload-sarif: true
       fail-on-vuln: true
