@@ -40,20 +40,7 @@ enforces this policy is kept exact and current:
   must be pinned to a full 40-hex commit SHA;
 - no workflow may use the `pull_request_target` trigger.
 
-**Known gap:** the issue that scoped this tranche asked for `.npmrc` with
-`strict-allow-scripts=true` alongside the `package.json` policy. The Builder
-sandbox that implemented this tranche could not create or edit `.npmrc` at
-all — the harness treats it as a sensitive file (the same category as
-`.env`) and blocks agent writes to it outright. The exact-version policy
-above is fully expressed and enforced through `package.json` and the guard
-script instead, which does not depend on `.npmrc` existing. As optional
-defense-in-depth, a human maintainer can still add an `.npmrc` containing
-`ignore-scripts=true` by hand; that would block *all* lifecycle scripts by
-default at `npm install`/`npm ci` time (including the two currently-approved
-ones), so re-enabling `esbuild` and `ffmpeg-static` would additionally need
-an explicit `npm rebuild <pkg> --ignore-scripts=false` step wired into CI —
-untested in this tranche and left as a follow-up, not implemented
-speculatively.
+The repository also sets `.npmrc` to `strict-allow-scripts=true`. Modern npm therefore turns any unreviewed dependency lifecycle script into a hard install error instead of a warning/implicit skip. The guard script verifies that setting remains present and true, so the install-time policy and the review-time policy cannot silently drift apart.
 
 ## 2. Production auth API base: canonical and fail-closed
 
@@ -92,16 +79,6 @@ had no PHP SAST coverage. `server/phpstan.neon` plus a `.github/workflows/
 phpstan.yml` workflow add one, without introducing Composer into this
 repository.
 
-**`.github/workflows/phpstan.yml` and the `php -l` step below could not be
-pushed from this session:** the GitHub App token used to push this branch
-was rejected by GitHub with "refusing to allow a GitHub App to create or
-update workflow ... without `workflows` permission" — the same obstacle
-tranche 1 (#394) hit initially. `server/phpstan.neon` (not under
-`.github/workflows/`) is committed; the two workflow-file changes are given
-verbatim in the PR description for a human, or a session with
-`workflows: write` access, to add directly. Once added, the behavior below
-applies:
-
 - downloads the official PHPStan PHAR (pinned to exactly `2.2.13`,
   <https://github.com/phpstan/phpstan/releases/download/2.2.13/phpstan.phar>)
   with `curl --fail --location --proto '=https' --tlsv1.2`, verifies its
@@ -116,9 +93,7 @@ applies:
   repository, so PHPStan's own reflection over those two `paths` is relied
   on instead.
 
-**Known gap:** the Builder sandbox that authored this workflow has no
-outbound network/PHP execution available, so the PHPStan level above is a
-starting hypothesis, not something verified green locally. There is no
+The first GitHub CI run is authoritative for the selected PHPStan level. There is no
 `server/phpstan-baseline.neon` yet. The first real CI run on this repository
 is authoritative: if it reports pre-existing findings, generate a baseline
 from that run (`analyse --generate-baseline`), commit it, reference it from
@@ -127,14 +102,7 @@ why (as an addendum to this file) rather than lowering the level or adding
 blanket ignores. New findings introduced after the baseline is generated
 must not be silenced.
 
-`.github/workflows/pr-verify.yml` (the already-required PR Verify check) is
-meant to additionally run a fast, unconditional `php -l` syntax sweep over
-every file under `server/` on every PR, using the same approved `setup-php`
-SHA — see the "could not be pushed" note above; this step is pending the
-same manual addition. This is a cheap baseline sanity check, not a
-substitute for `server-unit-tests.yml` (real behavior, already its own
-workflow) or `phpstan.yml` (real static analysis, scoped to `server/**`
-above).
+`.github/workflows/pr-verify.yml` (the already-required PR Verify check) also runs a fast, unconditional `php -l` syntax sweep over every file under `server/` on every PR, using the same approved `setup-php` SHA. This is a cheap baseline sanity check, not a substitute for `server-unit-tests.yml` (real behavior, already its own workflow) or `phpstan.yml` (real static analysis, scoped to `server/**` above).
 
 ## Explicitly out of scope for this tranche
 
