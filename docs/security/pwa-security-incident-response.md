@@ -1,12 +1,25 @@
 # PWA security incident response
 
-Documentation only — no automation, no remote kill switch. This is the
-runbook to follow if a malicious or compromised Tamamizu PWA release is
-suspected in Production (e.g. a compromised dependency, a bad third-party
-script, or a supply-chain-compromised build reaching users). See
+Documentation only — no remote kill switch. This is the runbook to follow if
+a malicious or compromised Tamamizu PWA release is suspected in Production
+(e.g. a compromised dependency, a bad third-party script, or a
+supply-chain-compromised build reaching users). See
 `docs/security/security-audit-v1.md` and `docs/security/threat-model-v1.md`
 for the general security posture this responds to, and
 `docs/pwa-update-flow.md` for how normal (non-incident) PWA updates work.
+
+One narrow piece of this posture is automated: every built GitHub Pages
+artifact is checked by `scripts/checkProductionArtifactSafety.mjs`
+(`npm run check:artifact-safety`, run as part of `npm run verify` and in
+`.github/workflows/deploy.yml` immediately after `npm run build` and before
+`upload-pages-artifact`) for forbidden native installer/executable file
+extensions (Tamamizu is a PWA and must never ship one) and for cross-origin
+executable script imports (an HTML `<script src>` or service-worker
+`importScripts()` call whose resolved origin is not
+`https://app.tamamizu.giganihongo.com`). This is a deterministic, fail-closed
+build-time gate against one specific class of accidental regression — it is
+not a substitute for the rest of this runbook, and it does not detect a
+compromise that ships as same-origin/normal-extension code.
 
 ## 1. Stop normal promotion/deployment work
 
@@ -107,5 +120,9 @@ time, rather than pre-building a general-purpose mechanism speculatively.
   Scanner — see `.github/workflows/dependency-review.yml` and
   `.github/workflows/osv-scanner.yml`) against that exact SHA and confirm
   it is clean before declaring the incident resolved.
+- That deploy's `deploy.yml` run already ran the automated
+  `npm run check:artifact-safety` gate (see the intro above) against the
+  built `dist/` before upload; confirm that step passed for the SHA in
+  question rather than re-deriving the same check by hand.
 - Only after the artifact SHA is confirmed clean and scanned should normal
   promotion/deployment work (step 1) resume.
