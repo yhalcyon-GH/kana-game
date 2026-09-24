@@ -93,14 +93,12 @@ repository.
   repository, so PHPStan's own reflection over those two `paths` is relied
   on instead.
 
-The first GitHub CI run is authoritative for the selected PHPStan level. There is no
-`server/phpstan-baseline.neon` yet. The first real CI run on this repository
-is authoritative: if it reports pre-existing findings, generate a baseline
-from that run (`analyse --generate-baseline`), commit it, reference it from
-`server/phpstan.neon` via `includes:`, and document what was baselined and
-why (as an addendum to this file) rather than lowering the level or adding
-blanket ignores. New findings introduced after the baseline is generated
-must not be silenced.
+The first GitHub CI run at level 6 found exactly two pre-existing findings and no others. They are narrowly baselined in `server/phpstan-baseline.neon` with exact message/identifier/count/path matches:
+
+- `src/Purchase/GrantAdjustmentReducer.php:147` — `booleanNot.alwaysTrue`
+- `src/Purchase/PurchaseWebhookHandler.php:189` — `if.alwaysFalse`
+
+The level was not lowered and no broad suppression was added. Any additional PHPStan finding remains blocking.
 
 `.github/workflows/pr-verify.yml` (the already-required PR Verify check) also runs a fast, unconditional `php -l` syntax sweep over every file under `server/` on every PR, using the same approved `setup-php` SHA. This is a cheap baseline sanity check, not a substitute for `server-unit-tests.yml` (real behavior, already its own workflow) or `phpstan.yml` (real static analysis, scoped to `server/**` above).
 
