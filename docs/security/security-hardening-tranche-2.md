@@ -88,8 +88,19 @@ explicit URL).
 ## 3. PHP static analysis (PHPStan) without Composer
 
 `docs/security/security-audit-v1.md` and audit #391/#392 noted the backend
-had no PHP SAST coverage. `.github/workflows/phpstan.yml` adds one, without
-introducing Composer into this repository:
+had no PHP SAST coverage. `server/phpstan.neon` plus a `.github/workflows/
+phpstan.yml` workflow add one, without introducing Composer into this
+repository.
+
+**`.github/workflows/phpstan.yml` and the `php -l` step below could not be
+pushed from this session:** the GitHub App token used to push this branch
+was rejected by GitHub with "refusing to allow a GitHub App to create or
+update workflow ... without `workflows` permission" — the same obstacle
+tranche 1 (#394) hit initially. `server/phpstan.neon` (not under
+`.github/workflows/`) is committed; the two workflow-file changes are given
+verbatim in the PR description for a human, or a session with
+`workflows: write` access, to add directly. Once added, the behavior below
+applies:
 
 - downloads the official PHPStan PHAR (pinned to exactly `2.2.13`,
   <https://github.com/phpstan/phpstan/releases/download/2.2.13/phpstan.phar>)
@@ -116,12 +127,14 @@ why (as an addendum to this file) rather than lowering the level or adding
 blanket ignores. New findings introduced after the baseline is generated
 must not be silenced.
 
-`.github/workflows/pr-verify.yml` (the already-required PR Verify check)
-additionally runs a fast, unconditional `php -l` syntax sweep over every
-file under `server/` on every PR, using the same approved `setup-php` SHA.
-This is a cheap baseline sanity check, not a substitute for
-`server-unit-tests.yml` (real behavior, already its own workflow) or
-`phpstan.yml` (real static analysis, scoped to `server/**` above).
+`.github/workflows/pr-verify.yml` (the already-required PR Verify check) is
+meant to additionally run a fast, unconditional `php -l` syntax sweep over
+every file under `server/` on every PR, using the same approved `setup-php`
+SHA — see the "could not be pushed" note above; this step is pending the
+same manual addition. This is a cheap baseline sanity check, not a
+substitute for `server-unit-tests.yml` (real behavior, already its own
+workflow) or `phpstan.yml` (real static analysis, scoped to `server/**`
+above).
 
 ## Explicitly out of scope for this tranche
 
