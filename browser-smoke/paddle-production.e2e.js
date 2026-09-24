@@ -8,7 +8,8 @@ test.beforeEach(async ({ page }) => {
 test('production excludes the Paddle Sandbox route and never loads Paddle', async ({ page }) => {
   const paddleRequests = []
   page.on('request', (request) => {
-    if (new URL(request.url()).hostname.endsWith('paddle.com')) paddleRequests.push(request.url())
+    const hostname = new URL(request.url()).hostname
+    if (hostname === 'paddle.com' || hostname.endsWith('.paddle.com')) paddleRequests.push(request.url())
   })
   await page.goto('./#/paddle-test')
   // The existing intro is unrelated to the PoC; dismiss it through its UI.
