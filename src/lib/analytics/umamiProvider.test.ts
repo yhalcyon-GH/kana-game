@@ -14,7 +14,8 @@ describe('createUmamiProvider', () => {
     delete window.umami
   })
 
-  it('injects the Umami tracker script tag configured for manual tracking only', () => {
+  it('injects the Umami tracker script tag configured for manual tracking only, when the host is same-origin', () => {
+    vi.stubEnv('VITE_UMAMI_HOST_URL', window.location.origin)
     createUmamiProvider()
     const script = document.head.querySelector('script[data-website-id="test-website-id"]')
     expect(script).not.toBeNull()
@@ -26,17 +27,22 @@ describe('createUmamiProvider', () => {
     expect(script?.getAttribute('data-auto-track')).toBe('false')
   })
 
-  it('defaults to the Umami Cloud host when no custom host is configured', () => {
+  it('never injects a script when no host is configured (no implicit fallback to a third-party origin)', () => {
     createUmamiProvider()
-    const script = document.head.querySelector('script[data-website-id="test-website-id"]')
-    expect(script?.getAttribute('src')).toBe('https://cloud.umami.is/script.js')
+    expect(document.head.querySelector('script[data-website-id]')).toBeNull()
   })
 
-  it('uses a configured custom host URL when set', () => {
-    vi.stubEnv('VITE_UMAMI_HOST_URL', 'https://umami.example.com/')
+  it('never injects a script for a cross-origin host, even a plausible-looking Umami Cloud host (fails closed) — audit #391', () => {
+    vi.stubEnv('VITE_UMAMI_HOST_URL', 'https://cloud.umami.is')
+    createUmamiProvider()
+    expect(document.head.querySelector('script[data-website-id]')).toBeNull()
+  })
+
+  it('uses a configured same-origin custom host URL when set', () => {
+    vi.stubEnv('VITE_UMAMI_HOST_URL', `${window.location.origin}/`)
     createUmamiProvider()
     const script = document.head.querySelector('script[data-website-id="test-website-id"]')
-    expect(script?.getAttribute('src')).toBe('https://umami.example.com/script.js')
+    expect(script?.getAttribute('src')).toBe(`${window.location.origin}/script.js`)
   })
 
   it('forwards track() calls using the single-object payload form, not (eventName, eventData)', () => {

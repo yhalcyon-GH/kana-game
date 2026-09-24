@@ -171,3 +171,21 @@ Both integrations are fully implemented, tested, and documented in this
 branch; only the account-creation and config steps above remain, and they
 require a human with a real email address and (for Tally, potentially)
 payment method if a paid tier is ever chosen.
+
+**Security correction note (2026-09 hardening, audit #391):** the "Umami"
+activation step above, as originally written, described creating an Umami
+**Cloud** account and setting only `VITE_ANALYTICS_PROVIDER` +
+`VITE_UMAMI_WEBSITE_ID` as sufficient to activate analytics in Production.
+Audit #391 found that this configuration causes Production to load
+`https://cloud.umami.is/script.js` — third-party JavaScript from a
+different origin than the Tamamizu page — globally, including on
+auth/account surfaces. Per the same-origin enforcement now in
+`src/lib/analytics/umamiProvider.ts` (see
+`docs/analytics-foundation.md`'s "Security posture" section), that is no
+longer sufficient: Umami Cloud's `cloud.umami.is` origin can never satisfy
+the same-origin check, so activation now additionally requires a
+same-origin/self-hosted (or same-origin reverse-proxied) Umami instance
+reachable at the Tamamizu app's own origin, configured via
+`VITE_UMAMI_HOST_URL`. No provider re-decision was made here — Umami
+remains selected for the reasons above — but "Umami Cloud" as originally
+scoped is not deployable in Production without that same-origin setup.

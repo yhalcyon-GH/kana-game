@@ -1,5 +1,5 @@
 import type { AnalyticsEventName, AnalyticsProperties, AnalyticsProvider } from './types'
-import { getUmamiHostUrl, getUmamiWebsiteId } from './umamiConfig'
+import { getUmamiHostUrl, getUmamiWebsiteId, isUmamiHostAllowed } from './umamiConfig'
 
 // Minimal shape of the global `window.umami` the Umami tracker script
 // attaches — see https://docs.umami.is/docs/tracker-functions. Only the
@@ -17,7 +17,6 @@ declare global {
   }
 }
 
-const DEFAULT_UMAMI_SCRIPT_HOST = 'https://cloud.umami.is'
 const SCRIPT_MARKER_ATTR = 'data-kana-game-umami-tracker'
 
 // Injects Umami's tracker script tag exactly once per page load (checked
@@ -31,12 +30,25 @@ const SCRIPT_MARKER_ATTR = 'data-kana-game-umami-tracker'
 // deliberately does not opt into Umami's separate session-replay/heatmap
 // script (recorder.js) at all — see docs/analytics-foundation.md and the
 // provider decision doc for why.
+//
+// Security posture (2026-09 hardening, audit #391): this app must never
+// execute third-party JavaScript from a different origin than the page
+// itself. There is no default/fallback host (the previous implicit
+// fallback to https://cloud.umami.is — a different, third-party origin —
+// is exactly what audit #391 flagged on auth/account surfaces in
+// Production). A host must be explicitly configured via
+// VITE_UMAMI_HOST_URL AND its resolved origin must exactly match the
+// page's own origin, or this fails closed to no script injection at all —
+// see umamiConfig.ts's isUmamiHostAllowed. createUmamiProvider's track()
+// still safely no-ops in that case, since window.umami is simply never
+// set — see createUmamiProvider below.
 function injectUmamiScript(): void {
-  if (typeof document === 'undefined') return
+  if (typeof document === 'undefined' || typeof window === 'undefined') return
   if (document.head.querySelector(`script[${SCRIPT_MARKER_ATTR}]`)) return
   const websiteId = getUmamiWebsiteId()
   if (!websiteId) return
-  const host = getUmamiHostUrl() || DEFAULT_UMAMI_SCRIPT_HOST
+  const host = getUmamiHostUrl()
+  if (!host || !isUmamiHostAllowed(host, window.location.origin)) return
   const script = document.createElement('script')
   script.defer = true
   script.src = `${host.replace(/\/$/, '')}/script.js`

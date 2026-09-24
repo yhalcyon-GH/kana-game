@@ -51,9 +51,17 @@ final class ResendMailer implements Mailer
     public function sendMagicLink(string $emailNormalized, string $magicLinkUrl): void
     {
         $subject = 'Your Tamamizu sign-in link';
-        $text = "Sign in to Tamamizu:\n\n{$magicLinkUrl}\n\nIf you didn't request this, you can safely ignore this email.";
+        $text = "Sign in to Tamamizu:\n\n{$magicLinkUrl}\n\n"
+            . "This link is for signing in to Tamamizu at the official site, app.tamamizu.giganihongo.com. "
+            . "Tamamizu does not send app installers or executable attachments — this email never contains "
+            . "one, and no legitimate Tamamizu email ever will.\n\n"
+            . "If you didn't request this, you can safely ignore this email.";
         $html = '<p>Sign in to Tamamizu:</p>'
             . '<p><a href="' . htmlspecialchars($magicLinkUrl, ENT_QUOTES) . '">Sign in</a></p>'
+            . '<p>This link is for signing in to Tamamizu at the official site, '
+            . '<strong>app.tamamizu.giganihongo.com</strong>. Tamamizu does not send app installers or '
+            . 'executable attachments &mdash; this email never contains one, and no legitimate Tamamizu '
+            . 'email ever will.</p>'
             . '<p>If you didn\'t request this, you can safely ignore this email.</p>';
 
         $payload = json_encode([
@@ -88,10 +96,17 @@ final class ResendMailer implements Mailer
     public function sendLoginCode(string $emailNormalized, string $code): void
     {
         $subject = 'Your Tamamizu sign-in code';
-        $text = "Your Tamamizu sign-in code is:\n\n{$code}\n\nNever share this code. Tamamizu will never ask you for it.\n\nIf you didn't request this, you can safely ignore this email.";
+        $text = "Your Tamamizu sign-in code is:\n\n{$code}\n\n"
+            . "Enter this code only at the official Tamamizu site, app.tamamizu.giganihongo.com. Never share "
+            . "this code with anyone — Tamamizu will never ask you for it, and Tamamizu does not send app "
+            . "installers or executable attachments.\n\n"
+            . "If you didn't request this, you can safely ignore this email.";
         $html = '<p>Your Tamamizu sign-in code is:</p>'
             . '<p><strong>' . htmlspecialchars($code, ENT_QUOTES) . '</strong></p>'
-            . '<p>Never share this code. Tamamizu will never ask you for it.</p>'
+            . '<p>Enter this code only at the official Tamamizu site, '
+            . '<strong>app.tamamizu.giganihongo.com</strong>. Never share this code with anyone &mdash; '
+            . 'Tamamizu will never ask you for it, and Tamamizu does not send app installers or executable '
+            . 'attachments.</p>'
             . '<p>If you didn\'t request this, you can safely ignore this email.</p>';
 
         $payload = json_encode([

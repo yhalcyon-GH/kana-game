@@ -29,6 +29,24 @@ export function AboutContent() {
         <p className="mt-2">Built with React, TypeScript, Vite, Tailwind CSS, React Router, and Zustand.</p>
       </div>
 
+      {/* Anti-phishing / official install guidance — audit #391 tranche 1.
+          Deliberately factual and short, not alarmist: states the official
+          app URL, the only supported install path (browser/PWA "Add to
+          Home Screen"), and that Tamamizu never distributes installer
+          files or sends them by email. */}
+      <div className="w-full rounded-xl border border-neutral-300 bg-white p-3 text-sm text-neutral-600 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
+        <span className="font-semibold text-neutral-700 dark:text-neutral-300">Official App & Install</span>
+        <p className="mt-1">
+          The official Tamamizu app is at{' '}
+          <a href="https://app.tamamizu.giganihongo.com/" className="underline">
+            app.tamamizu.giganihongo.com
+          </a>
+          . Install it only from that site, using your browser&apos;s install prompt or &ldquo;Add to Home
+          Screen&rdquo; option — Tamamizu does not distribute an APK, EXE, MSI, or DMG file, and never sends app
+          installers or attachments by email.
+        </p>
+      </div>
+
       <div className="w-full rounded-xl border border-neutral-300 bg-white p-3 text-sm text-neutral-600 dark:border-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
         <span className="font-semibold text-neutral-700 dark:text-neutral-300">Legal</span>
         <ul className="mt-2 flex flex-col gap-1">
