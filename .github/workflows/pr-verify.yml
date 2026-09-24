@@ -21,11 +21,3 @@ jobs:
       - run: npm run verify
       - name: Check PR diff for whitespace errors
         run: git diff --check origin/${{ github.base_ref }}...HEAD
-      - uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # v2
-        with:
-          php-version: '8.4'
-      - name: PHP syntax check (php -l)
-        # A fast, unconditional sanity sweep on every PR -- not a
-        # substitute for server-unit-tests.yml (real behavior) or
-        # phpstan.yml (real static analysis), both scoped to server/**.
-        run: find server -name '*.php' -print0 | xargs -0 -n1 -- php -l
