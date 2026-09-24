@@ -1,3 +1,6 @@
+includes:
+    - phpstan-baseline.neon
+
 parameters:
     level: 6
     phpVersion: 80400
@@ -11,9 +14,6 @@ parameters:
 # sufficient since every KanaGame\* class referenced from server/src or
 # server/auth also lives under one of those two paths.
 #
-# There is no phpstan-baseline.neon yet: the Builder sandbox that authored
-# this workflow has no network/PHP access to run PHPStan and generate one.
-# The first real CI run is authoritative -- if it reports pre-existing
-# findings, generate `server/phpstan-baseline.neon` from that run (`analyse
-# --generate-baseline`), reference it here with `includes:`, and document
-# what was baselined and why in docs/security. Do not blanket-ignore errors.
+# The first authoritative CI run found exactly two pre-existing level-6
+# findings; they are narrowly recorded in phpstan-baseline.neon with exact
+# identifiers/counts/paths. New findings remain blocking.
