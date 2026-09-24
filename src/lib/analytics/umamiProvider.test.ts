@@ -58,6 +58,7 @@ describe('createUmamiProvider', () => {
   })
 
   it('forwards track() calls using the single-object payload form, not (eventName, eventData)', () => {
+    vi.stubEnv('VITE_UMAMI_HOST_URL', window.location.origin)
     const umamiTrack = vi.fn()
     window.umami = { track: umamiTrack }
     const provider = createUmamiProvider()
@@ -79,6 +80,7 @@ describe('createUmamiProvider', () => {
   })
 
   it('omits the data field entirely when no properties are passed, rather than sending an empty object', () => {
+    vi.stubEnv('VITE_UMAMI_HOST_URL', window.location.origin)
     const umamiTrack = vi.fn()
     window.umami = { track: umamiTrack }
     const provider = createUmamiProvider()
@@ -89,6 +91,7 @@ describe('createUmamiProvider', () => {
   })
 
   it('never includes hostname/language/referrer/screen/title/url in the outgoing payload', () => {
+    vi.stubEnv('VITE_UMAMI_HOST_URL', window.location.origin)
     const umamiTrack = vi.fn()
     window.umami = { track: umamiTrack }
     const provider = createUmamiProvider()
