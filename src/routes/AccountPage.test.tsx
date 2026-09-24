@@ -57,7 +57,7 @@ async function complete() {
 beforeEach(() => {
   vi.useFakeTimers()
   vi.stubEnv('DEV', false)
-  vi.stubEnv('VITE_PRODUCTION_AUTH_API_BASE_URL', 'https://api.example.com')
+  vi.stubEnv('VITE_PRODUCTION_AUTH_API_BASE_URL', 'https://tamamizu.giganihongo.com/api')
   vi.stubEnv('VITE_PADDLE_ENVIRONMENT', 'sandbox')
   vi.stubEnv('VITE_PADDLE_CLIENT_TOKEN', 'test_fixture')
   vi.stubEnv('VITE_PADDLE_PRICE_ID', 'pri_fixture')
@@ -368,7 +368,7 @@ describe('production Account purchase UI', () => {
     await start()
     expect(screen.getByRole('button', { name: 'Sandbox test purchase' })).toBeDisabled()
     fireEvent.click(screen.getByRole('button', { name: 'Sandbox test purchase' }))
-    expect(fetchMock.mock.calls.at(-1)).toEqual(['https://api.example.com/purchase-intent.php', {
+    expect(fetchMock.mock.calls.at(-1)).toEqual(['https://tamamizu.giganihongo.com/api/purchase-intent.php', {
       method: 'POST', credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ environment: 'sandbox' }),

@@ -36,7 +36,7 @@ async function waitForCapabilityCheck() {
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
   vi.stubEnv('DEV', false)
-  vi.stubEnv('VITE_PRODUCTION_AUTH_API_BASE_URL', 'https://api.example.com')
+  vi.stubEnv('VITE_PRODUCTION_AUTH_API_BASE_URL', 'https://tamamizu.giganihongo.com/api')
   refresh.mockClear()
   fetchMock.mockReset()
   vi.stubGlobal('fetch', fetchMock)
