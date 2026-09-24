@@ -1,0 +1,12 @@
+parameters:
+    ignoreErrors:
+        -
+            message: '#^Negated boolean expression is always true\.$#'
+            identifier: booleanNot.alwaysTrue
+            count: 1
+            path: src/Purchase/GrantAdjustmentReducer.php
+        -
+            message: '#^If condition is always false\.$#'
+            identifier: if.alwaysFalse
+            count: 1
+            path: src/Purchase/PurchaseWebhookHandler.php

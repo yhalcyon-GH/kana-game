@@ -1,0 +1,19 @@
+includes:
+    - phpstan-baseline.neon
+
+parameters:
+    level: 6
+    phpVersion: 80400
+    paths:
+        - src
+        - auth
+    tmpDir: ../.phpstan-cache
+
+# No Composer/autoloader exists in this repository (server/*.php files use
+# explicit `require` instead) -- PHPStan's own reflection over `paths` is
+# sufficient since every KanaGame\* class referenced from server/src or
+# server/auth also lives under one of those two paths.
+#
+# The first authoritative CI run found exactly two pre-existing level-6
+# findings; they are narrowly recorded in phpstan-baseline.neon with exact
+# identifiers/counts/paths. New findings remain blocking.

@@ -29,7 +29,7 @@ function renderAt(path: string) {
 }
 
 beforeEach(() => {
-  vi.stubEnv('VITE_PRODUCTION_AUTH_API_BASE_URL', 'https://api.example.com')
+  vi.stubEnv('VITE_PRODUCTION_AUTH_API_BASE_URL', 'https://tamamizu.giganihongo.com/api')
   useProgressStore.getState().resetProgress()
   useProgressStore.getState().setHasCompletedIntroGuide(true)
   vi.mocked(productionAuthClient.requestMagicLink).mockReset().mockResolvedValue(undefined)
