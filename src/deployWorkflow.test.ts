@@ -8,6 +8,7 @@ const REQUIRED_BUILD_TAIL = [
   'run: npm run lint',
   'run: npm test',
   'run: npm run build',
+  'run: npm run check:artifact-safety',
   'uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3',
 ]
 
