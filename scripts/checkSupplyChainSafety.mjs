@@ -67,6 +67,20 @@ export function checkAllowScriptsKeysAreExactVersions(allowScripts) {
   return failures
 }
 
+export function checkNpmrcStrictAllowScripts(npmrcSource) {
+  for (const rawLine of npmrcSource.split(/\r?\n/)) {
+    const line = rawLine.trim()
+    if (!line || line.startsWith('#') || line.startsWith(';')) continue
+    const match = line.match(/^strict-allow-scripts\s*=\s*(.+)$/i)
+    if (match) {
+      return match[1].trim().toLowerCase() === 'true'
+        ? []
+        : ['.npmrc must set strict-allow-scripts=true so unreviewed dependency lifecycle scripts fail npm install/ci.']
+    }
+  }
+  return ['.npmrc must set strict-allow-scripts=true so unreviewed dependency lifecycle scripts fail npm install/ci.']
+}
+
 export function checkAllowScriptsHasNoStalePackageEntries(lifecyclePackages, allowScripts) {
   const failures = []
   const currentKeys = new Set(lifecyclePackages.map((p) => p.key))
@@ -130,7 +144,10 @@ export function runSupplyChainSafetyAudit(root = process.cwd()) {
 
   const packageJson = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
   const lockfile = JSON.parse(readFileSync(join(root, 'package-lock.json'), 'utf8'))
+  const npmrc = readFileSync(join(root, '.npmrc'), 'utf8')
   const allowScripts = packageJson.allowScripts || {}
+
+  failures.push(...checkNpmrcStrictAllowScripts(npmrc))
 
   const lifecyclePackages = findLifecyclePackages(lockfile)
   failures.push(...checkAllowScriptsCoverage(lifecyclePackages, allowScripts))
@@ -181,7 +198,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
 
   console.log(
     'Supply-chain safety check passed: every package-lock.json lifecycle script has an exact-version '
-    + 'package.json allowScripts entry, no broad/unversioned/stale approvals exist, and every external '
+    + 'package.json allowScripts entry, .npmrc enforces strict-allow-scripts=true, no broad/unversioned/stale approvals exist, and every external '
     + 'GitHub Actions "uses:" reference is pinned to a full commit SHA with no pull_request_target trigger.',
   )
 }
