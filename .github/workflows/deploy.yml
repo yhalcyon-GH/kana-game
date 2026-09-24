@@ -54,6 +54,7 @@ jobs:
           VITE_PADDLE_ENVIRONMENT: ${{ vars.VITE_PADDLE_ENVIRONMENT }}
           VITE_PADDLE_CLIENT_TOKEN: ${{ vars.VITE_PADDLE_CLIENT_TOKEN }}
           VITE_PADDLE_PRICE_ID: ${{ vars.VITE_PADDLE_PRICE_ID }}
+      - run: npm run check:artifact-safety
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: dist
