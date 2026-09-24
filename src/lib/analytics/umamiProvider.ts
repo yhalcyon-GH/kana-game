@@ -84,14 +84,19 @@ function toUmamiPayload(websiteId: string, event: AnalyticsEventName, properties
 }
 
 export function createUmamiProvider(): AnalyticsProvider {
+  const host = getUmamiHostUrl()
+  const hostAllowed =
+    typeof window !== 'undefined' && Boolean(host) && isUmamiHostAllowed(host!, window.location.origin)
   injectUmamiScript()
   const websiteId = getUmamiWebsiteId()
   return {
     track(event: AnalyticsEventName, properties?: AnalyticsProperties) {
-      // No configured website id (shouldn't happen — track.ts only
-      // constructs this provider via isUmamiConfigured(), which requires
-      // one) — drop rather than send a malformed payload.
-      if (!websiteId) return
+      // Fail closed for a missing/cross-origin host even if some unrelated
+      // script has already created window.umami. This makes the provider
+      // itself a true no-op when the configured script source is not
+      // explicitly same-origin, rather than relying only on injection being
+      // blocked.
+      if (!websiteId || !hostAllowed) return
       // window.umami may not exist yet (script still loading, or blocked
       // by an ad-blocker/privacy extension) — silently drop the event
       // rather than queueing or retrying. Analytics is observational only;
